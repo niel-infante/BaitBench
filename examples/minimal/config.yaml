@@ -1,0 +1,16 @@
+# BaitBench Example Configuration
+# Run with: nextflow run main.nf -params-file examples/minimal/config.yaml
+
+targets: "examples/minimal/targets.fa"
+distractors: "examples/minimal/distractors.fa"
+probes: "examples/minimal/probes.fa"
+
+num_reads: 1000
+distractor_fraction: 0.8
+seed: 42
+
+capture_method: "minimap2"
+max_mismatches: 10
+min_match_bases: 60
+
+outdir: "./example_results"
