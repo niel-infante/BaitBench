@@ -409,7 +409,7 @@ workflow {
     )
 
     // Step 2: Generate reads
-    seed_ch = Channel.value(params.seed)
+    seed_ch = Channel.value(params.seed ?: false)
     GENERATE_READS(
         PREPARE_REFERENCE.out.reference,
         PREPARE_REFERENCE.out.weights,
