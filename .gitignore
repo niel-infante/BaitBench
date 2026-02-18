@@ -35,3 +35,8 @@ test_results/
 
 # BLAST databases (user-generated)
 blast_db/
+
+
+# Rust (because I'm switching branches)
+Cargo.lock
+target/
