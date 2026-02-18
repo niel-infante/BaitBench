@@ -1,4 +1,4 @@
-use anyhow::{Result, bail};
+use anyhow::{Context, Result, bail};
 use std::path::Path;
 
 use crate::external::rscript;
@@ -30,9 +30,18 @@ pub fn execute(args: &ReportArgs) -> Result<()> {
     }
 
     log::info!("Generating HTML report...");
-    let summary_str = args.summary.to_str().unwrap_or("");
-    let detail_str = args.detail.to_str().unwrap_or("");
-    let output_str = args.output.to_str().unwrap_or("");
+    let summary_abs = std::fs::canonicalize(args.summary)
+        .with_context(|| format!("Cannot find summary file: {}", args.summary.display()))?;
+    let detail_abs = std::fs::canonicalize(args.detail)
+        .with_context(|| format!("Cannot find detail file: {}", args.detail.display()))?;
+    let output_abs = if args.output.is_absolute() {
+        args.output.to_path_buf()
+    } else {
+        std::env::current_dir()?.join(args.output)
+    };
+    let summary_str = summary_abs.to_str().unwrap_or("");
+    let detail_str = detail_abs.to_str().unwrap_or("");
+    let output_str = output_abs.to_str().unwrap_or("");
 
     rscript::run_rscript(
         &report_script,
