@@ -118,6 +118,7 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         reads: &reads_for_mapping,
         minimap_preset: &args.minimap_preset,
         output: &outdir.join("mapped.sam"),
+        log_file: &outdir.join("mapping.log"),
     })?;
 
     // Step 6: Generate detection list

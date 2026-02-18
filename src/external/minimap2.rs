@@ -57,9 +57,12 @@ pub fn map_reads(
     reference: &Path,
     reads: &Path,
     output_sam: &Path,
+    log_file: &Path,
 ) -> Result<()> {
     let out = File::create(output_sam)
         .with_context(|| format!("Cannot create SAM: {}", output_sam.display()))?;
+    let log = File::create(log_file)
+        .with_context(|| format!("Cannot create log: {}", log_file.display()))?;
 
     let status = Command::new("minimap2")
         .args(["-ax", preset])
@@ -67,7 +70,7 @@ pub fn map_reads(
         .arg(reference)
         .arg(reads)
         .stdout(out)
-        .stderr(std::process::Stdio::null())
+        .stderr(log)
         .status()
         .context("Failed to execute minimap2")?;
 

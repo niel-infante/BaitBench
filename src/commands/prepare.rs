@@ -4,6 +4,7 @@ use std::fs;
 use std::path::Path;
 
 use crate::fasta;
+use crate::io_utils;
 use crate::sampling::weights;
 
 pub struct PrepareArgs<'a> {
@@ -49,7 +50,7 @@ pub fn execute(args: &PrepareArgs) -> Result<()> {
 
     // Concatenate FASTAs
     log::info!("Combining FASTAs to {}...", output_fasta.display());
-    fasta::writer::concatenate_fastas(args.targets, args.distractors, &output_fasta)?;
+    fasta::concatenate_fastas(args.targets, args.distractors, &output_fasta)?;
 
     // Generate weights
     log::info!("Generating weights to {}...", output_weights.display());
@@ -64,18 +65,9 @@ pub fn execute(args: &PrepareArgs) -> Result<()> {
 
     // Write ID lists
     log::info!("Writing ID lists...");
-    write_id_list(&target_ids, &targets_list)?;
-    write_id_list(&distractor_ids, &distractors_list)?;
+    io_utils::write_id_list(&target_ids, &targets_list)?;
+    io_utils::write_id_list(&distractor_ids, &distractors_list)?;
 
     log::info!("Prepare step complete.");
-    Ok(())
-}
-
-fn write_id_list(ids: &[String], path: &Path) -> Result<()> {
-    use std::io::Write;
-    let mut file = std::io::BufWriter::new(fs::File::create(path)?);
-    for id in ids {
-        writeln!(file, "{}", id)?;
-    }
     Ok(())
 }

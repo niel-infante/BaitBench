@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
@@ -6,6 +6,7 @@ use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::Path;
 
 use crate::fasta;
+use crate::io_utils;
 
 pub struct MetricsArgs<'a> {
     pub targets: &'a Path,
@@ -43,11 +44,11 @@ struct MetricsResult {
 pub fn execute(args: &MetricsArgs) -> Result<()> {
     // Parse input files
     log::info!("Parsing targets file...");
-    let targets = parse_id_file(args.targets)?;
+    let targets = io_utils::parse_id_set(args.targets)?;
     log::info!("  Found {} target references", targets.len());
 
     log::info!("Parsing distractors file...");
-    let distractors = parse_id_file(args.distractors)?;
+    let distractors = io_utils::parse_id_set(args.distractors)?;
     log::info!("  Found {} distractor references", distractors.len());
 
     log::info!("Parsing detection list...");
@@ -119,27 +120,9 @@ pub fn execute(args: &MetricsArgs) -> Result<()> {
     Ok(())
 }
 
-fn parse_id_file(path: &Path) -> Result<HashSet<String>> {
-    let file = File::open(path)?;
-    let reader = BufReader::new(file);
-    let mut ids = HashSet::new();
-
-    for line in reader.lines() {
-        let line = line?;
-        let line = line.trim().to_string();
-        if !line.is_empty() && !line.starts_with('#') {
-            let id = line.split_whitespace().next().unwrap_or("").to_string();
-            if !id.is_empty() {
-                ids.insert(id);
-            }
-        }
-    }
-
-    Ok(ids)
-}
-
 fn parse_detected(path: &Path) -> Result<HashMap<String, usize>> {
-    let file = File::open(path)?;
+    let file = File::open(path)
+        .with_context(|| format!("Cannot open detection list: {}", path.display()))?;
     let reader = BufReader::new(file);
     let mut detected = HashMap::new();
 

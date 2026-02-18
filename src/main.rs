@@ -3,6 +3,7 @@ mod cli;
 mod commands;
 mod external;
 mod fasta;
+mod io_utils;
 mod sampling;
 
 use anyhow::Result;
@@ -152,12 +153,14 @@ fn main() -> Result<()> {
             reads,
             minimap_preset,
             output,
+            log_file,
         } => {
             map_reads::execute(&map_reads::MapArgs {
                 reference: &reference,
                 reads: &reads,
                 minimap_preset: &minimap_preset,
                 output: &output,
+                log_file: &log_file,
             })?;
         }
 

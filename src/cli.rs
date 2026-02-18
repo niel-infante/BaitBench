@@ -228,6 +228,10 @@ pub enum Commands {
         /// Output SAM file
         #[arg(short, long)]
         output: PathBuf,
+
+        /// Log file
+        #[arg(long, default_value = "mapping.log")]
+        log_file: PathBuf,
     },
 
     /// Generate detection list from SAM file

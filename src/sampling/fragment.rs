@@ -1,4 +1,4 @@
-use anyhow::{Result, bail};
+use anyhow::{Context, Result, bail};
 use rand::distributions::WeightedIndex;
 use rand::prelude::*;
 use rand_distr::Normal;
@@ -63,7 +63,8 @@ pub fn generate_fragments(
     let mut fragments_generated = 0usize;
     let mut source_counts: HashMap<&String, usize> = HashMap::new();
 
-    let file = File::create(output)?;
+    let file = File::create(output)
+        .with_context(|| format!("Cannot create fragments output: {}", output.display()))?;
     let mut writer = BufWriter::new(file);
 
     for i in 0..num_fragments {
