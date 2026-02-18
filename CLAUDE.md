@@ -6,38 +6,54 @@ BaitBench is a generic tool for testing probe capture efficiency via in-silico s
 
 ## Architecture
 
+BaitBench is a Rust CLI binary with R/ggplot2 for visualization.
+
 ### Pipeline Flow
 ```
 targets.fa + distractors.fa
          ↓
-   PREPARE_REFERENCE (combine, generate weights)
+   baitbench prepare  (combine, generate weights)
          ↓
-   GENERATE_READS (weighted random fragments)
+   baitbench simulate (weighted random fragments)
          ↓
-   CAPTURE (minimap2 or BLAST)
+   baitbench capture  (minimap2 or BLAST)
          ↓
-   FILTER_HOST (optional)
+   baitbench filter   (optional host filtering)
          ↓
-   MAP_READS (back to references)
+   baitbench map      (back to references)
          ↓
-   GENERATE_LIST (count reads per reference)
+   baitbench list     (count reads per reference)
          ↓
-   CALCULATE_METRICS (TP/FP/FN/TN)
+   baitbench metrics  (TP/FP/FN/TN)
          ↓
-   GENERATE_REPORT (HTML summary)
+   baitbench report   (HTML with ggplot2 figures)
 ```
+
+`baitbench run` chains all steps automatically.
 
 ### Key Files
 
 | File | Purpose |
 |------|---------|
-| `main.nf` | Nextflow DSL2 pipeline - orchestrates all processes |
-| `nextflow.config` | Default parameters and execution profiles |
-| `bin/fasta_sampler.py` | Generates weighted random fragments from FASTA |
-| `bin/metrics.py` | Calculates TP/FP/FN/TN and derived metrics |
-| `bin/prepare_reference.py` | Combines targets/distractors, generates weights |
-| `bin/generate_report.py` | Creates HTML report from results |
-| `environment.yml` | Conda environment with all dependencies |
+| `src/main.rs` | CLI entry point, clap dispatch |
+| `src/cli.rs` | Subcommand and argument definitions |
+| `src/commands/run.rs` | Full pipeline orchestrator |
+| `src/commands/prepare.rs` | Combines targets/distractors, generates weights |
+| `src/commands/simulate.rs` | Weighted random fragment generation |
+| `src/commands/capture.rs` | minimap2 or BLAST probe capture |
+| `src/commands/filter.rs` | Optional host read filtering |
+| `src/commands/map_reads.rs` | Map reads back to reference |
+| `src/commands/generate_list.rs` | SAM parsing → per-reference counts |
+| `src/commands/metrics.rs` | TP/FP/FN/TN calculation, TSV/JSON output |
+| `src/commands/report.rs` | Invokes Rscript for HTML report |
+| `src/fasta/` | FASTA parsing, writing, extract-by-ID (replaces seqtk) |
+| `src/alignment/paf.rs` | PAF format parser for minimap2 output |
+| `src/alignment/sam.rs` | SAM format parser |
+| `src/sampling/` | Weights calculation and fragment sampling |
+| `src/external/` | minimap2, blastn, Rscript process wrappers |
+| `R/report.Rmd` | RMarkdown template with ggplot2 figures |
+| `R/report.R` | R script entry point for report generation |
+| `environment.yml` | Conda environment (minimap2, blast, R packages) |
 
 ### Metrics Definitions
 
@@ -50,30 +66,37 @@ targets.fa + distractors.fa
 
 ## Development Guidelines
 
-### Nextflow Conventions
-- Use DSL2 syntax with process definitions
-- Processes should emit named outputs for clarity
-- Use `publishDir` to copy outputs to results directory
-- Scripts in `bin/` are automatically added to PATH by Nextflow
+### Building
+```bash
+cargo build --release
+```
 
-### Python Scripts
-- All scripts should be executable (`chmod +x`)
-- Use `#!/usr/bin/env python3` shebang
-- Accept inputs via argparse CLI arguments
-- Print progress/status to stderr, data to stdout or files
-- No external dependencies beyond standard library + jinja2
+### Rust Conventions
+- Modules in `src/` follow a commands/library split
+- Each command module exposes an `execute()` function taking an args struct
+- External tools (minimap2, blastn) are called via `std::process::Command`
+- FASTA operations are done natively in Rust (no seqtk dependency)
+- Use `anyhow` for error handling, `log`/`env_logger` for logging
+- Use `clap` derive macros for CLI argument definitions
+
+### R Scripts
+- Located in `R/` directory
+- `report.Rmd` is the parameterized RMarkdown template
+- Uses ggplot2, dplyr, tidyr for visualization
+- Called via `Rscript R/report.R --summary ... --detail ... --output ...`
 
 ### Testing Changes
 ```bash
-# Activate environment
-conda activate baitbench
+# Build
+cargo build --release
 
 # Run with minimal example
-nextflow run main.nf \
+./target/release/baitbench run \
   --targets examples/minimal/targets.fa \
   --distractors examples/minimal/distractors.fa \
   --probes examples/minimal/probes.fa \
-  --num_reads 1000 \
+  --num-reads 1000 \
+  --seed 42 \
   --outdir test_results
 
 # Check outputs
@@ -83,21 +106,24 @@ cat test_results/results.tsv
 
 ### Common Modifications
 
-**Adding a new metric**: Edit `bin/metrics.py`, update `calculate_metrics()` function and TSV output headers.
+**Adding a new metric**: Edit `src/commands/metrics.rs`, update `calculate_metrics()` and the TSV/JSON output.
 
-**Changing capture parameters**: Edit `nextflow.config` default params or pass via CLI `--param_name value`.
+**Adding a new figure**: Add to `R/report.Rmd` or create a new R script in `R/`.
 
-**Adding a new process**: Add process definition in `main.nf`, wire into workflow at bottom of file.
+**Changing capture parameters**: Pass via CLI flags (e.g., `--max-mismatches`, `--min-match-bases`).
 
-**Modifying read generation**: Edit `bin/fasta_sampler.py` - fragment length, sampling strategy, etc.
+**Adding a new subcommand**: Add to `src/cli.rs` (clap definition), create `src/commands/new_cmd.rs`, wire into `main.rs`.
 
-## Origin
+**Modifying read generation**: Edit `src/sampling/fragment.rs`.
 
-This tool was extracted from the MTEC_probes repository (arbovirus probe design project). The original in-silico pipeline was generalized to work with any organism/probe combination.
+## Dependencies
 
-Key differences from MTEC_probes:
-- Separate targets/distractors input model (vs single weights file)
-- Generic reference_id naming (vs virus_id)
-- Added TN/specificity metrics
-- HTML report generation
-- No hardcoded species or paths
+### External (installed via conda)
+- minimap2 (alignment)
+- blastn (alternative capture)
+- R + ggplot2 + rmarkdown (report generation, optional)
+
+### Rust (managed by Cargo)
+- clap (CLI), anyhow (errors), serde/serde_json (serialization)
+- rand/rand_distr (sampling), chrono (timestamps)
+- log/env_logger (logging)

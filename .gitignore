@@ -1,22 +1,15 @@
-# Nextflow
+# Rust
+/target
+Cargo.lock
+
+# Nextflow (legacy)
 .nextflow/
 .nextflow.log*
 work/
+
+# Results
 results/
 example_results/
-
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-env/
-venv/
-.venv/
-*.egg-info/
-dist/
-build/
 
 # IDE
 .idea/
@@ -35,3 +28,5 @@ test_results/
 
 # BLAST databases (user-generated)
 blast_db/
+
+
