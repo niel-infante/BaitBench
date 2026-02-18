@@ -409,11 +409,12 @@ workflow {
     )
 
     // Step 2: Generate reads
+    seed_ch = Channel.value(params.seed)
     GENERATE_READS(
         PREPARE_REFERENCE.out.reference,
         PREPARE_REFERENCE.out.weights,
         params.num_reads,
-        params.seed
+        seed_ch
     )
 
     // Step 3: Capture (conditional based on method)
@@ -472,7 +473,7 @@ workflow {
         captured_reads,
         run_name,
         params.num_reads,
-        params.seed
+        seed_ch
     )
 
     // Step 8: Generate HTML report
