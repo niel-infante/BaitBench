@@ -1,4 +1,4 @@
-use anyhow::{Context, Result, bail};
+use anyhow::{bail, Context, Result};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
@@ -31,29 +31,36 @@ pub fn parse_weights(path: &Path) -> Result<HashMap<String, f64>> {
 
 /// Generate weights for targets and distractors.
 ///
-/// Targets get weight 1.0 each.
-/// Distractors are weighted to produce distractor_fraction of total reads.
-/// Formula: distractor_weight = (fraction * n_targets) / (n_distractors * (1 - fraction))
+/// Sample targets use weights from `sample_weights` map.
+/// Non-sample targets get weight 0.0 (no reads generated).
+/// Distractors are weighted to produce `distractor_fraction` of total reads.
+///
+/// Formula: distractor_weight = (fraction * total_sample_weight) / (n_distractors * (1 - fraction))
+///
+/// When no `--sample` is provided, all targets are in `sample_weights` with weight 1.0,
+/// so this reduces to the original formula.
 pub fn generate_weights(
     target_ids: &[String],
     distractor_ids: &[String],
+    sample_weights: &HashMap<String, f64>,
     distractor_fraction: f64,
     output: &Path,
-) -> Result<(f64, f64)> {
+) -> Result<()> {
     let n_targets = target_ids.len();
+    let n_sample = sample_weights.len();
     let n_distractors = distractor_ids.len();
 
-    if n_targets == 0 {
-        bail!("No target sequences found!");
+    if n_sample == 0 {
+        bail!("No sample sequences found!");
     }
 
-    let target_weight = 1.0;
+    let total_sample_weight: f64 = sample_weights.values().sum();
 
     let distractor_weight = if n_distractors > 0 && distractor_fraction > 0.0 {
         if distractor_fraction >= 1.0 {
             bail!("distractor_fraction must be less than 1.0");
         }
-        (distractor_fraction * n_targets as f64 * target_weight)
+        (distractor_fraction * total_sample_weight)
             / (n_distractors as f64 * (1.0 - distractor_fraction))
     } else {
         0.0
@@ -64,13 +71,14 @@ pub fn generate_weights(
     let mut writer = BufWriter::new(file);
 
     writeln!(writer, "# BaitBench weights file")?;
-    writeln!(writer, "# Targets: {}, Distractors: {}", n_targets, n_distractors)?;
+    writeln!(writer, "# Targets: {} ({} in sample), Distractors: {}", n_targets, n_sample, n_distractors)?;
     writeln!(writer, "# Distractor fraction: {}", distractor_fraction)?;
-    writeln!(writer, "# Target weight: {}, Distractor weight: {:.6}", target_weight, distractor_weight)?;
+    writeln!(writer, "# Total sample weight: {}, Distractor weight: {:.6}", total_sample_weight, distractor_weight)?;
     writeln!(writer, "#")?;
 
     for id in target_ids {
-        writeln!(writer, "{}\t{}", id, target_weight)?;
+        let w = sample_weights.get(id).copied().unwrap_or(0.0);
+        writeln!(writer, "{}\t{}", id, w)?;
     }
 
     for id in distractor_ids {
@@ -78,5 +86,5 @@ pub fn generate_weights(
     }
 
     writer.flush()?;
-    Ok((target_weight, distractor_weight))
+    Ok(())
 }

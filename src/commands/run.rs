@@ -7,8 +7,9 @@ use crate::external::rscript;
 
 pub struct RunArgs<'a> {
     pub targets: &'a Path,
-    pub distractors: &'a Path,
+    pub distractors: &'a [PathBuf],
     pub probes: &'a Path,
+    pub sample: Option<&'a Path>,
     pub host_fasta: Option<&'a Path>,
     pub run_name: String,
     pub num_reads: usize,
@@ -37,8 +38,16 @@ pub fn execute(args: &RunArgs) -> Result<()> {
     log::info!("=============================================");
     log::info!("Run name            : {}", args.run_name);
     log::info!("Targets FASTA       : {}", args.targets.display());
-    log::info!("Distractors FASTA   : {}", args.distractors.display());
+    for (i, d) in args.distractors.iter().enumerate() {
+        log::info!("Distractors FASTA {} : {}", i + 1, d.display());
+    }
     log::info!("Probes FASTA        : {}", args.probes.display());
+    log::info!(
+        "Sample manifest     : {}",
+        args.sample
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|| "none (all targets)".to_string())
+    );
     log::info!(
         "Capture method      : {}",
         if args.capture_method == capture::CaptureMethod::Blast { "blast" } else { "minimap2" }
@@ -65,6 +74,7 @@ pub fn execute(args: &RunArgs) -> Result<()> {
     prepare::execute(&prepare::PrepareArgs {
         targets: args.targets,
         distractors: args.distractors,
+        sample: args.sample,
         distractor_fraction: args.distractor_fraction,
         outdir,
     })?;
@@ -138,6 +148,7 @@ pub fn execute(args: &RunArgs) -> Result<()> {
     metrics::execute(&metrics::MetricsArgs {
         targets: &outdir.join("targets.txt"),
         distractors: &outdir.join("distractors.txt"),
+        sample: &outdir.join("sample.txt"),
         detected: &outdir.join("detected.list"),
         reads: &outdir.join("reads.fa"),
         captured: &outdir.join("captured.fa"),

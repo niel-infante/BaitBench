@@ -4,15 +4,17 @@
 
 BaitBench is a generic tool for testing probe capture efficiency via in-silico simulation. Users provide probesets, target genomes, and distractor genomes to evaluate how well probes capture intended targets while avoiding off-target sequences.
 
+A key feature is the **sample manifest** (`--sample`), which specifies a subset of targets as the "sample" with optional weights, enabling testing of discrimination between viruses within the target panel.
+
 ## Architecture
 
 BaitBench is a Rust CLI binary with R/ggplot2 for visualization.
 
 ### Pipeline Flow
 ```
-targets.fa + distractors.fa
+targets.fa + distractors.fa [+ sample.tsv]
          ↓
-   baitbench prepare  (combine, generate weights)
+   baitbench prepare  (combine, generate weights, write sample.txt)
          ↓
    baitbench simulate (weighted random fragments)
          ↓
@@ -24,7 +26,7 @@ targets.fa + distractors.fa
          ↓
    baitbench list     (count reads per reference)
          ↓
-   baitbench metrics  (TP/FP/FN/TN)
+   baitbench metrics  (3-way TP/FP/FN/TN)
          ↓
    baitbench report   (HTML with ggplot2 figures)
 ```
@@ -38,18 +40,19 @@ targets.fa + distractors.fa
 | `src/main.rs` | CLI entry point, clap dispatch |
 | `src/cli.rs` | Subcommand and argument definitions |
 | `src/commands/run.rs` | Full pipeline orchestrator |
-| `src/commands/prepare.rs` | Combines targets/distractors, generates weights |
+| `src/commands/prepare.rs` | Combines targets/distractors, generates weights, writes sample.txt |
 | `src/commands/simulate.rs` | Weighted random fragment generation |
 | `src/commands/capture.rs` | minimap2 or BLAST probe capture |
 | `src/commands/filter.rs` | Optional host read filtering |
 | `src/commands/map_reads.rs` | Map reads back to reference |
 | `src/commands/generate_list.rs` | SAM parsing → per-reference counts |
-| `src/commands/metrics.rs` | TP/FP/FN/TN calculation, TSV/JSON output |
+| `src/commands/metrics.rs` | 3-way classification, TSV/JSON output |
 | `src/commands/report.rs` | Invokes Rscript for HTML report |
 | `src/fasta/` | FASTA parsing, writing, extract-by-ID (replaces seqtk) |
 | `src/alignment/paf.rs` | PAF format parser for minimap2 output |
 | `src/alignment/sam.rs` | SAM format parser |
 | `src/sampling/` | Weights calculation and fragment sampling |
+| `src/io_utils.rs` | ID set parsing, sample manifest parsing, source ID extraction |
 | `src/external/` | minimap2, blastn, Rscript process wrappers |
 | `R/report.Rmd` | RMarkdown template with ggplot2 figures |
 | `R/report.R` | R script entry point for report generation |
@@ -57,19 +60,38 @@ targets.fa + distractors.fa
 
 ### Metrics Definitions
 
-**Genome-level** (was each genome detected at all?):
-- **TP (True Positive)**: Target genome detected
-- **FP (False Positive)**: Distractor genome detected
-- **FN (False Negative)**: Target genome NOT detected
-- **TN (True Negative)**: Distractor genome NOT detected
+**3-way genome-level classification** (was each genome detected at all?):
+
+| Category | Detected | Classification |
+|----------|----------|----------------|
+| Sample target | Yes | TP |
+| Sample target | No | FN |
+| Non-sample target | Yes | FP_target |
+| Non-sample target | No | TN_target |
+| Distractor | Yes | FP_distractor |
+| Distractor | No | TN_distractor |
+
+Without `--sample`, all targets are in the sample, reducing to the traditional 2-way classification.
 
 **Read-level** (how reads flow through the pipeline):
-- **target_captured**: Captured reads originating from target sequences
+- **sample_captured**: Captured reads originating from sample target sequences
+- **nonsample_target_captured**: Captured reads originating from non-sample target sequences
 - **distractor_captured**: Captured reads originating from distractor sequences
 - **reads_correctly_mapped**: Reads that map back to their source reference
 - **reads_incorrectly_mapped**: Reads that map to a different reference (e.g., virus A read maps to virus B)
 
 Read source is extracted from the fragment name pattern `{seq_id}_fragment_{n}` using the last occurrence of `_fragment_` as the delimiter.
+
+### Weight Generation
+
+- Sample targets: use weight from sample manifest (default 1.0)
+- Non-sample targets: weight = 0.0 (no reads generated)
+- Distractors: `distractor_weight = (distractor_fraction * total_sample_weight) / (n_distractors * (1 - distractor_fraction))`
+- Multiple distractor FASTA files are concatenated; all distractor sequences share the same per-sequence weight
+
+### Sample Manifest
+
+TSV format: `id<tab>weight` (weight optional, defaults to 1.0). All IDs must exist in the targets FASTA. Without `--sample`, all targets are treated as sample with weight 1.0.
 
 ## Important Rules
 
@@ -89,6 +111,7 @@ cargo build --release
 - FASTA operations are done natively in Rust (no seqtk dependency)
 - Use `anyhow` for error handling, `log`/`env_logger` for logging
 - Use `clap` derive macros for CLI argument definitions
+- `--distractors` accepts multiple values via `num_args = 1..`
 
 ### R Scripts
 - Located in `R/` directory
@@ -101,18 +124,31 @@ cargo build --release
 # Build
 cargo build --release
 
-# Run with minimal example
+# Run with minimal example (all targets in sample)
 ./target/release/baitbench run \
   --targets examples/minimal/targets.fa \
   --distractors examples/minimal/distractors.fa \
   --probes examples/minimal/probes.fa \
   --num-reads 1000 \
   --seed 42 \
+  --no-report \
   --outdir test_results
 
+# Run with sample manifest (subset of targets)
+echo "target_virus_1" > /tmp/sample.tsv
+./target/release/baitbench run \
+  --targets examples/minimal/targets.fa \
+  --distractors examples/minimal/distractors.fa \
+  --probes examples/minimal/probes.fa \
+  --sample /tmp/sample.tsv \
+  --num-reads 1000 \
+  --seed 42 \
+  --no-report \
+  --outdir test_results_sample
+
 # Check outputs
-ls test_results/
-cat test_results/results.tsv
+cat test_results/*/results.tsv
+cat test_results_sample/*/results.tsv
 ```
 
 ### Common Modifications

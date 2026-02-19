@@ -52,6 +52,31 @@ ggplot(capture_data, aes(x = stage, y = reads, fill = stage)) +
   expand_limits(y = max(capture_data$reads) * 1.15)
 ```
 
+### Captured Reads by Source
+
+```{r capture-source, fig.height=3}
+source_data <- data.frame(
+  source = factor(c("Sample", "Non-sample Target", "Distractor"),
+                  levels = c("Sample", "Non-sample Target", "Distractor")),
+  reads = c(summary_df$sample_captured,
+            summary_df$nonsample_target_captured,
+            summary_df$distractor_captured)
+)
+
+source_data <- source_data %>% filter(reads > 0 | source == "Sample")
+
+ggplot(source_data, aes(x = source, y = reads, fill = source)) +
+  geom_col(width = 0.6) +
+  geom_text(aes(label = format(reads, big.mark = ",")), vjust = -0.5, size = 5) +
+  scale_fill_manual(values = c("Sample" = "#27ae60",
+                                "Non-sample Target" = "#e67e22",
+                                "Distractor" = "#e74c3c")) +
+  labs(x = NULL, y = "Captured Reads",
+       subtitle = sprintf("Total captured: %s", format(summary_df$reads_captured, big.mark = ","))) +
+  theme(legend.position = "none") +
+  expand_limits(y = max(source_data$reads) * 1.15)
+```
+
 ## Detection Performance
 
 ```{r metrics-barplot}
@@ -75,23 +100,45 @@ ggplot(metrics_data, aes(x = metric, y = value, fill = metric)) +
   theme(legend.position = "none")
 ```
 
+### Read Mapping Accuracy
+
+```{r mapping-accuracy, fig.height=3}
+mapping_data <- data.frame(
+  result = factor(c("Correct", "Incorrect"), levels = c("Correct", "Incorrect")),
+  reads = c(summary_df$reads_correctly_mapped, summary_df$reads_incorrectly_mapped)
+)
+
+total_mapped <- sum(mapping_data$reads)
+accuracy_pct <- if (total_mapped > 0) summary_df$reads_correctly_mapped / total_mapped * 100 else 0
+
+ggplot(mapping_data, aes(x = result, y = reads, fill = result)) +
+  geom_col(width = 0.6) +
+  geom_text(aes(label = format(reads, big.mark = ",")), vjust = -0.5, size = 5) +
+  scale_fill_manual(values = c("Correct" = "#27ae60", "Incorrect" = "#e74c3c")) +
+  labs(x = NULL, y = "Mapped Reads",
+       subtitle = sprintf("Mapping accuracy: %.1f%%", accuracy_pct)) +
+  theme(legend.position = "none") +
+  expand_limits(y = max(mapping_data$reads) * 1.15)
+```
+
 ## Confusion Matrix
 
-```{r confusion-matrix, fig.height=4}
+```{r confusion-matrix, fig.height=4.5}
 cm_data <- data.frame(
-  actual = factor(rep(c("Target", "Distractor"), each = 2),
-                  levels = c("Target", "Distractor")),
-  predicted = factor(rep(c("Detected", "Not Detected"), 2),
+  actual = factor(rep(c("Sample", "Non-sample Target", "Distractor"), each = 2),
+                  levels = c("Sample", "Non-sample Target", "Distractor")),
+  predicted = factor(rep(c("Detected", "Not Detected"), 3),
                      levels = c("Detected", "Not Detected")),
   count = c(summary_df$tp_count, summary_df$fn_count,
-            summary_df$fp_count, summary_df$tn_count),
-  label = c("TP", "FN", "FP", "TN")
+            summary_df$fp_target_count, summary_df$tn_target_count,
+            summary_df$fp_distractor_count, summary_df$tn_distractor_count),
+  label = c("TP", "FN", "FP_target", "TN_target", "FP_distractor", "TN_distractor")
 )
 
 ggplot(cm_data, aes(x = predicted, y = actual, fill = count)) +
   geom_tile(color = "white", linewidth = 2) +
   geom_text(aes(label = sprintf("%s\n%d", label, count)),
-            size = 6, fontface = "bold") +
+            size = 5, fontface = "bold") +
   scale_fill_gradient(low = "#ecf0f1", high = "#3498db", guide = "none") +
   labs(x = "Predicted", y = "Actual") +
   theme(panel.grid = element_blank())
@@ -102,7 +149,8 @@ ggplot(cm_data, aes(x = predicted, y = actual, fill = count)) +
 ```{r detail-table}
 if (nrow(detail_df) > 0) {
   detail_df %>%
-    arrange(factor(classification, levels = c("TP", "FP", "UNKNOWN", "FN")),
+    arrange(factor(classification,
+                   levels = c("TP", "FP_target", "FP_distractor", "UNKNOWN", "FN")),
             desc(read_count)) %>%
     knitr::kable(
       col.names = c("Reference ID", "Category", "Expected", "Detected",
@@ -118,7 +166,8 @@ if (nrow(detail_df) > 0) {
 detected_only <- detail_df %>% filter(read_count > 0)
 
 if (nrow(detected_only) > 0) {
-  class_colors <- c("TP" = "#27ae60", "FP" = "#e74c3c", "UNKNOWN" = "#95a5a6")
+  class_colors <- c("TP" = "#27ae60", "FP_target" = "#e67e22",
+                     "FP_distractor" = "#e74c3c", "UNKNOWN" = "#95a5a6")
 
   ggplot(detected_only,
          aes(x = reorder(reference_id, read_count),

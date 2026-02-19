@@ -49,24 +49,18 @@ pub fn extract_by_ids(fasta_path: &Path, ids: &HashSet<String>, output_path: &Pa
     Ok(count)
 }
 
-/// Concatenate two FASTA files into one output file.
-pub fn concatenate_fastas(fasta1: &Path, fasta2: &Path, output: &Path) -> Result<()> {
+/// Concatenate multiple FASTA files into one output file.
+pub fn concatenate_fastas(inputs: &[&Path], output: &Path) -> Result<()> {
     let out_file = File::create(output)
         .with_context(|| format!("Cannot create output: {}", output.display()))?;
     let mut writer = BufWriter::new(out_file);
 
-    // Write first file
-    let f1 = File::open(fasta1).with_context(|| format!("Cannot open: {}", fasta1.display()))?;
-    let reader1 = BufReader::new(f1);
-    for line in reader1.lines() {
-        writeln!(writer, "{}", line?)?;
-    }
-
-    // Write second file
-    let f2 = File::open(fasta2).with_context(|| format!("Cannot open: {}", fasta2.display()))?;
-    let reader2 = BufReader::new(f2);
-    for line in reader2.lines() {
-        writeln!(writer, "{}", line?)?;
+    for input in inputs {
+        let f = File::open(input).with_context(|| format!("Cannot open: {}", input.display()))?;
+        let reader = BufReader::new(f);
+        for line in reader.lines() {
+            writeln!(writer, "{}", line?)?;
+        }
     }
 
     writer.flush()?;

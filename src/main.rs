@@ -27,6 +27,7 @@ fn main() -> Result<()> {
             targets,
             distractors,
             probes,
+            sample,
             host_fasta,
             run_name,
             num_reads,
@@ -54,6 +55,7 @@ fn main() -> Result<()> {
                 targets: &targets,
                 distractors: &distractors,
                 probes: &probes,
+                sample: sample.as_deref(),
                 host_fasta: host_fasta.as_deref(),
                 run_name,
                 num_reads,
@@ -77,12 +79,14 @@ fn main() -> Result<()> {
         Commands::Prepare {
             targets,
             distractors,
+            sample,
             distractor_fraction,
             outdir,
         } => {
             prepare::execute(&prepare::PrepareArgs {
                 targets: &targets,
                 distractors: &distractors,
+                sample: sample.as_deref(),
                 distractor_fraction,
                 outdir: &outdir,
             })?;
@@ -176,6 +180,7 @@ fn main() -> Result<()> {
         Commands::Metrics {
             targets,
             distractors,
+            sample,
             detected,
             reads,
             captured,
@@ -190,6 +195,7 @@ fn main() -> Result<()> {
             metrics::execute(&metrics::MetricsArgs {
                 targets: &targets,
                 distractors: &distractors,
+                sample: &sample,
                 detected: &detected,
                 reads: &reads,
                 captured: &captured,

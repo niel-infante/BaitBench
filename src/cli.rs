@@ -22,13 +22,17 @@ pub enum Commands {
         #[arg(short, long)]
         targets: PathBuf,
 
-        /// Distractor sequences FASTA
-        #[arg(short, long)]
-        distractors: PathBuf,
+        /// Distractor sequences FASTA (can be specified multiple times)
+        #[arg(short, long, num_args = 1..)]
+        distractors: Vec<PathBuf>,
 
         /// Probe sequences FASTA
         #[arg(short, long)]
         probes: PathBuf,
+
+        /// Sample manifest TSV (id<tab>weight; subset of targets present in sample)
+        #[arg(long)]
+        sample: Option<PathBuf>,
 
         /// Host genome FASTA for filtering (optional)
         #[arg(long)]
@@ -105,9 +109,13 @@ pub enum Commands {
         #[arg(short, long)]
         targets: PathBuf,
 
-        /// Distractor sequences FASTA
-        #[arg(short, long)]
-        distractors: PathBuf,
+        /// Distractor sequences FASTA (can be specified multiple times)
+        #[arg(short, long, num_args = 1..)]
+        distractors: Vec<PathBuf>,
+
+        /// Sample manifest TSV (id<tab>weight; subset of targets present in sample)
+        #[arg(long)]
+        sample: Option<PathBuf>,
 
         /// Fraction of reads from distractors (0-1)
         #[arg(short = 'f', long, default_value = "0.9")]
@@ -258,6 +266,10 @@ pub enum Commands {
         /// Distractors ID file
         #[arg(long)]
         distractors: PathBuf,
+
+        /// Sample ID file (subset of targets present in sample)
+        #[arg(long)]
+        sample: PathBuf,
 
         /// Detection list file
         #[arg(long)]

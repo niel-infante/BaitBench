@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::Path;
@@ -37,6 +37,36 @@ pub fn extract_source_id(read_name: &str) -> Option<&str> {
     let id_part = read_name.split_whitespace().next().unwrap_or(read_name);
     // Find the last occurrence of "_fragment_" to handle IDs that contain that substring
     id_part.rfind("_fragment_").map(|pos| &id_part[..pos])
+}
+
+/// Parse a sample manifest TSV file into a HashMap of id -> weight.
+///
+/// Format: `id<tab>weight` (weight is optional, defaults to 1.0).
+/// Skips empty lines and lines starting with '#'.
+pub fn parse_sample_manifest(path: &Path) -> Result<HashMap<String, f64>> {
+    let file = File::open(path)
+        .with_context(|| format!("Cannot open sample manifest: {}", path.display()))?;
+    let reader = BufReader::new(file);
+    let mut samples = HashMap::new();
+
+    for line in reader.lines() {
+        let line = line?;
+        let line = line.trim().to_string();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let parts: Vec<&str> = line.split('\t').collect();
+        let id = parts[0].trim().to_string();
+        let weight = if parts.len() >= 2 {
+            parts[1].trim().parse::<f64>()
+                .with_context(|| format!("Invalid weight for '{}': {}", id, parts[1].trim()))?
+        } else {
+            1.0
+        };
+        samples.insert(id, weight);
+    }
+
+    Ok(samples)
 }
 
 /// Write a list of IDs to a file, one per line.

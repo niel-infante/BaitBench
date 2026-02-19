@@ -12,6 +12,7 @@ use crate::io_utils;
 pub struct MetricsArgs<'a> {
     pub targets: &'a Path,
     pub distractors: &'a Path,
+    pub sample: &'a Path,
     pub detected: &'a Path,
     pub reads: &'a Path,
     pub captured: &'a Path,
@@ -25,38 +26,42 @@ pub struct MetricsArgs<'a> {
 }
 
 /// Read-level metrics derived from capture and mapping.
-#[allow(dead_code)]
 struct ReadLevelMetrics {
-    /// Captured reads originating from target sequences
-    target_captured: usize,
+    /// Captured reads originating from sample target sequences
+    sample_captured: usize,
+    /// Captured reads originating from non-sample target sequences
+    nonsample_target_captured: usize,
     /// Captured reads originating from distractor sequences
     distractor_captured: usize,
-    /// Captured reads with unknown source
-    unknown_captured: usize,
     /// Mapped reads where source == mapped reference (correct assignment)
     reads_correctly_mapped: usize,
     /// Mapped reads where source != mapped reference (misassignment)
     reads_incorrectly_mapped: usize,
-    /// Mapped reads with unknown source
-    reads_unknown_source: usize,
 }
 
-#[derive(Serialize)]
+/// 3-way classification metrics.
 struct MetricsResult {
+    // Counts
     tp_count: usize,
-    fp_count: usize,
     fn_count: usize,
-    tn_count: usize,
+    fp_target_count: usize,
+    fp_distractor_count: usize,
+    fp_total: usize,
+    tn_target_count: usize,
+    tn_distractor_count: usize,
+    tn_total: usize,
+    // Rates
     sensitivity: f64,
     specificity: f64,
     precision: f64,
     f1_score: f64,
-    fnr: f64,
-    fpr: f64,
+    // Detail lists
     true_positives: Vec<String>,
-    false_positives: Vec<String>,
     false_negatives: Vec<String>,
-    true_negatives: Vec<String>,
+    fp_targets: Vec<String>,
+    fp_distractors: Vec<String>,
+    tn_targets: Vec<String>,
+    tn_distractors: Vec<String>,
     unknown_detected: Vec<String>,
 }
 
@@ -69,6 +74,10 @@ pub fn execute(args: &MetricsArgs) -> Result<()> {
     log::info!("Parsing distractors file...");
     let distractors = io_utils::parse_id_set(args.distractors)?;
     log::info!("  Found {} distractor references", distractors.len());
+
+    log::info!("Parsing sample file...");
+    let sample = io_utils::parse_id_set(args.sample)?;
+    log::info!("  Found {} sample references", sample.len());
 
     log::info!("Parsing detection list...");
     let detected = parse_detected(args.detected)?;
@@ -92,23 +101,27 @@ pub fn execute(args: &MetricsArgs) -> Result<()> {
     let captured_ids = fasta::parse_fasta_ids(args.captured)?;
     let read_level = compute_read_level_metrics(
         &captured_ids,
+        &sample,
         &targets,
         &distractors,
         args.sam,
     )?;
 
-    log::info!("  Target reads captured: {}", read_level.target_captured);
+    log::info!("  Sample reads captured: {}", read_level.sample_captured);
+    log::info!("  Non-sample target reads captured: {}", read_level.nonsample_target_captured);
     log::info!("  Distractor reads captured: {}", read_level.distractor_captured);
     log::info!("  Reads correctly mapped: {}", read_level.reads_correctly_mapped);
     log::info!("  Reads incorrectly mapped: {}", read_level.reads_incorrectly_mapped);
 
-    // Calculate genome-level metrics
-    let metrics = calculate_metrics(&targets, &distractors, &detected);
+    // Calculate genome-level metrics (3-way classification)
+    let metrics = calculate_metrics(&sample, &targets, &distractors, &detected);
 
-    log::info!("  True Positives: {}", metrics.tp_count);
-    log::info!("  False Positives: {}", metrics.fp_count);
-    log::info!("  False Negatives: {}", metrics.fn_count);
-    log::info!("  True Negatives: {}", metrics.tn_count);
+    log::info!("  True Positives (sample detected): {}", metrics.tp_count);
+    log::info!("  False Negatives (sample missed): {}", metrics.fn_count);
+    log::info!("  FP targets (non-sample target detected): {}", metrics.fp_target_count);
+    log::info!("  FP distractors (distractor detected): {}", metrics.fp_distractor_count);
+    log::info!("  TN targets (non-sample target not detected): {}", metrics.tn_target_count);
+    log::info!("  TN distractors (distractor not detected): {}", metrics.tn_distractor_count);
     log::info!("  Sensitivity: {:.4}", metrics.sensitivity);
     log::info!("  Specificity: {:.4}", metrics.specificity);
     log::info!("  Precision: {:.4}", metrics.precision);
@@ -133,7 +146,7 @@ pub fn execute(args: &MetricsArgs) -> Result<()> {
 
     // Write detail TSV
     log::info!("Writing detail to {}...", args.output_detail.display());
-    write_detail_tsv(args.output_detail, &targets, &distractors, &detected, &metrics)?;
+    write_detail_tsv(args.output_detail, &sample, &targets, &distractors, &detected, &metrics)?;
 
     // Write JSON
     if let Some(json_path) = args.output_json {
@@ -158,26 +171,24 @@ pub fn execute(args: &MetricsArgs) -> Result<()> {
 
 fn compute_read_level_metrics(
     captured_read_names: &[String],
+    sample: &HashSet<String>,
     targets: &HashSet<String>,
     distractors: &HashSet<String>,
     sam_path: &Path,
 ) -> Result<ReadLevelMetrics> {
-    // Count captured reads by source type
-    let mut target_captured = 0usize;
+    let mut sample_captured = 0usize;
+    let mut nonsample_target_captured = 0usize;
     let mut distractor_captured = 0usize;
-    let mut unknown_captured = 0usize;
 
     for name in captured_read_names {
         if let Some(source) = io_utils::extract_source_id(name) {
-            if targets.contains(source) {
-                target_captured += 1;
+            if sample.contains(source) {
+                sample_captured += 1;
+            } else if targets.contains(source) {
+                nonsample_target_captured += 1;
             } else if distractors.contains(source) {
                 distractor_captured += 1;
-            } else {
-                unknown_captured += 1;
             }
-        } else {
-            unknown_captured += 1;
         }
     }
 
@@ -185,7 +196,6 @@ fn compute_read_level_metrics(
     let mappings = sam::get_read_mappings(sam_path)?;
     let mut reads_correctly_mapped = 0usize;
     let mut reads_incorrectly_mapped = 0usize;
-    let mut reads_unknown_source = 0usize;
 
     for (read_name, mapped_ref) in &mappings {
         if let Some(source) = io_utils::extract_source_id(read_name) {
@@ -194,18 +204,15 @@ fn compute_read_level_metrics(
             } else {
                 reads_incorrectly_mapped += 1;
             }
-        } else {
-            reads_unknown_source += 1;
         }
     }
 
     Ok(ReadLevelMetrics {
-        target_captured,
+        sample_captured,
+        nonsample_target_captured,
         distractor_captured,
-        unknown_captured,
         reads_correctly_mapped,
         reads_incorrectly_mapped,
-        reads_unknown_source,
     })
 }
 
@@ -232,86 +239,107 @@ fn parse_detected(path: &Path) -> Result<HashMap<String, usize>> {
     Ok(detected)
 }
 
+/// 3-way genome-level classification:
+/// - Sample targets: TP if detected, FN if not
+/// - Non-sample targets: FP_target if detected, TN_target if not
+/// - Distractors: FP_distractor if detected, TN_distractor if not
 fn calculate_metrics(
+    sample: &HashSet<String>,
     targets: &HashSet<String>,
     distractors: &HashSet<String>,
     detected: &HashMap<String, usize>,
 ) -> MetricsResult {
-    let detected_set: HashSet<&String> = detected.keys().collect();
-    let targets_ref: HashSet<&String> = targets.iter().collect();
-    let distractors_ref: HashSet<&String> = distractors.iter().collect();
-
-    let true_positives: Vec<String> = targets
+    // Sample targets
+    let mut true_positives: Vec<String> = sample
         .iter()
         .filter(|id| detected.contains_key(*id))
         .cloned()
         .collect();
-    let false_negatives: Vec<String> = targets
-        .iter()
-        .filter(|id| !detected.contains_key(*id))
-        .cloned()
-        .collect();
-    let false_positives: Vec<String> = distractors
-        .iter()
-        .filter(|id| detected.contains_key(*id))
-        .cloned()
-        .collect();
-    let true_negatives: Vec<String> = distractors
+    let mut false_negatives: Vec<String> = sample
         .iter()
         .filter(|id| !detected.contains_key(*id))
         .cloned()
         .collect();
 
-    let known: HashSet<&String> = targets_ref.union(&distractors_ref).copied().collect();
-    let unknown_detected: Vec<String> = detected_set
+    // Non-sample targets (targets that are NOT in the sample)
+    let nonsample_targets: HashSet<&String> = targets.iter().filter(|id| !sample.contains(*id)).collect();
+    let mut fp_targets: Vec<String> = nonsample_targets
         .iter()
-        .filter(|id| !known.contains(**id))
+        .filter(|id| detected.contains_key(**id))
+        .map(|id| (*id).clone())
+        .collect();
+    let mut tn_targets: Vec<String> = nonsample_targets
+        .iter()
+        .filter(|id| !detected.contains_key(**id))
         .map(|id| (*id).clone())
         .collect();
 
+    // Distractors
+    let mut fp_distractors: Vec<String> = distractors
+        .iter()
+        .filter(|id| detected.contains_key(*id))
+        .cloned()
+        .collect();
+    let mut tn_distractors: Vec<String> = distractors
+        .iter()
+        .filter(|id| !detected.contains_key(*id))
+        .cloned()
+        .collect();
+
+    // Unknown detected (not in any category)
+    let all_known: HashSet<&String> = targets.iter().chain(distractors.iter()).collect();
+    let mut unknown_detected: Vec<String> = detected
+        .keys()
+        .filter(|id| !all_known.contains(id))
+        .cloned()
+        .collect();
+
     let tp = true_positives.len();
-    let fp = false_positives.len();
     let fn_ = false_negatives.len();
-    let tn = true_negatives.len();
+    let fp_target = fp_targets.len();
+    let fp_distractor = fp_distractors.len();
+    let fp_total = fp_target + fp_distractor;
+    let tn_target = tn_targets.len();
+    let tn_distractor = tn_distractors.len();
+    let tn_total = tn_target + tn_distractor;
 
     let sensitivity = if tp + fn_ > 0 { tp as f64 / (tp + fn_) as f64 } else { 0.0 };
-    let specificity = if tn + fp > 0 { tn as f64 / (tn + fp) as f64 } else { 0.0 };
-    let precision = if tp + fp > 0 { tp as f64 / (tp + fp) as f64 } else { 0.0 };
-    let fnr = if tp + fn_ > 0 { fn_ as f64 / (tp + fn_) as f64 } else { 0.0 };
-    let fpr = if fp + tn > 0 { fp as f64 / (fp + tn) as f64 } else { 0.0 };
+    let specificity = if tn_total + fp_total > 0 { tn_total as f64 / (tn_total + fp_total) as f64 } else { 0.0 };
+    let precision = if tp + fp_total > 0 { tp as f64 / (tp + fp_total) as f64 } else { 0.0 };
     let f1_score = if precision + sensitivity > 0.0 {
         2.0 * (precision * sensitivity) / (precision + sensitivity)
     } else {
         0.0
     };
 
-    let mut tp_sorted = true_positives;
-    let mut fp_sorted = false_positives;
-    let mut fn_sorted = false_negatives;
-    let mut tn_sorted = true_negatives;
-    let mut unk_sorted = unknown_detected;
-    tp_sorted.sort();
-    fp_sorted.sort();
-    fn_sorted.sort();
-    tn_sorted.sort();
-    unk_sorted.sort();
+    true_positives.sort();
+    false_negatives.sort();
+    fp_targets.sort();
+    fp_distractors.sort();
+    tn_targets.sort();
+    tn_distractors.sort();
+    unknown_detected.sort();
 
     MetricsResult {
         tp_count: tp,
-        fp_count: fp,
         fn_count: fn_,
-        tn_count: tn,
+        fp_target_count: fp_target,
+        fp_distractor_count: fp_distractor,
+        fp_total,
+        tn_target_count: tn_target,
+        tn_distractor_count: tn_distractor,
+        tn_total,
         sensitivity,
         specificity,
         precision,
         f1_score,
-        fnr,
-        fpr,
-        true_positives: tp_sorted,
-        false_positives: fp_sorted,
-        false_negatives: fn_sorted,
-        true_negatives: tn_sorted,
-        unknown_detected: unk_sorted,
+        true_positives,
+        false_negatives,
+        fp_targets,
+        fp_distractors,
+        tn_targets,
+        tn_distractors,
+        unknown_detected,
     }
 }
 
@@ -333,25 +361,30 @@ fn write_summary_tsv(
     let headers = [
         "run_name", "timestamp", "num_reads", "seed",
         "reads_generated", "reads_captured", "capture_rate",
-        "target_captured", "distractor_captured",
+        "sample_captured", "nonsample_target_captured", "distractor_captured",
         "reads_correctly_mapped", "reads_incorrectly_mapped",
-        "targets_total", "distractors_total",
-        "tp_count", "fp_count", "fn_count", "tn_count",
+        "sample_total", "nonsample_target_total", "distractors_total",
+        "tp_count", "fn_count",
+        "fp_target_count", "fp_distractor_count", "fp_total",
+        "tn_target_count", "tn_distractor_count", "tn_total",
         "sensitivity", "specificity", "precision", "f1_score",
     ];
     writeln!(w, "{}", headers.join("\t"))?;
 
-    let targets_total = metrics.tp_count + metrics.fn_count;
-    let distractors_total = metrics.tn_count + metrics.fp_count;
+    let sample_total = metrics.tp_count + metrics.fn_count;
+    let nonsample_target_total = metrics.fp_target_count + metrics.tn_target_count;
+    let distractors_total = metrics.fp_distractor_count + metrics.tn_distractor_count;
 
     let values = format!(
-        "{}\t{}\t{}\t{}\t{}\t{}\t{:.4}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{:.4}\t{:.4}\t{:.4}\t{:.4}",
+        "{}\t{}\t{}\t{}\t{}\t{}\t{:.4}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{:.4}\t{:.4}\t{:.4}\t{:.4}",
         run_name, timestamp, num_reads, seed,
         reads_generated, reads_captured, capture_rate,
-        read_level.target_captured, read_level.distractor_captured,
+        read_level.sample_captured, read_level.nonsample_target_captured, read_level.distractor_captured,
         read_level.reads_correctly_mapped, read_level.reads_incorrectly_mapped,
-        targets_total, distractors_total,
-        metrics.tp_count, metrics.fp_count, metrics.fn_count, metrics.tn_count,
+        sample_total, nonsample_target_total, distractors_total,
+        metrics.tp_count, metrics.fn_count,
+        metrics.fp_target_count, metrics.fp_distractor_count, metrics.fp_total,
+        metrics.tn_target_count, metrics.tn_distractor_count, metrics.tn_total,
         metrics.sensitivity, metrics.specificity, metrics.precision, metrics.f1_score,
     );
     writeln!(w, "{}", values)?;
@@ -372,6 +405,7 @@ struct DetailRow {
 
 fn write_detail_tsv(
     path: &Path,
+    sample: &HashSet<String>,
     targets: &HashSet<String>,
     distractors: &HashSet<String>,
     detected: &HashMap<String, usize>,
@@ -386,29 +420,31 @@ fn write_detail_tsv(
 
     // Detected references
     for (ref_id, &count) in detected {
-        let (category, classification) = if targets.contains(ref_id) {
-            ("target", "TP")
+        let (category, expected, classification) = if sample.contains(ref_id) {
+            ("sample", "true", "TP")
+        } else if targets.contains(ref_id) {
+            ("target", "false", "FP_target")
         } else if distractors.contains(ref_id) {
-            ("distractor", "FP")
+            ("distractor", "false", "FP_distractor")
         } else {
-            ("unknown", "UNKNOWN")
+            ("unknown", "false", "UNKNOWN")
         };
 
         rows.push(DetailRow {
             reference_id: ref_id.clone(),
             category: category.to_string(),
-            expected: if targets.contains(ref_id) { "true" } else { "false" }.to_string(),
+            expected: expected.to_string(),
             detected: "true".to_string(),
             read_count: count,
             classification: classification.to_string(),
         });
     }
 
-    // False negatives (targets not detected)
+    // False negatives (sample targets not detected)
     for ref_id in &metrics.false_negatives {
         rows.push(DetailRow {
             reference_id: ref_id.clone(),
-            category: "target".to_string(),
+            category: "sample".to_string(),
             expected: "true".to_string(),
             detected: "false".to_string(),
             read_count: 0,
@@ -416,13 +452,14 @@ fn write_detail_tsv(
         });
     }
 
-    // Sort: TP=0, FP=1, UNKNOWN=2, FN=3, then by read_count descending
+    // Sort: TP=0, FP_target=1, FP_distractor=2, UNKNOWN=3, FN=4, then by read_count descending
     rows.sort_by(|a, b| {
         let order = |c: &str| match c {
             "TP" => 0,
-            "FP" => 1,
-            "UNKNOWN" => 2,
-            "FN" => 3,
+            "FP_target" => 1,
+            "FP_distractor" => 2,
+            "UNKNOWN" => 3,
+            "FN" => 4,
             _ => 99,
         };
         order(&a.classification)
@@ -464,7 +501,8 @@ struct CaptureStats {
     reads_generated: usize,
     reads_captured: usize,
     capture_rate: f64,
-    target_captured: usize,
+    sample_captured: usize,
+    nonsample_target_captured: usize,
     distractor_captured: usize,
 }
 
@@ -477,22 +515,27 @@ struct ReadLevelStats {
 #[derive(Serialize)]
 struct JsonMetrics {
     tp_count: usize,
-    fp_count: usize,
     fn_count: usize,
-    tn_count: usize,
+    fp_target_count: usize,
+    fp_distractor_count: usize,
+    fp_total: usize,
+    tn_target_count: usize,
+    tn_distractor_count: usize,
+    tn_total: usize,
     sensitivity: f64,
     specificity: f64,
     precision: f64,
     f1_score: f64,
-    fnr: f64,
-    fpr: f64,
 }
 
 #[derive(Serialize)]
 struct JsonDetails {
     true_positives: Vec<String>,
-    false_positives: Vec<String>,
     false_negatives: Vec<String>,
+    fp_targets: Vec<String>,
+    fp_distractors: Vec<String>,
+    tn_targets: Vec<String>,
+    tn_distractors: Vec<String>,
     unknown_detected: Vec<String>,
 }
 
@@ -519,7 +562,8 @@ fn write_json(
             reads_generated,
             reads_captured,
             capture_rate,
-            target_captured: read_level.target_captured,
+            sample_captured: read_level.sample_captured,
+            nonsample_target_captured: read_level.nonsample_target_captured,
             distractor_captured: read_level.distractor_captured,
         },
         read_level: ReadLevelStats {
@@ -528,20 +572,25 @@ fn write_json(
         },
         metrics: JsonMetrics {
             tp_count: metrics.tp_count,
-            fp_count: metrics.fp_count,
             fn_count: metrics.fn_count,
-            tn_count: metrics.tn_count,
+            fp_target_count: metrics.fp_target_count,
+            fp_distractor_count: metrics.fp_distractor_count,
+            fp_total: metrics.fp_total,
+            tn_target_count: metrics.tn_target_count,
+            tn_distractor_count: metrics.tn_distractor_count,
+            tn_total: metrics.tn_total,
             sensitivity: metrics.sensitivity,
             specificity: metrics.specificity,
             precision: metrics.precision,
             f1_score: metrics.f1_score,
-            fnr: metrics.fnr,
-            fpr: metrics.fpr,
         },
         details: JsonDetails {
             true_positives: metrics.true_positives.clone(),
-            false_positives: metrics.false_positives.clone(),
             false_negatives: metrics.false_negatives.clone(),
+            fp_targets: metrics.fp_targets.clone(),
+            fp_distractors: metrics.fp_distractors.clone(),
+            tn_targets: metrics.tn_targets.clone(),
+            tn_distractors: metrics.tn_distractors.clone(),
             unknown_detected: metrics.unknown_detected.clone(),
         },
     };
