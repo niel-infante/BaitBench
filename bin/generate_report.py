@@ -144,6 +144,18 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
         </div>
     </div>
 
+    <h2>Captured Reads by Source</h2>
+    <div class="summary-grid">
+        <div class="metric-card">
+            <div class="metric-value metric-good">{target_captured:,}</div>
+            <div class="metric-label">Target Reads Captured</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-value metric-bad">{distractor_captured:,}</div>
+            <div class="metric-label">Distractor Reads Captured</div>
+        </div>
+    </div>
+
     <h2>Detection Performance</h2>
     <div class="summary-grid">
         <div class="metric-card">
@@ -288,6 +300,8 @@ def main():
     reads_generated = int(summary.get('reads_generated', 0))
     reads_captured = int(summary.get('reads_captured', 0))
     capture_rate = float(summary.get('capture_rate', 0))
+    target_captured = int(summary.get('target_captured', 0))
+    distractor_captured = int(summary.get('distractor_captured', 0))
 
     sensitivity = float(summary.get('sensitivity', 0))
     specificity = float(summary.get('specificity', 0))
@@ -306,6 +320,8 @@ def main():
         reads_generated=reads_generated,
         reads_captured=reads_captured,
         capture_rate_pct=capture_rate * 100,
+        target_captured=target_captured,
+        distractor_captured=distractor_captured,
         sensitivity_pct=sensitivity * 100,
         sensitivity_class=get_metric_class(sensitivity),
         specificity_pct=specificity * 100,

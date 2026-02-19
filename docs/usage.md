@@ -152,6 +152,66 @@ results/{run_name}/
 └── distractors.txt       # List of distractor IDs
 ```
 
+## results.tsv Column Reference
+
+The `results.tsv` file contains one row with all summary metrics. Here is a description of each column:
+
+### Run Information
+
+| Column | Description |
+|--------|-------------|
+| `run_name` | Name of this pipeline run (auto-generated or user-specified) |
+| `timestamp` | ISO 8601 timestamp when metrics were calculated |
+| `num_reads` | Number of reads requested to be generated |
+| `seed` | Random seed used for reproducibility (or "NA" if random) |
+
+### Read Counts
+
+| Column | Description |
+|--------|-------------|
+| `reads_generated` | Total number of reads actually generated from reference sequences |
+| `reads_captured` | Number of reads that passed the capture filter (matched probes) |
+| `capture_rate` | Fraction of generated reads that were captured (`reads_captured / reads_generated`) |
+| `target_captured` | Number of captured reads that originated from **target** sequences. These are reads we *want* to capture. |
+| `distractor_captured` | Number of captured reads that originated from **distractor** sequences. These are reads we do *not* want to capture (off-target capture). |
+
+### Reference Counts
+
+| Column | Description |
+|--------|-------------|
+| `targets_total` | Total number of distinct target reference sequences in the input |
+| `distractors_total` | Total number of distinct distractor reference sequences in the input |
+
+### Detection Classification (Genome-Level)
+
+These metrics count **distinct genomes/references**, not reads. A genome is "detected" if at least one read maps back to it after capture.
+
+| Column | Description |
+|--------|-------------|
+| `tp_count` | **True Positives** - Number of target genomes that were detected (correctly captured) |
+| `fp_count` | **False Positives** - Number of distractor genomes that were detected (incorrectly captured) |
+| `fn_count` | **False Negatives** - Number of target genomes that were NOT detected (missed) |
+| `tn_count` | **True Negatives** - Number of distractor genomes that were NOT detected (correctly rejected) |
+
+### Performance Metrics
+
+| Column | Description |
+|--------|-------------|
+| `sensitivity` | True Positive Rate = `TP / (TP + FN)`. What fraction of targets were detected? Range: 0-1. |
+| `specificity` | True Negative Rate = `TN / (TN + FP)`. What fraction of distractors were correctly rejected? Range: 0-1. |
+| `precision` | Positive Predictive Value = `TP / (TP + FP)`. Of detected genomes, what fraction were targets? Range: 0-1. |
+| `f1_score` | Harmonic mean of precision and sensitivity = `2 * (precision * sensitivity) / (precision + sensitivity)`. Range: 0-1. |
+
+### Key Distinctions
+
+**Read-level vs Genome-level metrics:**
+- `target_captured` and `distractor_captured` count **individual reads** by their source
+- `tp_count`, `fp_count`, etc. count **distinct genomes/references**
+
+**Example:** If you have 2 target genomes and 1000 reads are captured from them:
+- `target_captured` = 1000 (reads)
+- `tp_count` = 2 (genomes), assuming both were detected
+
 ## Understanding the Metrics
 
 ### Sensitivity (True Positive Rate)

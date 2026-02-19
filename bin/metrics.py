@@ -75,6 +75,44 @@ def count_sequences(fasta_file):
     return count
 
 
+def count_captured_by_source(captured_fasta, targets, distractors):
+    """
+    Count captured reads by their source (target vs distractor).
+
+    Read headers are formatted as: >source_id_fragment_N start=X length=Y
+    The source_id is extracted by removing the '_fragment_N' suffix.
+
+    Returns:
+        tuple: (target_captured, distractor_captured, unknown_captured)
+    """
+    target_captured = 0
+    distractor_captured = 0
+    unknown_captured = 0
+
+    with open(captured_fasta, 'r') as f:
+        for line in f:
+            if line.startswith('>'):
+                # Extract read ID (first word after >)
+                read_id = line[1:].strip().split()[0]
+
+                # Extract source ID by finding '_fragment_' and taking everything before it
+                if '_fragment_' in read_id:
+                    source_id = read_id.rsplit('_fragment_', 1)[0]
+                else:
+                    # Fallback: try splitting on last underscore
+                    source_id = read_id.rsplit('_', 1)[0] if '_' in read_id else read_id
+
+                # Classify the source
+                if source_id in targets:
+                    target_captured += 1
+                elif source_id in distractors:
+                    distractor_captured += 1
+                else:
+                    unknown_captured += 1
+
+    return target_captured, distractor_captured, unknown_captured
+
+
 def calculate_metrics(targets, distractors, detected):
     """
     Calculate TP/FP/FN/TN metrics.
@@ -150,6 +188,7 @@ def write_summary_tsv(output_file, run_info, capture_stats, metrics):
         'run_name', 'timestamp',
         'num_reads', 'seed',
         'reads_generated', 'reads_captured', 'capture_rate',
+        'target_captured', 'distractor_captured',
         'targets_total', 'distractors_total',
         'tp_count', 'fp_count', 'fn_count', 'tn_count',
         'sensitivity', 'specificity', 'precision', 'f1_score'
@@ -163,6 +202,8 @@ def write_summary_tsv(output_file, run_info, capture_stats, metrics):
         capture_stats['reads_generated'],
         capture_stats['reads_captured'],
         f"{capture_stats['capture_rate']:.4f}",
+        capture_stats['target_captured'],
+        capture_stats['distractor_captured'],
         metrics['tp_count'] + metrics['fn_count'],  # total targets
         metrics['tn_count'] + metrics['fp_count'],  # total distractors
         metrics['tp_count'],
@@ -239,7 +280,13 @@ def write_json(output_file, run_info, capture_stats, metrics):
     """Write results to JSON file."""
     data = {
         'run_info': run_info,
-        'capture_stats': capture_stats,
+        'capture_stats': {
+            'reads_generated': capture_stats['reads_generated'],
+            'reads_captured': capture_stats['reads_captured'],
+            'capture_rate': capture_stats['capture_rate'],
+            'target_captured': capture_stats['target_captured'],
+            'distractor_captured': capture_stats['distractor_captured']
+        },
         'metrics': {
             'tp_count': metrics['tp_count'],
             'fp_count': metrics['fp_count'],
@@ -316,6 +363,16 @@ def main():
     print(f"  Reads captured: {reads_captured}", file=sys.stderr)
     print(f"  Capture rate: {capture_rate:.4f}", file=sys.stderr)
 
+    # Count captured reads by source
+    print("Counting captured reads by source...", file=sys.stderr)
+    target_captured, distractor_captured, unknown_captured = count_captured_by_source(
+        args.captured, targets, distractors
+    )
+    print(f"  Target reads captured: {target_captured}", file=sys.stderr)
+    print(f"  Distractor reads captured: {distractor_captured}", file=sys.stderr)
+    if unknown_captured > 0:
+        print(f"  Unknown source captured: {unknown_captured}", file=sys.stderr)
+
     # Calculate metrics
     print("Calculating metrics...", file=sys.stderr)
     metrics = calculate_metrics(targets, distractors, detected)
@@ -339,7 +396,9 @@ def main():
     capture_stats = {
         'reads_generated': reads_generated,
         'reads_captured': reads_captured,
-        'capture_rate': capture_rate
+        'capture_rate': capture_rate,
+        'target_captured': target_captured,
+        'distractor_captured': distractor_captured
     }
 
     # Write output files
