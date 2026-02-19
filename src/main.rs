@@ -43,6 +43,7 @@ fn main() -> Result<()> {
             read_length_max,
             outdir,
             threads,
+            no_report,
         } => {
             let run_name = run_name.unwrap_or_else(|| {
                 format!("run_{}", chrono::Local::now().format("%Y%m%d_%H%M%S"))
@@ -69,6 +70,7 @@ fn main() -> Result<()> {
                 read_length_max,
                 outdir: full_outdir,
                 threads,
+                no_report,
             })?;
         }
 

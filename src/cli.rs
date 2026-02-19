@@ -93,6 +93,10 @@ pub enum Commands {
         /// Number of threads for external tools
         #[arg(long, default_value = "1")]
         threads: usize,
+
+        /// Skip HTML report generation
+        #[arg(long)]
+        no_report: bool,
     },
 
     /// Combine target and distractor FASTAs, generate weights

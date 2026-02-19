@@ -25,6 +25,7 @@ pub struct RunArgs<'a> {
     pub read_length_max: usize,
     pub outdir: PathBuf,
     pub threads: usize,
+    pub no_report: bool,
 }
 
 pub fn execute(args: &RunArgs) -> Result<()> {
@@ -148,8 +149,10 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         output_json: Some(&outdir.join("results.json")),
     })?;
 
-    // Generate report (optional — skip if R not available)
-    if rscript::check_available() {
+    // Generate report (optional — skip if R not available or --no-report)
+    if args.no_report {
+        log::info!("Skipping report generation (--no-report)");
+    } else if rscript::check_available() {
         log::info!("Generating report...");
         match report::execute(&report::ReportArgs {
             summary: &outdir.join("results.tsv"),

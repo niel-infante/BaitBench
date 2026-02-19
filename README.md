@@ -80,6 +80,7 @@ Run `baitbench <command> --help` for full options.
 | `--max-mismatches` | 10 | Maximum mismatches allowed (minimap2 only) |
 | `--host-fasta` | none | Optional host genome for filtering |
 | `--seed` | random | Random seed for reproducibility |
+| `--no-report` | false | Skip HTML report generation |
 | `--outdir` | ./results | Output directory |
 
 ## Output Files

@@ -64,6 +64,10 @@ targets.fa + distractors.fa
 - **FN (False Negative)**: Target genome NOT detected
 - **TN (True Negative)**: Distractor genome NOT detected
 
+## Important Rules
+
+- **Always update documentation when making changes.** When adding, removing, or modifying CLI flags, subcommands, metrics, output files, or any user-facing behavior, update the relevant documentation files: `README.md`, this file (`CLAUDE.md`), and CLI help text in `src/cli.rs`.
+
 ## Development Guidelines
 
 ### Building
