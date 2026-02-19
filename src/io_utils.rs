@@ -27,6 +27,18 @@ pub fn parse_id_set(path: &Path) -> Result<HashSet<String>> {
     Ok(ids)
 }
 
+/// Extract the source sequence ID from a fragment read name.
+///
+/// Read names follow the pattern `{seq_id}_fragment_{n}` (with optional
+/// trailing fields like `start=... length=...`). We find the last occurrence
+/// of `_fragment_` and take everything before it as the source ID.
+pub fn extract_source_id(read_name: &str) -> Option<&str> {
+    // Take the first whitespace-delimited token (the ID portion)
+    let id_part = read_name.split_whitespace().next().unwrap_or(read_name);
+    // Find the last occurrence of "_fragment_" to handle IDs that contain that substring
+    id_part.rfind("_fragment_").map(|pos| &id_part[..pos])
+}
+
 /// Write a list of IDs to a file, one per line.
 pub fn write_id_list(ids: &[String], path: &Path) -> Result<()> {
     let file = File::create(path)

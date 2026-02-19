@@ -271,6 +271,10 @@ pub enum Commands {
         #[arg(long)]
         captured: PathBuf,
 
+        /// Mapped reads SAM file
+        #[arg(long)]
+        sam: PathBuf,
+
         /// Run name
         #[arg(long)]
         run_name: String,

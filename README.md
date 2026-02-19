@@ -101,20 +101,39 @@ results/<run_name>/
 └── report.html             # HTML report with figures (if R available)
 ```
 
-## Metrics
+## Results Columns (`results.tsv`)
 
-| Metric | Formula | Interpretation |
-|--------|---------|----------------|
-| **Sensitivity** | TP / (TP + FN) | What fraction of targets were detected? |
-| **Specificity** | TN / (TN + FP) | What fraction of distractors were correctly rejected? |
-| **Precision** | TP / (TP + FP) | Of detected sequences, what fraction were targets? |
-| **F1 Score** | 2 * (P * S) / (P + S) | Harmonic mean of precision and sensitivity |
+| Column | Description |
+|--------|-------------|
+| `run_name` | Name of the run (auto-generated or user-specified) |
+| `timestamp` | When the run completed |
+| `num_reads` | Number of reads requested |
+| `seed` | Random seed used (or "NA" if random) |
+| `reads_generated` | Actual number of reads generated |
+| `reads_captured` | Total reads passing capture filter |
+| `capture_rate` | `reads_captured / reads_generated` |
+| `target_captured` | Captured reads originating from target sequences |
+| `distractor_captured` | Captured reads originating from distractor sequences |
+| `reads_correctly_mapped` | Reads that map back to their source reference |
+| `reads_incorrectly_mapped` | Reads that map to a different reference than their source (read-level false positives) |
+| `targets_total` | Number of distinct target genomes |
+| `distractors_total` | Number of distinct distractor genomes |
+| `tp_count` | True Positives: target genomes detected |
+| `fp_count` | False Positives: distractor genomes detected |
+| `fn_count` | False Negatives: target genomes NOT detected |
+| `tn_count` | True Negatives: distractor genomes NOT detected |
+| `sensitivity` | `TP / (TP + FN)` — fraction of targets detected |
+| `specificity` | `TN / (TN + FP)` — fraction of distractors correctly rejected |
+| `precision` | `TP / (TP + FP)` — of detected genomes, fraction that are targets |
+| `f1_score` | `2 * (precision * sensitivity) / (precision + sensitivity)` |
 
-Where:
-- **TP (True Positive)**: Target genome detected
-- **FP (False Positive)**: Distractor genome detected
-- **FN (False Negative)**: Target genome NOT detected
-- **TN (True Negative)**: Distractor genome NOT detected
+### Genome-level vs read-level metrics
+
+BaitBench reports two levels of metrics:
+
+- **Genome-level** (`tp_count`, `fp_count`, `fn_count`, `tn_count`, and derived rates): Was each genome detected at all? A genome is detected if at least one read maps to it after capture and mapping.
+
+- **Read-level** (`target_captured`, `distractor_captured`, `reads_correctly_mapped`, `reads_incorrectly_mapped`): Since each simulated read is labeled with its source genome, these columns track how reads flow through the pipeline. A read from virus A that maps to virus B is counted as incorrectly mapped — this catches cross-reactivity even when genome-level metrics look perfect.
 
 ## Example
 
@@ -140,7 +159,7 @@ baitbench run \
 
 5. **Map**: Aligns captured reads back to the combined reference to identify which genomes they originated from.
 
-6. **Metrics**: Compares detected genomes against known targets and distractors using set operations to compute TP/FP/FN/TN and derived rates.
+6. **Metrics**: Computes genome-level metrics (TP/FP/FN/TN via set operations) and read-level metrics (how many captured reads came from targets vs distractors, and whether mapped reads return to their correct source genome).
 
 7. **Report**: Generates an HTML report with ggplot2 figures (capture summary, metrics bar chart, confusion matrix, per-reference lollipop chart).
 

@@ -59,6 +59,48 @@ pub fn count_reads_per_reference(sam_path: &Path) -> Result<HashMap<String, usiz
     Ok(counts)
 }
 
+/// Parse a SAM file and return a vec of (read_name, mapped_reference) pairs.
+///
+/// Only primary alignments are included (skips secondary 0x100,
+/// supplementary 0x800, and unmapped). Each read appears at most once.
+pub fn get_read_mappings(sam_path: &Path) -> Result<Vec<(String, String)>> {
+    let file = File::open(sam_path)
+        .with_context(|| format!("Cannot open SAM: {}", sam_path.display()))?;
+    let reader = BufReader::new(file);
+
+    let mut mappings = Vec::new();
+    let mut seen_reads: HashSet<String> = HashSet::new();
+
+    for line in reader.lines() {
+        let line = line?;
+        if line.starts_with('@') {
+            continue;
+        }
+
+        let fields: Vec<&str> = line.split('\t').collect();
+        if fields.len() < 3 {
+            continue;
+        }
+
+        let qname = fields[0];
+        let flag: u16 = fields[1].parse().unwrap_or(0);
+        let rname = fields[2];
+
+        if rname == "*" {
+            continue;
+        }
+        if flag & 0x100 != 0 || flag & 0x800 != 0 {
+            continue;
+        }
+
+        if seen_reads.insert(qname.to_string()) {
+            mappings.push((qname.to_string(), rname.to_string()));
+        }
+    }
+
+    Ok(mappings)
+}
+
 /// Parse SAM file and return the set of read IDs that map (RNAME != *).
 /// Used for host filtering.
 pub fn get_mapped_read_ids(sam_path: &Path) -> Result<HashSet<String>> {

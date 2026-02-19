@@ -141,6 +141,7 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         detected: &outdir.join("detected.list"),
         reads: &outdir.join("reads.fa"),
         captured: &outdir.join("captured.fa"),
+        sam: &outdir.join("mapped.sam"),
         run_name: &args.run_name,
         num_reads: args.num_reads,
         seed: &seed_str,

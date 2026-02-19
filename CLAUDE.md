@@ -57,12 +57,19 @@ targets.fa + distractors.fa
 
 ### Metrics Definitions
 
-- **Targets**: Genomes in `targets.fa` - probes SHOULD capture these
-- **Distractors**: Genomes in `distractors.fa` - probes should NOT capture these
+**Genome-level** (was each genome detected at all?):
 - **TP (True Positive)**: Target genome detected
 - **FP (False Positive)**: Distractor genome detected
 - **FN (False Negative)**: Target genome NOT detected
 - **TN (True Negative)**: Distractor genome NOT detected
+
+**Read-level** (how reads flow through the pipeline):
+- **target_captured**: Captured reads originating from target sequences
+- **distractor_captured**: Captured reads originating from distractor sequences
+- **reads_correctly_mapped**: Reads that map back to their source reference
+- **reads_incorrectly_mapped**: Reads that map to a different reference (e.g., virus A read maps to virus B)
+
+Read source is extracted from the fragment name pattern `{seq_id}_fragment_{n}` using the last occurrence of `_fragment_` as the delimiter.
 
 ## Important Rules
 

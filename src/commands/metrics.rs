@@ -5,6 +5,7 @@ use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::Path;
 
+use crate::alignment::sam;
 use crate::fasta;
 use crate::io_utils;
 
@@ -14,12 +15,30 @@ pub struct MetricsArgs<'a> {
     pub detected: &'a Path,
     pub reads: &'a Path,
     pub captured: &'a Path,
+    pub sam: &'a Path,
     pub run_name: &'a str,
     pub num_reads: usize,
     pub seed: &'a str,
     pub output_summary: &'a Path,
     pub output_detail: &'a Path,
     pub output_json: Option<&'a Path>,
+}
+
+/// Read-level metrics derived from capture and mapping.
+#[allow(dead_code)]
+struct ReadLevelMetrics {
+    /// Captured reads originating from target sequences
+    target_captured: usize,
+    /// Captured reads originating from distractor sequences
+    distractor_captured: usize,
+    /// Captured reads with unknown source
+    unknown_captured: usize,
+    /// Mapped reads where source == mapped reference (correct assignment)
+    reads_correctly_mapped: usize,
+    /// Mapped reads where source != mapped reference (misassignment)
+    reads_incorrectly_mapped: usize,
+    /// Mapped reads with unknown source
+    reads_unknown_source: usize,
 }
 
 #[derive(Serialize)]
@@ -68,7 +87,22 @@ pub fn execute(args: &MetricsArgs) -> Result<()> {
     log::info!("  Reads captured: {}", reads_captured);
     log::info!("  Capture rate: {:.4}", capture_rate);
 
-    // Calculate metrics
+    // Read-level metrics: count captured reads by source type
+    log::info!("Analyzing captured reads by source...");
+    let captured_ids = fasta::parse_fasta_ids(args.captured)?;
+    let read_level = compute_read_level_metrics(
+        &captured_ids,
+        &targets,
+        &distractors,
+        args.sam,
+    )?;
+
+    log::info!("  Target reads captured: {}", read_level.target_captured);
+    log::info!("  Distractor reads captured: {}", read_level.distractor_captured);
+    log::info!("  Reads correctly mapped: {}", read_level.reads_correctly_mapped);
+    log::info!("  Reads incorrectly mapped: {}", read_level.reads_incorrectly_mapped);
+
+    // Calculate genome-level metrics
     let metrics = calculate_metrics(&targets, &distractors, &detected);
 
     log::info!("  True Positives: {}", metrics.tp_count);
@@ -94,6 +128,7 @@ pub fn execute(args: &MetricsArgs) -> Result<()> {
         reads_captured,
         capture_rate,
         &metrics,
+        &read_level,
     )?;
 
     // Write detail TSV
@@ -113,11 +148,65 @@ pub fn execute(args: &MetricsArgs) -> Result<()> {
             reads_captured,
             capture_rate,
             &metrics,
+            &read_level,
         )?;
     }
 
     log::info!("Metrics calculation complete.");
     Ok(())
+}
+
+fn compute_read_level_metrics(
+    captured_read_names: &[String],
+    targets: &HashSet<String>,
+    distractors: &HashSet<String>,
+    sam_path: &Path,
+) -> Result<ReadLevelMetrics> {
+    // Count captured reads by source type
+    let mut target_captured = 0usize;
+    let mut distractor_captured = 0usize;
+    let mut unknown_captured = 0usize;
+
+    for name in captured_read_names {
+        if let Some(source) = io_utils::extract_source_id(name) {
+            if targets.contains(source) {
+                target_captured += 1;
+            } else if distractors.contains(source) {
+                distractor_captured += 1;
+            } else {
+                unknown_captured += 1;
+            }
+        } else {
+            unknown_captured += 1;
+        }
+    }
+
+    // Read-level mapping accuracy: compare source to mapped reference
+    let mappings = sam::get_read_mappings(sam_path)?;
+    let mut reads_correctly_mapped = 0usize;
+    let mut reads_incorrectly_mapped = 0usize;
+    let mut reads_unknown_source = 0usize;
+
+    for (read_name, mapped_ref) in &mappings {
+        if let Some(source) = io_utils::extract_source_id(read_name) {
+            if source == mapped_ref {
+                reads_correctly_mapped += 1;
+            } else {
+                reads_incorrectly_mapped += 1;
+            }
+        } else {
+            reads_unknown_source += 1;
+        }
+    }
+
+    Ok(ReadLevelMetrics {
+        target_captured,
+        distractor_captured,
+        unknown_captured,
+        reads_correctly_mapped,
+        reads_incorrectly_mapped,
+        reads_unknown_source,
+    })
 }
 
 fn parse_detected(path: &Path) -> Result<HashMap<String, usize>> {
@@ -236,6 +325,7 @@ fn write_summary_tsv(
     reads_captured: usize,
     capture_rate: f64,
     metrics: &MetricsResult,
+    read_level: &ReadLevelMetrics,
 ) -> Result<()> {
     let file = File::create(path)?;
     let mut w = BufWriter::new(file);
@@ -243,6 +333,8 @@ fn write_summary_tsv(
     let headers = [
         "run_name", "timestamp", "num_reads", "seed",
         "reads_generated", "reads_captured", "capture_rate",
+        "target_captured", "distractor_captured",
+        "reads_correctly_mapped", "reads_incorrectly_mapped",
         "targets_total", "distractors_total",
         "tp_count", "fp_count", "fn_count", "tn_count",
         "sensitivity", "specificity", "precision", "f1_score",
@@ -253,9 +345,11 @@ fn write_summary_tsv(
     let distractors_total = metrics.tn_count + metrics.fp_count;
 
     let values = format!(
-        "{}\t{}\t{}\t{}\t{}\t{}\t{:.4}\t{}\t{}\t{}\t{}\t{}\t{}\t{:.4}\t{:.4}\t{:.4}\t{:.4}",
+        "{}\t{}\t{}\t{}\t{}\t{}\t{:.4}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{:.4}\t{:.4}\t{:.4}\t{:.4}",
         run_name, timestamp, num_reads, seed,
         reads_generated, reads_captured, capture_rate,
+        read_level.target_captured, read_level.distractor_captured,
+        read_level.reads_correctly_mapped, read_level.reads_incorrectly_mapped,
         targets_total, distractors_total,
         metrics.tp_count, metrics.fp_count, metrics.fn_count, metrics.tn_count,
         metrics.sensitivity, metrics.specificity, metrics.precision, metrics.f1_score,
@@ -352,6 +446,7 @@ fn write_detail_tsv(
 struct JsonOutput {
     run_info: RunInfo,
     capture_stats: CaptureStats,
+    read_level: ReadLevelStats,
     metrics: JsonMetrics,
     details: JsonDetails,
 }
@@ -369,6 +464,14 @@ struct CaptureStats {
     reads_generated: usize,
     reads_captured: usize,
     capture_rate: f64,
+    target_captured: usize,
+    distractor_captured: usize,
+}
+
+#[derive(Serialize)]
+struct ReadLevelStats {
+    reads_correctly_mapped: usize,
+    reads_incorrectly_mapped: usize,
 }
 
 #[derive(Serialize)]
@@ -403,6 +506,7 @@ fn write_json(
     reads_captured: usize,
     capture_rate: f64,
     metrics: &MetricsResult,
+    read_level: &ReadLevelMetrics,
 ) -> Result<()> {
     let output = JsonOutput {
         run_info: RunInfo {
@@ -415,6 +519,12 @@ fn write_json(
             reads_generated,
             reads_captured,
             capture_rate,
+            target_captured: read_level.target_captured,
+            distractor_captured: read_level.distractor_captured,
+        },
+        read_level: ReadLevelStats {
+            reads_correctly_mapped: read_level.reads_correctly_mapped,
+            reads_incorrectly_mapped: read_level.reads_incorrectly_mapped,
         },
         metrics: JsonMetrics {
             tp_count: metrics.tp_count,
