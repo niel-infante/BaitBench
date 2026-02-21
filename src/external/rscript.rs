@@ -14,7 +14,8 @@ pub fn check_available() -> bool {
 
 /// Find the R scripts directory. Search order:
 /// 1. $BAITBENCH_R_DIR environment variable
-/// 2. ../share/baitbench/R/ relative to binary
+/// 2. Walk up from the resolved binary location looking for R/report.R
+///    (resolves symlinks via canonicalize, works on both macOS and Linux)
 /// 3. ./R/ in current working directory
 pub fn find_r_dir() -> Option<std::path::PathBuf> {
     // Check environment variable
@@ -25,15 +26,24 @@ pub fn find_r_dir() -> Option<std::path::PathBuf> {
         }
     }
 
-    // Check relative to binary
+    // Resolve symlinks (current_exe doesn't resolve on macOS) then walk up
     if let Ok(exe) = std::env::current_exe() {
-        let share_dir = exe
-            .parent()
-            .and_then(|p| p.parent())
-            .map(|p| p.join("share/baitbench/R"));
-        if let Some(dir) = share_dir {
-            if dir.is_dir() {
-                return Some(dir);
+        let resolved = std::fs::canonicalize(&exe).unwrap_or(exe);
+        let mut dir = resolved.parent();
+        for _ in 0..4 {
+            match dir {
+                Some(d) => {
+                    let r_dir = d.join("R");
+                    if r_dir.join("report.R").is_file() {
+                        return Some(r_dir);
+                    }
+                    let share_dir = d.join("share/baitbench/R");
+                    if share_dir.join("report.R").is_file() {
+                        return Some(share_dir);
+                    }
+                    dir = d.parent();
+                }
+                None => break,
             }
         }
     }
