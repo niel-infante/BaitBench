@@ -58,7 +58,17 @@ baitbench run \
 
 ### Sample manifest format
 
-A TSV file listing target IDs that are present in the simulated sample. The weight column is optional (default: 1.0) and controls relative abundance:
+A TSV file listing target IDs that are present in the simulated sample. Each ID must match a FASTA header in the targets file. IDs are taken from the first whitespace-delimited word of each FASTA header (everything after `>` up to the first space), so **sequence names must not contain spaces**. Use underscores or other delimiters instead (e.g. `>Zika_virus`, not `>Zika virus`).
+
+The weight column is optional (default: 1.0) and controls relative read abundance:
+
+| id | weight |
+|----|--------|
+| `dengue_1` | `5.0` |
+| `zika_virus` | `1.0` |
+| `chikungunya` | `0.5` |
+
+Example `sample.tsv`:
 
 ```
 # id	weight
@@ -67,7 +77,7 @@ zika_virus	1.0
 chikungunya	0.5
 ```
 
-Without `--sample`, all targets are treated as present with equal weight (backward compatible).
+Without `--sample`, all targets are treated as present with equal weight. When `--sample` is provided, only the listed targets generate reads; remaining targets become "non-sample targets" and are treated as negatives alongside distractors (see [3-way classification](#3-way-classification)).
 
 ### Individual steps
 
@@ -95,6 +105,8 @@ Run `baitbench <command> --help` for full options.
 | `probes.fa` | FASTA of probe sequences to test |
 | `sample.tsv` (optional) | TSV listing which targets are present in the sample, with optional weights |
 | `host.fa` (optional) | Host genome for filtering captured reads |
+
+**Note:** Sequence IDs are derived from the first word of each FASTA header (text after `>` up to the first space). Sequence names must not contain spaces. These IDs are used throughout the pipeline and must match between input files (e.g. sample manifest IDs must match target FASTA header IDs).
 
 ## Parameters
 
