@@ -151,11 +151,12 @@ if (nrow(detail_df) > 0) {
   detail_df %>%
     arrange(factor(classification,
                    levels = c("TP", "FP_target", "FP_distractor", "UNKNOWN", "FN")),
-            desc(read_count)) %>%
+            desc(reads_assigned)) %>%
     knitr::kable(
       col.names = c("Reference ID", "Category", "Expected", "Detected",
-                     "Read Count", "Classification"),
-      align = "llllrl"
+                     "Reads Generated", "Reads Captured", "Reads Assigned",
+                     "Classification"),
+      align = "llllrrrl"
     )
 } else {
   cat("No detection details available.")
@@ -163,20 +164,20 @@ if (nrow(detail_df) > 0) {
 ```
 
 ```{r detection-lollipop, fig.height=max(3, nrow(detail_df) * 0.4)}
-detected_only <- detail_df %>% filter(read_count > 0)
+detected_only <- detail_df %>% filter(reads_assigned > 0)
 
 if (nrow(detected_only) > 0) {
   class_colors <- c("TP" = "#27ae60", "FP_target" = "#e67e22",
                      "FP_distractor" = "#e74c3c", "UNKNOWN" = "#95a5a6")
 
   ggplot(detected_only,
-         aes(x = reorder(reference_id, read_count),
-             y = read_count, color = classification)) +
-    geom_segment(aes(xend = reference_id, y = 0, yend = read_count), linewidth = 1) +
+         aes(x = reorder(reference_id, reads_assigned),
+             y = reads_assigned, color = classification)) +
+    geom_segment(aes(xend = reference_id, y = 0, yend = reads_assigned), linewidth = 1) +
     geom_point(size = 4) +
     scale_color_manual(values = class_colors) +
     coord_flip() +
-    labs(x = NULL, y = "Read Count", color = "Classification",
+    labs(x = NULL, y = "Reads Assigned", color = "Classification",
          title = "Reads per Detected Reference") +
     theme(legend.position = "bottom")
 }

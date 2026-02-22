@@ -96,6 +96,10 @@ pub fn execute(args: &MetricsArgs) -> Result<()> {
     log::info!("  Reads captured: {}", reads_captured);
     log::info!("  Capture rate: {:.4}", capture_rate);
 
+    // Per-reference read counts (for detail table)
+    let generated_per_ref = count_reads_per_source(args.reads)?;
+    let captured_per_ref = count_reads_per_source(args.captured)?;
+
     // Read-level metrics: count captured reads by source type
     log::info!("Analyzing captured reads by source...");
     let captured_ids = fasta::parse_fasta_ids(args.captured)?;
@@ -144,9 +148,15 @@ pub fn execute(args: &MetricsArgs) -> Result<()> {
         &read_level,
     )?;
 
+    // Build detail rows (shared between TSV and JSON)
+    let detail_rows = build_detail_rows(
+        &sample, &targets, &distractors, &detected, &metrics,
+        &generated_per_ref, &captured_per_ref,
+    );
+
     // Write detail TSV
     log::info!("Writing detail to {}...", args.output_detail.display());
-    write_detail_tsv(args.output_detail, &sample, &targets, &distractors, &detected, &metrics)?;
+    write_detail_tsv(args.output_detail, &detail_rows)?;
 
     // Write JSON
     if let Some(json_path) = args.output_json {
@@ -162,6 +172,7 @@ pub fn execute(args: &MetricsArgs) -> Result<()> {
             capture_rate,
             &metrics,
             &read_level,
+            detail_rows,
         )?;
     }
 
@@ -214,6 +225,19 @@ fn compute_read_level_metrics(
         reads_correctly_mapped,
         reads_incorrectly_mapped,
     })
+}
+
+/// Count reads per source genome in a FASTA file.
+/// Extracts the source ID from each read name and tallies occurrences.
+fn count_reads_per_source(path: &Path) -> Result<HashMap<String, usize>> {
+    let ids = fasta::parse_fasta_ids(path)?;
+    let mut counts: HashMap<String, usize> = HashMap::new();
+    for name in &ids {
+        if let Some(source) = io_utils::extract_source_id(name) {
+            *counts.entry(source.to_string()).or_insert(0) += 1;
+        }
+    }
+    Ok(counts)
 }
 
 fn parse_detected(path: &Path) -> Result<HashMap<String, usize>> {
@@ -399,79 +423,25 @@ struct DetailRow {
     category: String,
     expected: String,
     detected: String,
-    read_count: usize,
+    reads_generated: usize,
+    reads_captured: usize,
+    reads_assigned: usize,
     classification: String,
 }
 
-fn write_detail_tsv(
-    path: &Path,
-    sample: &HashSet<String>,
-    targets: &HashSet<String>,
-    distractors: &HashSet<String>,
-    detected: &HashMap<String, usize>,
-    metrics: &MetricsResult,
-) -> Result<()> {
+fn write_detail_tsv(path: &Path, rows: &[DetailRow]) -> Result<()> {
     let file = File::create(path)?;
     let mut w = BufWriter::new(file);
 
-    writeln!(w, "reference_id\tcategory\texpected\tdetected\tread_count\tclassification")?;
+    writeln!(w, "reference_id\tcategory\texpected\tdetected\treads_generated\treads_captured\treads_assigned\tclassification")?;
 
-    let mut rows: Vec<DetailRow> = Vec::new();
-
-    // Detected references
-    for (ref_id, &count) in detected {
-        let (category, expected, classification) = if sample.contains(ref_id) {
-            ("sample", "true", "TP")
-        } else if targets.contains(ref_id) {
-            ("target", "false", "FP_target")
-        } else if distractors.contains(ref_id) {
-            ("distractor", "false", "FP_distractor")
-        } else {
-            ("unknown", "false", "UNKNOWN")
-        };
-
-        rows.push(DetailRow {
-            reference_id: ref_id.clone(),
-            category: category.to_string(),
-            expected: expected.to_string(),
-            detected: "true".to_string(),
-            read_count: count,
-            classification: classification.to_string(),
-        });
-    }
-
-    // False negatives (sample targets not detected)
-    for ref_id in &metrics.false_negatives {
-        rows.push(DetailRow {
-            reference_id: ref_id.clone(),
-            category: "sample".to_string(),
-            expected: "true".to_string(),
-            detected: "false".to_string(),
-            read_count: 0,
-            classification: "FN".to_string(),
-        });
-    }
-
-    // Sort: TP=0, FP_target=1, FP_distractor=2, UNKNOWN=3, FN=4, then by read_count descending
-    rows.sort_by(|a, b| {
-        let order = |c: &str| match c {
-            "TP" => 0,
-            "FP_target" => 1,
-            "FP_distractor" => 2,
-            "UNKNOWN" => 3,
-            "FN" => 4,
-            _ => 99,
-        };
-        order(&a.classification)
-            .cmp(&order(&b.classification))
-            .then(b.read_count.cmp(&a.read_count))
-    });
-
-    for row in &rows {
+    for row in rows {
         writeln!(
             w,
-            "{}\t{}\t{}\t{}\t{}\t{}",
-            row.reference_id, row.category, row.expected, row.detected, row.read_count, row.classification
+            "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
+            row.reference_id, row.category, row.expected, row.detected,
+            row.reads_generated, row.reads_captured, row.reads_assigned,
+            row.classification
         )?;
     }
 
@@ -537,6 +507,71 @@ struct JsonDetails {
     tn_targets: Vec<String>,
     tn_distractors: Vec<String>,
     unknown_detected: Vec<String>,
+    detail_rows: Vec<DetailRow>,
+}
+
+fn build_detail_rows(
+    sample: &HashSet<String>,
+    targets: &HashSet<String>,
+    distractors: &HashSet<String>,
+    detected: &HashMap<String, usize>,
+    metrics: &MetricsResult,
+    generated_per_ref: &HashMap<String, usize>,
+    captured_per_ref: &HashMap<String, usize>,
+) -> Vec<DetailRow> {
+    let mut rows: Vec<DetailRow> = Vec::new();
+
+    for (ref_id, &count) in detected {
+        let (category, expected, classification) = if sample.contains(ref_id) {
+            ("sample", "true", "TP")
+        } else if targets.contains(ref_id) {
+            ("target", "false", "FP_target")
+        } else if distractors.contains(ref_id) {
+            ("distractor", "false", "FP_distractor")
+        } else {
+            ("unknown", "false", "UNKNOWN")
+        };
+
+        rows.push(DetailRow {
+            reference_id: ref_id.clone(),
+            category: category.to_string(),
+            expected: expected.to_string(),
+            detected: "true".to_string(),
+            reads_generated: generated_per_ref.get(ref_id).copied().unwrap_or(0),
+            reads_captured: captured_per_ref.get(ref_id).copied().unwrap_or(0),
+            reads_assigned: count,
+            classification: classification.to_string(),
+        });
+    }
+
+    for ref_id in &metrics.false_negatives {
+        rows.push(DetailRow {
+            reference_id: ref_id.clone(),
+            category: "sample".to_string(),
+            expected: "true".to_string(),
+            detected: "false".to_string(),
+            reads_generated: generated_per_ref.get(ref_id).copied().unwrap_or(0),
+            reads_captured: captured_per_ref.get(ref_id).copied().unwrap_or(0),
+            reads_assigned: 0,
+            classification: "FN".to_string(),
+        });
+    }
+
+    rows.sort_by(|a, b| {
+        let order = |c: &str| match c {
+            "TP" => 0,
+            "FP_target" => 1,
+            "FP_distractor" => 2,
+            "UNKNOWN" => 3,
+            "FN" => 4,
+            _ => 99,
+        };
+        order(&a.classification)
+            .cmp(&order(&b.classification))
+            .then(b.reads_assigned.cmp(&a.reads_assigned))
+    });
+
+    rows
 }
 
 fn write_json(
@@ -550,6 +585,7 @@ fn write_json(
     capture_rate: f64,
     metrics: &MetricsResult,
     read_level: &ReadLevelMetrics,
+    detail_rows: Vec<DetailRow>,
 ) -> Result<()> {
     let output = JsonOutput {
         run_info: RunInfo {
@@ -592,6 +628,7 @@ fn write_json(
             tn_targets: metrics.tn_targets.clone(),
             tn_distractors: metrics.tn_distractors.clone(),
             unknown_detected: metrics.unknown_detected.clone(),
+            detail_rows,
         },
     };
 
