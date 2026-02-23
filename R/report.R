@@ -10,14 +10,15 @@ suppressPackageStartupMessages({
 option_list <- list(
   make_option("--summary", type = "character", help = "Summary TSV file (results.tsv)"),
   make_option("--detail", type = "character", help = "Detail TSV file (detected_detail.tsv)"),
+  make_option("--params", type = "character", help = "Run parameters file (run_params.tsv)"),
   make_option("--run-name", type = "character", default = "BaitBench Run", help = "Run name"),
   make_option("--output", type = "character", help = "Output HTML file")
 )
 
 opt <- parse_args(OptionParser(option_list = option_list))
 
-if (is.null(opt$summary) || is.null(opt$detail) || is.null(opt$output)) {
-  stop("--summary, --detail, and --output are required")
+if (is.null(opt$summary) || is.null(opt$detail) || is.null(opt$params) || is.null(opt$output)) {
+  stop("--summary, --detail, --params, and --output are required")
 }
 
 # Find the Rmd template relative to this script
@@ -37,6 +38,7 @@ rmarkdown::render(
   params = list(
     summary_file = normalizePath(opt$summary),
     detail_file = normalizePath(opt$detail),
+    params_file = normalizePath(opt$params),
     run_name = opt$`run-name`
   ),
   quiet = TRUE

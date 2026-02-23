@@ -9,6 +9,7 @@ output:
 params:
   summary_file: ""
   detail_file: ""
+  params_file: ""
   run_name: "BaitBench Run"
 ---
 
@@ -26,11 +27,72 @@ theme_set(theme_minimal(base_size = 14))
 # Read data
 summary_df <- read.delim(params$summary_file, stringsAsFactors = FALSE)
 detail_df <- read.delim(params$detail_file, stringsAsFactors = FALSE)
+params_df <- read.delim(params$params_file, stringsAsFactors = FALSE)
 ```
 
 ## Run: `r params$run_name`
 
 **Generated:** `r Sys.time()`
+
+```{r run-params}
+# Helper to look up a parameter value
+get_param <- function(name) {
+  vals <- params_df$value[params_df$parameter == name]
+  if (length(vals) == 0) return(NA_character_)
+  paste(vals, collapse = ", ")
+}
+
+# Build parameters table
+param_table <- data.frame(
+  Parameter = c("Targets", "Distractors", "Probes", "Sample",
+                "Capture method", "Num reads", "Distractor fraction",
+                "Min match bases", "Max mismatches", "Seed"),
+  Value = c(
+    basename(get_param("targets")),
+    paste(basename(params_df$value[params_df$parameter == "distractors"]), collapse = ", "),
+    basename(get_param("probes")),
+    ifelse(get_param("sample") == "none", "all targets", basename(get_param("sample"))),
+    get_param("capture_method"),
+    get_param("num_reads"),
+    get_param("distractor_fraction"),
+    get_param("min_match_bases"),
+    get_param("max_mismatches"),
+    get_param("seed")
+  ),
+  stringsAsFactors = FALSE
+)
+
+knitr::kable(param_table, align = "ll")
+```
+
+<details><summary>Command</summary>
+
+```{r command, results='asis'}
+# Reconstruct the baitbench command
+cmd_parts <- c("baitbench run")
+cmd_parts <- c(cmd_parts, sprintf("  --targets %s", get_param("targets")))
+for (d in params_df$value[params_df$parameter == "distractors"]) {
+  cmd_parts <- c(cmd_parts, sprintf("  --distractors %s", d))
+}
+cmd_parts <- c(cmd_parts, sprintf("  --probes %s", get_param("probes")))
+if (get_param("sample") != "none") {
+  cmd_parts <- c(cmd_parts, sprintf("  --sample %s", get_param("sample")))
+}
+cmd_parts <- c(cmd_parts, sprintf("  --num-reads %s", get_param("num_reads")))
+cmd_parts <- c(cmd_parts, sprintf("  --distractor-fraction %s", get_param("distractor_fraction")))
+cmd_parts <- c(cmd_parts, sprintf("  --capture-method %s", get_param("capture_method")))
+cmd_parts <- c(cmd_parts, sprintf("  --min-match-bases %s", get_param("min_match_bases")))
+cmd_parts <- c(cmd_parts, sprintf("  --max-mismatches %s", get_param("max_mismatches")))
+seed_val <- get_param("seed")
+if (seed_val != "random") {
+  cmd_parts <- c(cmd_parts, sprintf("  --seed %s", seed_val))
+}
+cat("```bash\n")
+cat(paste(cmd_parts, collapse = " \\\n"), "\n")
+cat("```\n")
+```
+
+</details>
 
 ---
 

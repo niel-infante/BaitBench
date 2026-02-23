@@ -212,12 +212,14 @@ fn main() -> Result<()> {
         Commands::Report {
             summary,
             detail,
+            params,
             run_name,
             output,
         } => {
             report::execute(&report::ReportArgs {
                 summary: &summary,
                 detail: &detail,
+                params: &params,
                 run_name: &run_name,
                 output: &output,
             })?;

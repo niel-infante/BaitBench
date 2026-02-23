@@ -6,6 +6,7 @@ use crate::external::rscript;
 pub struct ReportArgs<'a> {
     pub summary: &'a Path,
     pub detail: &'a Path,
+    pub params: &'a Path,
     pub run_name: &'a str,
     pub output: &'a Path,
 }
@@ -34,6 +35,8 @@ pub fn execute(args: &ReportArgs) -> Result<()> {
         .with_context(|| format!("Cannot find summary file: {}", args.summary.display()))?;
     let detail_abs = std::fs::canonicalize(args.detail)
         .with_context(|| format!("Cannot find detail file: {}", args.detail.display()))?;
+    let params_abs = std::fs::canonicalize(args.params)
+        .with_context(|| format!("Cannot find params file: {}", args.params.display()))?;
     let output_abs = if args.output.is_absolute() {
         args.output.to_path_buf()
     } else {
@@ -41,6 +44,7 @@ pub fn execute(args: &ReportArgs) -> Result<()> {
     };
     let summary_str = summary_abs.to_str().unwrap_or("");
     let detail_str = detail_abs.to_str().unwrap_or("");
+    let params_str = params_abs.to_str().unwrap_or("");
     let output_str = output_abs.to_str().unwrap_or("");
 
     rscript::run_rscript(
@@ -48,6 +52,7 @@ pub fn execute(args: &ReportArgs) -> Result<()> {
         &[
             "--summary", summary_str,
             "--detail", detail_str,
+            "--params", params_str,
             "--run-name", args.run_name,
             "--output", output_str,
         ],

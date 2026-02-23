@@ -139,6 +139,7 @@ results/<run_name>/
 ├── captured.fa             # Reads passing capture filter
 ├── mapped.sam              # Alignments to references
 ├── detected.list           # Reference IDs and read counts
+├── run_params.tsv          # Run parameters (key-value)
 ├── results.tsv             # Summary metrics
 ├── detected_detail.tsv     # Per-reference breakdown
 ├── results.json            # Machine-readable metrics

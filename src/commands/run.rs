@@ -69,6 +69,29 @@ pub fn execute(args: &RunArgs) -> Result<()> {
     log::info!("Output dir          : {}", outdir.display());
     log::info!("=============================================");
 
+    // Write run parameters file
+    {
+        use std::io::Write;
+        let params_path = outdir.join("run_params.tsv");
+        let mut f = std::io::BufWriter::new(fs::File::create(&params_path)?);
+        writeln!(f, "parameter\tvalue")?;
+        writeln!(f, "run_name\t{}", args.run_name)?;
+        writeln!(f, "targets\t{}", args.targets.display())?;
+        for d in args.distractors {
+            writeln!(f, "distractors\t{}", d.display())?;
+        }
+        writeln!(f, "probes\t{}", args.probes.display())?;
+        writeln!(f, "sample\t{}", args.sample.map(|p| p.display().to_string()).unwrap_or_else(|| "none".to_string()))?;
+        writeln!(f, "capture_method\t{}", if args.capture_method == capture::CaptureMethod::Blast { "blast" } else { "minimap2" })?;
+        writeln!(f, "host_fasta\t{}", args.host_fasta.map(|p| p.display().to_string()).unwrap_or_else(|| "none".to_string()))?;
+        writeln!(f, "num_reads\t{}", args.num_reads)?;
+        writeln!(f, "distractor_fraction\t{}", args.distractor_fraction)?;
+        writeln!(f, "max_mismatches\t{}", args.max_mismatches)?;
+        writeln!(f, "min_match_bases\t{}", args.min_match_bases)?;
+        writeln!(f, "seed\t{}", args.seed.map(|s| s.to_string()).unwrap_or_else(|| "random".to_string()))?;
+        f.flush()?;
+    }
+
     // Step 1: Prepare reference
     log::info!("Step 1/7: Preparing reference...");
     prepare::execute(&prepare::PrepareArgs {
@@ -169,6 +192,7 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         match report::execute(&report::ReportArgs {
             summary: &outdir.join("results.tsv"),
             detail: &outdir.join("detected_detail.tsv"),
+            params: &outdir.join("run_params.tsv"),
             run_name: &args.run_name,
             output: &outdir.join("report.html"),
         }) {

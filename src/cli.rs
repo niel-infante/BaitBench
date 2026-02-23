@@ -322,6 +322,10 @@ pub enum Commands {
         #[arg(long)]
         detail: PathBuf,
 
+        /// Run parameters file (run_params.tsv)
+        #[arg(long)]
+        params: PathBuf,
+
         /// Run name
         #[arg(long, default_value = "BaitBench Run")]
         run_name: String,
