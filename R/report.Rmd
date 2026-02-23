@@ -42,10 +42,11 @@ get_param <- function(name) {
   paste(vals, collapse = ", ")
 }
 
-# Build parameters table
+# Build parameters table (curated subset of key parameters)
 param_table <- data.frame(
   Parameter = c("Targets", "Distractors", "Probes", "Sample",
-                "Capture method", "Num reads", "Distractor fraction",
+                "Capture method", "Host filtering",
+                "Num reads", "Distractor fraction",
                 "Min match bases", "Max mismatches", "Seed"),
   Value = c(
     basename(get_param("targets")),
@@ -53,11 +54,12 @@ param_table <- data.frame(
     basename(get_param("probes")),
     ifelse(get_param("sample") == "none", "all targets", basename(get_param("sample"))),
     get_param("capture_method"),
+    ifelse(get_param("host_fasta") == "none", "none", basename(get_param("host_fasta"))),
     get_param("num_reads"),
     get_param("distractor_fraction"),
     get_param("min_match_bases"),
     get_param("max_mismatches"),
-    get_param("seed")
+    ifelse(get_param("seed") == "none", "random", get_param("seed"))
   ),
   stringsAsFactors = FALSE
 )
@@ -68,24 +70,16 @@ knitr::kable(param_table, align = "ll")
 <details><summary>Command</summary>
 
 ```{r command, results='asis'}
-# Reconstruct the baitbench command
+# Reconstruct the baitbench command from run_params.tsv.
+# This is fully data-driven: new parameters added to run_params.tsv
+# appear here automatically without any template changes.
 cmd_parts <- c("baitbench run")
-cmd_parts <- c(cmd_parts, sprintf("  --targets %s", get_param("targets")))
-for (d in params_df$value[params_df$parameter == "distractors"]) {
-  cmd_parts <- c(cmd_parts, sprintf("  --distractors %s", d))
-}
-cmd_parts <- c(cmd_parts, sprintf("  --probes %s", get_param("probes")))
-if (get_param("sample") != "none") {
-  cmd_parts <- c(cmd_parts, sprintf("  --sample %s", get_param("sample")))
-}
-cmd_parts <- c(cmd_parts, sprintf("  --num-reads %s", get_param("num_reads")))
-cmd_parts <- c(cmd_parts, sprintf("  --distractor-fraction %s", get_param("distractor_fraction")))
-cmd_parts <- c(cmd_parts, sprintf("  --capture-method %s", get_param("capture_method")))
-cmd_parts <- c(cmd_parts, sprintf("  --min-match-bases %s", get_param("min_match_bases")))
-cmd_parts <- c(cmd_parts, sprintf("  --max-mismatches %s", get_param("max_mismatches")))
-seed_val <- get_param("seed")
-if (seed_val != "random") {
-  cmd_parts <- c(cmd_parts, sprintf("  --seed %s", seed_val))
+for (i in seq_len(nrow(params_df))) {
+  flag <- params_df$flag[i]
+  value <- params_df$value[i]
+  # Skip parameters that were not set (optional params use "none")
+  if (value == "none") next
+  cmd_parts <- c(cmd_parts, sprintf("  %s %s", flag, value))
 }
 cat("```bash\n")
 cat(paste(cmd_parts, collapse = " \\\n"), "\n")

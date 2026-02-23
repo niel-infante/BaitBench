@@ -69,26 +69,36 @@ pub fn execute(args: &RunArgs) -> Result<()> {
     log::info!("Output dir          : {}", outdir.display());
     log::info!("=============================================");
 
-    // Write run parameters file
+    // Write run parameters file (parameter, CLI flag, value)
+    // The flag column enables the report to reconstruct the command generically.
+    // When new parameters are added, add them here and the report picks them up
+    // automatically — no need to update the R template.
     {
         use std::io::Write;
         let params_path = outdir.join("run_params.tsv");
         let mut f = std::io::BufWriter::new(fs::File::create(&params_path)?);
-        writeln!(f, "parameter\tvalue")?;
-        writeln!(f, "run_name\t{}", args.run_name)?;
-        writeln!(f, "targets\t{}", args.targets.display())?;
+        writeln!(f, "parameter\tflag\tvalue")?;
+        writeln!(f, "targets\t--targets\t{}", args.targets.display())?;
         for d in args.distractors {
-            writeln!(f, "distractors\t{}", d.display())?;
+            writeln!(f, "distractors\t--distractors\t{}", d.display())?;
         }
-        writeln!(f, "probes\t{}", args.probes.display())?;
-        writeln!(f, "sample\t{}", args.sample.map(|p| p.display().to_string()).unwrap_or_else(|| "none".to_string()))?;
-        writeln!(f, "capture_method\t{}", if args.capture_method == capture::CaptureMethod::Blast { "blast" } else { "minimap2" })?;
-        writeln!(f, "host_fasta\t{}", args.host_fasta.map(|p| p.display().to_string()).unwrap_or_else(|| "none".to_string()))?;
-        writeln!(f, "num_reads\t{}", args.num_reads)?;
-        writeln!(f, "distractor_fraction\t{}", args.distractor_fraction)?;
-        writeln!(f, "max_mismatches\t{}", args.max_mismatches)?;
-        writeln!(f, "min_match_bases\t{}", args.min_match_bases)?;
-        writeln!(f, "seed\t{}", args.seed.map(|s| s.to_string()).unwrap_or_else(|| "random".to_string()))?;
+        writeln!(f, "probes\t--probes\t{}", args.probes.display())?;
+        writeln!(f, "sample\t--sample\t{}", args.sample.map(|p| p.display().to_string()).unwrap_or_else(|| "none".to_string()))?;
+        writeln!(f, "host_fasta\t--host-fasta\t{}", args.host_fasta.map(|p| p.display().to_string()).unwrap_or_else(|| "none".to_string()))?;
+        writeln!(f, "num_reads\t--num-reads\t{}", args.num_reads)?;
+        writeln!(f, "distractor_fraction\t--distractor-fraction\t{}", args.distractor_fraction)?;
+        writeln!(f, "capture_method\t--capture-method\t{}", if args.capture_method == capture::CaptureMethod::Blast { "blast" } else { "minimap2" })?;
+        writeln!(f, "max_mismatches\t--max-mismatches\t{}", args.max_mismatches)?;
+        writeln!(f, "min_match_bases\t--min-match-bases\t{}", args.min_match_bases)?;
+        writeln!(f, "blast_db\t--blast-db\t{}", args.blast_db.as_deref().unwrap_or("none"))?;
+        writeln!(f, "minimap_preset\t--minimap-preset\t{}", args.minimap_preset)?;
+        writeln!(f, "host_minimap_preset\t--host-minimap-preset\t{}", args.host_minimap_preset)?;
+        writeln!(f, "read_length_mean\t--read-length-mean\t{}", args.read_length_mean)?;
+        writeln!(f, "read_length_min\t--read-length-min\t{}", args.read_length_min)?;
+        writeln!(f, "read_length_max\t--read-length-max\t{}", args.read_length_max)?;
+        writeln!(f, "threads\t--threads\t{}", args.threads)?;
+        writeln!(f, "seed\t--seed\t{}", args.seed.map(|s| s.to_string()).unwrap_or_else(|| "none".to_string()))?;
+        writeln!(f, "outdir\t--outdir\t{}", outdir.display())?;
         f.flush()?;
     }
 
