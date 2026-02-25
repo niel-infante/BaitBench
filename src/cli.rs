@@ -42,9 +42,9 @@ pub enum Commands {
         #[arg(long)]
         run_name: Option<String>,
 
-        /// Number of reads to simulate
+        /// Number of fragments to simulate
         #[arg(short, long, default_value = "10000")]
-        num_reads: usize,
+        num_fragments: usize,
 
         /// Fraction of reads from distractors (0-1)
         #[arg(long, default_value = "0.9")]
@@ -78,17 +78,21 @@ pub enum Commands {
         #[arg(long, default_value = "sr")]
         host_minimap_preset: String,
 
-        /// Mean read length
+        /// Mean fragment length
         #[arg(long, default_value = "175")]
-        read_length_mean: f64,
+        fragment_length_mean: f64,
 
-        /// Minimum read length
+        /// Minimum fragment length
         #[arg(long, default_value = "150")]
-        read_length_min: usize,
+        fragment_length_min: usize,
 
-        /// Maximum read length
+        /// Maximum fragment length
         #[arg(long, default_value = "200")]
-        read_length_max: usize,
+        fragment_length_max: usize,
+
+        /// Sequencing read length (trim captured fragments to this length)
+        #[arg(long, default_value = "120")]
+        read_length: usize,
 
         /// Output directory
         #[arg(short, long, default_value = "./results")]
@@ -138,7 +142,7 @@ pub enum Commands {
 
         /// Number of fragments to generate
         #[arg(short, long)]
-        num_reads: usize,
+        num_fragments: usize,
 
         /// Random seed
         #[arg(short, long)]
@@ -148,17 +152,17 @@ pub enum Commands {
         #[arg(short, long)]
         output: PathBuf,
 
-        /// Mean read length
+        /// Mean fragment length
         #[arg(long, default_value = "175")]
-        read_length_mean: f64,
+        fragment_length_mean: f64,
 
-        /// Minimum read length
+        /// Minimum fragment length
         #[arg(long, default_value = "150")]
-        read_length_min: usize,
+        fragment_length_min: usize,
 
-        /// Maximum read length
+        /// Maximum fragment length
         #[arg(long, default_value = "200")]
-        read_length_max: usize,
+        fragment_length_max: usize,
     },
 
     /// Simulate probe capture using minimap2 or BLAST
@@ -167,9 +171,9 @@ pub enum Commands {
         #[arg(short, long)]
         probes: PathBuf,
 
-        /// Reads FASTA to capture
+        /// Fragments FASTA to capture
         #[arg(short, long)]
-        reads: PathBuf,
+        fragments: PathBuf,
 
         /// Capture method
         #[arg(long, default_value = "minimap2")]
@@ -187,7 +191,7 @@ pub enum Commands {
         #[arg(long)]
         blast_db: Option<String>,
 
-        /// Output captured reads FASTA
+        /// Output captured fragments FASTA
         #[arg(short, long)]
         output: PathBuf,
 
@@ -200,13 +204,28 @@ pub enum Commands {
         threads: usize,
     },
 
+    /// Simulate sequencing of captured fragments (trim to read length)
+    Sequence {
+        /// Input captured fragments FASTA
+        #[arg(short, long)]
+        input: PathBuf,
+
+        /// Output reads FASTA
+        #[arg(short, long)]
+        output: PathBuf,
+
+        /// Read length to trim to
+        #[arg(long, default_value = "120")]
+        read_length: usize,
+    },
+
     /// Filter out host reads using minimap2
     Filter {
         /// Host genome FASTA
         #[arg(long)]
         host: PathBuf,
 
-        /// Captured reads FASTA
+        /// Reads FASTA
         #[arg(short, long)]
         reads: PathBuf,
 
@@ -223,7 +242,7 @@ pub enum Commands {
         log_file: PathBuf,
     },
 
-    /// Map captured reads back to reference
+    /// Map reads back to reference
     Map {
         /// Reference FASTA
         #[arg(short, long)]
@@ -275,11 +294,11 @@ pub enum Commands {
         #[arg(long)]
         detected: PathBuf,
 
-        /// Generated reads FASTA
+        /// Generated fragments FASTA
         #[arg(long)]
-        reads: PathBuf,
+        fragments: PathBuf,
 
-        /// Captured reads FASTA
+        /// Captured fragments FASTA
         #[arg(long)]
         captured: PathBuf,
 
@@ -291,9 +310,9 @@ pub enum Commands {
         #[arg(long)]
         run_name: String,
 
-        /// Number of reads requested
+        /// Number of fragments requested
         #[arg(long)]
-        num_reads: usize,
+        num_fragments: usize,
 
         /// Random seed used
         #[arg(long, default_value = "NA")]

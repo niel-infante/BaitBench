@@ -46,7 +46,8 @@ get_param <- function(name) {
 param_table <- data.frame(
   Parameter = c("Targets", "Distractors", "Probes", "Sample",
                 "Capture method", "Host filtering",
-                "Num reads", "Distractor fraction",
+                "Num fragments", "Fragment length (mean/min/max)",
+                "Read length", "Distractor fraction",
                 "Min match bases", "Max mismatches", "Seed"),
   Value = c(
     basename(get_param("targets")),
@@ -55,7 +56,10 @@ param_table <- data.frame(
     ifelse(get_param("sample") == "none", "all targets", basename(get_param("sample"))),
     get_param("capture_method"),
     ifelse(get_param("host_fasta") == "none", "none", basename(get_param("host_fasta"))),
-    get_param("num_reads"),
+    get_param("num_fragments"),
+    sprintf("%s / %s / %s", get_param("fragment_length_mean"),
+            get_param("fragment_length_min"), get_param("fragment_length_max")),
+    get_param("read_length"),
     get_param("distractor_fraction"),
     get_param("min_match_bases"),
     get_param("max_mismatches"),
@@ -95,42 +99,42 @@ cat("```\n")
 ```{r capture-summary, fig.height=3}
 capture_data <- data.frame(
   stage = factor(c("Generated", "Captured"), levels = c("Generated", "Captured")),
-  reads = c(summary_df$reads_generated, summary_df$reads_captured)
+  fragments = c(summary_df$fragments_generated, summary_df$fragments_captured)
 )
 
-ggplot(capture_data, aes(x = stage, y = reads, fill = stage)) +
+ggplot(capture_data, aes(x = stage, y = fragments, fill = stage)) +
   geom_col(width = 0.6) +
-  geom_text(aes(label = format(reads, big.mark = ",")), vjust = -0.5, size = 5) +
+  geom_text(aes(label = format(fragments, big.mark = ",")), vjust = -0.5, size = 5) +
   scale_fill_manual(values = c("Generated" = "#3498db", "Captured" = "#2ecc71")) +
-  labs(x = NULL, y = "Number of Reads",
+  labs(x = NULL, y = "Number of Fragments",
        subtitle = sprintf("Capture rate: %.1f%%", summary_df$capture_rate * 100)) +
   theme(legend.position = "none") +
-  expand_limits(y = max(capture_data$reads) * 1.15)
+  expand_limits(y = max(capture_data$fragments) * 1.15)
 ```
 
-### Captured Reads by Source
+### Captured Fragments by Source
 
 ```{r capture-source, fig.height=3}
 source_data <- data.frame(
   source = factor(c("Sample", "Non-sample Target", "Distractor"),
                   levels = c("Sample", "Non-sample Target", "Distractor")),
-  reads = c(summary_df$sample_captured,
+  fragments = c(summary_df$sample_captured,
             summary_df$nonsample_target_captured,
             summary_df$distractor_captured)
 )
 
-source_data <- source_data %>% filter(reads > 0 | source == "Sample")
+source_data <- source_data %>% filter(fragments > 0 | source == "Sample")
 
-ggplot(source_data, aes(x = source, y = reads, fill = source)) +
+ggplot(source_data, aes(x = source, y = fragments, fill = source)) +
   geom_col(width = 0.6) +
-  geom_text(aes(label = format(reads, big.mark = ",")), vjust = -0.5, size = 5) +
+  geom_text(aes(label = format(fragments, big.mark = ",")), vjust = -0.5, size = 5) +
   scale_fill_manual(values = c("Sample" = "#27ae60",
                                 "Non-sample Target" = "#e67e22",
                                 "Distractor" = "#e74c3c")) +
-  labs(x = NULL, y = "Captured Reads",
-       subtitle = sprintf("Total captured: %s", format(summary_df$reads_captured, big.mark = ","))) +
+  labs(x = NULL, y = "Captured Fragments",
+       subtitle = sprintf("Total captured: %s", format(summary_df$fragments_captured, big.mark = ","))) +
   theme(legend.position = "none") +
-  expand_limits(y = max(source_data$reads) * 1.15)
+  expand_limits(y = max(source_data$fragments) * 1.15)
 ```
 
 ## Detection Performance
@@ -210,7 +214,7 @@ if (nrow(detail_df) > 0) {
             desc(reads_assigned)) %>%
     knitr::kable(
       col.names = c("Reference ID", "Category", "Expected", "Detected",
-                     "Reads Generated", "Reads Captured", "Reads Assigned",
+                     "Fragments Generated", "Fragments Captured", "Reads Assigned",
                      "Classification"),
       align = "llllrrrl"
     )

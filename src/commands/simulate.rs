@@ -7,12 +7,12 @@ use crate::sampling::{self, weights};
 pub struct SimulateArgs<'a> {
     pub reference: &'a Path,
     pub weights: &'a Path,
-    pub num_reads: usize,
+    pub num_fragments: usize,
     pub seed: Option<u64>,
     pub output: &'a Path,
-    pub read_length_mean: f64,
-    pub read_length_min: usize,
-    pub read_length_max: usize,
+    pub fragment_length_mean: f64,
+    pub fragment_length_min: usize,
+    pub fragment_length_max: usize,
 }
 
 pub fn execute(args: &SimulateArgs) -> Result<()> {
@@ -29,12 +29,12 @@ pub fn execute(args: &SimulateArgs) -> Result<()> {
     sampling::generate_fragments(
         &sequences,
         &wts,
-        args.num_reads,
+        args.num_fragments,
         args.output,
         args.seed,
-        args.read_length_mean,
-        args.read_length_min,
-        args.read_length_max,
+        args.fragment_length_mean,
+        args.fragment_length_min,
+        args.fragment_length_max,
     )?;
 
     Ok(())

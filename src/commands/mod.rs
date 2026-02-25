@@ -1,6 +1,7 @@
 pub mod prepare;
 pub mod simulate;
 pub mod capture;
+pub mod sequence;
 pub mod filter;
 pub mod map_reads;
 pub mod generate_list;

@@ -14,11 +14,11 @@ pub struct MetricsArgs<'a> {
     pub distractors: &'a Path,
     pub sample: &'a Path,
     pub detected: &'a Path,
-    pub reads: &'a Path,
+    pub fragments: &'a Path,
     pub captured: &'a Path,
     pub sam: &'a Path,
     pub run_name: &'a str,
-    pub num_reads: usize,
+    pub num_fragments: usize,
     pub seed: &'a str,
     pub output_summary: &'a Path,
     pub output_detail: &'a Path,
@@ -27,11 +27,11 @@ pub struct MetricsArgs<'a> {
 
 /// Read-level metrics derived from capture and mapping.
 struct ReadLevelMetrics {
-    /// Captured reads originating from sample target sequences
+    /// Captured fragments originating from sample target sequences
     sample_captured: usize,
-    /// Captured reads originating from non-sample target sequences
+    /// Captured fragments originating from non-sample target sequences
     nonsample_target_captured: usize,
-    /// Captured reads originating from distractor sequences
+    /// Captured fragments originating from distractor sequences
     distractor_captured: usize,
     /// Mapped reads where source == mapped reference (correct assignment)
     reads_correctly_mapped: usize,
@@ -85,23 +85,23 @@ pub fn execute(args: &MetricsArgs) -> Result<()> {
 
     // Count sequences in FASTA files
     log::info!("Counting sequences...");
-    let reads_generated = fasta::count_sequences(args.reads)?;
-    let reads_captured = fasta::count_sequences(args.captured)?;
-    let capture_rate = if reads_generated > 0 {
-        reads_captured as f64 / reads_generated as f64
+    let fragments_generated = fasta::count_sequences(args.fragments)?;
+    let fragments_captured = fasta::count_sequences(args.captured)?;
+    let capture_rate = if fragments_generated > 0 {
+        fragments_captured as f64 / fragments_generated as f64
     } else {
         0.0
     };
-    log::info!("  Reads generated: {}", reads_generated);
-    log::info!("  Reads captured: {}", reads_captured);
+    log::info!("  Fragments generated: {}", fragments_generated);
+    log::info!("  Fragments captured: {}", fragments_captured);
     log::info!("  Capture rate: {:.4}", capture_rate);
 
-    // Per-reference read counts (for detail table)
-    let generated_per_ref = count_reads_per_source(args.reads)?;
-    let captured_per_ref = count_reads_per_source(args.captured)?;
+    // Per-reference fragment counts (for detail table)
+    let generated_per_ref = count_per_source(args.fragments)?;
+    let captured_per_ref = count_per_source(args.captured)?;
 
-    // Read-level metrics: count captured reads by source type
-    log::info!("Analyzing captured reads by source...");
+    // Read-level metrics: count captured fragments by source type
+    log::info!("Analyzing captured fragments by source...");
     let captured_ids = fasta::parse_fasta_ids(args.captured)?;
     let read_level = compute_read_level_metrics(
         &captured_ids,
@@ -111,9 +111,9 @@ pub fn execute(args: &MetricsArgs) -> Result<()> {
         args.sam,
     )?;
 
-    log::info!("  Sample reads captured: {}", read_level.sample_captured);
-    log::info!("  Non-sample target reads captured: {}", read_level.nonsample_target_captured);
-    log::info!("  Distractor reads captured: {}", read_level.distractor_captured);
+    log::info!("  Sample fragments captured: {}", read_level.sample_captured);
+    log::info!("  Non-sample target fragments captured: {}", read_level.nonsample_target_captured);
+    log::info!("  Distractor fragments captured: {}", read_level.distractor_captured);
     log::info!("  Reads correctly mapped: {}", read_level.reads_correctly_mapped);
     log::info!("  Reads incorrectly mapped: {}", read_level.reads_incorrectly_mapped);
 
@@ -139,10 +139,10 @@ pub fn execute(args: &MetricsArgs) -> Result<()> {
         args.output_summary,
         args.run_name,
         &timestamp,
-        args.num_reads,
+        args.num_fragments,
         args.seed,
-        reads_generated,
-        reads_captured,
+        fragments_generated,
+        fragments_captured,
         capture_rate,
         &metrics,
         &read_level,
@@ -165,10 +165,10 @@ pub fn execute(args: &MetricsArgs) -> Result<()> {
             json_path,
             args.run_name,
             &timestamp,
-            args.num_reads,
+            args.num_fragments,
             args.seed,
-            reads_generated,
-            reads_captured,
+            fragments_generated,
+            fragments_captured,
             capture_rate,
             &metrics,
             &read_level,
@@ -227,9 +227,9 @@ fn compute_read_level_metrics(
     })
 }
 
-/// Count reads per source genome in a FASTA file.
-/// Extracts the source ID from each read name and tallies occurrences.
-fn count_reads_per_source(path: &Path) -> Result<HashMap<String, usize>> {
+/// Count sequences per source genome in a FASTA file.
+/// Extracts the source ID from each sequence name and tallies occurrences.
+fn count_per_source(path: &Path) -> Result<HashMap<String, usize>> {
     let ids = fasta::parse_fasta_ids(path)?;
     let mut counts: HashMap<String, usize> = HashMap::new();
     for name in &ids {
@@ -371,10 +371,10 @@ fn write_summary_tsv(
     path: &Path,
     run_name: &str,
     timestamp: &str,
-    num_reads: usize,
+    num_fragments: usize,
     seed: &str,
-    reads_generated: usize,
-    reads_captured: usize,
+    fragments_generated: usize,
+    fragments_captured: usize,
     capture_rate: f64,
     metrics: &MetricsResult,
     read_level: &ReadLevelMetrics,
@@ -383,8 +383,8 @@ fn write_summary_tsv(
     let mut w = BufWriter::new(file);
 
     let headers = [
-        "run_name", "timestamp", "num_reads", "seed",
-        "reads_generated", "reads_captured", "capture_rate",
+        "run_name", "timestamp", "num_fragments", "seed",
+        "fragments_generated", "fragments_captured", "capture_rate",
         "sample_captured", "nonsample_target_captured", "distractor_captured",
         "reads_correctly_mapped", "reads_incorrectly_mapped",
         "sample_total", "nonsample_target_total", "distractors_total",
@@ -401,8 +401,8 @@ fn write_summary_tsv(
 
     let values = format!(
         "{}\t{}\t{}\t{}\t{}\t{}\t{:.4}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{:.4}\t{:.4}\t{:.4}\t{:.4}",
-        run_name, timestamp, num_reads, seed,
-        reads_generated, reads_captured, capture_rate,
+        run_name, timestamp, num_fragments, seed,
+        fragments_generated, fragments_captured, capture_rate,
         read_level.sample_captured, read_level.nonsample_target_captured, read_level.distractor_captured,
         read_level.reads_correctly_mapped, read_level.reads_incorrectly_mapped,
         sample_total, nonsample_target_total, distractors_total,
@@ -423,8 +423,8 @@ struct DetailRow {
     category: String,
     expected: String,
     detected: String,
-    reads_generated: usize,
-    reads_captured: usize,
+    fragments_generated: usize,
+    fragments_captured: usize,
     reads_assigned: usize,
     classification: String,
 }
@@ -433,14 +433,14 @@ fn write_detail_tsv(path: &Path, rows: &[DetailRow]) -> Result<()> {
     let file = File::create(path)?;
     let mut w = BufWriter::new(file);
 
-    writeln!(w, "reference_id\tcategory\texpected\tdetected\treads_generated\treads_captured\treads_assigned\tclassification")?;
+    writeln!(w, "reference_id\tcategory\texpected\tdetected\tfragments_generated\tfragments_captured\treads_assigned\tclassification")?;
 
     for row in rows {
         writeln!(
             w,
             "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
             row.reference_id, row.category, row.expected, row.detected,
-            row.reads_generated, row.reads_captured, row.reads_assigned,
+            row.fragments_generated, row.fragments_captured, row.reads_assigned,
             row.classification
         )?;
     }
@@ -462,14 +462,14 @@ struct JsonOutput {
 struct RunInfo {
     run_name: String,
     timestamp: String,
-    num_reads: usize,
+    num_fragments: usize,
     seed: String,
 }
 
 #[derive(Serialize)]
 struct CaptureStats {
-    reads_generated: usize,
-    reads_captured: usize,
+    fragments_generated: usize,
+    fragments_captured: usize,
     capture_rate: f64,
     sample_captured: usize,
     nonsample_target_captured: usize,
@@ -537,8 +537,8 @@ fn build_detail_rows(
             category: category.to_string(),
             expected: expected.to_string(),
             detected: "true".to_string(),
-            reads_generated: generated_per_ref.get(ref_id).copied().unwrap_or(0),
-            reads_captured: captured_per_ref.get(ref_id).copied().unwrap_or(0),
+            fragments_generated: generated_per_ref.get(ref_id).copied().unwrap_or(0),
+            fragments_captured: captured_per_ref.get(ref_id).copied().unwrap_or(0),
             reads_assigned: count,
             classification: classification.to_string(),
         });
@@ -550,8 +550,8 @@ fn build_detail_rows(
             category: "sample".to_string(),
             expected: "true".to_string(),
             detected: "false".to_string(),
-            reads_generated: generated_per_ref.get(ref_id).copied().unwrap_or(0),
-            reads_captured: captured_per_ref.get(ref_id).copied().unwrap_or(0),
+            fragments_generated: generated_per_ref.get(ref_id).copied().unwrap_or(0),
+            fragments_captured: captured_per_ref.get(ref_id).copied().unwrap_or(0),
             reads_assigned: 0,
             classification: "FN".to_string(),
         });
@@ -578,10 +578,10 @@ fn write_json(
     path: &Path,
     run_name: &str,
     timestamp: &str,
-    num_reads: usize,
+    num_fragments: usize,
     seed: &str,
-    reads_generated: usize,
-    reads_captured: usize,
+    fragments_generated: usize,
+    fragments_captured: usize,
     capture_rate: f64,
     metrics: &MetricsResult,
     read_level: &ReadLevelMetrics,
@@ -591,12 +591,12 @@ fn write_json(
         run_info: RunInfo {
             run_name: run_name.to_string(),
             timestamp: timestamp.to_string(),
-            num_reads,
+            num_fragments,
             seed: seed.to_string(),
         },
         capture_stats: CaptureStats {
-            reads_generated,
-            reads_captured,
+            fragments_generated,
+            fragments_captured,
             capture_rate,
             sample_captured: read_level.sample_captured,
             nonsample_target_captured: read_level.nonsample_target_captured,

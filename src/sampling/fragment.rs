@@ -17,9 +17,9 @@ pub fn generate_fragments(
     num_fragments: usize,
     output: &Path,
     seed: Option<u64>,
-    read_length_mean: f64,
-    read_length_min: usize,
-    read_length_max: usize,
+    fragment_length_mean: f64,
+    fragment_length_min: usize,
+    fragment_length_max: usize,
 ) -> Result<usize> {
     // Filter to sequences with positive weights
     let weighted_seqs: Vec<(&String, &String)> = sequences
@@ -45,15 +45,15 @@ pub fn generate_fragments(
         weighted_seqs.len()
     );
     log::info!(
-        "Read length: {}-{} (mean {})",
-        read_length_min,
-        read_length_max,
-        read_length_mean
+        "Fragment length: {}-{} (mean {})",
+        fragment_length_min,
+        fragment_length_max,
+        fragment_length_mean
     );
 
     let dist = WeightedIndex::new(&seq_weights)?;
-    let sd = (read_length_max as f64 - read_length_min as f64) / 6.0;
-    let normal = Normal::new(read_length_mean, sd)?;
+    let sd = (fragment_length_max as f64 - fragment_length_min as f64) / 6.0;
+    let normal = Normal::new(fragment_length_mean, sd)?;
 
     let mut rng: StdRng = match seed {
         Some(s) => StdRng::seed_from_u64(s),
@@ -77,8 +77,8 @@ pub fn generate_fragments(
         // Fragment length from normal distribution, clamped
         let frag_len_f: f64 = normal.sample(&mut rng);
         let frag_len = (frag_len_f.round() as usize)
-            .max(read_length_min)
-            .min(read_length_max);
+            .max(fragment_length_min)
+            .min(fragment_length_max);
 
         // Skip if sequence is shorter than fragment
         if seq.len() < frag_len {
@@ -114,7 +114,7 @@ pub fn generate_fragments(
     let mut sorted_counts: Vec<_> = source_counts.iter().collect();
     sorted_counts.sort_by_key(|(id, _)| id.as_str());
     for (id, count) in sorted_counts {
-        log::info!("  {}: {} reads", id, count);
+        log::info!("  {}: {} fragments", id, count);
     }
 
     Ok(fragments_generated)

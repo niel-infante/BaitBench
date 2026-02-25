@@ -14,7 +14,7 @@ pub enum CaptureMethod {
 pub struct CaptureArgs<'a> {
     pub method: CaptureMethod,
     pub probes: &'a Path,
-    pub reads: &'a Path,
+    pub fragments: &'a Path,
     pub max_mismatches: u32,
     pub min_match_bases: u32,
     pub blast_db: Option<&'a str>,
@@ -29,8 +29,8 @@ pub fn execute(args: &CaptureArgs) -> Result<()> {
         CaptureMethod::Blast => capture_blast(args)?,
     };
 
-    // Extract passing reads from FASTA
-    let count = fasta::extract_by_ids(args.reads, &passing_ids, args.output)?;
+    // Extract passing fragments from FASTA
+    let count = fasta::extract_by_ids(args.fragments, &passing_ids, args.output)?;
     log::info!("Captured {} sequences", count);
 
     Ok(())
@@ -42,7 +42,7 @@ fn capture_minimap2(args: &CaptureArgs) -> Result<std::collections::HashSet<Stri
     let paf_path = args.output.with_extension("paf");
 
     log::info!("Running minimap2 capture alignment...");
-    minimap2::capture_align(args.probes, args.reads, &paf_path, args.log_file)?;
+    minimap2::capture_align(args.probes, args.fragments, &paf_path, args.log_file)?;
 
     log::info!("Filtering PAF results...");
     let passing = paf::filter_paf(&paf_path, args.max_mismatches, args.min_match_bases)?;
@@ -63,7 +63,7 @@ fn capture_blast(args: &CaptureArgs) -> Result<std::collections::HashSet<String>
     let blast_tsv = args.output.with_extension("blast.tsv");
 
     log::info!("Running BLAST capture alignment...");
-    blastn::capture_align(blast_db, args.reads, &blast_tsv, args.log_file, args.threads)?;
+    blastn::capture_align(blast_db, args.fragments, &blast_tsv, args.log_file, args.threads)?;
 
     log::info!("Filtering BLAST results...");
     let passing = blastn::filter_blast_results(&blast_tsv, args.min_match_bases)?;

@@ -10,7 +10,7 @@ use anyhow::Result;
 use clap::Parser;
 
 use cli::{Cli, Commands};
-use commands::{capture, filter, generate_list, map_reads, metrics, prepare, report, run, simulate};
+use commands::{capture, filter, generate_list, map_reads, metrics, prepare, report, run, sequence, simulate};
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
@@ -30,7 +30,7 @@ fn main() -> Result<()> {
             sample,
             host_fasta,
             run_name,
-            num_reads,
+            num_fragments,
             distractor_fraction,
             seed,
             capture_method,
@@ -39,9 +39,10 @@ fn main() -> Result<()> {
             blast_db,
             minimap_preset,
             host_minimap_preset,
-            read_length_mean,
-            read_length_min,
-            read_length_max,
+            fragment_length_mean,
+            fragment_length_min,
+            fragment_length_max,
+            read_length,
             outdir,
             threads,
             no_report,
@@ -58,7 +59,7 @@ fn main() -> Result<()> {
                 sample: sample.as_deref(),
                 host_fasta: host_fasta.as_deref(),
                 run_name,
-                num_reads,
+                num_fragments,
                 distractor_fraction,
                 seed,
                 capture_method: capture_method.into(),
@@ -67,9 +68,10 @@ fn main() -> Result<()> {
                 blast_db,
                 minimap_preset,
                 host_minimap_preset,
-                read_length_mean,
-                read_length_min,
-                read_length_max,
+                fragment_length_mean,
+                fragment_length_min,
+                fragment_length_max,
+                read_length,
                 outdir: full_outdir,
                 threads,
                 no_report,
@@ -95,28 +97,28 @@ fn main() -> Result<()> {
         Commands::Simulate {
             reference,
             weights,
-            num_reads,
+            num_fragments,
             seed,
             output,
-            read_length_mean,
-            read_length_min,
-            read_length_max,
+            fragment_length_mean,
+            fragment_length_min,
+            fragment_length_max,
         } => {
             simulate::execute(&simulate::SimulateArgs {
                 reference: &reference,
                 weights: &weights,
-                num_reads,
+                num_fragments,
                 seed,
                 output: &output,
-                read_length_mean,
-                read_length_min,
-                read_length_max,
+                fragment_length_mean,
+                fragment_length_min,
+                fragment_length_max,
             })?;
         }
 
         Commands::Capture {
             probes,
-            reads,
+            fragments,
             method,
             max_mismatches,
             min_match_bases,
@@ -128,13 +130,25 @@ fn main() -> Result<()> {
             capture::execute(&capture::CaptureArgs {
                 method: method.into(),
                 probes: &probes,
-                reads: &reads,
+                fragments: &fragments,
                 max_mismatches,
                 min_match_bases,
                 blast_db: blast_db.as_deref(),
                 output: &output,
                 log_file: &log_file,
                 threads,
+            })?;
+        }
+
+        Commands::Sequence {
+            input,
+            output,
+            read_length,
+        } => {
+            sequence::execute(&sequence::SequenceArgs {
+                input: &input,
+                output: &output,
+                read_length,
             })?;
         }
 
@@ -182,11 +196,11 @@ fn main() -> Result<()> {
             distractors,
             sample,
             detected,
-            reads,
+            fragments,
             captured,
             sam,
             run_name,
-            num_reads,
+            num_fragments,
             seed,
             output_summary,
             output_detail,
@@ -197,11 +211,11 @@ fn main() -> Result<()> {
                 distractors: &distractors,
                 sample: &sample,
                 detected: &detected,
-                reads: &reads,
+                fragments: &fragments,
                 captured: &captured,
                 sam: &sam,
                 run_name: &run_name,
-                num_reads,
+                num_fragments,
                 seed: &seed,
                 output_summary: &output_summary,
                 output_detail: &output_detail,

@@ -14,21 +14,23 @@ BaitBench is a Rust CLI binary with R/ggplot2 for visualization.
 ```
 targets.fa + distractors.fa [+ sample.tsv]
          ↓
-   baitbench prepare  (combine, generate weights, write sample.txt)
+   baitbench prepare   (combine, generate weights, write sample.txt)
          ↓
-   baitbench simulate (weighted random fragments)
+   baitbench simulate  (weighted random fragments → fragments.fa)
          ↓
-   baitbench capture  (minimap2 or BLAST)
+   baitbench capture   (minimap2 or BLAST → captured.fa)
          ↓
-   baitbench filter   (optional host filtering)
+   baitbench sequence  (trim to read length → reads.fa)
          ↓
-   baitbench map      (back to references)
+   baitbench filter    (optional host filtering)
          ↓
-   baitbench list     (count reads per reference)
+   baitbench map       (back to references)
          ↓
-   baitbench metrics  (3-way TP/FP/FN/TN)
+   baitbench list      (count reads per reference)
          ↓
-   baitbench report   (HTML with ggplot2 figures)
+   baitbench metrics   (3-way TP/FP/FN/TN)
+         ↓
+   baitbench report    (HTML with ggplot2 figures)
 ```
 
 `baitbench run` chains all steps automatically.
@@ -43,6 +45,7 @@ targets.fa + distractors.fa [+ sample.tsv]
 | `src/commands/prepare.rs` | Combines targets/distractors, generates weights, writes sample.txt |
 | `src/commands/simulate.rs` | Weighted random fragment generation |
 | `src/commands/capture.rs` | minimap2 or BLAST probe capture |
+| `src/commands/sequence.rs` | Simulate sequencing (trim fragments to read length) |
 | `src/commands/filter.rs` | Optional host read filtering |
 | `src/commands/map_reads.rs` | Map reads back to reference |
 | `src/commands/generate_list.rs` | SAM parsing → per-reference counts |
@@ -74,9 +77,9 @@ targets.fa + distractors.fa [+ sample.tsv]
 Without `--sample`, all targets are in the sample, reducing to the traditional 2-way classification.
 
 **Read-level** (how reads flow through the pipeline):
-- **sample_captured**: Captured reads originating from sample target sequences
-- **nonsample_target_captured**: Captured reads originating from non-sample target sequences
-- **distractor_captured**: Captured reads originating from distractor sequences
+- **sample_captured**: Captured fragments originating from sample target sequences
+- **nonsample_target_captured**: Captured fragments originating from non-sample target sequences
+- **distractor_captured**: Captured fragments originating from distractor sequences
 - **reads_correctly_mapped**: Reads that map back to their source reference
 - **reads_incorrectly_mapped**: Reads that map to a different reference (e.g., virus A read maps to virus B)
 
@@ -129,7 +132,7 @@ cargo build --release
   --targets examples/minimal/targets.fa \
   --distractors examples/minimal/distractors.fa \
   --probes examples/minimal/probes.fa \
-  --num-reads 1000 \
+  --num-fragments 1000 \
   --seed 42 \
   --no-report \
   --outdir test_results
@@ -141,7 +144,7 @@ echo "target_virus_1" > /tmp/sample.tsv
   --distractors examples/minimal/distractors.fa \
   --probes examples/minimal/probes.fa \
   --sample /tmp/sample.tsv \
-  --num-reads 1000 \
+  --num-fragments 1000 \
   --seed 42 \
   --no-report \
   --outdir test_results_sample
@@ -161,7 +164,9 @@ cat test_results_sample/*/results.tsv
 
 **Adding a new subcommand**: Add to `src/cli.rs` (clap definition), create `src/commands/new_cmd.rs`, wire into `main.rs`.
 
-**Modifying read generation**: Edit `src/sampling/fragment.rs`.
+**Modifying fragment generation**: Edit `src/sampling/fragment.rs`.
+
+**Modifying sequencing**: Edit `src/commands/sequence.rs` (currently trims to read length; future: paired-end, error models, nanopore).
 
 ## Dependencies
 

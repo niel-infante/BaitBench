@@ -2,7 +2,7 @@ use anyhow::Result;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::commands::{capture, filter, generate_list, map_reads, metrics, prepare, report, simulate};
+use crate::commands::{capture, filter, generate_list, map_reads, metrics, prepare, report, sequence, simulate};
 use crate::external::rscript;
 
 pub struct RunArgs<'a> {
@@ -12,7 +12,7 @@ pub struct RunArgs<'a> {
     pub sample: Option<&'a Path>,
     pub host_fasta: Option<&'a Path>,
     pub run_name: String,
-    pub num_reads: usize,
+    pub num_fragments: usize,
     pub distractor_fraction: f64,
     pub seed: Option<u64>,
     pub capture_method: capture::CaptureMethod,
@@ -21,9 +21,10 @@ pub struct RunArgs<'a> {
     pub blast_db: Option<String>,
     pub minimap_preset: String,
     pub host_minimap_preset: String,
-    pub read_length_mean: f64,
-    pub read_length_min: usize,
-    pub read_length_max: usize,
+    pub fragment_length_mean: f64,
+    pub fragment_length_min: usize,
+    pub fragment_length_max: usize,
+    pub read_length: usize,
     pub outdir: PathBuf,
     pub threads: usize,
     pub no_report: bool,
@@ -58,13 +59,15 @@ pub fn execute(args: &RunArgs) -> Result<()> {
             .map(|p| p.display().to_string())
             .unwrap_or_else(|| "none (skip host filtering)".to_string())
     );
-    log::info!("Num reads           : {}", args.num_reads);
+    log::info!("Num fragments       : {}", args.num_fragments);
+    log::info!("Fragment length     : mean={}, min={}, max={}", args.fragment_length_mean, args.fragment_length_min, args.fragment_length_max);
+    log::info!("Read length         : {}", args.read_length);
     log::info!("Distractor fraction : {}", args.distractor_fraction);
     log::info!("Max mismatches      : {}", args.max_mismatches);
     log::info!("Min match bases     : {}", args.min_match_bases);
     log::info!(
         "Seed                : {}",
-        args.seed.map(|s| s.to_string()).unwrap_or_else(|| "random".to_string())
+        args.seed.map(|s| s.to_string()).unwrap_or_else(|| "none".to_string())
     );
     log::info!("Output dir          : {}", outdir.display());
     log::info!("=============================================");
@@ -85,7 +88,7 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         writeln!(f, "probes\t--probes\t{}", args.probes.display())?;
         writeln!(f, "sample\t--sample\t{}", args.sample.map(|p| p.display().to_string()).unwrap_or_else(|| "none".to_string()))?;
         writeln!(f, "host_fasta\t--host-fasta\t{}", args.host_fasta.map(|p| p.display().to_string()).unwrap_or_else(|| "none".to_string()))?;
-        writeln!(f, "num_reads\t--num-reads\t{}", args.num_reads)?;
+        writeln!(f, "num_fragments\t--num-fragments\t{}", args.num_fragments)?;
         writeln!(f, "distractor_fraction\t--distractor-fraction\t{}", args.distractor_fraction)?;
         writeln!(f, "capture_method\t--capture-method\t{}", if args.capture_method == capture::CaptureMethod::Blast { "blast" } else { "minimap2" })?;
         writeln!(f, "max_mismatches\t--max-mismatches\t{}", args.max_mismatches)?;
@@ -93,9 +96,10 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         writeln!(f, "blast_db\t--blast-db\t{}", args.blast_db.as_deref().unwrap_or("none"))?;
         writeln!(f, "minimap_preset\t--minimap-preset\t{}", args.minimap_preset)?;
         writeln!(f, "host_minimap_preset\t--host-minimap-preset\t{}", args.host_minimap_preset)?;
-        writeln!(f, "read_length_mean\t--read-length-mean\t{}", args.read_length_mean)?;
-        writeln!(f, "read_length_min\t--read-length-min\t{}", args.read_length_min)?;
-        writeln!(f, "read_length_max\t--read-length-max\t{}", args.read_length_max)?;
+        writeln!(f, "fragment_length_mean\t--fragment-length-mean\t{}", args.fragment_length_mean)?;
+        writeln!(f, "fragment_length_min\t--fragment-length-min\t{}", args.fragment_length_min)?;
+        writeln!(f, "fragment_length_max\t--fragment-length-max\t{}", args.fragment_length_max)?;
+        writeln!(f, "read_length\t--read-length\t{}", args.read_length)?;
         writeln!(f, "threads\t--threads\t{}", args.threads)?;
         writeln!(f, "seed\t--seed\t{}", args.seed.map(|s| s.to_string()).unwrap_or_else(|| "none".to_string()))?;
         writeln!(f, "outdir\t--outdir\t{}", outdir.display())?;
@@ -103,7 +107,7 @@ pub fn execute(args: &RunArgs) -> Result<()> {
     }
 
     // Step 1: Prepare reference
-    log::info!("Step 1/7: Preparing reference...");
+    log::info!("Step 1/8: Preparing reference...");
     prepare::execute(&prepare::PrepareArgs {
         targets: args.targets,
         distractors: args.distractors,
@@ -112,25 +116,25 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         outdir,
     })?;
 
-    // Step 2: Simulate reads
-    log::info!("Step 2/7: Simulating reads...");
+    // Step 2: Simulate fragments
+    log::info!("Step 2/8: Simulating fragments...");
     simulate::execute(&simulate::SimulateArgs {
         reference: &outdir.join("combined_reference.fa"),
         weights: &outdir.join("weights.txt"),
-        num_reads: args.num_reads,
+        num_fragments: args.num_fragments,
         seed: args.seed,
-        output: &outdir.join("reads.fa"),
-        read_length_mean: args.read_length_mean,
-        read_length_min: args.read_length_min,
-        read_length_max: args.read_length_max,
+        output: &outdir.join("fragments.fa"),
+        fragment_length_mean: args.fragment_length_mean,
+        fragment_length_min: args.fragment_length_min,
+        fragment_length_max: args.fragment_length_max,
     })?;
 
     // Step 3: Capture
-    log::info!("Step 3/7: Simulating capture...");
+    log::info!("Step 3/8: Simulating capture...");
     capture::execute(&capture::CaptureArgs {
         method: args.capture_method,
         probes: args.probes,
-        reads: &outdir.join("reads.fa"),
+        fragments: &outdir.join("fragments.fa"),
         max_mismatches: args.max_mismatches,
         min_match_bases: args.min_match_bases,
         blast_db: args.blast_db.as_deref(),
@@ -139,24 +143,32 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         threads: args.threads,
     })?;
 
-    // Step 4: Optional host filtering
+    // Step 4: Sequence captured fragments into reads
+    log::info!("Step 4/8: Sequencing captured fragments...");
+    sequence::execute(&sequence::SequenceArgs {
+        input: &outdir.join("captured.fa"),
+        output: &outdir.join("reads.fa"),
+        read_length: args.read_length,
+    })?;
+
+    // Step 5: Optional host filtering
     let reads_for_mapping = if let Some(host) = args.host_fasta {
-        log::info!("Step 4/7: Filtering host reads...");
+        log::info!("Step 5/8: Filtering host reads...");
         filter::execute(&filter::FilterArgs {
             host,
-            reads: &outdir.join("captured.fa"),
+            reads: &outdir.join("reads.fa"),
             minimap_preset: &args.host_minimap_preset,
             output: &outdir.join("filtered.fa"),
             log_file: &outdir.join("host_filter.log"),
         })?;
         outdir.join("filtered.fa")
     } else {
-        log::info!("Step 4/7: Skipping host filtering (no host genome provided)");
-        outdir.join("captured.fa")
+        log::info!("Step 5/8: Skipping host filtering (no host genome provided)");
+        outdir.join("reads.fa")
     };
 
-    // Step 5: Map reads
-    log::info!("Step 5/7: Mapping reads to reference...");
+    // Step 6: Map reads
+    log::info!("Step 6/8: Mapping reads to reference...");
     map_reads::execute(&map_reads::MapArgs {
         reference: &outdir.join("combined_reference.fa"),
         reads: &reads_for_mapping,
@@ -165,15 +177,15 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         log_file: &outdir.join("mapping.log"),
     })?;
 
-    // Step 6: Generate detection list
-    log::info!("Step 6/7: Generating detection list...");
+    // Step 7: Generate detection list
+    log::info!("Step 7/8: Generating detection list...");
     generate_list::execute(&generate_list::ListArgs {
         sam: &outdir.join("mapped.sam"),
         output: &outdir.join("detected.list"),
     })?;
 
-    // Step 7: Calculate metrics
-    log::info!("Step 7/7: Calculating metrics...");
+    // Step 8: Calculate metrics
+    log::info!("Step 8/8: Calculating metrics...");
     let seed_str = args
         .seed
         .map(|s| s.to_string())
@@ -183,11 +195,11 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         distractors: &outdir.join("distractors.txt"),
         sample: &outdir.join("sample.txt"),
         detected: &outdir.join("detected.list"),
-        reads: &outdir.join("reads.fa"),
+        fragments: &outdir.join("fragments.fa"),
         captured: &outdir.join("captured.fa"),
         sam: &outdir.join("mapped.sam"),
         run_name: &args.run_name,
-        num_reads: args.num_reads,
+        num_fragments: args.num_fragments,
         seed: &seed_str,
         output_summary: &outdir.join("results.tsv"),
         output_detail: &outdir.join("detected_detail.tsv"),
