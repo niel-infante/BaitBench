@@ -329,6 +329,10 @@ pub enum Commands {
         /// Output JSON (optional)
         #[arg(long)]
         output_json: Option<PathBuf>,
+
+        /// Output per-position coverage TSV (optional)
+        #[arg(long)]
+        output_coverage: Option<PathBuf>,
     },
 
     /// Generate HTML report with ggplot2 figures
@@ -344,6 +348,10 @@ pub enum Commands {
         /// Run parameters file (run_params.tsv)
         #[arg(long)]
         params: PathBuf,
+
+        /// Coverage profile TSV (optional, for coverage plots)
+        #[arg(long)]
+        coverage: Option<PathBuf>,
 
         /// Run name
         #[arg(long, default_value = "BaitBench Run")]

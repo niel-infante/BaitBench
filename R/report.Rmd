@@ -10,6 +10,7 @@ params:
   summary_file: ""
   detail_file: ""
   params_file: ""
+  coverage_file: ""
   run_name: "BaitBench Run"
 ---
 
@@ -28,6 +29,12 @@ theme_set(theme_minimal(base_size = 14))
 summary_df <- read.delim(params$summary_file, stringsAsFactors = FALSE)
 detail_df <- read.delim(params$detail_file, stringsAsFactors = FALSE)
 params_df <- read.delim(params$params_file, stringsAsFactors = FALSE)
+
+# Read coverage data if available
+has_coverage <- nchar(params$coverage_file) > 0 && file.exists(params$coverage_file)
+if (has_coverage) {
+  coverage_df <- read.delim(params$coverage_file, stringsAsFactors = FALSE)
+}
 ```
 
 ## Run: `r params$run_name`
@@ -212,11 +219,18 @@ if (nrow(detail_df) > 0) {
     arrange(factor(classification,
                    levels = c("TP", "FP_target", "FP_distractor", "UNKNOWN", "FN")),
             desc(reads_assigned)) %>%
+    mutate(
+      ref_length = format(ref_length, big.mark = ","),
+      avg_coverage = sprintf("%.1fX", avg_coverage),
+      pct_covered_5x = sprintf("%.1f%%", pct_covered_5x),
+      pct_covered_20x = sprintf("%.1f%%", pct_covered_20x)
+    ) %>%
     knitr::kable(
       col.names = c("Reference ID", "Category", "Expected", "Detected",
                      "Fragments Generated", "Fragments Captured", "Reads Assigned",
-                     "Classification"),
-      align = "llllrrrl"
+                     "Classification", "Ref Length", "Avg Coverage",
+                     "% \u22655X", "% \u226520X"),
+      align = "llllrrrllrrr"
     )
 } else {
   cat("No detection details available.")
@@ -240,6 +254,77 @@ if (nrow(detected_only) > 0) {
     labs(x = NULL, y = "Reads Assigned", color = "Classification",
          title = "Reads per Detected Reference") +
     theme(legend.position = "bottom")
+}
+```
+
+## Coverage {.tabset}
+
+```{r coverage-overview, eval=has_coverage, fig.height=max(3, ceiling(length(unique(coverage_df$reference_id)) / 3) * 2.5), fig.width=10}
+# Only plot detected references
+detected_refs <- detail_df$reference_id[detail_df$detected == "true"]
+plot_data <- coverage_df %>% filter(reference_id %in% detected_refs)
+
+if (nrow(plot_data) > 0) {
+  # Downsample if genome is large (>500 positions per facet) for rendering speed
+  plot_data <- plot_data %>%
+    group_by(reference_id) %>%
+    mutate(
+      bin = ceiling(row_number() / max(1, ceiling(n() / 500)))
+    ) %>%
+    group_by(reference_id, bin) %>%
+    summarise(position = mean(position), depth = mean(depth), .groups = "drop")
+
+  ggplot(plot_data, aes(x = position, y = depth)) +
+    geom_area(fill = "#3498db", alpha = 0.4) +
+    geom_line(color = "#2c3e50", linewidth = 0.3) +
+    geom_hline(yintercept = 5, linetype = "dashed", color = "#e67e22", linewidth = 0.3) +
+    geom_hline(yintercept = 20, linetype = "dashed", color = "#e74c3c", linewidth = 0.3) +
+    facet_wrap(~reference_id, scales = "free", ncol = 3) +
+    labs(x = "Position", y = "Depth",
+         title = "Coverage Profiles",
+         subtitle = "Dashed lines: 5X (orange), 20X (red)") +
+    theme(strip.text = element_text(size = 8),
+          axis.text = element_text(size = 6))
+}
+```
+
+```{r coverage-detail-plots, eval=has_coverage, results='asis', fig.width=8, fig.height=3}
+if (has_coverage && nrow(coverage_df) > 0) {
+  detected_refs <- detail_df %>%
+    filter(detected == "true", ref_length > 0) %>%
+    arrange(desc(avg_coverage))
+
+  for (i in seq_len(nrow(detected_refs))) {
+    ref_id <- detected_refs$reference_id[i]
+    ref_cov <- detected_refs$avg_coverage[i]
+    ref_len <- detected_refs$ref_length[i]
+    pct5 <- detected_refs$pct_covered_5x[i]
+    pct20 <- detected_refs$pct_covered_20x[i]
+    ref_data <- coverage_df %>% filter(reference_id == ref_id)
+
+    if (nrow(ref_data) == 0) next
+
+    cat(sprintf('\n\n<details><summary><strong>%s</strong> &mdash; %.1fX avg, %s bp, %.0f%% &ge;5X, %.0f%% &ge;20X</summary>\n\n',
+                ref_id, ref_cov, format(ref_len, big.mark = ","), pct5, pct20))
+
+    p <- ggplot(ref_data, aes(x = position, y = depth)) +
+      geom_area(fill = "#3498db", alpha = 0.3) +
+      geom_line(color = "#2c3e50", linewidth = 0.4) +
+      geom_hline(yintercept = 5, linetype = "dashed", color = "#e67e22", linewidth = 0.5) +
+      geom_hline(yintercept = 20, linetype = "dashed", color = "#e74c3c", linewidth = 0.5) +
+      annotate("text", x = Inf, y = 5, label = "5X", hjust = 1.2, vjust = -0.5,
+               color = "#e67e22", size = 3) +
+      annotate("text", x = Inf, y = 20, label = "20X", hjust = 1.2, vjust = -0.5,
+               color = "#e74c3c", size = 3) +
+      labs(x = "Genome Position", y = "Coverage Depth",
+           title = sprintf("Coverage: %s", ref_id),
+           subtitle = sprintf("%.1fX avg | %.0f%% \u22655X | %.0f%% \u226520X | %s bp",
+                              ref_cov, pct5, pct20, format(ref_len, big.mark = ","))) +
+      theme_minimal(base_size = 12)
+
+    print(p)
+    cat('\n\n</details>\n\n')
+  }
 }
 ```
 

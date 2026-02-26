@@ -147,7 +147,8 @@ results/<run_name>/
 ├── detected.list           # Reference IDs and read counts
 ├── run_params.tsv          # Run parameters (key-value)
 ├── results.tsv             # Summary metrics
-├── detected_detail.tsv     # Per-reference breakdown
+├── detected_detail.tsv     # Per-reference breakdown (with coverage stats)
+├── coverage.tsv            # Per-position coverage depth for detected references
 ├── results.json            # Machine-readable metrics
 └── report.html             # HTML report with figures (if R available)
 ```
@@ -183,6 +184,23 @@ results/<run_name>/
 | `specificity` | `TN_total / (TN_total + FP_total)` — fraction of non-sample genomes correctly rejected |
 | `precision` | `TP / (TP + FP_total)` — of detected genomes, fraction that are sample targets |
 | `f1_score` | `2 * (precision * sensitivity) / (precision + sensitivity)` |
+
+### Per-Reference Detail (`detected_detail.tsv`)
+
+Each row corresponds to one reference sequence, with detection status and coverage statistics:
+
+| Column | Description |
+|--------|-------------|
+| `reference_id` | Reference sequence ID |
+| `category` | `sample`, `nonsample_target`, or `distractor` |
+| `expected` / `detected` | Whether detection was expected and whether it occurred |
+| `fragments_generated` / `fragments_captured` | Fragment counts for this reference |
+| `reads_assigned` | Number of reads mapped to this reference |
+| `classification` | `TP`, `FN`, `FP_target`, `FP_distractor`, `TN_target`, or `TN_distractor` |
+| `ref_length` | Reference sequence length (bp) |
+| `avg_coverage` | Average coverage depth across the reference |
+| `pct_covered_5x` | Percentage of positions with >= 5X coverage |
+| `pct_covered_20x` | Percentage of positions with >= 20X coverage |
 
 ### 3-way classification
 
@@ -253,9 +271,9 @@ baitbench run \
 
 6. **Map**: Aligns reads back to the combined reference to identify which genomes they originated from.
 
-7. **Metrics**: Computes genome-level metrics (3-way TP/FP/FN/TN classification across sample targets, non-sample targets, and distractors) and fragment/read-level metrics (how many captured fragments came from each category, and whether mapped reads return to their correct source genome).
+7. **Metrics**: Computes genome-level metrics (3-way TP/FP/FN/TN classification across sample targets, non-sample targets, and distractors), fragment/read-level metrics (how many captured fragments came from each category, and whether mapped reads return to their correct source genome), and per-reference coverage statistics (average depth, breadth of coverage at >=5X and >=20X thresholds).
 
-8. **Report**: Generates an HTML report with ggplot2 figures (capture summary, metrics bar chart, confusion matrix, per-reference lollipop chart).
+8. **Report**: Generates an HTML report with ggplot2 figures (capture summary, metrics bar chart, confusion matrix, per-reference lollipop chart, and coverage depth profiles for each detected reference).
 
 ## Dependencies
 

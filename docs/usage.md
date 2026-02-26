@@ -155,7 +155,8 @@ results/<run_name>/
 ├── mapped.sam               # Alignments to references
 ├── detected.list           # Reference IDs and read counts
 ├── results.tsv             # Summary metrics
-├── detected_detail.tsv     # Per-reference breakdown
+├── detected_detail.tsv     # Per-reference breakdown (with coverage stats)
+├── coverage.tsv            # Per-position coverage depth for detected references
 ├── results.json            # Machine-readable metrics
 └── report.html             # HTML report with figures (if R available)
 ```
@@ -217,6 +218,35 @@ These metrics count **distinct genomes/references**, not reads. A genome is "det
 | `specificity` | `TN_total / (TN_total + FP_total)` — fraction of non-sample genomes correctly rejected. Range: 0–1. |
 | `precision` | `TP / (TP + FP_total)` — of detected genomes, fraction that are sample targets. Range: 0–1. |
 | `f1_score` | `2 * (precision * sensitivity) / (precision + sensitivity)` — harmonic mean. Range: 0–1. |
+
+## detected_detail.tsv Column Reference
+
+The `detected_detail.tsv` file contains one row per reference (target or distractor) with detection status and coverage statistics.
+
+| Column | Description |
+|--------|-------------|
+| `reference_id` | Reference sequence ID |
+| `category` | `sample`, `nonsample_target`, or `distractor` |
+| `expected` | Whether detection is expected (`true` for sample targets) |
+| `detected` | Whether at least one read mapped to this reference |
+| `fragments_generated` | Number of fragments generated from this reference |
+| `fragments_captured` | Number of fragments captured from this reference |
+| `reads_assigned` | Number of reads mapped to this reference |
+| `classification` | `TP`, `FN`, `FP_target`, `FP_distractor`, `TN_target`, or `TN_distractor` |
+| `ref_length` | Reference sequence length (bp) |
+| `avg_coverage` | Average coverage depth across the reference |
+| `pct_covered_5x` | Percentage of reference positions with coverage >= 5X |
+| `pct_covered_20x` | Percentage of reference positions with coverage >= 20X |
+
+## coverage.tsv
+
+The `coverage.tsv` file contains per-position coverage depth for each reference with at least one mapped read. This file is used by the HTML report for coverage profile plots.
+
+| Column | Description |
+|--------|-------------|
+| `reference_id` | Reference sequence ID |
+| `position` | 1-based genome position |
+| `depth` | Coverage depth at this position |
 
 ## Understanding the Metrics
 

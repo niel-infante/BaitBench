@@ -205,6 +205,7 @@ fn main() -> Result<()> {
             output_summary,
             output_detail,
             output_json,
+            output_coverage,
         } => {
             metrics::execute(&metrics::MetricsArgs {
                 targets: &targets,
@@ -220,6 +221,7 @@ fn main() -> Result<()> {
                 output_summary: &output_summary,
                 output_detail: &output_detail,
                 output_json: output_json.as_deref(),
+                output_coverage: output_coverage.as_deref(),
             })?;
         }
 
@@ -227,6 +229,7 @@ fn main() -> Result<()> {
             summary,
             detail,
             params,
+            coverage,
             run_name,
             output,
         } => {
@@ -234,6 +237,7 @@ fn main() -> Result<()> {
                 summary: &summary,
                 detail: &detail,
                 params: &params,
+                coverage: coverage.as_deref(),
                 run_name: &run_name,
                 output: &output,
             })?;

@@ -5,7 +5,7 @@ use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::Path;
 
-use crate::alignment::sam;
+use crate::alignment::{coverage, sam};
 use crate::fasta;
 use crate::io_utils;
 
@@ -23,6 +23,7 @@ pub struct MetricsArgs<'a> {
     pub output_summary: &'a Path,
     pub output_detail: &'a Path,
     pub output_json: Option<&'a Path>,
+    pub output_coverage: Option<&'a Path>,
 }
 
 /// Read-level metrics derived from capture and mapping.
@@ -117,6 +118,15 @@ pub fn execute(args: &MetricsArgs) -> Result<()> {
     log::info!("  Reads correctly mapped: {}", read_level.reads_correctly_mapped);
     log::info!("  Reads incorrectly mapped: {}", read_level.reads_incorrectly_mapped);
 
+    // Compute per-reference coverage from SAM
+    log::info!("Computing per-reference coverage...");
+    let coverage_result = coverage::compute_coverage(args.sam)?;
+    let mut coverage_stats: HashMap<String, coverage::CoverageStats> = HashMap::new();
+    for (ref_id, depths) in &coverage_result.coverage {
+        let ref_len = coverage_result.ref_lengths.get(ref_id).copied().unwrap_or(depths.len());
+        coverage_stats.insert(ref_id.clone(), coverage::calculate_stats(depths, ref_len));
+    }
+
     // Calculate genome-level metrics (3-way classification)
     let metrics = calculate_metrics(&sample, &targets, &distractors, &detected);
 
@@ -151,7 +161,7 @@ pub fn execute(args: &MetricsArgs) -> Result<()> {
     // Build detail rows (shared between TSV and JSON)
     let detail_rows = build_detail_rows(
         &sample, &targets, &distractors, &detected, &metrics,
-        &generated_per_ref, &captured_per_ref,
+        &generated_per_ref, &captured_per_ref, &coverage_stats,
     );
 
     // Write detail TSV
@@ -174,6 +184,12 @@ pub fn execute(args: &MetricsArgs) -> Result<()> {
             &read_level,
             detail_rows,
         )?;
+    }
+
+    // Write per-position coverage TSV
+    if let Some(cov_path) = args.output_coverage {
+        log::info!("Writing coverage profile to {}...", cov_path.display());
+        coverage::write_coverage_tsv(cov_path, &coverage_result.coverage)?;
     }
 
     log::info!("Metrics calculation complete.");
@@ -427,21 +443,26 @@ struct DetailRow {
     fragments_captured: usize,
     reads_assigned: usize,
     classification: String,
+    ref_length: usize,
+    avg_coverage: f64,
+    pct_covered_5x: f64,
+    pct_covered_20x: f64,
 }
 
 fn write_detail_tsv(path: &Path, rows: &[DetailRow]) -> Result<()> {
     let file = File::create(path)?;
     let mut w = BufWriter::new(file);
 
-    writeln!(w, "reference_id\tcategory\texpected\tdetected\tfragments_generated\tfragments_captured\treads_assigned\tclassification")?;
+    writeln!(w, "reference_id\tcategory\texpected\tdetected\tfragments_generated\tfragments_captured\treads_assigned\tclassification\tref_length\tavg_coverage\tpct_covered_5x\tpct_covered_20x")?;
 
     for row in rows {
         writeln!(
             w,
-            "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
+            "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{:.2}\t{:.1}\t{:.1}",
             row.reference_id, row.category, row.expected, row.detected,
             row.fragments_generated, row.fragments_captured, row.reads_assigned,
-            row.classification
+            row.classification, row.ref_length, row.avg_coverage,
+            row.pct_covered_5x, row.pct_covered_20x
         )?;
     }
 
@@ -518,6 +539,7 @@ fn build_detail_rows(
     metrics: &MetricsResult,
     generated_per_ref: &HashMap<String, usize>,
     captured_per_ref: &HashMap<String, usize>,
+    coverage_stats: &HashMap<String, coverage::CoverageStats>,
 ) -> Vec<DetailRow> {
     let mut rows: Vec<DetailRow> = Vec::new();
 
@@ -532,6 +554,7 @@ fn build_detail_rows(
             ("unknown", "false", "UNKNOWN")
         };
 
+        let cov = coverage_stats.get(ref_id);
         rows.push(DetailRow {
             reference_id: ref_id.clone(),
             category: category.to_string(),
@@ -541,10 +564,15 @@ fn build_detail_rows(
             fragments_captured: captured_per_ref.get(ref_id).copied().unwrap_or(0),
             reads_assigned: count,
             classification: classification.to_string(),
+            ref_length: cov.map(|c| c.ref_length).unwrap_or(0),
+            avg_coverage: cov.map(|c| c.avg_coverage).unwrap_or(0.0),
+            pct_covered_5x: cov.map(|c| c.pct_covered_5x).unwrap_or(0.0),
+            pct_covered_20x: cov.map(|c| c.pct_covered_20x).unwrap_or(0.0),
         });
     }
 
     for ref_id in &metrics.false_negatives {
+        let cov = coverage_stats.get(ref_id);
         rows.push(DetailRow {
             reference_id: ref_id.clone(),
             category: "sample".to_string(),
@@ -554,6 +582,10 @@ fn build_detail_rows(
             fragments_captured: captured_per_ref.get(ref_id).copied().unwrap_or(0),
             reads_assigned: 0,
             classification: "FN".to_string(),
+            ref_length: cov.map(|c| c.ref_length).unwrap_or(0),
+            avg_coverage: cov.map(|c| c.avg_coverage).unwrap_or(0.0),
+            pct_covered_5x: cov.map(|c| c.pct_covered_5x).unwrap_or(0.0),
+            pct_covered_20x: cov.map(|c| c.pct_covered_20x).unwrap_or(0.0),
         });
     }
 

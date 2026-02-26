@@ -7,6 +7,7 @@ pub struct ReportArgs<'a> {
     pub summary: &'a Path,
     pub detail: &'a Path,
     pub params: &'a Path,
+    pub coverage: Option<&'a Path>,
     pub run_name: &'a str,
     pub output: &'a Path,
 }
@@ -47,16 +48,26 @@ pub fn execute(args: &ReportArgs) -> Result<()> {
     let params_str = params_abs.to_str().unwrap_or("");
     let output_str = output_abs.to_str().unwrap_or("");
 
-    rscript::run_rscript(
-        &report_script,
-        &[
-            "--summary", summary_str,
-            "--detail", detail_str,
-            "--params", params_str,
-            "--run-name", args.run_name,
-            "--output", output_str,
-        ],
-    )?;
+    let mut r_args: Vec<&str> = vec![
+        "--summary", summary_str,
+        "--detail", detail_str,
+        "--params", params_str,
+        "--run-name", args.run_name,
+        "--output", output_str,
+    ];
+
+    let coverage_str;
+    if let Some(cov_path) = args.coverage {
+        if cov_path.exists() {
+            let coverage_abs = std::fs::canonicalize(cov_path)
+                .with_context(|| format!("Cannot find coverage file: {}", cov_path.display()))?;
+            coverage_str = coverage_abs.to_str().unwrap_or("").to_string();
+            r_args.push("--coverage");
+            r_args.push(&coverage_str);
+        }
+    }
+
+    rscript::run_rscript(&report_script, &r_args)?;
 
     log::info!("Report generated: {}", args.output.display());
     Ok(())

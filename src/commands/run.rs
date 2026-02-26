@@ -184,8 +184,8 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         output: &outdir.join("detected.list"),
     })?;
 
-    // Step 8: Calculate metrics
-    log::info!("Step 8/8: Calculating metrics...");
+    // Step 8: Calculate metrics and coverage
+    log::info!("Step 8/8: Calculating metrics and coverage...");
     let seed_str = args
         .seed
         .map(|s| s.to_string())
@@ -204,6 +204,7 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         output_summary: &outdir.join("results.tsv"),
         output_detail: &outdir.join("detected_detail.tsv"),
         output_json: Some(&outdir.join("results.json")),
+        output_coverage: Some(&outdir.join("coverage.tsv")),
     })?;
 
     // Generate report (optional — skip if R not available or --no-report)
@@ -215,6 +216,7 @@ pub fn execute(args: &RunArgs) -> Result<()> {
             summary: &outdir.join("results.tsv"),
             detail: &outdir.join("detected_detail.tsv"),
             params: &outdir.join("run_params.tsv"),
+            coverage: Some(&outdir.join("coverage.tsv")),
             run_name: &args.run_name,
             output: &outdir.join("report.html"),
         }) {
