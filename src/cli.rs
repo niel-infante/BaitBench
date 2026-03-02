@@ -102,6 +102,10 @@ pub enum Commands {
         #[arg(long, default_value = "1")]
         threads: usize,
 
+        /// Fold enrichment for capture (e.g. 100 = 100x more target relative to distractor post-capture vs pre-capture). Omit for binary capture (default behavior).
+        #[arg(long)]
+        fold_enrichment: Option<f64>,
+
         /// Skip HTML report generation
         #[arg(long)]
         no_report: bool,
@@ -202,6 +206,37 @@ pub enum Commands {
         /// Number of threads
         #[arg(long, default_value = "1")]
         threads: usize,
+    },
+
+    /// Adjust captured fragment pool to a target fold enrichment
+    Enrich {
+        /// Captured fragments FASTA (from capture step)
+        #[arg(short, long)]
+        captured: PathBuf,
+
+        /// All fragments FASTA (from simulate step)
+        #[arg(short, long)]
+        fragments: PathBuf,
+
+        /// Targets ID file
+        #[arg(short, long)]
+        targets: PathBuf,
+
+        /// Distractors ID file
+        #[arg(short, long)]
+        distractors: PathBuf,
+
+        /// Fold enrichment (>= 1.0; 1.0 = no enrichment)
+        #[arg(long)]
+        fold_enrichment: f64,
+
+        /// Random seed
+        #[arg(short, long)]
+        seed: Option<u64>,
+
+        /// Output enriched fragments FASTA
+        #[arg(short, long)]
+        output: PathBuf,
     },
 
     /// Simulate sequencing of captured fragments (trim to read length)

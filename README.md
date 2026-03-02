@@ -87,6 +87,7 @@ Each pipeline step is available as a subcommand:
 baitbench prepare   # Combine FASTAs, generate weights
 baitbench simulate  # Generate weighted random fragments
 baitbench capture   # Probe capture (minimap2 or BLAST)
+baitbench enrich    # Fold enrichment adjustment (optional)
 baitbench sequence  # Simulate sequencing (trim fragments to read length)
 baitbench filter    # Optional host read filtering
 baitbench map       # Map reads back to reference
@@ -125,6 +126,7 @@ Run `baitbench <command> --help` for full options.
 | `--distractor-fraction` | 0.9 | Fraction of fragments from distractors (0-1) |
 | `--capture-method` | minimap2 | Capture method: `minimap2` or `blast` |
 | `--min-match-bases` | 60 | Minimum matching bases for capture |
+| `--fold-enrichment` | none | Fold enrichment for capture (e.g. 100 = 100x; omit for binary capture) |
 | `--max-mismatches` | 10 | Maximum mismatches allowed (minimap2 only) |
 | `--host-fasta` | none | Optional host genome for filtering |
 | `--seed` | random | Random seed for reproducibility |
@@ -142,6 +144,7 @@ results/<run_name>/
 ├── sample.txt              # Sample IDs (subset of targets)
 ├── fragments.fa             # Simulated fragments
 ├── captured.fa              # Fragments passing capture filter
+├── enriched.fa              # Post-enrichment fragments (if --fold-enrichment)
 ├── reads.fa                 # Sequenced reads (fragments trimmed to read length)
 ├── mapped.sam               # Alignments to references
 ├── detected.list           # Reference IDs and read counts
@@ -248,6 +251,16 @@ baitbench run \
   --seed 42 \
   --outdir example_results
 
+# With fold enrichment (simulate 100x enrichment)
+baitbench run \
+  --targets examples/minimal/targets.fa \
+  --distractors examples/minimal/distractors.fa \
+  --probes examples/minimal/probes.fa \
+  --fold-enrichment 100 \
+  --num-fragments 1000 \
+  --seed 42 \
+  --outdir example_results
+
 # Multiple distractor files
 baitbench run \
   --targets targets.fa \
@@ -265,15 +278,17 @@ baitbench run \
 
 3. **Capture**: Aligns simulated fragments against probe sequences using minimap2 or BLAST. Filters by matching bases, mismatches, and indels to simulate hybridization stringency.
 
-4. **Sequence**: Simulates sequencing by trimming captured fragments to a fixed read length (default: 120bp). Fragments shorter than the read length are kept as-is.
+4. **Enrich** (optional): If `--fold-enrichment` is specified, adjusts the post-capture fragment pool to match the requested fold enrichment. Fold enrichment is defined as the ratio of target:distractor proportions post-capture vs pre-capture. A fold enrichment of 100 means the target:distractor ratio is 100x higher after capture than before. This is achieved by subsampling captured distractors or adding back uncaptured distractors to hit the target ratio.
 
-5. **Filter** (optional): Removes reads that map to a host genome.
+5. **Sequence**: Simulates sequencing by trimming captured fragments to a fixed read length (default: 120bp). Fragments shorter than the read length are kept as-is.
 
-6. **Map**: Aligns reads back to the combined reference to identify which genomes they originated from.
+6. **Filter** (optional): Removes reads that map to a host genome.
 
-7. **Metrics**: Computes genome-level metrics (3-way TP/FP/FN/TN classification across sample targets, non-sample targets, and distractors), fragment/read-level metrics (how many captured fragments came from each category, and whether mapped reads return to their correct source genome), and per-reference coverage statistics (average depth, breadth of coverage at >=5X and >=20X thresholds).
+7. **Map**: Aligns reads back to the combined reference to identify which genomes they originated from.
 
-8. **Report**: Generates an HTML report with ggplot2 figures (capture summary, metrics bar chart, confusion matrix, per-reference lollipop chart, and coverage depth profiles for each detected reference).
+8. **Metrics**: Computes genome-level metrics (3-way TP/FP/FN/TN classification across sample targets, non-sample targets, and distractors), fragment/read-level metrics (how many captured fragments came from each category, and whether mapped reads return to their correct source genome), and per-reference coverage statistics (average depth, breadth of coverage at >=5X and >=20X thresholds).
+
+9. **Report**: Generates an HTML report with ggplot2 figures (capture summary, metrics bar chart, confusion matrix, per-reference lollipop chart, and coverage depth profiles for each detected reference).
 
 ## Dependencies
 

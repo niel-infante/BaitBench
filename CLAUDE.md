@@ -20,6 +20,8 @@ targets.fa + distractors.fa [+ sample.tsv]
          ↓
    baitbench capture   (minimap2 or BLAST → captured.fa)
          ↓
+   baitbench enrich    (optional fold enrichment → enriched.fa)
+         ↓
    baitbench sequence  (trim to read length → reads.fa)
          ↓
    baitbench filter    (optional host filtering)
@@ -45,6 +47,7 @@ targets.fa + distractors.fa [+ sample.tsv]
 | `src/commands/prepare.rs` | Combines targets/distractors, generates weights, writes sample.txt |
 | `src/commands/simulate.rs` | Weighted random fragment generation |
 | `src/commands/capture.rs` | minimap2 or BLAST probe capture |
+| `src/commands/enrich.rs` | Fold enrichment adjustment (post-capture target:distractor ratio tuning) |
 | `src/commands/sequence.rs` | Simulate sequencing (trim fragments to read length) |
 | `src/commands/filter.rs` | Optional host read filtering |
 | `src/commands/map_reads.rs` | Map reads back to reference |

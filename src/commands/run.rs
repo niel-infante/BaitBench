@@ -2,7 +2,7 @@ use anyhow::Result;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::commands::{capture, filter, generate_list, map_reads, metrics, prepare, report, sequence, simulate};
+use crate::commands::{capture, enrich, filter, generate_list, map_reads, metrics, prepare, report, sequence, simulate};
 use crate::external::rscript;
 
 pub struct RunArgs<'a> {
@@ -27,6 +27,7 @@ pub struct RunArgs<'a> {
     pub read_length: usize,
     pub outdir: PathBuf,
     pub threads: usize,
+    pub fold_enrichment: Option<f64>,
     pub no_report: bool,
 }
 
@@ -66,6 +67,10 @@ pub fn execute(args: &RunArgs) -> Result<()> {
     log::info!("Max mismatches      : {}", args.max_mismatches);
     log::info!("Min match bases     : {}", args.min_match_bases);
     log::info!(
+        "Fold enrichment     : {}",
+        args.fold_enrichment.map(|f| format!("{:.1}x", f)).unwrap_or_else(|| "none (binary capture)".to_string())
+    );
+    log::info!(
         "Seed                : {}",
         args.seed.map(|s| s.to_string()).unwrap_or_else(|| "none".to_string())
     );
@@ -93,6 +98,7 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         writeln!(f, "capture_method\t--capture-method\t{}", if args.capture_method == capture::CaptureMethod::Blast { "blast" } else { "minimap2" })?;
         writeln!(f, "max_mismatches\t--max-mismatches\t{}", args.max_mismatches)?;
         writeln!(f, "min_match_bases\t--min-match-bases\t{}", args.min_match_bases)?;
+        writeln!(f, "fold_enrichment\t--fold-enrichment\t{}", args.fold_enrichment.map(|f| f.to_string()).unwrap_or_else(|| "none".to_string()))?;
         writeln!(f, "blast_db\t--blast-db\t{}", args.blast_db.as_deref().unwrap_or("none"))?;
         writeln!(f, "minimap_preset\t--minimap-preset\t{}", args.minimap_preset)?;
         writeln!(f, "host_minimap_preset\t--host-minimap-preset\t{}", args.host_minimap_preset)?;
@@ -143,10 +149,27 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         threads: args.threads,
     })?;
 
+    // Step 3b: Optional fold enrichment adjustment
+    let capture_output = if let Some(fe) = args.fold_enrichment {
+        log::info!("Step 3b: Applying {:.1}x fold enrichment...", fe);
+        enrich::execute(&enrich::EnrichArgs {
+            captured: &outdir.join("captured.fa"),
+            fragments: &outdir.join("fragments.fa"),
+            targets: &outdir.join("targets.txt"),
+            distractors: &outdir.join("distractors.txt"),
+            fold_enrichment: fe,
+            seed: args.seed,
+            output: &outdir.join("enriched.fa"),
+        })?;
+        outdir.join("enriched.fa")
+    } else {
+        outdir.join("captured.fa")
+    };
+
     // Step 4: Sequence captured fragments into reads
     log::info!("Step 4/8: Sequencing captured fragments...");
     sequence::execute(&sequence::SequenceArgs {
-        input: &outdir.join("captured.fa"),
+        input: &capture_output,
         output: &outdir.join("reads.fa"),
         read_length: args.read_length,
     })?;
@@ -196,7 +219,7 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         sample: &outdir.join("sample.txt"),
         detected: &outdir.join("detected.list"),
         fragments: &outdir.join("fragments.fa"),
-        captured: &outdir.join("captured.fa"),
+        captured: &capture_output,
         sam: &outdir.join("mapped.sam"),
         run_name: &args.run_name,
         num_fragments: args.num_fragments,

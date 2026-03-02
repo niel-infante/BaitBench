@@ -10,7 +10,7 @@ use anyhow::Result;
 use clap::Parser;
 
 use cli::{Cli, Commands};
-use commands::{capture, filter, generate_list, map_reads, metrics, prepare, report, run, sequence, simulate};
+use commands::{capture, enrich, filter, generate_list, map_reads, metrics, prepare, report, run, sequence, simulate};
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
@@ -45,6 +45,7 @@ fn main() -> Result<()> {
             read_length,
             outdir,
             threads,
+            fold_enrichment,
             no_report,
         } => {
             let run_name = run_name.unwrap_or_else(|| {
@@ -74,6 +75,7 @@ fn main() -> Result<()> {
                 read_length,
                 outdir: full_outdir,
                 threads,
+                fold_enrichment,
                 no_report,
             })?;
         }
@@ -137,6 +139,26 @@ fn main() -> Result<()> {
                 output: &output,
                 log_file: &log_file,
                 threads,
+            })?;
+        }
+
+        Commands::Enrich {
+            captured,
+            fragments,
+            targets,
+            distractors,
+            fold_enrichment,
+            seed,
+            output,
+        } => {
+            enrich::execute(&enrich::EnrichArgs {
+                captured: &captured,
+                fragments: &fragments,
+                targets: &targets,
+                distractors: &distractors,
+                fold_enrichment,
+                seed,
+                output: &output,
             })?;
         }
 

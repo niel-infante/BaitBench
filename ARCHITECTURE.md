@@ -8,6 +8,7 @@ Quick reference for the codebase structure, module responsibilities, and key dat
 Step 1: prepare    → combined_reference.fa, weights.txt, targets.txt, distractors.txt, sample.txt
 Step 2: simulate   → fragments.fa
 Step 3: capture    → captured.fa
+Step 3b: enrich    → enriched.fa (optional, if --fold-enrichment)
 Step 4: sequence   → reads.fa
 Step 5: filter     → filtered.fa (optional, if --host-fasta)
 Step 6: map_reads  → mapped.sam
@@ -34,6 +35,7 @@ src/
 │   ├── prepare.rs       # Combine FASTAs, generate weights, write ID lists
 │   ├── simulate.rs      # Generate weighted random fragments
 │   ├── capture.rs       # Probe capture via minimap2 or BLAST
+│   ├── enrich.rs        # Fold enrichment adjustment (post-capture ratio tuning)
 │   ├── sequence.rs      # Trim fragments to read length
 │   ├── filter.rs        # Remove host-mapping reads
 │   ├── map_reads.rs     # Map reads to reference (minimap2)
@@ -60,7 +62,7 @@ R/
 
 ### CLI (`cli.rs`)
 
-- **`Commands`** enum — one variant per subcommand (Run, Prepare, Simulate, Capture, Sequence, Filter, Map, List, Metrics, Report), each with its own fields
+- **`Commands`** enum — one variant per subcommand (Run, Prepare, Simulate, Capture, Enrich, Sequence, Filter, Map, List, Metrics, Report), each with its own fields
 - **`CaptureMethodArg`** — ValueEnum: Minimap2 | Blast
 
 ### Command Args Pattern
@@ -72,6 +74,7 @@ Every command module exports an `Args` struct and an `execute(&Args) -> Result<(
 | `prepare` | `PrepareArgs` | targets, distractors, sample, distractor_fraction | combined_reference.fa, weights.txt, ID lists |
 | `simulate` | `SimulateArgs` | reference, weights, num_fragments, seed, fragment_length_* | fragments.fa |
 | `capture` | `CaptureArgs` | method, probes, fragments, max_mismatches, min_match_bases | captured.fa |
+| `enrich` | `EnrichArgs` | captured, fragments, targets, distractors, fold_enrichment, seed | enriched.fa |
 | `sequence` | `SequenceArgs` | input, read_length | reads.fa (trimmed) |
 | `filter` | `FilterArgs` | host, reads, minimap_preset | filtered.fa |
 | `map_reads` | `MapArgs` | reference, reads, minimap_preset | mapped.sam |
@@ -157,7 +160,8 @@ All wrappers follow the pattern: `check_available() → bool/Result`, then speci
 | `distractors.txt` | ID list | prepare | metrics |
 | `sample.txt` | ID list | prepare | metrics |
 | `fragments.fa` | FASTA | simulate | capture, metrics |
-| `captured.fa` | FASTA | capture | sequence, metrics |
+| `captured.fa` | FASTA | capture | enrich (if --fold-enrichment), sequence, metrics |
+| `enriched.fa` | FASTA | enrich | sequence, metrics (only if --fold-enrichment) |
 | `reads.fa` | FASTA | sequence | filter/map_reads |
 | `filtered.fa` | FASTA | filter | map_reads |
 | `mapped.sam` | SAM | map_reads | generate_list, metrics |
