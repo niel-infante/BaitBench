@@ -98,7 +98,9 @@ TSV format: `id<tab>weight` (weight optional, defaults to 1.0). All IDs must exi
 
 ## Important Rules
 
-- **Always update documentation when making changes.** When adding, removing, or modifying CLI flags, subcommands, metrics, output files, or any user-facing behavior, update the relevant documentation files: `README.md`, this file (`CLAUDE.md`), and CLI help text in `src/cli.rs`.
+- **Read `ARCHITECTURE.md` first.** Before exploring the codebase, read `ARCHITECTURE.md` for a complete map of every source file, its public types/functions, data flow between modules, and intermediate file formats. This avoids redundant exploration.
+- **Keep `ARCHITECTURE.md` up to date.** After adding, removing, or modifying source files, structs, public functions, intermediate files, or report sections, update `ARCHITECTURE.md` to reflect the changes.
+- **Always update documentation when making changes.** When adding, removing, or modifying CLI flags, subcommands, metrics, output files, or any user-facing behavior, update the relevant documentation files: `README.md`, `ARCHITECTURE.md`, this file (`CLAUDE.md`), and CLI help text in `src/cli.rs`.
 
 ## Development Guidelines
 
