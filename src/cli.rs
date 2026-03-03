@@ -108,6 +108,10 @@ pub enum Commands {
         #[arg(long, default_value = "120")]
         read_length: usize,
 
+        /// Number of sequences to sample in sequencing step (with replacement). If not specified, all captured fragments become reads.
+        #[arg(long)]
+        num_sequences: Option<usize>,
+
         /// Output directory
         #[arg(short, long, default_value = "./results")]
         outdir: PathBuf,
@@ -279,6 +283,14 @@ pub enum Commands {
         /// Read length to trim to
         #[arg(long, default_value = "120")]
         read_length: usize,
+
+        /// Number of sequences to sample (with replacement). If not specified, all fragments pass through.
+        #[arg(long)]
+        num_sequences: Option<usize>,
+
+        /// Random seed for sampling reproducibility
+        #[arg(short, long)]
+        seed: Option<u64>,
     },
 
     /// Filter out host reads using minimap2
@@ -449,6 +461,109 @@ pub enum Commands {
         /// Output HTML file
         #[arg(short, long)]
         output: PathBuf,
+    },
+
+    /// Run pipeline at multiple CT values and generate coverage depth curves
+    CtSweep {
+        /// Target sequences FASTA
+        #[arg(short, long)]
+        targets: PathBuf,
+
+        /// Distractor sequences FASTA (can be specified multiple times)
+        #[arg(short, long, num_args = 1..)]
+        distractors: Vec<PathBuf>,
+
+        /// Probe sequences FASTA
+        #[arg(short, long)]
+        probes: PathBuf,
+
+        /// Sample manifest TSV (required; specifies which targets to track)
+        #[arg(long)]
+        sample: PathBuf,
+
+        /// CT values to sweep (space-separated, e.g. --ct-values 20 25 30 35)
+        #[arg(long, num_args = 1.., required = true)]
+        ct_values: Vec<f64>,
+
+        /// CT baseline value
+        #[arg(long, default_value = "20.0")]
+        ct_baseline: f64,
+
+        /// Target fraction at baseline CT
+        #[arg(long, default_value = "0.01")]
+        ct_baseline_fraction: f64,
+
+        /// Number of fragments to simulate
+        #[arg(short, long, default_value = "10000")]
+        num_fragments: usize,
+
+        /// Sequencing read length
+        #[arg(long, default_value = "120")]
+        read_length: usize,
+
+        /// Number of sequences to sample in sequencing step (with replacement)
+        #[arg(long)]
+        num_sequences: Option<usize>,
+
+        /// Random seed
+        #[arg(short, long)]
+        seed: Option<u64>,
+
+        /// Mean fragment length
+        #[arg(long, default_value = "175")]
+        fragment_length_mean: f64,
+
+        /// Minimum fragment length
+        #[arg(long, default_value = "150")]
+        fragment_length_min: usize,
+
+        /// Maximum fragment length
+        #[arg(long, default_value = "200")]
+        fragment_length_max: usize,
+
+        /// Capture method
+        #[arg(long, default_value = "minimap2")]
+        capture_method: CaptureMethodArg,
+
+        /// Max mismatches for minimap2 capture
+        #[arg(long, default_value = "10")]
+        max_mismatches: u32,
+
+        /// Min matching bases required
+        #[arg(long, default_value = "60")]
+        min_match_bases: u32,
+
+        /// BLAST database path
+        #[arg(long)]
+        blast_db: Option<String>,
+
+        /// Fold enrichment for capture
+        #[arg(long)]
+        fold_enrichment: Option<f64>,
+
+        /// Host genome FASTA for filtering
+        #[arg(long)]
+        host_fasta: Option<PathBuf>,
+
+        /// Minimap2 preset for read mapping
+        #[arg(long, default_value = "sr")]
+        minimap_preset: String,
+
+        /// Minimap2 preset for host filtering
+        #[arg(long, default_value = "sr")]
+        host_minimap_preset: String,
+
+        /// Number of threads for external tools
+        #[arg(long, default_value = "1")]
+        threads: usize,
+
+        /// Output directory
+        #[arg(short, long, default_value = "./ct_sweep_results")]
+        outdir: PathBuf,
+
+        /// Skip HTML report generation
+        #[arg(long)]
+        no_report: bool,
     },
 }
 

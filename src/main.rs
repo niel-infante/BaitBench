@@ -10,7 +10,7 @@ use anyhow::{bail, Result};
 use clap::Parser;
 
 use cli::{Cli, Commands};
-use commands::{capture, enrich, filter, generate_list, map_reads, metrics, prepare, probe_coverage, report, run, sequence, simulate};
+use commands::{capture, ct_sweep, enrich, filter, generate_list, map_reads, metrics, prepare, probe_coverage, report, run, sequence, simulate};
 
 /// Default distractor fraction when neither --distractor-fraction nor --ct is specified.
 const DEFAULT_DISTRACTOR_FRACTION: f64 = 0.9;
@@ -19,7 +19,7 @@ const DEFAULT_DISTRACTOR_FRACTION: f64 = 0.9;
 ///
 /// Formula: target_fraction = baseline_fraction * 2^(baseline_ct - ct)
 ///          distractor_fraction = 1 - target_fraction
-fn ct_to_distractor_fraction(ct: f64, baseline_ct: f64, baseline_fraction: f64) -> Result<f64> {
+pub(crate) fn ct_to_distractor_fraction(ct: f64, baseline_ct: f64, baseline_fraction: f64) -> Result<f64> {
     let target_fraction = baseline_fraction * 2.0_f64.powf(baseline_ct - ct);
     if target_fraction >= 1.0 {
         bail!(
@@ -90,6 +90,7 @@ fn main() -> Result<()> {
             fragment_length_min,
             fragment_length_max,
             read_length,
+            num_sequences,
             outdir,
             threads,
             fold_enrichment,
@@ -127,6 +128,7 @@ fn main() -> Result<()> {
                 fragment_length_min,
                 fragment_length_max,
                 read_length,
+                num_sequences,
                 outdir: full_outdir,
                 threads,
                 fold_enrichment,
@@ -227,11 +229,15 @@ fn main() -> Result<()> {
             input,
             output,
             read_length,
+            num_sequences,
+            seed,
         } => {
             sequence::execute(&sequence::SequenceArgs {
                 input: &input,
                 output: &output,
                 read_length,
+                num_sequences,
+                seed,
             })?;
         }
 
@@ -341,6 +347,62 @@ fn main() -> Result<()> {
                 coverage: coverage.as_deref(),
                 run_name: &run_name,
                 output: &output,
+            })?;
+        }
+
+        Commands::CtSweep {
+            targets,
+            distractors,
+            probes,
+            sample,
+            ct_values,
+            ct_baseline,
+            ct_baseline_fraction,
+            num_fragments,
+            read_length,
+            num_sequences,
+            seed,
+            fragment_length_mean,
+            fragment_length_min,
+            fragment_length_max,
+            capture_method,
+            max_mismatches,
+            min_match_bases,
+            blast_db,
+            fold_enrichment,
+            host_fasta,
+            minimap_preset,
+            host_minimap_preset,
+            threads,
+            outdir,
+            no_report,
+        } => {
+            ct_sweep::execute(&ct_sweep::CtSweepArgs {
+                targets: &targets,
+                distractors: &distractors,
+                probes: &probes,
+                sample: &sample,
+                ct_values: &ct_values,
+                ct_baseline,
+                ct_baseline_fraction,
+                num_fragments,
+                read_length,
+                num_sequences,
+                seed,
+                fragment_length_mean,
+                fragment_length_min,
+                fragment_length_max,
+                capture_method: capture_method.into(),
+                max_mismatches,
+                min_match_bases,
+                blast_db: blast_db.as_deref(),
+                fold_enrichment,
+                host_fasta: host_fasta.as_deref(),
+                minimap_preset: &minimap_preset,
+                host_minimap_preset: &host_minimap_preset,
+                threads,
+                outdir,
+                no_report,
             })?;
         }
     }

@@ -28,6 +28,7 @@ pub struct RunArgs<'a> {
     pub fragment_length_min: usize,
     pub fragment_length_max: usize,
     pub read_length: usize,
+    pub num_sequences: Option<usize>,
     pub outdir: PathBuf,
     pub threads: usize,
     pub fold_enrichment: Option<f64>,
@@ -66,6 +67,10 @@ pub fn execute(args: &RunArgs) -> Result<()> {
     log::info!("Num fragments       : {}", args.num_fragments);
     log::info!("Fragment length     : mean={}, min={}, max={}", args.fragment_length_mean, args.fragment_length_min, args.fragment_length_max);
     log::info!("Read length         : {}", args.read_length);
+    log::info!(
+        "Num sequences       : {}",
+        args.num_sequences.map(|s| s.to_string()).unwrap_or_else(|| "all".to_string())
+    );
     log::info!("Distractor fraction : {}", args.distractor_fraction);
     if let Some(ct) = args.ct {
         log::info!("CT score            : {}", ct);
@@ -116,6 +121,7 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         writeln!(f, "fragment_length_min\t--fragment-length-min\t{}", args.fragment_length_min)?;
         writeln!(f, "fragment_length_max\t--fragment-length-max\t{}", args.fragment_length_max)?;
         writeln!(f, "read_length\t--read-length\t{}", args.read_length)?;
+        writeln!(f, "num_sequences\t--num-sequences\t{}", args.num_sequences.map(|s| s.to_string()).unwrap_or_else(|| "none".to_string()))?;
         writeln!(f, "threads\t--threads\t{}", args.threads)?;
         writeln!(f, "seed\t--seed\t{}", args.seed.map(|s| s.to_string()).unwrap_or_else(|| "none".to_string()))?;
         writeln!(f, "outdir\t--outdir\t{}", outdir.display())?;
@@ -182,6 +188,8 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         input: &capture_output,
         output: &outdir.join("reads.fa"),
         read_length: args.read_length,
+        num_sequences: args.num_sequences,
+        seed: args.seed,
     })?;
 
     // Step 5: Optional host filtering

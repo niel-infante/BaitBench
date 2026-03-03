@@ -22,7 +22,7 @@ targets.fa + distractors.fa [+ sample.tsv]
          ↓
    baitbench enrich    (optional fold enrichment → enriched.fa)
          ↓
-   baitbench sequence  (trim to read length → reads.fa)
+   baitbench sequence  (optional sampling + trim to read length → reads.fa)
          ↓
    baitbench filter    (optional host filtering)
          ↓
@@ -36,6 +36,8 @@ targets.fa + distractors.fa [+ sample.tsv]
 ```
 
 `baitbench run` chains all steps automatically.
+
+`baitbench ct-sweep` runs the pipeline at multiple CT values and produces coverage depth curve plots.
 
 ### Key Files
 
@@ -54,6 +56,7 @@ targets.fa + distractors.fa [+ sample.tsv]
 | `src/commands/generate_list.rs` | SAM parsing → per-reference counts |
 | `src/commands/metrics.rs` | 3-way classification, TSV/JSON output |
 | `src/commands/report.rs` | Invokes Rscript for HTML report |
+| `src/commands/ct_sweep.rs` | CT sweep: pipeline at multiple CT values → depth curves |
 | `src/fasta/` | FASTA parsing, writing, extract-by-ID (replaces seqtk) |
 | `src/alignment/paf.rs` | PAF format parser for minimap2 output |
 | `src/alignment/sam.rs` | SAM format parser |
@@ -62,6 +65,8 @@ targets.fa + distractors.fa [+ sample.tsv]
 | `src/external/` | minimap2, blastn, Rscript process wrappers |
 | `R/report.Rmd` | RMarkdown template with ggplot2 figures |
 | `R/report.R` | R script entry point for report generation |
+| `R/ct_sweep.R` | R script entry point for CT sweep report |
+| `R/ct_sweep.Rmd` | RMarkdown template for coverage depth curves |
 | `environment.yml` | Conda environment (minimap2, blast, R packages) |
 
 ### Metrics Definitions
