@@ -111,10 +111,7 @@ pub fn execute(args: &ProbeCoverageArgs) -> Result<()> {
     log::info!("Targets 100% tiled : {}", fully_covered);
     log::info!("Targets >=90% tiled: {}", well_covered);
 
-    // Clean up SAM file
-    let _ = fs::remove_file(&sam_path);
-
-    // Step 6: Optional report
+    // Step 7: Optional report
     if args.no_report {
         log::info!("Skipping report generation (--no-report)");
     } else if rscript::check_available() {

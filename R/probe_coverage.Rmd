@@ -16,10 +16,11 @@ params:
 <style>
 .main-container { max-width: 100%; margin-left: 1em; margin-right: 1em; }
 .dataTables_wrapper { width: 100%; }
+table { width: 100%; }
 </style>
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, fig.width = 10, fig.height = 5)
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, fig.width = 10, fig.height = 5, out.width = "100%")
 
 suppressPackageStartupMessages({
   library(ggplot2)
