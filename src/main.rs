@@ -10,7 +10,7 @@ use anyhow::Result;
 use clap::Parser;
 
 use cli::{Cli, Commands};
-use commands::{capture, enrich, filter, generate_list, map_reads, metrics, prepare, report, run, sequence, simulate};
+use commands::{capture, enrich, filter, generate_list, map_reads, metrics, prepare, probe_coverage, report, run, sequence, simulate};
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
@@ -244,6 +244,24 @@ fn main() -> Result<()> {
                 output_detail: &output_detail,
                 output_json: output_json.as_deref(),
                 output_coverage: output_coverage.as_deref(),
+            })?;
+        }
+
+        Commands::ProbeCoverage {
+            targets,
+            probes,
+            outdir,
+            minimap_preset,
+            proximity,
+            no_report,
+        } => {
+            probe_coverage::execute(&probe_coverage::ProbeCoverageArgs {
+                targets: &targets,
+                probes: &probes,
+                outdir: &outdir,
+                minimap_preset: &minimap_preset,
+                proximity,
+                no_report,
             })?;
         }
 

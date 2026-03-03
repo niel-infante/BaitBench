@@ -1,0 +1,323 @@
+---
+title: "BaitBench Probe Coverage Report"
+output:
+  html_document:
+    self_contained: true
+    theme: flatly
+    toc: true
+    toc_float: true
+params:
+  summary_file: ""
+  depth_file: ""
+  multi_mapping_file: ""
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, fig.width = 8, fig.height = 5)
+
+suppressPackageStartupMessages({
+  library(ggplot2)
+  library(dplyr)
+  library(tidyr)
+})
+
+theme_set(theme_minimal(base_size = 14))
+
+# Read data
+summary_df <- read.delim(params$summary_file, stringsAsFactors = FALSE)
+depth_df <- read.delim(params$depth_file, stringsAsFactors = FALSE)
+
+# Read multi-mapping probes if available
+has_multi <- nchar(params$multi_mapping_file) > 0 && file.exists(params$multi_mapping_file)
+if (has_multi) {
+  multi_df <- read.delim(params$multi_mapping_file, stringsAsFactors = FALSE)
+} else {
+  multi_df <- data.frame(probe_id = character(), num_targets = integer(), targets = character())
+}
+```
+
+**Generated:** `r Sys.time()`
+
+**Targets analyzed:** `r nrow(summary_df)` | **Fully tiled (100%):** `r sum(summary_df$pct_covered_1x >= 100)` | **Well tiled (>=90%):** `r sum(summary_df$pct_covered_1x >= 90)` | **Multi-mapping probes:** `r nrow(multi_df)`
+
+---
+
+## Summary Table
+
+```{r summary-table}
+summary_df %>%
+  arrange(pct_covered_1x) %>%
+  mutate(
+    ref_length = format(ref_length, big.mark = ","),
+    covered_bases = format(covered_bases, big.mark = ","),
+    pct_covered_1x = sprintf("%.1f%%", pct_covered_1x),
+    mean_depth = sprintf("%.1f", mean_depth),
+    median_depth = sprintf("%.1f", median_depth),
+    pct_covered_2x = sprintf("%.1f%%", pct_covered_2x),
+    pct_covered_5x = sprintf("%.1f%%", pct_covered_5x),
+    pct_covered_10x = sprintf("%.1f%%", pct_covered_10x),
+    max_gap_length = format(max_gap_length, big.mark = ","),
+    pct_near_probe = sprintf("%.1f%%", pct_near_probe)
+  ) %>%
+  knitr::kable(
+    col.names = c("Reference", "Length", "Covered", "%\u22651X", "Mean Depth",
+                   "Median Depth", "%\u22652X", "%\u22655X", "%\u226510X",
+                   "Max Gap", "Gaps", "% Near Probe"),
+    align = "lrrrrrrrrrrr"
+  )
+```
+
+## Coverage Breadth
+
+```{r coverage-breadth, fig.height=max(3, nrow(summary_df) * 0.4)}
+summary_df <- summary_df %>%
+  mutate(
+    coverage_class = case_when(
+      pct_covered_1x >= 95 ~ "Excellent (>=95%)",
+      pct_covered_1x >= 80 ~ "Good (>=80%)",
+      TRUE ~ "Poor (<80%)"
+    ),
+    coverage_class = factor(coverage_class,
+                            levels = c("Excellent (>=95%)", "Good (>=80%)", "Poor (<80%)"))
+  )
+
+ggplot(summary_df, aes(x = reorder(reference_id, pct_covered_1x),
+                        y = pct_covered_1x, fill = coverage_class)) +
+  geom_col(width = 0.7) +
+  geom_hline(yintercept = c(80, 95), linetype = "dashed", color = "grey40", linewidth = 0.3) +
+  coord_flip() +
+  scale_fill_manual(values = c("Excellent (>=95%)" = "#27ae60",
+                                "Good (>=80%)" = "#f39c12",
+                                "Poor (<80%)" = "#e74c3c")) +
+  labs(x = NULL, y = "% Bases Covered (>= 1X)", fill = "Quality",
+       title = "Probe Tiling Breadth per Target") +
+  theme(legend.position = "bottom")
+```
+
+## Tiered Coverage
+
+```{r tiered-coverage, fig.height=max(3, nrow(summary_df) * 0.5)}
+tiered <- summary_df %>%
+  select(reference_id, pct_covered_1x, pct_covered_2x, pct_covered_5x, pct_covered_10x) %>%
+  pivot_longer(cols = starts_with("pct_covered_"),
+               names_to = "threshold", values_to = "pct") %>%
+  mutate(threshold = case_when(
+    threshold == "pct_covered_1x"  ~ ">=1X",
+    threshold == "pct_covered_2x"  ~ ">=2X",
+    threshold == "pct_covered_5x"  ~ ">=5X",
+    threshold == "pct_covered_10x" ~ ">=10X"
+  ),
+  threshold = factor(threshold, levels = c(">=1X", ">=2X", ">=5X", ">=10X")))
+
+ggplot(tiered, aes(x = reorder(reference_id, pct), y = pct, fill = threshold)) +
+  geom_col(position = "dodge", width = 0.7) +
+  coord_flip() +
+  scale_fill_manual(values = c(">=1X" = "#3498db", ">=2X" = "#2ecc71",
+                                ">=5X" = "#f39c12", ">=10X" = "#e74c3c")) +
+  labs(x = NULL, y = "% Bases Covered", fill = "Depth Threshold",
+       title = "Tiered Probe Coverage per Target") +
+  theme(legend.position = "bottom")
+```
+
+## Gap Analysis
+
+```{r gap-analysis, fig.height=max(3, nrow(summary_df) * 0.4)}
+gap_data <- summary_df %>% filter(num_gaps > 0)
+
+if (nrow(gap_data) > 0) {
+  ggplot(gap_data, aes(x = reorder(reference_id, max_gap_length), y = max_gap_length)) +
+    geom_segment(aes(xend = reference_id, y = 0, yend = max_gap_length),
+                 color = "#e74c3c", linewidth = 1) +
+    geom_point(size = 4, color = "#e74c3c") +
+    geom_text(aes(label = sprintf("%s bp (%d gaps)",
+                                   format(max_gap_length, big.mark = ","), num_gaps)),
+              hjust = -0.1, size = 3.5) +
+    coord_flip() +
+    labs(x = NULL, y = "Largest Gap (bp)",
+         title = "Largest Uncovered Stretch per Target",
+         subtitle = "Targets with no gaps are omitted") +
+    expand_limits(y = max(gap_data$max_gap_length) * 1.3)
+} else {
+  cat("All targets are fully tiled with no gaps.")
+}
+```
+
+## Pangenome Probe Depth
+
+Targets concatenated end-to-end, sorted by name. Vertical grey lines mark target boundaries.
+
+```{r pangenome, fig.height=4, fig.width=10}
+if (nrow(depth_df) > 0) {
+  # Build cumulative offsets for each target
+  target_order <- summary_df %>% arrange(reference_id)
+  offsets <- target_order %>%
+    mutate(offset = cumsum(lag(ref_length, default = 0)))
+
+  # Join offsets and compute pangenome position
+  pan_df <- depth_df %>%
+    inner_join(offsets %>% select(reference_id, offset), by = "reference_id") %>%
+    mutate(pan_position = position + offset)
+
+  # Downsample for rendering speed
+  pan_df <- pan_df %>%
+    mutate(bin = ceiling(row_number() / max(1, ceiling(n() / 2000)))) %>%
+    group_by(bin) %>%
+    summarise(pan_position = mean(pan_position), depth = mean(depth),
+              reference_id = first(reference_id), .groups = "drop")
+
+  # Target boundary positions for vertical lines
+  boundaries <- offsets %>%
+    mutate(boundary = offset + ref_length) %>%
+    filter(row_number() < n())  # no line after last target
+
+  # Midpoints for target labels
+  labels_df <- offsets %>%
+    mutate(mid = offset + ref_length / 2)
+
+  ggplot(pan_df, aes(x = pan_position, y = depth)) +
+    geom_area(fill = "#3498db", alpha = 0.4) +
+    geom_line(color = "#2c3e50", linewidth = 0.2) +
+    geom_hline(yintercept = 1, linetype = "dashed", color = "#27ae60", linewidth = 0.3) +
+    geom_hline(yintercept = 5, linetype = "dashed", color = "#f39c12", linewidth = 0.3) +
+    { if (nrow(boundaries) > 0 && nrow(target_order) <= 12)
+        geom_vline(data = boundaries, aes(xintercept = boundary),
+                   color = "grey50", linetype = "solid", linewidth = 0.3) } +
+    labs(x = "Pangenome Position", y = "Probe Depth",
+         title = "Probe Depth Across Concatenated Targets",
+         subtitle = sprintf("%d targets | Dashed lines: 1X (green), 5X (orange)",
+                            nrow(target_order))) +
+    theme(axis.text.x = element_text(size = 7))
+}
+```
+
+## Probe Depth Profiles {.tabset}
+
+```{r depth-overview, fig.height=max(3, ceiling(min(length(unique(depth_df$reference_id)), 12) / 3) * 2.5), fig.width=10}
+if (nrow(depth_df) > 0) {
+  # Limit faceted overview to 12 targets (worst-covered first)
+  worst_refs <- summary_df %>%
+    arrange(pct_covered_1x) %>%
+    head(12) %>%
+    pull(reference_id)
+
+  overview_data <- depth_df %>% filter(reference_id %in% worst_refs)
+
+  if (nrow(summary_df) > 12) {
+    overview_subtitle <- sprintf("Showing 12 worst-covered of %d targets | Dashed lines: 1X (green), 5X (orange)",
+                                  nrow(summary_df))
+  } else {
+    overview_subtitle <- "Dashed lines: 1X (green), 5X (orange)"
+  }
+
+  # Downsample for rendering speed
+  plot_data <- overview_data %>%
+    group_by(reference_id) %>%
+    mutate(
+      bin = ceiling(row_number() / max(1, ceiling(n() / 500)))
+    ) %>%
+    group_by(reference_id, bin) %>%
+    summarise(position = mean(position), depth = mean(depth), .groups = "drop")
+
+  ggplot(plot_data, aes(x = position, y = depth)) +
+    geom_area(fill = "#3498db", alpha = 0.4) +
+    geom_line(color = "#2c3e50", linewidth = 0.3) +
+    geom_hline(yintercept = 1, linetype = "dashed", color = "#27ae60", linewidth = 0.3) +
+    geom_hline(yintercept = 5, linetype = "dashed", color = "#f39c12", linewidth = 0.3) +
+    facet_wrap(~reference_id, scales = "free", ncol = 3) +
+    labs(x = "Position", y = "Probe Depth",
+         title = "Probe Depth Across Targets",
+         subtitle = overview_subtitle) +
+    theme(strip.text = element_text(size = 8),
+          axis.text = element_text(size = 6))
+}
+```
+
+```{r depth-detail, results='asis', fig.width=8, fig.height=3}
+if (nrow(depth_df) > 0 && nrow(summary_df) > 0) {
+  # Show individual detail plots for the 10 worst-covered targets only
+  ordered <- summary_df %>% arrange(pct_covered_1x)
+  n_detail <- min(10, nrow(ordered))
+
+  if (nrow(ordered) > 10) {
+    cat(sprintf('\n\n*Showing detail for the %d worst-covered targets (of %d total).*\n\n',
+                n_detail, nrow(ordered)))
+  }
+
+  for (i in seq_len(n_detail)) {
+    ref_id <- ordered$reference_id[i]
+    ref_data <- depth_df %>% filter(reference_id == ref_id)
+
+    if (nrow(ref_data) == 0) next
+
+    s <- ordered[i, ]
+    cat(sprintf('\n\n<details><summary><strong>%s</strong> &mdash; %.1f%% covered, %.1fX mean, %s bp, %d gaps (max %s bp)</summary>\n\n',
+                ref_id, s$pct_covered_1x, s$mean_depth,
+                format(s$ref_length, big.mark = ","),
+                s$num_gaps, format(s$max_gap_length, big.mark = ",")))
+
+    # Identify zero-depth positions for gap rug marks
+    zero_pos <- ref_data %>% filter(depth == 0)
+
+    p <- ggplot(ref_data, aes(x = position, y = depth)) +
+      geom_area(fill = "#3498db", alpha = 0.3) +
+      geom_line(color = "#2c3e50", linewidth = 0.4) +
+      geom_hline(yintercept = 1, linetype = "dashed", color = "#27ae60", linewidth = 0.5) +
+      geom_hline(yintercept = 5, linetype = "dashed", color = "#f39c12", linewidth = 0.5)
+
+    if (nrow(zero_pos) > 0) {
+      p <- p + geom_rug(data = zero_pos, aes(x = position), color = "darkgreen",
+                        alpha = 0.3, sides = "b", inherit.aes = FALSE)
+    }
+
+    p <- p +
+      annotate("text", x = Inf, y = 1, label = "1X", hjust = 1.2, vjust = -0.5,
+               color = "#27ae60", size = 3) +
+      annotate("text", x = Inf, y = 5, label = "5X", hjust = 1.2, vjust = -0.5,
+               color = "#f39c12", size = 3) +
+      labs(x = "Genome Position", y = "Probe Depth",
+           title = sprintf("Probe Depth: %s", ref_id),
+           subtitle = sprintf("%.1f%% covered | %.1fX mean | %.1f median | %s bp",
+                              s$pct_covered_1x, s$mean_depth, s$median_depth,
+                              format(s$ref_length, big.mark = ",")),
+           caption = if (nrow(zero_pos) > 0) "Rug: uncovered positions" else NULL) +
+      theme_minimal(base_size = 12)
+
+    print(p)
+    cat('\n\n</details>\n\n')
+  }
+}
+```
+
+## Proximity Coverage
+
+```{r proximity, fig.height=max(3, nrow(summary_df) * 0.4)}
+ggplot(summary_df, aes(x = reorder(reference_id, pct_near_probe), y = pct_near_probe)) +
+  geom_col(fill = "#8e44ad", width = 0.7, alpha = 0.8) +
+  geom_col(aes(y = pct_covered_1x), fill = "#3498db", width = 0.7, alpha = 0.5) +
+  coord_flip() +
+  labs(x = NULL, y = "% Target Bases",
+       title = "Direct Coverage vs Proximity Coverage",
+       subtitle = "Blue: directly covered | Purple: within pull-down zone of a probe") +
+  theme(legend.position = "bottom")
+```
+
+## Multi-Mapping Probes
+
+`r nrow(multi_df)` probes map to more than one target sequence. See `multi_mapping_probes.tsv` for the full list.
+
+```{r multi-mapping, eval=(nrow(multi_df) > 0)}
+multi_df %>%
+  arrange(desc(num_targets)) %>%
+  head(20) %>%
+  knitr::kable(
+    col.names = c("Probe ID", "# Targets", "Targets"),
+    align = "lrl",
+    caption = if (nrow(multi_df) > 20)
+      sprintf("Showing top 20 of %d multi-mapping probes", nrow(multi_df))
+    else NULL
+  )
+```
+
+---
+
+*Generated by [BaitBench](https://github.com/CrossLab/BaitBench) probe-coverage*

@@ -370,6 +370,33 @@ pub enum Commands {
         output_coverage: Option<PathBuf>,
     },
 
+    /// Analyze probe tiling and coverage across target sequences (probe design QC)
+    ProbeCoverage {
+        /// Target sequences FASTA
+        #[arg(short, long)]
+        targets: PathBuf,
+
+        /// Probe sequences FASTA
+        #[arg(short, long)]
+        probes: PathBuf,
+
+        /// Output directory
+        #[arg(short, long, default_value = "./probe_coverage")]
+        outdir: PathBuf,
+
+        /// Minimap2 alignment preset
+        #[arg(long, default_value = "sr")]
+        minimap_preset: String,
+
+        /// Proximity distance (bp) for pull-down zone metric
+        #[arg(long, default_value = "50")]
+        proximity: usize,
+
+        /// Skip HTML report generation
+        #[arg(long)]
+        no_report: bool,
+    },
+
     /// Generate HTML report with ggplot2 figures
     Report {
         /// Summary TSV file (results.tsv)

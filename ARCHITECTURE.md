@@ -41,9 +41,10 @@ src/
 │   ├── map_reads.rs     # Map reads to reference (minimap2)
 │   ├── generate_list.rs # Count reads per reference from SAM → detected.list
 │   ├── metrics.rs       # TP/FP/FN/TN classification, coverage stats, TSV/JSON output
-│   └── report.rs        # Invoke Rscript to render HTML report
+│   ├── report.rs        # Invoke Rscript to render HTML report
+│   └── probe_coverage.rs # Standalone probe tiling QC (maps probes to targets)
 ├── external/
-│   ├── minimap2.rs      # minimap2 wrapper: capture_align (PAF), map_reads (SAM), host_align
+│   ├── minimap2.rs      # minimap2 wrapper: capture_align (PAF), map_reads (SAM), host_align, probe_align
 │   ├── blastn.rs        # BLAST+ wrapper: capture_align, filter_blast_results
 │   └── rscript.rs       # Rscript discovery (BAITBENCH_R_DIR, binary walk, ./R/) and execution
 ├── fasta/
@@ -55,14 +56,16 @@ src/
 
 R/
 ├── report.R             # CLI wrapper: parse args, invoke rmarkdown::render
-└── report.Rmd           # RMarkdown template: tables, ggplot2 figures, coverage plots
+├── report.Rmd           # RMarkdown template: tables, ggplot2 figures, coverage plots
+├── probe_coverage.R     # CLI wrapper for probe coverage report
+└── probe_coverage.Rmd   # RMarkdown template: probe tiling depth, gap analysis, proximity
 ```
 
 ## Key Data Types
 
 ### CLI (`cli.rs`)
 
-- **`Commands`** enum — one variant per subcommand (Run, Prepare, Simulate, Capture, Enrich, Sequence, Filter, Map, List, Metrics, Report), each with its own fields
+- **`Commands`** enum — one variant per subcommand (Run, Prepare, Simulate, Capture, Enrich, Sequence, Filter, Map, List, Metrics, ProbeCoverage, Report), each with its own fields
 - **`CaptureMethodArg`** — ValueEnum: Minimap2 | Blast
 
 ### Command Args Pattern
@@ -81,6 +84,7 @@ Every command module exports an `Args` struct and an `execute(&Args) -> Result<(
 | `generate_list` | `ListArgs` | sam | detected.list |
 | `metrics` | `MetricsArgs` | targets, distractors, sample, detected, fragments, captured, sam | results.tsv, detected_detail.tsv, results.json, coverage.tsv |
 | `report` | `ReportArgs` | summary, detail, params, coverage, run_name | report.html |
+| `probe_coverage` | `ProbeCoverageArgs` | targets, probes, minimap_preset, proximity | probe_depth.tsv, probe_coverage_summary.tsv, probe_coverage_report.html |
 | `run` | `RunArgs` | all pipeline inputs | all of the above |
 
 ### Metrics (`metrics.rs`)
@@ -93,7 +97,10 @@ Every command module exports an `Args` struct and an `execute(&Args) -> Result<(
 ### Coverage (`alignment/coverage.rs`)
 
 - **`CoverageResult`** — ref_lengths: HashMap<String, usize>, coverage: HashMap<String, Vec<u32>>
-- **`CoverageStats`** — ref_length, avg_coverage, pct_covered_5x, pct_covered_20x
+- **`CoverageStats`** — ref_length, avg_coverage, pct_covered_5x, pct_covered_20x (used by pipeline read coverage)
+- **`ProbeCoverageStats`** — ref_length, covered_bases, pct_covered_1x, mean_depth, median_depth, pct_covered_2x/5x/10x, max_gap_length, num_gaps, pct_near_probe (used by probe-coverage QC)
+- `compute_coverage(sam)` — pipeline read coverage (skips secondary alignments)
+- `compute_probe_coverage(sam)` — probe tiling depth (includes secondary alignments)
 
 ### FASTA (`fasta/`)
 
@@ -120,7 +127,7 @@ All wrappers follow the pattern: `check_available() → bool/Result`, then speci
 
 | Tool | Functions | Output format |
 |------|-----------|---------------|
-| minimap2 | `capture_align` (PAF), `map_reads` (SAM), `host_align` (SAM) | PAF or SAM |
+| minimap2 | `capture_align` (PAF), `map_reads` (SAM), `host_align` (SAM), `probe_align` (SAM, with secondary) | PAF or SAM |
 | blastn | `capture_align` (TSV outfmt 6), `filter_blast_results` | TSV |
 | rscript | `check_available`, `find_r_dir`, `run_rscript` | HTML |
 
@@ -172,6 +179,16 @@ All wrappers follow the pattern: `check_available() → bool/Result`, then speci
 | `results.json` | JSON | metrics | — |
 | `coverage.tsv` | TSV (reference_id position depth) | metrics | report |
 | `report.html` | HTML | report | — |
+
+### Probe Coverage (standalone, not part of pipeline)
+
+| File | Format | Written by | Read by |
+|------|--------|------------|---------|
+| `probe_alignment.sam` | SAM | probe_coverage | probe_coverage (then deleted) |
+| `probe_depth.tsv` | TSV (reference_id position depth) | probe_coverage | probe_coverage report |
+| `probe_coverage_summary.tsv` | TSV (per-target stats) | probe_coverage | probe_coverage report |
+| `multi_mapping_probes.tsv` | TSV (probe_id num_targets targets) | probe_coverage | probe_coverage report |
+| `probe_coverage_report.html` | HTML | probe_coverage (via R) | — |
 
 ## Key Conventions
 

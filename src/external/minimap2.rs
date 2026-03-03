@@ -81,6 +81,45 @@ pub fn map_reads(
     Ok(())
 }
 
+/// Run minimap2 for probe-to-target mapping (SAM output with secondary alignments).
+///
+/// `minimap2 -ax <preset> --secondary=yes -N 1000 <targets> <probes> > <output>`
+///
+/// Secondary alignments are kept because a single probe can legitimately
+/// tile conserved regions across multiple target sequences.
+pub fn probe_align(
+    preset: &str,
+    targets: &Path,
+    probes: &Path,
+    output_sam: &Path,
+    log_file: &Path,
+) -> Result<()> {
+    let out = File::create(output_sam)
+        .with_context(|| format!("Cannot create SAM: {}", output_sam.display()))?;
+    let log = File::create(log_file)
+        .with_context(|| format!("Cannot create log: {}", log_file.display()))?;
+
+    let status = Command::new("minimap2")
+        .args(["-ax", preset])
+        .arg("--secondary=yes")
+        .args(["-N", "1000"])
+        .arg(targets)
+        .arg(probes)
+        .stdout(out)
+        .stderr(log)
+        .status()
+        .context("Failed to execute minimap2")?;
+
+    if !status.success() {
+        bail!(
+            "minimap2 probe alignment failed (exit code {:?})",
+            status.code()
+        );
+    }
+
+    Ok(())
+}
+
 /// Run minimap2 for host filtering (SAM output).
 ///
 /// `minimap2 -ax <preset> <host> <reads> > <output>`

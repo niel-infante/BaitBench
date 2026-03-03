@@ -98,6 +98,38 @@ baitbench report    # Generate HTML report (requires R)
 
 Run `baitbench <command> --help` for full options.
 
+### Probe coverage analysis
+
+Separate from the simulation pipeline, `probe-coverage` evaluates how well your probes tile across target sequences — a probe design QC tool.
+
+```bash
+baitbench probe-coverage \
+  --targets targets.fa \
+  --probes probes.fa \
+  --outdir probe_coverage_results
+```
+
+This maps probes to targets using minimap2 and reports per-target statistics:
+
+| Metric | Description |
+|--------|-------------|
+| `pct_covered_1x` | % of target bases covered by at least one probe |
+| `mean_depth` / `median_depth` | Average and median probe depth |
+| `pct_covered_2x/5x/10x` | Tiered coverage thresholds |
+| `max_gap_length` / `num_gaps` | Largest uncovered stretch and number of gaps |
+| `pct_near_probe` | % of bases within proximity distance of a probe (default 50bp) |
+
+Output files: `probe_coverage_summary.tsv` (per-target stats), `probe_depth.tsv` (per-position depth), and optionally `probe_coverage_report.html` (requires R).
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `--targets` | required | Target sequences FASTA |
+| `--probes` | required | Probe sequences FASTA |
+| `--outdir` | ./probe_coverage | Output directory |
+| `--minimap-preset` | sr | Minimap2 alignment preset |
+| `--proximity` | 50 | Distance (bp) for pull-down zone metric |
+| `--no-report` | false | Skip HTML report generation |
+
 ## Input Files
 
 | File | Description |

@@ -158,6 +158,214 @@ pub fn calculate_stats(coverage: &[u32], ref_length: usize) -> CoverageStats {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Probe tiling coverage (separate from read/fragment coverage above)
+// ---------------------------------------------------------------------------
+
+/// Extended coverage statistics for probe tiling QC.
+///
+/// These metrics evaluate how well probes physically tile target sequences,
+/// which is distinct from read/fragment coverage in the simulation pipeline.
+pub struct ProbeCoverageStats {
+    pub ref_length: usize,
+    pub covered_bases: usize,
+    pub pct_covered_1x: f64,
+    pub mean_depth: f64,
+    pub median_depth: f64,
+    pub pct_covered_2x: f64,
+    pub pct_covered_5x: f64,
+    pub pct_covered_10x: f64,
+    pub max_gap_length: usize,
+    pub num_gaps: usize,
+    pub pct_near_probe: f64,
+}
+
+/// Compute per-position probe depth from a SAM file.
+///
+/// Same algorithm as `compute_coverage` but **includes secondary alignments**
+/// (does not skip FLAG & 0x100). This is necessary because a single probe can
+/// legitimately map to conserved regions across multiple target sequences.
+///
+/// Still skips: unmapped (RNAME=*), supplementary (FLAG & 0x800).
+pub fn compute_probe_coverage(sam_path: &Path) -> Result<CoverageResult> {
+    let file = File::open(sam_path)
+        .with_context(|| format!("Cannot open SAM: {}", sam_path.display()))?;
+    let reader = BufReader::new(file);
+
+    let mut ref_lengths: HashMap<String, usize> = HashMap::new();
+    let mut coverage: HashMap<String, Vec<u32>> = HashMap::new();
+
+    for line in reader.lines() {
+        let line = line?;
+
+        // Parse @SQ headers for reference lengths
+        if line.starts_with('@') {
+            if line.starts_with("@SQ") {
+                let mut name = None;
+                let mut length = None;
+                for field in line.split('\t') {
+                    if let Some(sn) = field.strip_prefix("SN:") {
+                        name = Some(sn.to_string());
+                    } else if let Some(ln) = field.strip_prefix("LN:") {
+                        length = ln.parse::<usize>().ok();
+                    }
+                }
+                if let (Some(n), Some(l)) = (name, length) {
+                    ref_lengths.insert(n.clone(), l);
+                    coverage.insert(n, vec![0u32; l]);
+                }
+            }
+            continue;
+        }
+
+        let fields: Vec<&str> = line.split('\t').collect();
+        if fields.len() < 6 {
+            continue;
+        }
+
+        let flag: u16 = fields[1].parse().unwrap_or(0);
+        let rname = fields[2];
+        let pos: usize = fields[3].parse().unwrap_or(0); // 1-based
+        let cigar = fields[5];
+
+        // Skip unmapped and supplementary (but NOT secondary)
+        if rname == "*" || cigar == "*" {
+            continue;
+        }
+        if flag & 0x800 != 0 {
+            continue;
+        }
+
+        // Get coverage vector for this reference
+        let cov = match coverage.get_mut(rname) {
+            Some(c) => c,
+            None => continue,
+        };
+
+        // Walk CIGAR and increment depth for M/=/X ops
+        let ops = parse_cigar(cigar);
+        let mut ref_pos = pos.saturating_sub(1); // convert to 0-based
+
+        for (len, op) in ops {
+            match op {
+                'M' | '=' | 'X' => {
+                    for _ in 0..len {
+                        if ref_pos < cov.len() {
+                            cov[ref_pos] += 1;
+                        }
+                        ref_pos += 1;
+                    }
+                }
+                'D' | 'N' => {
+                    ref_pos += len as usize;
+                }
+                'I' | 'S' | 'H' | 'P' => {}
+                _ => {}
+            }
+        }
+    }
+
+    Ok(CoverageResult {
+        ref_lengths,
+        coverage,
+    })
+}
+
+/// Calculate probe tiling quality statistics from a per-position depth vector.
+///
+/// `proximity_bp`: bases on each side of a covered position that count as
+/// "near a probe" (the capture pull-down zone).
+pub fn calculate_probe_stats(
+    coverage: &[u32],
+    ref_length: usize,
+    proximity_bp: usize,
+) -> ProbeCoverageStats {
+    if ref_length == 0 {
+        return ProbeCoverageStats {
+            ref_length: 0,
+            covered_bases: 0,
+            pct_covered_1x: 0.0,
+            mean_depth: 0.0,
+            median_depth: 0.0,
+            pct_covered_2x: 0.0,
+            pct_covered_5x: 0.0,
+            pct_covered_10x: 0.0,
+            max_gap_length: 0,
+            num_gaps: 0,
+            pct_near_probe: 0.0,
+        };
+    }
+
+    let total_depth: u64 = coverage.iter().map(|&d| d as u64).sum();
+    let mean_depth = total_depth as f64 / ref_length as f64;
+
+    // Median: sort depths, take middle value
+    let mut sorted = coverage.to_vec();
+    sorted.sort_unstable();
+    let median_depth = if sorted.len() % 2 == 0 {
+        (sorted[sorted.len() / 2 - 1] as f64 + sorted[sorted.len() / 2] as f64) / 2.0
+    } else {
+        sorted[sorted.len() / 2] as f64
+    };
+
+    // Tiered coverage
+    let covered_bases = coverage.iter().filter(|&&d| d >= 1).count();
+    let above_2x = coverage.iter().filter(|&&d| d >= 2).count();
+    let above_5x = coverage.iter().filter(|&&d| d >= 5).count();
+    let above_10x = coverage.iter().filter(|&&d| d >= 10).count();
+
+    // Gap analysis: consecutive stretches of depth == 0
+    let mut max_gap_length = 0usize;
+    let mut num_gaps = 0usize;
+    let mut current_gap = 0usize;
+    for &d in coverage {
+        if d == 0 {
+            current_gap += 1;
+        } else {
+            if current_gap > 0 {
+                num_gaps += 1;
+                if current_gap > max_gap_length {
+                    max_gap_length = current_gap;
+                }
+                current_gap = 0;
+            }
+        }
+    }
+    if current_gap > 0 {
+        num_gaps += 1;
+        if current_gap > max_gap_length {
+            max_gap_length = current_gap;
+        }
+    }
+
+    // Proximity metric: expand each covered position by ±proximity_bp
+    let mut near_probe = vec![false; ref_length];
+    for (i, &d) in coverage.iter().enumerate() {
+        if d > 0 {
+            let start = i.saturating_sub(proximity_bp);
+            let end = std::cmp::min(i + proximity_bp + 1, ref_length);
+            for pos in start..end {
+                near_probe[pos] = true;
+            }
+        }
+    }
+    let near_count = near_probe.iter().filter(|&&v| v).count();
+
+    ProbeCoverageStats {
+        ref_length,
+        covered_bases,
+        pct_covered_1x: covered_bases as f64 / ref_length as f64 * 100.0,
+        mean_depth,
+        median_depth,
+        pct_covered_2x: above_2x as f64 / ref_length as f64 * 100.0,
+        pct_covered_5x: above_5x as f64 / ref_length as f64 * 100.0,
+        pct_covered_10x: above_10x as f64 / ref_length as f64 * 100.0,
+        max_gap_length,
+        num_gaps,
+        pct_near_probe: near_count as f64 / ref_length as f64 * 100.0,
+    }
+}
+
 /// Write per-position coverage to a TSV file.
 ///
 /// Format: reference_id\tposition\tdepth (1-based positions)
