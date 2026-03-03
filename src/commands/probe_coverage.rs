@@ -120,7 +120,7 @@ pub fn execute(args: &ProbeCoverageArgs) -> Result<()> {
     } else if rscript::check_available() {
         let report_path = args.outdir.join("probe_coverage_report.html");
         log::info!("Generating probe coverage report...");
-        match generate_probe_report(&summary_path, &depth_path, &multi_mapping_path, &report_path) {
+        match generate_probe_report(&summary_path, &depth_path, &multi_mapping_path, &report_path, args.proximity) {
             Ok(()) => log::info!("Report generated: {}", report_path.display()),
             Err(e) => log::warn!("Report generation failed (non-fatal): {}", e),
         }
@@ -246,6 +246,7 @@ fn generate_probe_report(
     depth_path: &Path,
     multi_mapping_path: &Path,
     output_path: &Path,
+    proximity: usize,
 ) -> Result<()> {
     let r_dir = rscript::find_r_dir()
         .ok_or_else(|| anyhow::anyhow!("Cannot find R scripts directory."))?;
@@ -271,6 +272,7 @@ fn generate_probe_report(
     let depth_str = depth_abs.to_str().unwrap_or("");
     let multi_str = multi_abs.to_str().unwrap_or("");
     let output_str = output_abs.to_str().unwrap_or("");
+    let proximity_str = proximity.to_string();
 
     rscript::run_rscript(
         &script,
@@ -281,6 +283,8 @@ fn generate_probe_report(
             depth_str,
             "--multi-mapping",
             multi_str,
+            "--proximity",
+            &proximity_str,
             "--output",
             output_str,
         ],

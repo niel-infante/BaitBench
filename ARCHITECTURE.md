@@ -67,6 +67,7 @@ R/
 
 - **`Commands`** enum — one variant per subcommand (Run, Prepare, Simulate, Capture, Enrich, Sequence, Filter, Map, List, Metrics, ProbeCoverage, Report), each with its own fields
 - **`CaptureMethodArg`** — ValueEnum: Minimap2 | Blast
+- **CT score flags** — `--ct`, `--ct-baseline`, `--ct-baseline-fraction` on Run and Prepare; `--ct` conflicts with `--distractor-fraction`
 
 ### Command Args Pattern
 
@@ -85,7 +86,7 @@ Every command module exports an `Args` struct and an `execute(&Args) -> Result<(
 | `metrics` | `MetricsArgs` | targets, distractors, sample, detected, fragments, captured, sam | results.tsv, detected_detail.tsv, results.json, coverage.tsv |
 | `report` | `ReportArgs` | summary, detail, params, coverage, run_name | report.html |
 | `probe_coverage` | `ProbeCoverageArgs` | targets, probes, minimap_preset, proximity | probe_depth.tsv, probe_coverage_summary.tsv, probe_coverage_report.html |
-| `run` | `RunArgs` | all pipeline inputs | all of the above |
+| `run` | `RunArgs` | all pipeline inputs + ct, ct_baseline, ct_baseline_fraction | all of the above |
 
 ### Metrics (`metrics.rs`)
 
@@ -180,6 +181,19 @@ All wrappers follow the pattern: `check_available() → bool/Result`, then speci
 | `coverage.tsv` | TSV (reference_id position depth) | metrics | report |
 | `report.html` | HTML | report | — |
 
+### Probe Coverage Report (`R/probe_coverage.Rmd`)
+
+`probe_coverage.R` accepts CLI args and calls `rmarkdown::render()` on `probe_coverage.Rmd`.
+
+| Param | Source |
+|-------|--------|
+| `summary_file` | probe_coverage_summary.tsv |
+| `depth_file` | probe_depth.tsv |
+| `multi_mapping_file` | multi_mapping_probes.tsv (optional) |
+| `proximity` | `--proximity` CLI value (integer, default 50) |
+
+Report sections adapt dynamically based on target count: tables switch from kable to DT::datatable for >20 targets, bar charts switch to histograms/boxplots for >100 targets, and individual depth plots are omitted for >100 targets.
+
 ### Probe Coverage (standalone, not part of pipeline)
 
 | File | Format | Written by | Read by |
@@ -197,6 +211,7 @@ All wrappers follow the pattern: `check_available() → bool/Result`, then speci
 - **Fragment naming**: `{source_id}_fragment_{n} start={pos} length={len}` — source ID extracted via `io_utils::extract_source_id`
 - **Sequence IDs**: First whitespace-delimited word of FASTA header (no spaces allowed in names)
 - **Weights**: `explicit_weight * sequence_length` for sampling probability; weight 0 = no fragments
+- **CT conversion**: `target_fraction = ct_baseline_fraction * 2^(ct_baseline - ct)`; resolved to `distractor_fraction` in `main.rs` before pipeline runs
 - **Capture filtering**: minimap2 → PAF → filter by mismatches/indels/match-bases; BLAST → outfmt 6 → filter by gaps/nident
 - **Coverage**: Single-pass SAM parsing, CIGAR ops M/=/X increment depth, D/N advance position only
 - **Report extensibility**: run_params.tsv drives command reconstruction — add new params there and the report picks them up automatically

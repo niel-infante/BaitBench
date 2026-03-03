@@ -16,4 +16,5 @@ dependencies:
   - r-rmarkdown>=2.20
   - r-knitr>=1.40
   - r-optparse>=1.7
+  - r-dt>=0.27
   - pandoc>=2.19

@@ -14,6 +14,9 @@ pub struct RunArgs<'a> {
     pub run_name: String,
     pub num_fragments: usize,
     pub distractor_fraction: f64,
+    pub ct: Option<f64>,
+    pub ct_baseline: f64,
+    pub ct_baseline_fraction: f64,
     pub seed: Option<u64>,
     pub capture_method: capture::CaptureMethod,
     pub max_mismatches: u32,
@@ -64,6 +67,10 @@ pub fn execute(args: &RunArgs) -> Result<()> {
     log::info!("Fragment length     : mean={}, min={}, max={}", args.fragment_length_mean, args.fragment_length_min, args.fragment_length_max);
     log::info!("Read length         : {}", args.read_length);
     log::info!("Distractor fraction : {}", args.distractor_fraction);
+    if let Some(ct) = args.ct {
+        log::info!("CT score            : {}", ct);
+        log::info!("CT baseline         : {} (fraction {})", args.ct_baseline, args.ct_baseline_fraction);
+    }
     log::info!("Max mismatches      : {}", args.max_mismatches);
     log::info!("Min match bases     : {}", args.min_match_bases);
     log::info!(
@@ -95,6 +102,9 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         writeln!(f, "host_fasta\t--host-fasta\t{}", args.host_fasta.map(|p| p.display().to_string()).unwrap_or_else(|| "none".to_string()))?;
         writeln!(f, "num_fragments\t--num-fragments\t{}", args.num_fragments)?;
         writeln!(f, "distractor_fraction\t--distractor-fraction\t{}", args.distractor_fraction)?;
+        writeln!(f, "ct\t--ct\t{}", args.ct.map(|v| v.to_string()).unwrap_or_else(|| "none".to_string()))?;
+        writeln!(f, "ct_baseline\t--ct-baseline\t{}", args.ct_baseline)?;
+        writeln!(f, "ct_baseline_fraction\t--ct-baseline-fraction\t{}", args.ct_baseline_fraction)?;
         writeln!(f, "capture_method\t--capture-method\t{}", if args.capture_method == capture::CaptureMethod::Blast { "blast" } else { "minimap2" })?;
         writeln!(f, "max_mismatches\t--max-mismatches\t{}", args.max_mismatches)?;
         writeln!(f, "min_match_bases\t--min-match-bases\t{}", args.min_match_bases)?;

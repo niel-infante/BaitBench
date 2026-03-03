@@ -11,6 +11,7 @@ option_list <- list(
   make_option("--summary", type = "character", help = "Probe coverage summary TSV"),
   make_option("--depth", type = "character", help = "Per-position probe depth TSV"),
   make_option("--multi-mapping", type = "character", default = NULL, help = "Multi-mapping probes TSV"),
+  make_option("--proximity", type = "integer", default = 50, help = "Pull-down zone distance in bp [default %default]"),
   make_option("--output", type = "character", help = "Output HTML file")
 )
 
@@ -36,7 +37,8 @@ rmarkdown::render(
   params = list(
     summary_file = normalizePath(opt$summary),
     depth_file = normalizePath(opt$depth),
-    multi_mapping_file = if (!is.null(opt$`multi-mapping`)) normalizePath(opt$`multi-mapping`) else ""
+    multi_mapping_file = if (!is.null(opt$`multi-mapping`)) normalizePath(opt$`multi-mapping`) else "",
+    proximity = opt$proximity
   ),
   quiet = TRUE
 )

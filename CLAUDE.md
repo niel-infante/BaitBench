@@ -95,6 +95,20 @@ Read source is extracted from the fragment name pattern `{seq_id}_fragment_{n}` 
 - Distractors: `distractor_weight = (distractor_fraction * total_sample_weight) / (n_distractors * (1 - distractor_fraction))`
 - Multiple distractor FASTA files are concatenated; all distractor sequences share the same per-sequence weight
 
+### CT Score Support
+
+Instead of `--distractor-fraction`, users can specify a qPCR CT (cycle threshold) score via `--ct`. The conversion is:
+
+```
+target_fraction = ct_baseline_fraction * 2^(ct_baseline - ct)
+distractor_fraction = 1 - target_fraction
+```
+
+- `--ct` and `--distractor-fraction` are mutually exclusive (enforced by clap)
+- `--ct-baseline` (default 20.0) and `--ct-baseline-fraction` (default 0.01) set the calibration point
+- Default: CT 20 → 1% target (0.99 distractor), CT 25 → 0.03% target, CT 30 → 0.001% target
+- If neither `--ct` nor `--distractor-fraction` is specified, defaults to distractor fraction 0.9
+
 ### Sample Manifest
 
 TSV format: `id<tab>weight` (weight optional, defaults to 1.0). All IDs must exist in the targets FASTA. Without `--sample`, all targets are treated as sample with weight 1.0.

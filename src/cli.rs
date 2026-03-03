@@ -46,9 +46,23 @@ pub enum Commands {
         #[arg(short, long, default_value = "10000")]
         num_fragments: usize,
 
-        /// Fraction of reads from distractors (0-1)
-        #[arg(long, default_value = "0.9")]
-        distractor_fraction: f64,
+        /// Fraction of reads from distractors (0-1). Mutually exclusive with --ct.
+        #[arg(long, conflicts_with = "ct")]
+        distractor_fraction: Option<f64>,
+
+        /// CT (cycle threshold) score to determine distractor fraction.
+        /// Mutually exclusive with --distractor-fraction.
+        /// Converts via: target_fraction = ct_baseline_fraction * 2^(ct_baseline - ct)
+        #[arg(long, conflicts_with = "distractor_fraction")]
+        ct: Option<f64>,
+
+        /// CT baseline value (CT at which target fraction equals --ct-baseline-fraction)
+        #[arg(long, default_value = "20.0")]
+        ct_baseline: f64,
+
+        /// Target fraction at the baseline CT value
+        #[arg(long, default_value = "0.01")]
+        ct_baseline_fraction: f64,
 
         /// Random seed for reproducibility
         #[arg(short, long)]
@@ -125,9 +139,22 @@ pub enum Commands {
         #[arg(long)]
         sample: Option<PathBuf>,
 
-        /// Fraction of reads from distractors (0-1)
-        #[arg(short = 'f', long, default_value = "0.9")]
-        distractor_fraction: f64,
+        /// Fraction of reads from distractors (0-1). Mutually exclusive with --ct.
+        #[arg(short = 'f', long, conflicts_with = "ct")]
+        distractor_fraction: Option<f64>,
+
+        /// CT (cycle threshold) score to determine distractor fraction.
+        /// Mutually exclusive with --distractor-fraction.
+        #[arg(long, conflicts_with = "distractor_fraction")]
+        ct: Option<f64>,
+
+        /// CT baseline value (CT at which target fraction equals --ct-baseline-fraction)
+        #[arg(long, default_value = "20.0")]
+        ct_baseline: f64,
+
+        /// Target fraction at the baseline CT value
+        #[arg(long, default_value = "0.01")]
+        ct_baseline_fraction: f64,
 
         /// Output directory
         #[arg(short, long, default_value = ".")]

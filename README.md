@@ -155,7 +155,10 @@ Output files: `probe_coverage_summary.tsv` (per-target stats), `probe_depth.tsv`
 | `--fragment-length-min` | 150 | Minimum fragment length (bp) |
 | `--fragment-length-max` | 200 | Maximum fragment length (bp) |
 | `--read-length` | 120 | Sequencing read length (trim captured fragments to this) |
-| `--distractor-fraction` | 0.9 | Fraction of fragments from distractors (0-1) |
+| `--distractor-fraction` | 0.9 | Fraction of fragments from distractors (0-1). Mutually exclusive with `--ct`. |
+| `--ct` | none | CT (cycle threshold) score — converts to distractor fraction (see below). Mutually exclusive with `--distractor-fraction`. |
+| `--ct-baseline` | 20.0 | CT value at which the target fraction equals `--ct-baseline-fraction` |
+| `--ct-baseline-fraction` | 0.01 | Target fraction at the baseline CT value |
 | `--capture-method` | minimap2 | Capture method: `minimap2` or `blast` |
 | `--min-match-bases` | 60 | Minimum matching bases for capture |
 | `--fold-enrichment` | none | Fold enrichment for capture (e.g. 100 = 100x; omit for binary capture) |
@@ -164,6 +167,41 @@ Output files: `probe_coverage_summary.tsv` (per-target stats), `probe_depth.tsv`
 | `--seed` | random | Random seed for reproducibility |
 | `--no-report` | false | Skip HTML report generation |
 | `--outdir` | ./results | Output directory |
+
+### Using CT scores instead of distractor fraction
+
+Instead of specifying `--distractor-fraction` directly, you can use a qPCR **CT (cycle threshold) score** via `--ct`. This is more intuitive for users in a diagnostic setting — a lower CT means higher viral load (more target DNA relative to background).
+
+The conversion formula is:
+
+```
+target_fraction = ct_baseline_fraction × 2^(ct_baseline − ct)
+distractor_fraction = 1 − target_fraction
+```
+
+With the defaults (`--ct-baseline 20.0`, `--ct-baseline-fraction 0.01`):
+
+| CT | Target fraction | Distractor fraction |
+|----|----------------|---------------------|
+| 15 | 32% | 0.68 |
+| 20 | 1% | 0.99 |
+| 25 | 0.03% | 0.9997 |
+| 30 | 0.001% | 0.99999 |
+| 35 | 0.00003% | ~1.0 |
+
+**Advanced calibration:** The `--ct-baseline` and `--ct-baseline-fraction` flags let you tune the mapping between CT and target fraction to match your own experimental observations. For example, if in your lab a CT of 25 corresponds to roughly 0.1% target reads:
+
+```bash
+baitbench run \
+  --targets targets.fa \
+  --distractors distractors.fa \
+  --probes probes.fa \
+  --ct 30 \
+  --ct-baseline 25 \
+  --ct-baseline-fraction 0.001 \
+  --num-fragments 10000 \
+  --outdir results
+```
 
 ## Output Files
 
@@ -279,6 +317,16 @@ baitbench run \
   --distractors examples/minimal/distractors.fa \
   --probes examples/minimal/probes.fa \
   --sample sample.tsv \
+  --num-fragments 1000 \
+  --seed 42 \
+  --outdir example_results
+
+# Using a CT score (CT 25 ≈ 0.03% target)
+baitbench run \
+  --targets examples/minimal/targets.fa \
+  --distractors examples/minimal/distractors.fa \
+  --probes examples/minimal/probes.fa \
+  --ct 25 \
   --num-fragments 1000 \
   --seed 42 \
   --outdir example_results
