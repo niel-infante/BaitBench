@@ -125,6 +125,9 @@ Every command module exports an `Args` struct and an `execute(&Args) -> Result<(
 - `parse_id_set(path) → HashSet<String>` — one ID per line, # comments
 - `extract_source_id(read_name) → Option<&str>` — extract `seq_id` from `{seq_id}_fragment_{n}...`
 - `parse_sample_manifest(path) → HashMap<String, f64>` — TSV id\tweight
+- `resolve_sample_arg(tokens) → HashMap<String, f64>` — resolves `--sample` CLI arg: single token that is an existing file → parse as TSV; otherwise → parse as inline ID list
+- `parse_sample_inline(tokens) → HashMap<String, f64>` — inline format: IDs default to weight 1.0; a number after an ID sets that ID's weight (e.g. `t1 t2 t3 5 t4`)
+- `format_sample_display(samples) → String` — human-readable display of sample HashMap (e.g. `t1 t2 t3(5.0) t4`)
 
 ## External Tool Wrappers (`external/`)
 
@@ -238,6 +241,7 @@ Report sections: coverage depth curves (log10 X-axis) colored by CT value, summa
 - **Fragment naming**: `{source_id}_fragment_{n} start={pos} length={len}` — source ID extracted via `io_utils::extract_source_id`
 - **Sequence IDs**: First whitespace-delimited word of FASTA header (no spaces allowed in names)
 - **Weights**: `explicit_weight * sequence_length` for sampling probability; weight 0 = no fragments
+- **Sample resolution**: `--sample` accepts either a TSV file path or inline IDs with optional weights; resolved to `HashMap<String, f64>` in `main.rs` via `io_utils::resolve_sample_arg` before pipeline runs
 - **CT conversion**: `target_fraction = ct_baseline_fraction * 2^(ct_baseline - ct)`; resolved to `distractor_fraction` in `main.rs` before pipeline runs
 - **Capture filtering**: minimap2 → PAF → filter by mismatches/indels/match-bases; BLAST → outfmt 6 → filter by gaps/nident
 - **Coverage**: Single-pass SAM parsing, CIGAR ops M/=/X increment depth, D/N advance position only
