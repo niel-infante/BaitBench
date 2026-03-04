@@ -8,7 +8,7 @@ output:
     toc_float: true
 params:
   sweep_file: ""
-  sample_ids: []
+  sample_ids: !r c()
 ---
 
 <style>
