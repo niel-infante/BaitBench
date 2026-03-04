@@ -30,9 +30,11 @@ pub enum Commands {
         #[arg(short, long)]
         probes: PathBuf,
 
-        /// Sample manifest TSV (id<tab>weight; subset of targets present in sample)
-        #[arg(long)]
-        sample: Option<PathBuf>,
+        /// Sample targets: either a manifest TSV file path, or inline IDs with optional weights.
+        /// Examples: --sample manifest.tsv | --sample t1 t2 t3 | --sample t1 t2 t3 5 t4
+        /// Inline: IDs default to weight 1.0; a number after an ID sets that ID's weight.
+        #[arg(long, num_args = 1..)]
+        sample: Option<Vec<String>>,
 
         /// Host genome FASTA for filtering (optional)
         #[arg(long)]
@@ -139,9 +141,10 @@ pub enum Commands {
         #[arg(short, long, num_args = 1..)]
         distractors: Vec<PathBuf>,
 
-        /// Sample manifest TSV (id<tab>weight; subset of targets present in sample)
-        #[arg(long)]
-        sample: Option<PathBuf>,
+        /// Sample targets: either a manifest TSV file path, or inline IDs with optional weights.
+        /// Examples: --sample manifest.tsv | --sample t1 t2 t3 | --sample t1 t2 t3 5 t4
+        #[arg(long, num_args = 1..)]
+        sample: Option<Vec<String>>,
 
         /// Fraction of reads from distractors (0-1). Mutually exclusive with --ct.
         #[arg(short = 'f', long, conflicts_with = "ct")]
@@ -477,9 +480,10 @@ pub enum Commands {
         #[arg(short, long)]
         probes: PathBuf,
 
-        /// Sample manifest TSV (required; specifies which targets to track)
-        #[arg(long)]
-        sample: PathBuf,
+        /// Sample targets (required): either a manifest TSV file path, or inline IDs with optional weights.
+        /// Examples: --sample manifest.tsv | --sample t1 t2 t3 | --sample t1 t2 t3 5 t4
+        #[arg(long, num_args = 1.., required = true)]
+        sample: Vec<String>,
 
         /// CT values to sweep (space-separated, e.g. --ct-values 20 25 30 35)
         #[arg(long, num_args = 1.., required = true)]

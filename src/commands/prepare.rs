@@ -10,7 +10,7 @@ use crate::sampling::weights;
 pub struct PrepareArgs<'a> {
     pub targets: &'a Path,
     pub distractors: &'a [PathBuf],
-    pub sample: Option<&'a Path>,
+    pub sample: Option<&'a HashMap<String, f64>>,
     pub distractor_fraction: f64,
     pub outdir: &'a Path,
 }
@@ -56,14 +56,12 @@ pub fn execute(args: &PrepareArgs) -> Result<()> {
         }
     }
 
-    // Parse sample manifest or default to all targets
-    let sample_weights: HashMap<String, f64> = if let Some(sample_path) = args.sample {
-        log::info!("Reading sample manifest from {}...", sample_path.display());
-        let manifest = io_utils::parse_sample_manifest(sample_path)?;
-        log::info!("  Found {} sample entries", manifest.len());
+    // Use provided sample manifest or default to all targets
+    let sample_weights: HashMap<String, f64> = if let Some(sample_map) = args.sample {
+        log::info!("Using sample with {} entries", sample_map.len());
 
         // Validate all sample IDs exist in target_ids
-        for id in manifest.keys() {
+        for id in sample_map.keys() {
             if !target_set.contains(id.as_str()) {
                 bail!(
                     "Sample ID '{}' not found in targets FASTA. All sample IDs must be target sequences.",
@@ -72,7 +70,7 @@ pub fn execute(args: &PrepareArgs) -> Result<()> {
             }
         }
 
-        manifest
+        sample_map.clone()
     } else {
         // Default: all targets in sample with weight 1.0
         target_ids.iter().map(|id| (id.clone(), 1.0)).collect()

@@ -11,6 +11,7 @@ use clap::Parser;
 
 use cli::{Cli, Commands};
 use commands::{capture, ct_sweep, enrich, filter, generate_list, map_reads, metrics, prepare, probe_coverage, report, run, sequence, simulate};
+use io_utils::resolve_sample_arg;
 
 /// Default distractor fraction when neither --distractor-fraction nor --ct is specified.
 const DEFAULT_DISTRACTOR_FRACTION: f64 = 0.9;
@@ -100,6 +101,11 @@ fn main() -> Result<()> {
                 distractor_fraction, ct, ct_baseline, ct_baseline_fraction,
             )?;
 
+            let resolved_sample = sample
+                .as_ref()
+                .map(|s| resolve_sample_arg(s))
+                .transpose()?;
+
             let run_name = run_name.unwrap_or_else(|| {
                 format!("run_{}", chrono::Local::now().format("%Y%m%d_%H%M%S"))
             });
@@ -109,7 +115,7 @@ fn main() -> Result<()> {
                 targets: &targets,
                 distractors: &distractors,
                 probes: &probes,
-                sample: sample.as_deref(),
+                sample: resolved_sample.as_ref(),
                 host_fasta: host_fasta.as_deref(),
                 run_name,
                 num_fragments,
@@ -150,10 +156,15 @@ fn main() -> Result<()> {
                 distractor_fraction, ct, ct_baseline, ct_baseline_fraction,
             )?;
 
+            let resolved_sample = sample
+                .as_ref()
+                .map(|s| resolve_sample_arg(s))
+                .transpose()?;
+
             prepare::execute(&prepare::PrepareArgs {
                 targets: &targets,
                 distractors: &distractors,
-                sample: sample.as_deref(),
+                sample: resolved_sample.as_ref(),
                 distractor_fraction: resolved_df,
                 outdir: &outdir,
             })?;
@@ -377,11 +388,13 @@ fn main() -> Result<()> {
             outdir,
             no_report,
         } => {
+            let resolved_sample = resolve_sample_arg(&sample)?;
+
             ct_sweep::execute(&ct_sweep::CtSweepArgs {
                 targets: &targets,
                 distractors: &distractors,
                 probes: &probes,
-                sample: &sample,
+                sample: &resolved_sample,
                 ct_values: &ct_values,
                 ct_baseline,
                 ct_baseline_fraction,

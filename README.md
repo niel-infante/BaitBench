@@ -42,11 +42,12 @@ baitbench run \
   --outdir results
 ```
 
-### With sample manifest
+### With sample targets
 
-Specify which targets are "present" in the sample and at what abundance:
+Specify which targets are "present" in the sample and at what abundance. `--sample` accepts either a TSV file or inline IDs directly on the command line:
 
 ```bash
+# Using a TSV manifest file
 baitbench run \
   --targets all_viruses.fa \
   --distractors bacteria.fa --distractors fungi.fa \
@@ -54,21 +55,38 @@ baitbench run \
   --sample sample.tsv \
   --num-fragments 10000 \
   --outdir results
+
+# Inline IDs (all default to weight 1.0)
+baitbench run \
+  --targets all_viruses.fa \
+  --distractors bacteria.fa \
+  --probes probes.fa \
+  --sample dengue_1 zika_virus chikungunya \
+  --num-fragments 10000 \
+  --outdir results
+
+# Inline IDs with weights (number after an ID sets its weight)
+baitbench run \
+  --targets all_viruses.fa \
+  --distractors bacteria.fa \
+  --probes probes.fa \
+  --sample dengue_1 5 zika_virus chikungunya 0.5 \
+  --num-fragments 10000 \
+  --outdir results
 ```
 
-### Sample manifest format
+### Sample format
 
-A TSV file listing target IDs that are present in the simulated sample. Each ID must match a FASTA header in the targets file. IDs are taken from the first whitespace-delimited word of each FASTA header (everything after `>` up to the first space), so **sequence names must not contain spaces**. Use underscores or other delimiters instead (e.g. `>Zika_virus`, not `>Zika virus`).
+`--sample` accepts two formats:
 
-The weight column is optional (default: 1.0) and controls relative read abundance:
+**Inline IDs**: List target IDs directly. A number following an ID sets its weight (default: 1.0).
 
-| id | weight |
-|----|--------|
-| `dengue_1` | `5.0` |
-| `zika_virus` | `1.0` |
-| `chikungunya` | `0.5` |
+```
+--sample dengue_1 5 zika_virus chikungunya 0.5
+```
+Result: `dengue_1` (weight 5.0), `zika_virus` (weight 1.0), `chikungunya` (weight 0.5).
 
-Example `sample.tsv`:
+**TSV file**: A file with one ID per line, optional tab-separated weight. If a single argument is given and it's an existing file, it's parsed as a TSV manifest.
 
 ```
 # id	weight
@@ -76,6 +94,8 @@ dengue_1	5.0
 zika_virus	1.0
 chikungunya	0.5
 ```
+
+All IDs must match a FASTA header in the targets file. IDs are taken from the first whitespace-delimited word of each FASTA header (everything after `>` up to the first space), so **sequence names must not contain spaces**. Use underscores or other delimiters instead (e.g. `>Zika_virus`, not `>Zika virus`).
 
 Without `--sample`, all targets are treated as present with equal weight. When `--sample` is provided, only the listed targets generate fragments; remaining targets become "non-sample targets" and are treated as negatives alongside distractors (see [3-way classification](#3-way-classification)).
 
@@ -135,6 +155,18 @@ Output files: `probe_coverage_summary.tsv` (per-target stats), `probe_depth.tsv`
 `ct-sweep` runs the full pipeline at multiple CT values and generates coverage depth curves, showing how sequencing depth translates to genome coverage at each target concentration.
 
 ```bash
+# Using inline sample IDs
+baitbench ct-sweep \
+  --targets all_viruses.fa \
+  --distractors bacteria.fa \
+  --probes probes.fa \
+  --sample dengue_1 zika_virus \
+  --ct-values 20 25 30 35 \
+  --num-fragments 10000 \
+  --seed 42 \
+  --outdir ct_sweep_results
+
+# Or using a TSV manifest file
 baitbench ct-sweep \
   --targets all_viruses.fa \
   --distractors bacteria.fa \
@@ -165,7 +197,7 @@ ct_sweep_results/
 | `--targets` | required | Target sequences FASTA |
 | `--distractors` | required | Distractor sequences FASTA (can be specified multiple times) |
 | `--probes` | required | Probe sequences FASTA |
-| `--sample` | required | Sample manifest TSV (targets to track in the plot) |
+| `--sample` | required | Sample targets to track: TSV file or inline IDs (e.g. `--sample t1 t2`) |
 | `--ct-values` | required | CT values to sweep (space-separated) |
 | `--ct-baseline` | 20.0 | CT baseline value |
 | `--ct-baseline-fraction` | 0.01 | Target fraction at baseline CT |
@@ -194,7 +226,7 @@ All other pipeline parameters (`--read-length`, `--fold-enrichment`, `--capture-
 | `--targets` | required | Path to target genomes FASTA |
 | `--distractors` | required | Path to distractor genomes FASTA (can be specified multiple times) |
 | `--probes` | required | Path to probe sequences FASTA |
-| `--sample` | none | Sample manifest TSV (id and optional weight) |
+| `--sample` | none | Sample targets: TSV manifest file or inline IDs with optional weights (e.g. `--sample t1 t2 t3 5 t4`) |
 | `--num-fragments` | 10000 | Number of fragments to simulate |
 | `--fragment-length-mean` | 175 | Mean fragment length (bp) |
 | `--fragment-length-min` | 150 | Minimum fragment length (bp) |
@@ -356,7 +388,17 @@ baitbench run \
   --seed 42 \
   --outdir example_results
 
-# With sample manifest (subset of targets, custom weights)
+# With inline sample (subset of targets, custom weights)
+baitbench run \
+  --targets examples/minimal/targets.fa \
+  --distractors examples/minimal/distractors.fa \
+  --probes examples/minimal/probes.fa \
+  --sample target_virus_1 5 \
+  --num-fragments 1000 \
+  --seed 42 \
+  --outdir example_results
+
+# With sample manifest file
 echo -e "target_virus_1\t5.0" > sample.tsv
 baitbench run \
   --targets examples/minimal/targets.fa \

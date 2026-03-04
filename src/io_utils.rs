@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
@@ -67,6 +67,89 @@ pub fn parse_sample_manifest(path: &Path) -> Result<HashMap<String, f64>> {
     }
 
     Ok(samples)
+}
+
+/// Resolve a `--sample` CLI argument into a sample manifest HashMap.
+///
+/// If exactly one token is provided and it is a path to an existing file,
+/// the file is parsed as a TSV sample manifest (`id<tab>weight`).
+/// Otherwise, the tokens are parsed as an inline list: each token is treated
+/// as a sample ID (weight 1.0) unless it parses as a float, in which case it
+/// sets the weight of the preceding ID.
+///
+/// Examples:
+///   `--sample manifest.tsv`             → parse file
+///   `--sample t1 t2 t3`                 → {t1: 1.0, t2: 1.0, t3: 1.0}
+///   `--sample t1 t2 t3 5 t4`           → {t1: 1.0, t2: 1.0, t3: 5.0, t4: 1.0}
+pub fn resolve_sample_arg(tokens: &[String]) -> Result<HashMap<String, f64>> {
+    if tokens.len() == 1 && Path::new(&tokens[0]).is_file() {
+        parse_sample_manifest(Path::new(&tokens[0]))
+    } else {
+        parse_sample_inline(tokens)
+    }
+}
+
+/// Parse an inline sample list into a HashMap of id -> weight.
+///
+/// Tokens are interpreted sequentially: each token is either a sample ID
+/// (if it cannot be parsed as f64) or a weight for the preceding ID
+/// (if it can be parsed as f64). IDs default to weight 1.0.
+fn parse_sample_inline(tokens: &[String]) -> Result<HashMap<String, f64>> {
+    if tokens.is_empty() {
+        bail!("No sample IDs provided");
+    }
+
+    let mut samples = HashMap::new();
+    let mut last_id: Option<String> = None;
+
+    for token in tokens {
+        if let Ok(weight) = token.parse::<f64>() {
+            match &last_id {
+                Some(id) => {
+                    samples.insert(id.clone(), weight);
+                }
+                None => {
+                    bail!(
+                        "Weight value '{}' appears before any sample ID. \
+                         The first token must be a sample ID.",
+                        token
+                    );
+                }
+            }
+        } else {
+            // It's a new ID — insert previous ID with default weight if not already set
+            if let Some(ref id) = last_id {
+                samples.entry(id.clone()).or_insert(1.0);
+            }
+            last_id = Some(token.clone());
+        }
+    }
+    // Insert the last ID if not yet inserted
+    if let Some(ref id) = last_id {
+        samples.entry(id.clone()).or_insert(1.0);
+    }
+
+    Ok(samples)
+}
+
+/// Format a sample manifest HashMap as a human-readable string for display.
+///
+/// Output format: `t1 t2 t3(5.0) t4` — IDs with weight 1.0 are shown plain,
+/// others show their weight in parentheses.
+pub fn format_sample_display(samples: &HashMap<String, f64>) -> String {
+    let mut entries: Vec<(&String, &f64)> = samples.iter().collect();
+    entries.sort_by(|a, b| a.0.cmp(b.0));
+    entries
+        .iter()
+        .map(|(id, &w)| {
+            if (w - 1.0).abs() < f64::EPSILON {
+                id.to_string()
+            } else {
+                format!("{}({:.1})", id, w)
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 /// Write a list of IDs to a file, one per line.

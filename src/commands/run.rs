@@ -1,15 +1,17 @@
 use anyhow::Result;
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::commands::{capture, enrich, filter, generate_list, map_reads, metrics, prepare, report, sequence, simulate};
 use crate::external::rscript;
+use crate::io_utils;
 
 pub struct RunArgs<'a> {
     pub targets: &'a Path,
     pub distractors: &'a [PathBuf],
     pub probes: &'a Path,
-    pub sample: Option<&'a Path>,
+    pub sample: Option<&'a HashMap<String, f64>>,
     pub host_fasta: Option<&'a Path>,
     pub run_name: String,
     pub num_fragments: usize,
@@ -49,9 +51,9 @@ pub fn execute(args: &RunArgs) -> Result<()> {
     }
     log::info!("Probes FASTA        : {}", args.probes.display());
     log::info!(
-        "Sample manifest     : {}",
+        "Sample              : {}",
         args.sample
-            .map(|p| p.display().to_string())
+            .map(|s| io_utils::format_sample_display(s))
             .unwrap_or_else(|| "none (all targets)".to_string())
     );
     log::info!(
@@ -103,7 +105,7 @@ pub fn execute(args: &RunArgs) -> Result<()> {
             writeln!(f, "distractors\t--distractors\t{}", d.display())?;
         }
         writeln!(f, "probes\t--probes\t{}", args.probes.display())?;
-        writeln!(f, "sample\t--sample\t{}", args.sample.map(|p| p.display().to_string()).unwrap_or_else(|| "none".to_string()))?;
+        writeln!(f, "sample\t--sample\t{}", args.sample.map(|s| io_utils::format_sample_display(s)).unwrap_or_else(|| "none".to_string()))?;
         writeln!(f, "host_fasta\t--host-fasta\t{}", args.host_fasta.map(|p| p.display().to_string()).unwrap_or_else(|| "none".to_string()))?;
         writeln!(f, "num_fragments\t--num-fragments\t{}", args.num_fragments)?;
         writeln!(f, "distractor_fraction\t--distractor-fraction\t{}", args.distractor_fraction)?;

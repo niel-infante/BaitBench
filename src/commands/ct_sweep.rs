@@ -1,5 +1,5 @@
 use anyhow::{bail, Context, Result};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs::{self, File};
 use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
@@ -13,7 +13,7 @@ pub struct CtSweepArgs<'a> {
     pub targets: &'a Path,
     pub distractors: &'a [PathBuf],
     pub probes: &'a Path,
-    pub sample: &'a Path,
+    pub sample: &'a HashMap<String, f64>,
     pub ct_values: &'a [f64],
     pub ct_baseline: f64,
     pub ct_baseline_fraction: f64,
@@ -52,8 +52,8 @@ pub fn execute(args: &CtSweepArgs) -> Result<()> {
     if !args.probes.exists() {
         bail!("Probes file not found: {}", args.probes.display());
     }
-    if !args.sample.exists() {
-        bail!("Sample manifest not found: {}", args.sample.display());
+    if args.sample.is_empty() {
+        bail!("Sample is empty — at least one sample target is required");
     }
     if args.ct_values.is_empty() {
         bail!("At least one CT value is required");
@@ -62,12 +62,7 @@ pub fn execute(args: &CtSweepArgs) -> Result<()> {
     minimap2::check_available()?;
     fs::create_dir_all(&args.outdir)?;
 
-    // Parse sample manifest to get sample target IDs
-    let sample_manifest = io_utils::parse_sample_manifest(args.sample)?;
-    let sample_ids: HashSet<String> = sample_manifest.keys().cloned().collect();
-    if sample_ids.is_empty() {
-        bail!("Sample manifest is empty");
-    }
+    let sample_ids: HashSet<String> = args.sample.keys().cloned().collect();
 
     let mut sorted_ct_values = args.ct_values.to_vec();
     sorted_ct_values.sort_by(|a, b| a.partial_cmp(b).unwrap());
@@ -77,7 +72,7 @@ pub fn execute(args: &CtSweepArgs) -> Result<()> {
     log::info!("=============================================");
     log::info!("Targets        : {}", args.targets.display());
     log::info!("Probes         : {}", args.probes.display());
-    log::info!("Sample         : {}", args.sample.display());
+    log::info!("Sample         : {}", io_utils::format_sample_display(args.sample));
     log::info!(
         "Sample targets : {} ({})",
         sample_ids.len(),
