@@ -396,17 +396,23 @@ fn main() -> Result<()> {
 
             // Resolve CT dimension: --ct-values (sweep) or --ct/--distractor-fraction (fixed)
             let mut swept_params = Vec::new();
-            let resolved_ct_values: Vec<f64> = if let Some(ct_vals) = ct_values {
-                swept_params.push("ct".to_string());
-                let mut dfs = Vec::new();
-                for ct_val in &ct_vals {
-                    dfs.push(ct_to_distractor_fraction(*ct_val, ct_baseline, ct_baseline_fraction)?);
-                }
-                dfs
-            } else {
-                let df = resolve_distractor_fraction(distractor_fraction, ct, ct_baseline, ct_baseline_fraction)?;
-                vec![df]
-            };
+            let (ct_display_values, ct_distractor_fractions): (Vec<f64>, Vec<f64>) =
+                if let Some(ct_vals) = ct_values {
+                    swept_params.push("ct".to_string());
+                    let mut dfs = Vec::new();
+                    for ct_val in &ct_vals {
+                        dfs.push(ct_to_distractor_fraction(
+                            *ct_val, ct_baseline, ct_baseline_fraction,
+                        )?);
+                    }
+                    (ct_vals, dfs)
+                } else if let Some(ct_val) = ct {
+                    let df = ct_to_distractor_fraction(ct_val, ct_baseline, ct_baseline_fraction)?;
+                    (vec![ct_val], vec![df])
+                } else {
+                    let df = distractor_fraction.unwrap_or(DEFAULT_DISTRACTOR_FRACTION);
+                    (vec![df], vec![df])
+                };
 
             // Resolve FE dimension: --fold-enrichment-values (sweep) or --fold-enrichment (fixed)
             let resolved_fe_values: Vec<Option<f64>> = if let Some(fe_vals) = fold_enrichment_values {
@@ -429,7 +435,8 @@ fn main() -> Result<()> {
                 distractors: &distractors,
                 probes: &probes,
                 sample: &resolved_sample,
-                ct_values: resolved_ct_values,
+                ct_display_values,
+                ct_distractor_fractions,
                 fe_values: resolved_fe_values,
                 ns_values: resolved_ns_values,
                 swept_params,

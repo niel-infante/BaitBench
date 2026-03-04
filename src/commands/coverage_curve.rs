@@ -15,7 +15,8 @@ pub struct CoverageCurveArgs<'a> {
     pub probes: &'a Path,
     pub sample: &'a HashMap<String, f64>,
     // Sweep dimensions — each has 1+ values
-    pub ct_values: Vec<f64>,             // distractor fractions resolved from CT or --distractor-fraction
+    pub ct_display_values: Vec<f64>,     // original CT values as entered by the user (for display/TSV/dirs)
+    pub ct_distractor_fractions: Vec<f64>, // resolved distractor fractions (for pipeline use)
     pub fe_values: Vec<Option<f64>>,     // None = no enrichment
     pub ns_values: Vec<Option<usize>>,   // None = all sequences
     pub swept_params: Vec<String>,       // which params are swept (for dir naming + report)
@@ -93,7 +94,7 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
 
     let sample_ids: HashSet<String> = args.sample.keys().cloned().collect();
 
-    let total_combos = args.ct_values.len() * args.fe_values.len() * args.ns_values.len();
+    let total_combos = args.ct_display_values.len() * args.fe_values.len() * args.ns_values.len();
 
     log::info!("=============================================");
     log::info!("BaitBench - Coverage Curve Analysis");
@@ -122,7 +123,7 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
         );
     }
     if args.swept_params.contains(&"ct".to_string()) {
-        log::info!("CT values      : {:?}", args.ct_values);
+        log::info!("CT values      : {:?}", args.ct_display_values);
     }
     if args.swept_params.contains(&"fold_enrichment".to_string()) {
         log::info!("FE values      : {:?}", args.fe_values);
@@ -140,16 +141,19 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
     let mut combo_idx = 0usize;
 
     // Outer loop: CT values (affects prepare/simulate/capture)
-    for &ct_val in &args.ct_values {
-        let distractor_fraction = ct_val; // ct_values already hold resolved distractor fractions
-
+    for (ct_idx, (&ct_display, &distractor_fraction)) in args
+        .ct_display_values
+        .iter()
+        .zip(args.ct_distractor_fractions.iter())
+        .enumerate()
+    {
         // Shared prep directory for this CT value
-        let prep_dir = args.outdir.join(format!("_prep_ct_{}", combo_idx_for_ct(&args.ct_values, ct_val)));
+        let prep_dir = args.outdir.join(format!("_prep_ct_{}", ct_idx));
         fs::create_dir_all(&prep_dir)?;
 
         log::info!(
-            "--- Preparing reference (distractor_fraction={:.6}) ---",
-            distractor_fraction
+            "--- Preparing reference (ct={}, distractor_fraction={:.6}) ---",
+            ct_display, distractor_fraction
         );
         run_prepare_simulate_capture(&prep_dir, distractor_fraction, args)?;
 
@@ -181,7 +185,7 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
             for ns_val in &args.ns_values {
                 combo_idx += 1;
                 let dir_name =
-                    combo_dir_name(ct_val, *fe_val, *ns_val, &args.swept_params);
+                    combo_dir_name(ct_display, *fe_val, *ns_val, &args.swept_params);
                 let combo_dir = args.outdir.join(&dir_name);
                 fs::create_dir_all(&combo_dir)?;
 
@@ -257,7 +261,7 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
 
                     for (threshold, pct) in curves {
                         all_curves.push(DepthCurveRow {
-                            ct: ct_val,
+                            ct: ct_display,
                             fold_enrichment: fe_tsv,
                             num_sequences: ns_tsv,
                             reference_id: sample_id.clone(),
@@ -297,14 +301,6 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
     log::info!("=============================================");
 
     Ok(())
-}
-
-/// Find the index of a CT value in the sorted list (for prep dir naming).
-fn combo_idx_for_ct(ct_values: &[f64], ct: f64) -> usize {
-    ct_values
-        .iter()
-        .position(|&v| (v - ct).abs() < 1e-12)
-        .unwrap_or(0)
 }
 
 /// Run prepare + simulate + capture into a shared prep directory.

@@ -43,7 +43,7 @@ src/
 │   ├── metrics.rs       # TP/FP/FN/TN classification, coverage stats, TSV/JSON output
 │   ├── report.rs        # Invoke Rscript to render HTML report
 │   ├── probe_coverage.rs # Standalone probe tiling QC (maps probes to targets)
-│   └── ct_sweep.rs      # CT sweep: pipeline at multiple CT values → depth curves
+│   └── coverage_curve.rs # Coverage curve: pipeline at multiple param combos → depth curves
 ├── external/
 │   ├── minimap2.rs      # minimap2 wrapper: capture_align (PAF), map_reads (SAM), host_align, probe_align
 │   ├── blastn.rs        # BLAST+ wrapper: capture_align, filter_blast_results
@@ -60,15 +60,15 @@ R/
 ├── report.Rmd           # RMarkdown template: tables, ggplot2 figures, coverage plots
 ├── probe_coverage.R     # CLI wrapper for probe coverage report
 ├── probe_coverage.Rmd   # RMarkdown template: probe tiling depth, gap analysis, proximity
-├── ct_sweep.R           # CLI wrapper for CT sweep report
-└── ct_sweep.Rmd         # RMarkdown template: coverage depth curves by CT value
+├── coverage_curve.R     # CLI wrapper for coverage curve report
+└── coverage_curve.Rmd   # RMarkdown template: coverage depth curves (multi-param sweep)
 ```
 
 ## Key Data Types
 
 ### CLI (`cli.rs`)
 
-- **`Commands`** enum — one variant per subcommand (Run, Prepare, Simulate, Capture, Enrich, Sequence, Filter, Map, List, Metrics, ProbeCoverage, Report, CtSweep), each with its own fields
+- **`Commands`** enum — one variant per subcommand (Run, Prepare, Simulate, Capture, Enrich, Sequence, Filter, Map, List, Metrics, ProbeCoverage, Report, CoverageCurve), each with its own fields
 - **`CaptureMethodArg`** — ValueEnum: Minimap2 | Blast
 - **CT score flags** — `--ct`, `--ct-baseline`, `--ct-baseline-fraction` on Run and Prepare; `--ct` conflicts with `--distractor-fraction`
 
@@ -90,7 +90,7 @@ Every command module exports an `Args` struct and an `execute(&Args) -> Result<(
 | `report` | `ReportArgs` | summary, detail, params, coverage, run_name | report.html |
 | `probe_coverage` | `ProbeCoverageArgs` | targets, probes, minimap_preset, proximity | probe_depth.tsv, probe_coverage_summary.tsv, probe_coverage_report.html |
 | `run` | `RunArgs` | all pipeline inputs + ct, ct_baseline, ct_baseline_fraction, num_sequences | all of the above |
-| `ct_sweep` | `CtSweepArgs` | targets, distractors, probes, sample (required), ct_values, all pipeline params | ct_sweep_depth_curves.tsv, ct_sweep_report.html, ct_X/ subdirs |
+| `coverage_curve` | `CoverageCurveArgs` | targets, distractors, probes, sample (required), ct/fe/ns values (sweep or fixed), all pipeline params | coverage_curve_depth_curves.tsv, coverage_curve_report.html, combo subdirs |
 
 ### Metrics (`metrics.rs`)
 
@@ -211,28 +211,34 @@ Report sections adapt dynamically based on target count: tables switch from kabl
 | `multi_mapping_probes.tsv` | TSV (probe_id num_targets targets) | probe_coverage | probe_coverage report |
 | `probe_coverage_report.html` | HTML | probe_coverage (via R) | — |
 
-### CT Sweep (standalone, not part of main pipeline)
+### Coverage Curve (standalone, not part of main pipeline)
+
+Runs the pipeline for each parameter combination (CT × fold-enrichment × num-sequences) and computes depth curves. Nested loop optimization: prepare/simulate/capture shared per CT, enrich shared per CT×FE, sequence/filter/map per combo.
 
 | File | Format | Written by | Read by |
 |------|--------|------------|---------|
-| `ct_X/combined_reference.fa` | FASTA | prepare (per CT) | simulate, map_reads |
-| `ct_X/fragments.fa` | FASTA | simulate (per CT) | capture |
-| `ct_X/captured.fa` | FASTA | capture (per CT) | sequence |
-| `ct_X/reads.fa` | FASTA | sequence (per CT) | map_reads |
-| `ct_X/mapped.sam` | SAM | map_reads (per CT) | ct_sweep (coverage) |
-| `ct_sweep_depth_curves.tsv` | TSV (ct, reference_id, depth_threshold, pct_covered) | ct_sweep | ct_sweep report |
-| `ct_sweep_report.html` | HTML | ct_sweep (via R) | — |
+| `_prep_ct_N/combined_reference.fa` | FASTA | prepare (per CT) | simulate, map_reads |
+| `_prep_ct_N/fragments.fa` | FASTA | simulate (per CT) | capture, enrich |
+| `_prep_ct_N/captured.fa` | FASTA | capture (per CT) | enrich, sequence |
+| `_prep_ct_N/_enrich_fe_X/enriched.fa` | FASTA | enrich (per CT×FE) | sequence |
+| `{combo}/reads.fa` | FASTA | sequence (per combo) | filter/map_reads |
+| `{combo}/mapped.sam` | SAM | map_reads (per combo) | coverage_curve (coverage) |
+| `coverage_curve_depth_curves.tsv` | TSV (ct, fold_enrichment, num_sequences, reference_id, depth_threshold, pct_covered) | coverage_curve | coverage_curve report |
+| `coverage_curve_report.html` | HTML | coverage_curve (via R) | — |
 
-### CT Sweep Report (`R/ct_sweep.Rmd`)
+Combo directory names use only swept params: `ct_20`, `ct_20_fe_100`, `ct_20_fe_100_ns_500`. Single combo uses `run/`.
 
-`ct_sweep.R` accepts CLI args and calls `rmarkdown::render()` on `ct_sweep.Rmd`.
+### Coverage Curve Report (`R/coverage_curve.Rmd`)
+
+`coverage_curve.R` accepts CLI args and calls `rmarkdown::render()` on `coverage_curve.Rmd`.
 
 | Param | Source |
 |-------|--------|
-| `sweep_file` | ct_sweep_depth_curves.tsv |
+| `sweep_file` | coverage_curve_depth_curves.tsv |
 | `sample_ids` | comma-separated sample target IDs |
+| `swept_params` | comma-separated swept parameter names |
 
-Report sections: coverage depth curves (log10 X-axis) colored by CT value, summary table at key depth thresholds. Faceted by target when multiple sample targets.
+Report logic: detects swept params from data, builds combo labels. <10 combos: single plot colored by combo. ≥10 combos: faceted by param with fewest levels, colored by remaining. Sample name in title. Summary table at key depth thresholds.
 
 ## Key Conventions
 

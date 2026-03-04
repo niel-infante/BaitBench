@@ -150,13 +150,24 @@ Output files: `probe_coverage_summary.tsv` (per-target stats), `probe_depth.tsv`
 | `--proximity` | 50 | Distance (bp) for pull-down zone metric |
 | `--no-report` | false | Skip HTML report generation |
 
-### CT sweep analysis
+### Coverage curve analysis
 
-`ct-sweep` runs the full pipeline at multiple CT values and generates coverage depth curves, showing how sequencing depth translates to genome coverage at each target concentration.
+`coverage-curve` runs the pipeline and generates coverage depth curves, showing how sequencing depth translates to genome coverage. It can sweep one or more parameters (CT, fold-enrichment, num-sequences) to compare results across conditions.
 
 ```bash
-# Using inline sample IDs
-baitbench ct-sweep \
+# Single run (no sweep — produces one line per sample target)
+baitbench coverage-curve \
+  --targets all_viruses.fa \
+  --distractors bacteria.fa \
+  --probes probes.fa \
+  --sample dengue_1 zika_virus \
+  --ct 25 \
+  --num-fragments 10000 \
+  --seed 42 \
+  --outdir coverage_results
+
+# Sweep CT values
+baitbench coverage-curve \
   --targets all_viruses.fa \
   --distractors bacteria.fa \
   --probes probes.fa \
@@ -164,33 +175,44 @@ baitbench ct-sweep \
   --ct-values 20 25 30 35 \
   --num-fragments 10000 \
   --seed 42 \
-  --outdir ct_sweep_results
+  --outdir coverage_results
 
-# Or using a TSV manifest file
-baitbench ct-sweep \
+# Sweep CT and fold-enrichment (combinatorial)
+baitbench coverage-curve \
   --targets all_viruses.fa \
   --distractors bacteria.fa \
   --probes probes.fa \
-  --sample sample.tsv \
-  --ct-values 20 25 30 35 \
+  --sample dengue_1 \
+  --ct-values 20 25 30 \
+  --fold-enrichment-values 10 100 \
   --num-fragments 10000 \
   --seed 42 \
-  --outdir ct_sweep_results
+  --outdir coverage_results
 ```
 
-This runs the pipeline (prepare through mapping) for each CT value, then generates a plot of % genome covered (Y-axis) vs depth of coverage on a log10 scale (X-axis), with one line per CT value. If the sample contains multiple targets, each gets its own panel.
+This runs the pipeline (prepare through mapping) for each parameter combination, then generates a plot of % genome covered (Y-axis) vs depth of coverage on a log10 scale (X-axis), with one line per combination. If the sample contains multiple targets, each gets its own panel. With <10 combinations, all lines appear on one plot; with ≥10, the plot is faceted by the parameter with the fewest levels.
 
 Output files:
 
 ```
-ct_sweep_results/
-├── ct_20.0/              # Pipeline intermediates for CT 20
-│   ├── fragments.fa, captured.fa, reads.fa, mapped.sam, ...
-├── ct_25.0/              # Pipeline intermediates for CT 25
+coverage_results/
+├── ct_20/                               # Combo directory (only swept params in name)
+│   ├── reads.fa, mapped.sam, ...
+├── ct_25/
 │   └── ...
-├── ct_sweep_depth_curves.tsv   # Aggregated depth curve data
-└── ct_sweep_report.html        # HTML report with depth curve plots
+├── _prep_ct_0/                          # Shared intermediate files per CT value
+│   ├── combined_reference.fa, fragments.fa, captured.fa, ...
+├── coverage_curve_depth_curves.tsv      # Aggregated depth curve data
+└── coverage_curve_report.html           # HTML report with depth curve plots
 ```
+
+**Sweepable parameters** — each has a singular form (fixed value) and plural form (sweep):
+
+| Sweep flag | Fixed flag | Description |
+|-----------|------------|-------------|
+| `--ct-values 20 25 30` | `--ct 25` | CT values (conflicts with `--distractor-fraction`) |
+| `--fold-enrichment-values 10 100` | `--fold-enrichment 100` | Fold enrichment values |
+| `--num-sequences-values 100 500` | `--num-sequences 500` | Number of sequences to sample |
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
@@ -198,14 +220,12 @@ ct_sweep_results/
 | `--distractors` | required | Distractor sequences FASTA (can be specified multiple times) |
 | `--probes` | required | Probe sequences FASTA |
 | `--sample` | required | Sample targets to track: TSV file or inline IDs (e.g. `--sample t1 t2`) |
-| `--ct-values` | required | CT values to sweep (space-separated) |
 | `--ct-baseline` | 20.0 | CT baseline value |
 | `--ct-baseline-fraction` | 0.01 | Target fraction at baseline CT |
-| `--num-fragments` | 10000 | Number of fragments per CT run |
-| `--num-sequences` | all | Number of sequences to sample per CT run |
-| `--outdir` | ./ct_sweep_results | Output directory |
+| `--num-fragments` | 10000 | Number of fragments per run |
+| `--outdir` | ./coverage_curve_results | Output directory |
 
-All other pipeline parameters (`--read-length`, `--fold-enrichment`, `--capture-method`, etc.) are also supported.
+All other pipeline parameters (`--read-length`, `--capture-method`, etc.) are also supported.
 
 ## Input Files
 
