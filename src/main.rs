@@ -10,7 +10,7 @@ use anyhow::{bail, Result};
 use clap::Parser;
 
 use cli::{Cli, Commands};
-use commands::{capture, ct_sweep, enrich, filter, generate_list, map_reads, metrics, prepare, probe_coverage, report, run, sequence, simulate};
+use commands::{capture, coverage_curve, enrich, filter, generate_list, map_reads, metrics, prepare, probe_coverage, report, run, sequence, simulate};
 use io_utils::resolve_sample_arg;
 
 /// Default distractor fraction when neither --distractor-fraction nor --ct is specified.
@@ -361,17 +361,22 @@ fn main() -> Result<()> {
             })?;
         }
 
-        Commands::CtSweep {
+        Commands::CoverageCurve {
             targets,
             distractors,
             probes,
             sample,
             ct_values,
+            ct,
+            distractor_fraction,
             ct_baseline,
             ct_baseline_fraction,
+            fold_enrichment_values,
+            fold_enrichment,
+            num_sequences_values,
+            num_sequences,
             num_fragments,
             read_length,
-            num_sequences,
             seed,
             fragment_length_mean,
             fragment_length_min,
@@ -380,7 +385,6 @@ fn main() -> Result<()> {
             max_mismatches,
             min_match_bases,
             blast_db,
-            fold_enrichment,
             host_fasta,
             minimap_preset,
             host_minimap_preset,
@@ -390,17 +394,47 @@ fn main() -> Result<()> {
         } => {
             let resolved_sample = resolve_sample_arg(&sample)?;
 
-            ct_sweep::execute(&ct_sweep::CtSweepArgs {
+            // Resolve CT dimension: --ct-values (sweep) or --ct/--distractor-fraction (fixed)
+            let mut swept_params = Vec::new();
+            let resolved_ct_values: Vec<f64> = if let Some(ct_vals) = ct_values {
+                swept_params.push("ct".to_string());
+                let mut dfs = Vec::new();
+                for ct_val in &ct_vals {
+                    dfs.push(ct_to_distractor_fraction(*ct_val, ct_baseline, ct_baseline_fraction)?);
+                }
+                dfs
+            } else {
+                let df = resolve_distractor_fraction(distractor_fraction, ct, ct_baseline, ct_baseline_fraction)?;
+                vec![df]
+            };
+
+            // Resolve FE dimension: --fold-enrichment-values (sweep) or --fold-enrichment (fixed)
+            let resolved_fe_values: Vec<Option<f64>> = if let Some(fe_vals) = fold_enrichment_values {
+                swept_params.push("fold_enrichment".to_string());
+                fe_vals.into_iter().map(Some).collect()
+            } else {
+                vec![fold_enrichment]
+            };
+
+            // Resolve NS dimension: --num-sequences-values (sweep) or --num-sequences (fixed)
+            let resolved_ns_values: Vec<Option<usize>> = if let Some(ns_vals) = num_sequences_values {
+                swept_params.push("num_sequences".to_string());
+                ns_vals.into_iter().map(Some).collect()
+            } else {
+                vec![num_sequences]
+            };
+
+            coverage_curve::execute(&coverage_curve::CoverageCurveArgs {
                 targets: &targets,
                 distractors: &distractors,
                 probes: &probes,
                 sample: &resolved_sample,
-                ct_values: &ct_values,
-                ct_baseline,
-                ct_baseline_fraction,
+                ct_values: resolved_ct_values,
+                fe_values: resolved_fe_values,
+                ns_values: resolved_ns_values,
+                swept_params,
                 num_fragments,
                 read_length,
-                num_sequences,
                 seed,
                 fragment_length_mean,
                 fragment_length_min,
@@ -409,7 +443,6 @@ fn main() -> Result<()> {
                 max_mismatches,
                 min_match_bases,
                 blast_db: blast_db.as_deref(),
-                fold_enrichment,
                 host_fasta: host_fasta.as_deref(),
                 minimap_preset: &minimap_preset,
                 host_minimap_preset: &host_minimap_preset,

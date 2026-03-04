@@ -10,4 +10,4 @@ pub mod metrics;
 pub mod report;
 pub mod run;
 pub mod probe_coverage;
-pub mod ct_sweep;
+pub mod coverage_curve;

@@ -466,8 +466,8 @@ pub enum Commands {
         output: PathBuf,
     },
 
-    /// Run pipeline at multiple CT values and generate coverage depth curves
-    CtSweep {
+    /// Generate coverage depth curves, optionally sweeping CT, fold-enrichment, and/or num-sequences
+    CoverageCurve {
         /// Target sequences FASTA
         #[arg(short, long)]
         targets: PathBuf,
@@ -485,9 +485,17 @@ pub enum Commands {
         #[arg(long, num_args = 1.., required = true)]
         sample: Vec<String>,
 
-        /// CT values to sweep (space-separated, e.g. --ct-values 20 25 30 35)
-        #[arg(long, num_args = 1.., required = true)]
-        ct_values: Vec<f64>,
+        /// CT values to sweep (space-separated). Conflicts with --ct and --distractor-fraction.
+        #[arg(long, num_args = 1.., conflicts_with_all = ["ct", "distractor_fraction"])]
+        ct_values: Option<Vec<f64>>,
+
+        /// Fixed CT value (when not sweeping CT). Conflicts with --ct-values and --distractor-fraction.
+        #[arg(long, conflicts_with_all = ["ct_values", "distractor_fraction"])]
+        ct: Option<f64>,
+
+        /// Fixed distractor fraction (when not sweeping CT). Conflicts with --ct-values and --ct.
+        #[arg(long, conflicts_with_all = ["ct_values", "ct"])]
+        distractor_fraction: Option<f64>,
 
         /// CT baseline value
         #[arg(long, default_value = "20.0")]
@@ -497,6 +505,22 @@ pub enum Commands {
         #[arg(long, default_value = "0.01")]
         ct_baseline_fraction: f64,
 
+        /// Fold-enrichment values to sweep (space-separated). Conflicts with --fold-enrichment.
+        #[arg(long, num_args = 1.., conflicts_with = "fold_enrichment")]
+        fold_enrichment_values: Option<Vec<f64>>,
+
+        /// Fixed fold enrichment (when not sweeping). Conflicts with --fold-enrichment-values.
+        #[arg(long, conflicts_with = "fold_enrichment_values")]
+        fold_enrichment: Option<f64>,
+
+        /// Num-sequences values to sweep (space-separated). Conflicts with --num-sequences.
+        #[arg(long, num_args = 1.., conflicts_with = "num_sequences")]
+        num_sequences_values: Option<Vec<usize>>,
+
+        /// Fixed num-sequences (when not sweeping). Conflicts with --num-sequences-values.
+        #[arg(long, conflicts_with = "num_sequences_values")]
+        num_sequences: Option<usize>,
+
         /// Number of fragments to simulate
         #[arg(short, long, default_value = "10000")]
         num_fragments: usize,
@@ -504,10 +528,6 @@ pub enum Commands {
         /// Sequencing read length
         #[arg(long, default_value = "120")]
         read_length: usize,
-
-        /// Number of sequences to sample in sequencing step (with replacement)
-        #[arg(long)]
-        num_sequences: Option<usize>,
 
         /// Random seed
         #[arg(short, long)]
@@ -541,10 +561,6 @@ pub enum Commands {
         #[arg(long)]
         blast_db: Option<String>,
 
-        /// Fold enrichment for capture
-        #[arg(long)]
-        fold_enrichment: Option<f64>,
-
         /// Host genome FASTA for filtering
         #[arg(long)]
         host_fasta: Option<PathBuf>,
@@ -562,7 +578,7 @@ pub enum Commands {
         threads: usize,
 
         /// Output directory
-        #[arg(short, long, default_value = "./ct_sweep_results")]
+        #[arg(short, long, default_value = "./coverage_curve_results")]
         outdir: PathBuf,
 
         /// Skip HTML report generation
