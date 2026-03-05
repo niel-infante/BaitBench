@@ -4,6 +4,7 @@ Quick reference for the codebase structure, module responsibilities, and key dat
 
 ## Pipeline Flow
 
+### Standard Mode
 ```
 Step 1: prepare    → combined_reference.fa, weights.txt, targets.txt, distractors.txt, sample.txt
 Step 2: simulate   → fragments.fa
@@ -11,10 +12,25 @@ Step 3: capture    → captured.fa
 Step 3b: enrich    → enriched.fa (optional, if --fold-enrichment)
 Step 4: sequence   → reads.fa
 Step 5: filter     → filtered.fa (optional, if --host-fasta)
-Step 6: map_reads  → mapped.sam
+Step 6: map_reads  → mapped.sam  (against combined_reference.fa)
 Step 7: list       → detected.list
 Step 8: metrics    → results.tsv, detected_detail.tsv, results.json, coverage.tsv
 Report: report     → report.html (optional, requires R)
+```
+
+### Genome Mode (`--genomes`)
+```
+Step 1: prepare    → combined_reference.fa (genomes+distractors), mapping_reference.fa (targets+distractors),
+                     weights.txt, targets.txt, distractors.txt, genomes.txt, sample.txt, sample_target_map.txt
+Step 2: simulate   → fragments.fa  (from combined_reference.fa — genomes+distractors)
+Step 3: capture    → captured.fa
+Step 3b: enrich    → enriched.fa  (uses genomes.txt to classify fragment sources)
+Step 4: sequence   → reads.fa
+Step 5: filter     → filtered.fa
+Step 6: map_reads  → mapped.sam  (against mapping_reference.fa — targets+distractors)
+Step 7: list       → detected.list
+Step 8: metrics    → results.tsv, detected_detail.tsv, results.json, coverage.tsv  (genome-aware classification)
+Report: report     → report.html
 ```
 
 `run.rs` orchestrates all steps. Each step is also available as a standalone subcommand.
@@ -25,7 +41,7 @@ Report: report     → report.html (optional, requires R)
 src/
 ├── main.rs              # Entry point: CLI parsing → command dispatch
 ├── cli.rs               # clap argument definitions (Commands enum, all flags)
-├── io_utils.rs           # Shared helpers: parse_id_set, extract_source_id, parse_sample_manifest
+├── io_utils.rs           # Shared helpers: parse_id_set, extract_source_id, parse_sample_manifest, parse_sample_target_map
 ├── alignment/
 │   ├── coverage.rs      # CIGAR-based per-position coverage from SAM
 │   ├── paf.rs           # PAF record filtering (mismatch/indel criteria)
@@ -71,6 +87,7 @@ R/
 - **`Commands`** enum — one variant per subcommand (Run, Prepare, Simulate, Capture, Enrich, Sequence, Filter, Map, List, Metrics, ProbeCoverage, Report, CoverageCurve), each with its own fields
 - **`CaptureMethodArg`** — ValueEnum: Minimap2 | Blast
 - **CT score flags** — `--ct`, `--ct-baseline`, `--ct-baseline-fraction` on Run and Prepare; `--ct` conflicts with `--distractor-fraction`
+- **Genome mode flags** — `--genomes` (optional genome FASTA for fragment generation), `--sample-target-map` (optional genome-to-target mapping TSV) on Run, Prepare, and CoverageCurve
 
 ### Command Args Pattern
 
@@ -78,7 +95,7 @@ Every command module exports an `Args` struct and an `execute(&Args) -> Result<(
 
 | Command | Args struct | Key inputs | Key outputs |
 |---------|-------------|------------|-------------|
-| `prepare` | `PrepareArgs` | targets, distractors, sample, distractor_fraction | combined_reference.fa, weights.txt, ID lists |
+| `prepare` | `PrepareArgs` | targets, distractors, sample, distractor_fraction, genomes, sample_target_map | combined_reference.fa, weights.txt, ID lists; genome mode also: mapping_reference.fa, genomes.txt, sample_target_map.txt |
 | `simulate` | `SimulateArgs` | reference, weights, num_fragments, seed, fragment_length_* | fragments.fa |
 | `capture` | `CaptureArgs` | method, probes, fragments, max_mismatches, min_match_bases | captured.fa |
 | `enrich` | `EnrichArgs` | captured, fragments, targets, distractors, fold_enrichment, seed | enriched.fa |
@@ -86,16 +103,17 @@ Every command module exports an `Args` struct and an `execute(&Args) -> Result<(
 | `filter` | `FilterArgs` | host, reads, minimap_preset | filtered.fa |
 | `map_reads` | `MapArgs` | reference, reads, minimap_preset | mapped.sam |
 | `generate_list` | `ListArgs` | sam | detected.list |
-| `metrics` | `MetricsArgs` | targets, distractors, sample, detected, fragments, captured, sam | results.tsv, detected_detail.tsv, results.json, coverage.tsv |
+| `metrics` | `MetricsArgs` | targets, distractors, sample, detected, fragments, captured, sam, sample_target_map | results.tsv, detected_detail.tsv, results.json, coverage.tsv |
 | `report` | `ReportArgs` | summary, detail, params, coverage, run_name | report.html |
 | `probe_coverage` | `ProbeCoverageArgs` | targets, probes, minimap_preset, proximity | probe_depth.tsv, probe_coverage_summary.tsv, probe_coverage_report.html |
-| `run` | `RunArgs` | all pipeline inputs + ct, ct_baseline, ct_baseline_fraction, num_sequences | all of the above |
-| `coverage_curve` | `CoverageCurveArgs` | targets, distractors, probes, sample (required), ct/fe/ns values (sweep or fixed), all pipeline params | coverage_curve_depth_curves.tsv, coverage_curve_report.html, combo subdirs |
+| `run` | `RunArgs` | all pipeline inputs + ct, ct_baseline, ct_baseline_fraction, num_sequences, genomes, sample_target_map | all of the above |
+| `coverage_curve` | `CoverageCurveArgs` | targets, distractors, probes, sample (required), ct/fe/ns values (sweep or fixed), all pipeline params, genomes, sample_target_map | coverage_curve_depth_curves.tsv, coverage_curve_report.html, combo subdirs |
 
 ### Metrics (`metrics.rs`)
 
-- **`MetricsResult`** — genome-level classification: tp/fn/fp_target/fp_distractor/tn_target/tn_distractor counts, sensitivity/specificity/precision/f1, plus ID lists (false_negatives, etc.)
-- **`ReadLevelMetrics`** — fragment/read counts: sample_captured, nonsample_target_captured, distractor_captured, reads_correctly_mapped, reads_incorrectly_mapped
+- **`MetricsResult`** — genome-level classification: tp/fn/fp_target/fp_distractor/tn_target/tn_distractor counts, sensitivity/specificity/precision/f1, plus ID lists (false_negatives, etc.), untargeted_genomes list
+- **`ReadLevelMetrics`** — fragment/read counts: sample_captured, nonsample_target_captured, distractor_captured, untargeted_captured, reads_correctly_mapped, reads_incorrectly_mapped
+- **`GenomeContext`** — derived from sample_target_map: sample_targets, genome_ids, sample_genome_ids, genome_to_targets, target_to_genomes, untargeted_genomes (genomes with no target mapping)
 - **`DetailRow`** (Serialize) — per-reference row: reference_id, category, expected, detected, fragments_generated, fragments_captured, reads_assigned, classification, ref_length, avg_coverage, pct_covered_5x, pct_covered_20x
 - **`JsonOutput`** (Serialize) — wraps RunInfo, CaptureStats, ReadLevelStats, JsonMetrics, JsonDetails
 
@@ -128,6 +146,8 @@ Every command module exports an `Args` struct and an `execute(&Args) -> Result<(
 - `resolve_sample_arg(tokens) → HashMap<String, f64>` — resolves `--sample` CLI arg: single token that is an existing file → parse as TSV; otherwise → parse as inline ID list
 - `parse_sample_inline(tokens) → HashMap<String, f64>` — inline format: IDs default to weight 1.0; a number after an ID sets that ID's weight (e.g. `t1 t2 t3 5 t4`)
 - `format_sample_display(samples) → String` — human-readable display of sample HashMap (e.g. `t1 t2 t3(5.0) t4`)
+- `parse_sample_target_map(path) → HashMap<String, Vec<String>>` — TSV genome_id\ttarget_id, # comments; returns genome→[targets] mapping
+- `write_sample_target_map(map, path)` — writes genome→target mapping as commented TSV
 
 ## External Tool Wrappers (`external/`)
 
@@ -169,11 +189,14 @@ All wrappers follow the pattern: `check_available() → bool/Result`, then speci
 
 | File | Format | Written by | Read by |
 |------|--------|------------|---------|
-| `combined_reference.fa` | FASTA | prepare | simulate, map_reads |
+| `combined_reference.fa` | FASTA | prepare | simulate; map_reads (standard mode) |
+| `mapping_reference.fa` | FASTA | prepare (genome mode) | map_reads (genome mode) |
 | `weights.txt` | TSV (id weight) | prepare | simulate |
 | `targets.txt` | ID list | prepare | metrics |
 | `distractors.txt` | ID list | prepare | metrics |
+| `genomes.txt` | ID list | prepare (genome mode) | enrich (genome mode), metrics |
 | `sample.txt` | ID list | prepare | metrics |
+| `sample_target_map.txt` | TSV (genome_id target_id) | prepare (genome mode) | metrics, coverage_curve |
 | `fragments.fa` | FASTA | simulate | capture, metrics |
 | `captured.fa` | FASTA | capture | enrich (if --fold-enrichment), sequence, metrics |
 | `enriched.fa` | FASTA | enrich | sequence, metrics (only if --fold-enrichment) |
@@ -247,7 +270,9 @@ Report logic: detects swept params from data, builds combo labels. <10 combos: s
 - **Fragment naming**: `{source_id}_fragment_{n} start={pos} length={len}` — source ID extracted via `io_utils::extract_source_id`
 - **Sequence IDs**: First whitespace-delimited word of FASTA header (no spaces allowed in names)
 - **Weights**: `explicit_weight * sequence_length` for sampling probability; weight 0 = no fragments
-- **Sample resolution**: `--sample` accepts either a TSV file path or inline IDs with optional weights; resolved to `HashMap<String, f64>` in `main.rs` via `io_utils::resolve_sample_arg` before pipeline runs
+- **Sample resolution**: `--sample` accepts either a TSV file path or inline IDs with optional weights; resolved to `HashMap<String, f64>` in `main.rs` via `io_utils::resolve_sample_arg` before pipeline runs. In genome mode, sample IDs refer to genome IDs (not target IDs)
+- **Genome mode**: When `--genomes` is provided, fragments are generated from full genomes (combined_reference.fa = genomes+distractors), but reads are mapped back to targets (mapping_reference.fa = targets+distractors). The sample-target-map links genome IDs to target IDs. Auto-linking: genome IDs matching target IDs get identity mapping unless an explicit mapping exists. Untargeted genomes (no target mapping) are tracked separately
+- **Correct mapping (genome mode)**: A read from genome G mapping to target T is correct if T is in the genome_to_targets mapping for G
 - **CT conversion**: `target_fraction = ct_baseline_fraction * 2^(ct_baseline - ct)`; resolved to `distractor_fraction` in `main.rs` before pipeline runs
 - **Capture filtering**: minimap2 → PAF → filter by mismatches/indels/match-bases; BLAST → outfmt 6 → filter by gaps/nident
 - **Coverage**: Single-pass SAM parsing, CIGAR ops M/=/X increment depth, D/N advance position only

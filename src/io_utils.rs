@@ -163,3 +163,61 @@ pub fn write_id_list(ids: &[String], path: &Path) -> Result<()> {
     writer.flush()?;
     Ok(())
 }
+
+/// Parse a sample-target-map TSV file into a HashMap of genome_id -> Vec<target_id>.
+///
+/// Format: `genome_id<tab>target_id` (one mapping per line, multiple lines per genome).
+/// Skips empty lines and lines starting with '#'.
+pub fn parse_sample_target_map(path: &Path) -> Result<HashMap<String, Vec<String>>> {
+    let file = File::open(path)
+        .with_context(|| format!("Cannot open sample-target-map: {}", path.display()))?;
+    let reader = BufReader::new(file);
+    let mut map: HashMap<String, Vec<String>> = HashMap::new();
+
+    for line in reader.lines() {
+        let line = line?;
+        let line = line.trim().to_string();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let parts: Vec<&str> = line.split('\t').collect();
+        if parts.len() < 2 || parts[1].trim().is_empty() {
+            bail!(
+                "Invalid sample-target-map line (expected genome_id<tab>target_id): '{}'",
+                line
+            );
+        }
+        let genome_id = parts[0].trim().to_string();
+        let target_id = parts[1].trim().to_string();
+        map.entry(genome_id).or_default().push(target_id);
+    }
+
+    Ok(map)
+}
+
+/// Write a sample-target-map to a TSV file.
+///
+/// Format: `genome_id<tab>target_id` (one line per mapping).
+pub fn write_sample_target_map(
+    map: &HashMap<String, Vec<String>>,
+    path: &Path,
+) -> Result<()> {
+    let file = File::create(path)
+        .with_context(|| format!("Cannot create sample-target-map: {}", path.display()))?;
+    let mut writer = BufWriter::new(file);
+    writeln!(writer, "# BaitBench sample-target-map")?;
+    writeln!(writer, "# genome_id\ttarget_id")?;
+
+    let mut genome_ids: Vec<&String> = map.keys().collect();
+    genome_ids.sort();
+    for genome_id in genome_ids {
+        let mut targets = map[genome_id].clone();
+        targets.sort();
+        for target_id in &targets {
+            writeln!(writer, "{}\t{}", genome_id, target_id)?;
+        }
+    }
+
+    writer.flush()?;
+    Ok(())
+}

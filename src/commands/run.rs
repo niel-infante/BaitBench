@@ -9,9 +9,11 @@ use crate::io_utils;
 
 pub struct RunArgs<'a> {
     pub targets: &'a Path,
+    pub genomes: Option<&'a Path>,
     pub distractors: &'a [PathBuf],
     pub probes: &'a Path,
     pub sample: Option<&'a HashMap<String, f64>>,
+    pub sample_target_map: Option<&'a HashMap<String, Vec<String>>>,
     pub host_fasta: Option<&'a Path>,
     pub run_name: String,
     pub num_fragments: usize,
@@ -41,11 +43,16 @@ pub fn execute(args: &RunArgs) -> Result<()> {
     let outdir = &args.outdir;
     fs::create_dir_all(outdir)?;
 
+    let has_genomes = args.genomes.is_some();
+
     log::info!("=============================================");
     log::info!("BaitBench - Probe Capture Testing");
     log::info!("=============================================");
     log::info!("Run name            : {}", args.run_name);
     log::info!("Targets FASTA       : {}", args.targets.display());
+    if let Some(genomes) = args.genomes {
+        log::info!("Genomes FASTA       : {}", genomes.display());
+    }
     for (i, d) in args.distractors.iter().enumerate() {
         log::info!("Distractors FASTA {} : {}", i + 1, d.display());
     }
@@ -92,15 +99,15 @@ pub fn execute(args: &RunArgs) -> Result<()> {
     log::info!("=============================================");
 
     // Write run parameters file (parameter, CLI flag, value)
-    // The flag column enables the report to reconstruct the command generically.
-    // When new parameters are added, add them here and the report picks them up
-    // automatically — no need to update the R template.
     {
         use std::io::Write;
         let params_path = outdir.join("run_params.tsv");
         let mut f = std::io::BufWriter::new(fs::File::create(&params_path)?);
         writeln!(f, "parameter\tflag\tvalue")?;
         writeln!(f, "targets\t--targets\t{}", args.targets.display())?;
+        if let Some(genomes) = args.genomes {
+            writeln!(f, "genomes\t--genomes\t{}", genomes.display())?;
+        }
         for d in args.distractors {
             writeln!(f, "distractors\t--distractors\t{}", d.display())?;
         }
@@ -134,8 +141,10 @@ pub fn execute(args: &RunArgs) -> Result<()> {
     log::info!("Step 1/8: Preparing reference...");
     prepare::execute(&prepare::PrepareArgs {
         targets: args.targets,
+        genomes: args.genomes,
         distractors: args.distractors,
         sample: args.sample,
+        sample_target_map: args.sample_target_map,
         distractor_fraction: args.distractor_fraction,
         outdir,
     })?;
@@ -168,12 +177,19 @@ pub fn execute(args: &RunArgs) -> Result<()> {
     })?;
 
     // Step 3b: Optional fold enrichment adjustment
+    // In genomes mode, enrich classifies by genome IDs (genomes.txt), not target IDs
+    let enrich_targets_file = if has_genomes {
+        outdir.join("genomes.txt")
+    } else {
+        outdir.join("targets.txt")
+    };
+
     let capture_output = if let Some(fe) = args.fold_enrichment {
         log::info!("Step 3b: Applying {:.1}x fold enrichment...", fe);
         enrich::execute(&enrich::EnrichArgs {
             captured: &outdir.join("captured.fa"),
             fragments: &outdir.join("fragments.fa"),
-            targets: &outdir.join("targets.txt"),
+            targets: &enrich_targets_file,
             distractors: &outdir.join("distractors.txt"),
             fold_enrichment: fe,
             seed: args.seed,
@@ -211,9 +227,17 @@ pub fn execute(args: &RunArgs) -> Result<()> {
     };
 
     // Step 6: Map reads
+    // In genomes mode, map to mapping_reference.fa (targets + distractors)
+    // In standard mode, map to combined_reference.fa (targets + distractors, same thing)
+    let mapping_reference = if has_genomes {
+        outdir.join("mapping_reference.fa")
+    } else {
+        outdir.join("combined_reference.fa")
+    };
+
     log::info!("Step 6/8: Mapping reads to reference...");
     map_reads::execute(&map_reads::MapArgs {
-        reference: &outdir.join("combined_reference.fa"),
+        reference: &mapping_reference,
         reads: &reads_for_mapping,
         minimap_preset: &args.minimap_preset,
         output: &outdir.join("mapped.sam"),
@@ -233,10 +257,18 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         .seed
         .map(|s| s.to_string())
         .unwrap_or_else(|| "NA".to_string());
+
+    let sample_target_map_path = if has_genomes {
+        Some(outdir.join("sample_target_map.txt"))
+    } else {
+        None
+    };
+
     metrics::execute(&metrics::MetricsArgs {
         targets: &outdir.join("targets.txt"),
         distractors: &outdir.join("distractors.txt"),
         sample: &outdir.join("sample.txt"),
+        sample_target_map: sample_target_map_path.as_deref(),
         detected: &outdir.join("detected.list"),
         fragments: &outdir.join("fragments.fa"),
         captured: &capture_output,

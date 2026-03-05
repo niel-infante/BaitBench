@@ -70,9 +70,11 @@ fn main() -> Result<()> {
     match cli.command {
         Commands::Run {
             targets,
+            genomes,
             distractors,
             probes,
             sample,
+            sample_target_map,
             host_fasta,
             run_name,
             num_fragments,
@@ -106,6 +108,11 @@ fn main() -> Result<()> {
                 .map(|s| resolve_sample_arg(s))
                 .transpose()?;
 
+            let resolved_stm = sample_target_map
+                .as_ref()
+                .map(|p| io_utils::parse_sample_target_map(p))
+                .transpose()?;
+
             let run_name = run_name.unwrap_or_else(|| {
                 format!("run_{}", chrono::Local::now().format("%Y%m%d_%H%M%S"))
             });
@@ -113,9 +120,11 @@ fn main() -> Result<()> {
 
             run::execute(&run::RunArgs {
                 targets: &targets,
+                genomes: genomes.as_deref(),
                 distractors: &distractors,
                 probes: &probes,
                 sample: resolved_sample.as_ref(),
+                sample_target_map: resolved_stm.as_ref(),
                 host_fasta: host_fasta.as_deref(),
                 run_name,
                 num_fragments,
@@ -144,8 +153,10 @@ fn main() -> Result<()> {
 
         Commands::Prepare {
             targets,
+            genomes,
             distractors,
             sample,
+            sample_target_map,
             distractor_fraction,
             ct,
             ct_baseline,
@@ -161,10 +172,17 @@ fn main() -> Result<()> {
                 .map(|s| resolve_sample_arg(s))
                 .transpose()?;
 
+            let resolved_stm = sample_target_map
+                .as_ref()
+                .map(|p| io_utils::parse_sample_target_map(p))
+                .transpose()?;
+
             prepare::execute(&prepare::PrepareArgs {
                 targets: &targets,
+                genomes: genomes.as_deref(),
                 distractors: &distractors,
                 sample: resolved_sample.as_ref(),
+                sample_target_map: resolved_stm.as_ref(),
                 distractor_fraction: resolved_df,
                 outdir: &outdir,
             })?;
@@ -311,6 +329,7 @@ fn main() -> Result<()> {
                 targets: &targets,
                 distractors: &distractors,
                 sample: &sample,
+                sample_target_map: None,
                 detected: &detected,
                 fragments: &fragments,
                 captured: &captured,
@@ -363,9 +382,11 @@ fn main() -> Result<()> {
 
         Commands::CoverageCurve {
             targets,
+            genomes,
             distractors,
             probes,
             sample,
+            sample_target_map,
             ct_values,
             ct,
             distractor_fraction,
@@ -393,6 +414,10 @@ fn main() -> Result<()> {
             no_report,
         } => {
             let resolved_sample = resolve_sample_arg(&sample)?;
+            let resolved_stm = sample_target_map
+                .as_ref()
+                .map(|p| io_utils::parse_sample_target_map(p))
+                .transpose()?;
 
             // Resolve CT dimension: --ct-values (sweep) or --ct/--distractor-fraction (fixed)
             let mut swept_params = Vec::new();
@@ -432,9 +457,11 @@ fn main() -> Result<()> {
 
             coverage_curve::execute(&coverage_curve::CoverageCurveArgs {
                 targets: &targets,
+                genomes: genomes.as_deref(),
                 distractors: &distractors,
                 probes: &probes,
                 sample: &resolved_sample,
+                sample_target_map: resolved_stm.as_ref(),
                 ct_display_values,
                 ct_distractor_fractions,
                 fe_values: resolved_fe_values,

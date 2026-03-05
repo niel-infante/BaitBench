@@ -22,6 +22,13 @@ pub enum Commands {
         #[arg(short, long)]
         targets: PathBuf,
 
+        /// Genome sequences FASTA for fragment generation (optional).
+        /// When provided, fragments are generated from genomes instead of targets.
+        /// Use for organisms where the genome is much larger than the target regions
+        /// (e.g., bacteria with specific gene targets).
+        #[arg(short, long)]
+        genomes: Option<PathBuf>,
+
         /// Distractor sequences FASTA (can be specified multiple times)
         #[arg(short, long, num_args = 1..)]
         distractors: Vec<PathBuf>,
@@ -33,8 +40,16 @@ pub enum Commands {
         /// Sample targets: either a manifest TSV file path, or inline IDs with optional weights.
         /// Examples: --sample manifest.tsv | --sample t1 t2 t3 | --sample t1 t2 t3 5 t4
         /// Inline: IDs default to weight 1.0; a number after an ID sets that ID's weight.
+        /// When --genomes is used, IDs refer to genome sequences instead of targets.
         #[arg(long, num_args = 1..)]
         sample: Option<Vec<String>>,
+
+        /// Sample-to-target mapping TSV (optional, used with --genomes).
+        /// Format: genome_id<tab>target_id (one mapping per line).
+        /// Maps genome sequences to their target regions for metrics classification.
+        /// Genomes with matching target IDs are auto-linked when this file is absent.
+        #[arg(long)]
+        sample_target_map: Option<PathBuf>,
 
         /// Host genome FASTA for filtering (optional)
         #[arg(long)]
@@ -137,14 +152,23 @@ pub enum Commands {
         #[arg(short, long)]
         targets: PathBuf,
 
+        /// Genome sequences FASTA for fragment generation (optional)
+        #[arg(short, long)]
+        genomes: Option<PathBuf>,
+
         /// Distractor sequences FASTA (can be specified multiple times)
         #[arg(short, long, num_args = 1..)]
         distractors: Vec<PathBuf>,
 
         /// Sample targets: either a manifest TSV file path, or inline IDs with optional weights.
         /// Examples: --sample manifest.tsv | --sample t1 t2 t3 | --sample t1 t2 t3 5 t4
+        /// When --genomes is used, IDs refer to genome sequences instead of targets.
         #[arg(long, num_args = 1..)]
         sample: Option<Vec<String>>,
+
+        /// Sample-to-target mapping TSV (optional, used with --genomes)
+        #[arg(long)]
+        sample_target_map: Option<PathBuf>,
 
         /// Fraction of reads from distractors (0-1). Mutually exclusive with --ct.
         #[arg(short = 'f', long, conflicts_with = "ct")]
@@ -472,6 +496,10 @@ pub enum Commands {
         #[arg(short, long)]
         targets: PathBuf,
 
+        /// Genome sequences FASTA for fragment generation (optional)
+        #[arg(short, long)]
+        genomes: Option<PathBuf>,
+
         /// Distractor sequences FASTA (can be specified multiple times)
         #[arg(short, long, num_args = 1..)]
         distractors: Vec<PathBuf>,
@@ -482,8 +510,13 @@ pub enum Commands {
 
         /// Sample targets (required): either a manifest TSV file path, or inline IDs with optional weights.
         /// Examples: --sample manifest.tsv | --sample t1 t2 t3 | --sample t1 t2 t3 5 t4
+        /// When --genomes is used, IDs refer to genome sequences instead of targets.
         #[arg(long, num_args = 1.., required = true)]
         sample: Vec<String>,
+
+        /// Sample-to-target mapping TSV (optional, used with --genomes)
+        #[arg(long)]
+        sample_target_map: Option<PathBuf>,
 
         /// CT values to sweep (space-separated). Conflicts with --ct and --distractor-fraction.
         #[arg(long, num_args = 1.., conflicts_with_all = ["ct", "distractor_fraction"])]

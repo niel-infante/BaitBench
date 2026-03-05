@@ -13,6 +13,10 @@ pub struct MetricsArgs<'a> {
     pub targets: &'a Path,
     pub distractors: &'a Path,
     pub sample: &'a Path,
+    /// Optional sample-target-map file (genome_id → target_id mappings).
+    /// When present, enables genome-aware classification where sample IDs are
+    /// genome IDs and detection is measured through their mapped target regions.
+    pub sample_target_map: Option<&'a Path>,
     pub detected: &'a Path,
     pub fragments: &'a Path,
     pub captured: &'a Path,
@@ -34,13 +38,15 @@ struct ReadLevelMetrics {
     nonsample_target_captured: usize,
     /// Captured fragments originating from distractor sequences
     distractor_captured: usize,
+    /// Captured fragments from untargeted sample genomes (genomes mode only)
+    untargeted_captured: usize,
     /// Mapped reads where source == mapped reference (correct assignment)
     reads_correctly_mapped: usize,
     /// Mapped reads where source != mapped reference (misassignment)
     reads_incorrectly_mapped: usize,
 }
 
-/// 3-way classification metrics.
+/// Classification metrics (3-way or 4-way with untargeted).
 struct MetricsResult {
     // Counts
     tp_count: usize,
@@ -64,6 +70,25 @@ struct MetricsResult {
     tn_targets: Vec<String>,
     tn_distractors: Vec<String>,
     unknown_detected: Vec<String>,
+    // Untargeted genomes (in sample, no target mapping)
+    untargeted_genomes: Vec<String>,
+}
+
+/// Resolved context for genome-aware metrics.
+/// When a sample-target-map is provided, this holds the derived sets.
+struct GenomeContext {
+    /// Sample target IDs (derived from sample genomes via mapping)
+    sample_targets: HashSet<String>,
+    /// All genome IDs (for source classification)
+    genome_ids: HashSet<String>,
+    /// Sample genome IDs
+    sample_genome_ids: HashSet<String>,
+    /// Genome-to-target mapping
+    genome_to_targets: HashMap<String, Vec<String>>,
+    /// Target-to-genome reverse mapping
+    target_to_genomes: HashMap<String, Vec<String>>,
+    /// Untargeted sample genomes (in sample, no mapping)
+    untargeted_genomes: Vec<String>,
 }
 
 pub fn execute(args: &MetricsArgs) -> Result<()> {
@@ -77,8 +102,66 @@ pub fn execute(args: &MetricsArgs) -> Result<()> {
     log::info!("  Found {} distractor references", distractors.len());
 
     log::info!("Parsing sample file...");
-    let sample = io_utils::parse_id_set(args.sample)?;
-    log::info!("  Found {} sample references", sample.len());
+    let sample_ids = io_utils::parse_id_set(args.sample)?;
+    log::info!("  Found {} sample references", sample_ids.len());
+
+    // Parse sample-target-map if present (genome-aware mode)
+    let genome_ctx = if let Some(map_path) = args.sample_target_map {
+        log::info!("Parsing sample-target-map...");
+        let genome_to_targets = io_utils::parse_sample_target_map(map_path)?;
+
+        // Build reverse mapping: target → genomes
+        let mut target_to_genomes: HashMap<String, Vec<String>> = HashMap::new();
+        for (genome_id, target_list) in &genome_to_targets {
+            for target_id in target_list {
+                target_to_genomes
+                    .entry(target_id.clone())
+                    .or_default()
+                    .push(genome_id.clone());
+            }
+        }
+
+        // Derive sample targets: targets linked to any sample genome
+        let mut sample_targets = HashSet::new();
+        for sample_id in &sample_ids {
+            if let Some(target_list) = genome_to_targets.get(sample_id) {
+                for target_id in target_list {
+                    sample_targets.insert(target_id.clone());
+                }
+            }
+        }
+
+        // All genome IDs (from the map keys + sample IDs that may be untargeted)
+        let mut genome_ids: HashSet<String> = genome_to_targets.keys().cloned().collect();
+        for id in &sample_ids {
+            genome_ids.insert(id.clone());
+        }
+
+        // Untargeted sample genomes
+        let mut untargeted_genomes: Vec<String> = sample_ids
+            .iter()
+            .filter(|id| !genome_to_targets.contains_key(*id))
+            .cloned()
+            .collect();
+        untargeted_genomes.sort();
+
+        log::info!(
+            "  Genome-aware mode: {} sample targets derived, {} untargeted genomes",
+            sample_targets.len(),
+            untargeted_genomes.len()
+        );
+
+        Some(GenomeContext {
+            sample_targets,
+            genome_ids,
+            sample_genome_ids: sample_ids.clone(),
+            genome_to_targets,
+            target_to_genomes,
+            untargeted_genomes,
+        })
+    } else {
+        None
+    };
 
     log::info!("Parsing detection list...");
     let detected = parse_detected(args.detected)?;
@@ -101,20 +184,33 @@ pub fn execute(args: &MetricsArgs) -> Result<()> {
     let generated_per_ref = count_per_source(args.fragments)?;
     let captured_per_ref = count_per_source(args.captured)?;
 
-    // Read-level metrics: count captured fragments by source type
+    // Determine the effective sample set for classification
+    // In genome mode: sample targets derived from mapping
+    // In standard mode: sample IDs directly
+    let effective_sample = if let Some(ctx) = &genome_ctx {
+        &ctx.sample_targets
+    } else {
+        &sample_ids
+    };
+
+    // Read-level metrics
     log::info!("Analyzing captured fragments by source...");
     let captured_ids = fasta::parse_fasta_ids(args.captured)?;
     let read_level = compute_read_level_metrics(
         &captured_ids,
-        &sample,
+        effective_sample,
         &targets,
         &distractors,
+        genome_ctx.as_ref(),
         args.sam,
     )?;
 
     log::info!("  Sample fragments captured: {}", read_level.sample_captured);
     log::info!("  Non-sample target fragments captured: {}", read_level.nonsample_target_captured);
     log::info!("  Distractor fragments captured: {}", read_level.distractor_captured);
+    if read_level.untargeted_captured > 0 {
+        log::info!("  Untargeted fragments captured: {}", read_level.untargeted_captured);
+    }
     log::info!("  Reads correctly mapped: {}", read_level.reads_correctly_mapped);
     log::info!("  Reads incorrectly mapped: {}", read_level.reads_incorrectly_mapped);
 
@@ -127,8 +223,8 @@ pub fn execute(args: &MetricsArgs) -> Result<()> {
         coverage_stats.insert(ref_id.clone(), coverage::calculate_stats(depths, ref_len));
     }
 
-    // Calculate genome-level metrics (3-way classification)
-    let metrics = calculate_metrics(&sample, &targets, &distractors, &detected);
+    // Calculate genome-level metrics (classification)
+    let metrics = calculate_metrics(effective_sample, &targets, &distractors, &detected, genome_ctx.as_ref());
 
     log::info!("  True Positives (sample detected): {}", metrics.tp_count);
     log::info!("  False Negatives (sample missed): {}", metrics.fn_count);
@@ -136,6 +232,9 @@ pub fn execute(args: &MetricsArgs) -> Result<()> {
     log::info!("  FP distractors (distractor detected): {}", metrics.fp_distractor_count);
     log::info!("  TN targets (non-sample target not detected): {}", metrics.tn_target_count);
     log::info!("  TN distractors (distractor not detected): {}", metrics.tn_distractor_count);
+    if !metrics.untargeted_genomes.is_empty() {
+        log::info!("  Untargeted genomes: {}", metrics.untargeted_genomes.len());
+    }
     log::info!("  Sensitivity: {:.4}", metrics.sensitivity);
     log::info!("  Specificity: {:.4}", metrics.specificity);
     log::info!("  Precision: {:.4}", metrics.precision);
@@ -160,8 +259,9 @@ pub fn execute(args: &MetricsArgs) -> Result<()> {
 
     // Build detail rows (shared between TSV and JSON)
     let detail_rows = build_detail_rows(
-        &sample, &targets, &distractors, &detected, &metrics,
+        effective_sample, &targets, &distractors, &detected, &metrics,
         &generated_per_ref, &captured_per_ref, &coverage_stats,
+        genome_ctx.as_ref(),
     );
 
     // Write detail TSV
@@ -198,23 +298,41 @@ pub fn execute(args: &MetricsArgs) -> Result<()> {
 
 fn compute_read_level_metrics(
     captured_read_names: &[String],
-    sample: &HashSet<String>,
+    effective_sample: &HashSet<String>,
     targets: &HashSet<String>,
     distractors: &HashSet<String>,
+    genome_ctx: Option<&GenomeContext>,
     sam_path: &Path,
 ) -> Result<ReadLevelMetrics> {
     let mut sample_captured = 0usize;
     let mut nonsample_target_captured = 0usize;
     let mut distractor_captured = 0usize;
+    let mut untargeted_captured = 0usize;
 
     for name in captured_read_names {
         if let Some(source) = io_utils::extract_source_id(name) {
-            if sample.contains(source) {
-                sample_captured += 1;
-            } else if targets.contains(source) {
-                nonsample_target_captured += 1;
-            } else if distractors.contains(source) {
-                distractor_captured += 1;
+            if let Some(ctx) = genome_ctx {
+                // Genome-aware mode: source is a genome ID
+                if ctx.sample_genome_ids.contains(source) {
+                    if ctx.genome_to_targets.contains_key(source) {
+                        sample_captured += 1;
+                    } else {
+                        untargeted_captured += 1;
+                    }
+                } else if ctx.genome_ids.contains(source) {
+                    nonsample_target_captured += 1;
+                } else if distractors.contains(source) {
+                    distractor_captured += 1;
+                }
+            } else {
+                // Standard mode: source is a target ID
+                if effective_sample.contains(source) {
+                    sample_captured += 1;
+                } else if targets.contains(source) {
+                    nonsample_target_captured += 1;
+                } else if distractors.contains(source) {
+                    distractor_captured += 1;
+                }
             }
         }
     }
@@ -226,10 +344,26 @@ fn compute_read_level_metrics(
 
     for (read_name, mapped_ref) in &mappings {
         if let Some(source) = io_utils::extract_source_id(read_name) {
-            if source == mapped_ref {
-                reads_correctly_mapped += 1;
+            if let Some(ctx) = genome_ctx {
+                // Genome-aware mode: correct if the mapped target is one of the
+                // genome's targets
+                if let Some(valid_targets) = ctx.genome_to_targets.get(source) {
+                    if valid_targets.iter().any(|t| t == mapped_ref) {
+                        reads_correctly_mapped += 1;
+                    } else {
+                        reads_incorrectly_mapped += 1;
+                    }
+                } else {
+                    // Untargeted genome or distractor — any mapping to a target is incorrect
+                    reads_incorrectly_mapped += 1;
+                }
             } else {
-                reads_incorrectly_mapped += 1;
+                // Standard mode: source ID should match mapped reference
+                if source == mapped_ref {
+                    reads_correctly_mapped += 1;
+                } else {
+                    reads_incorrectly_mapped += 1;
+                }
             }
         }
     }
@@ -238,13 +372,13 @@ fn compute_read_level_metrics(
         sample_captured,
         nonsample_target_captured,
         distractor_captured,
+        untargeted_captured,
         reads_correctly_mapped,
         reads_incorrectly_mapped,
     })
 }
 
 /// Count sequences per source genome in a FASTA file.
-/// Extracts the source ID from each sequence name and tallies occurrences.
 fn count_per_source(path: &Path) -> Result<HashMap<String, usize>> {
     let ids = fasta::parse_fasta_ids(path)?;
     let mut counts: HashMap<String, usize> = HashMap::new();
@@ -279,30 +413,35 @@ fn parse_detected(path: &Path) -> Result<HashMap<String, usize>> {
     Ok(detected)
 }
 
-/// 3-way genome-level classification:
+/// Classification:
 /// - Sample targets: TP if detected, FN if not
 /// - Non-sample targets: FP_target if detected, TN_target if not
 /// - Distractors: FP_distractor if detected, TN_distractor if not
+/// - Untargeted genomes: separate category (not in TP/FP/FN/TN)
+///
+/// In genome-aware mode, `effective_sample` contains target IDs derived from
+/// sample genomes via the mapping. Detection is at the target level.
 fn calculate_metrics(
-    sample: &HashSet<String>,
+    effective_sample: &HashSet<String>,
     targets: &HashSet<String>,
     distractors: &HashSet<String>,
     detected: &HashMap<String, usize>,
+    genome_ctx: Option<&GenomeContext>,
 ) -> MetricsResult {
     // Sample targets
-    let mut true_positives: Vec<String> = sample
+    let mut true_positives: Vec<String> = effective_sample
         .iter()
         .filter(|id| detected.contains_key(*id))
         .cloned()
         .collect();
-    let mut false_negatives: Vec<String> = sample
+    let mut false_negatives: Vec<String> = effective_sample
         .iter()
         .filter(|id| !detected.contains_key(*id))
         .cloned()
         .collect();
 
-    // Non-sample targets (targets that are NOT in the sample)
-    let nonsample_targets: HashSet<&String> = targets.iter().filter(|id| !sample.contains(*id)).collect();
+    // Non-sample targets (targets NOT in the effective sample)
+    let nonsample_targets: HashSet<&String> = targets.iter().filter(|id| !effective_sample.contains(*id)).collect();
     let mut fp_targets: Vec<String> = nonsample_targets
         .iter()
         .filter(|id| detected.contains_key(**id))
@@ -334,6 +473,11 @@ fn calculate_metrics(
         .cloned()
         .collect();
 
+    // Untargeted genomes
+    let mut untargeted_genomes: Vec<String> = genome_ctx
+        .map(|ctx| ctx.untargeted_genomes.clone())
+        .unwrap_or_default();
+
     let tp = true_positives.len();
     let fn_ = false_negatives.len();
     let fp_target = fp_targets.len();
@@ -359,6 +503,7 @@ fn calculate_metrics(
     tn_targets.sort();
     tn_distractors.sort();
     unknown_detected.sort();
+    untargeted_genomes.sort();
 
     MetricsResult {
         tp_count: tp,
@@ -380,6 +525,7 @@ fn calculate_metrics(
         tn_targets,
         tn_distractors,
         unknown_detected,
+        untargeted_genomes,
     }
 }
 
@@ -402,6 +548,7 @@ fn write_summary_tsv(
         "run_name", "timestamp", "num_fragments", "seed",
         "fragments_generated", "fragments_captured", "capture_rate",
         "sample_captured", "nonsample_target_captured", "distractor_captured",
+        "untargeted_captured",
         "reads_correctly_mapped", "reads_incorrectly_mapped",
         "sample_total", "nonsample_target_total", "distractors_total",
         "tp_count", "fn_count",
@@ -416,10 +563,11 @@ fn write_summary_tsv(
     let distractors_total = metrics.fp_distractor_count + metrics.tn_distractor_count;
 
     let values = format!(
-        "{}\t{}\t{}\t{}\t{}\t{}\t{:.4}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{:.4}\t{:.4}\t{:.4}\t{:.4}",
+        "{}\t{}\t{}\t{}\t{}\t{}\t{:.4}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{:.4}\t{:.4}\t{:.4}\t{:.4}",
         run_name, timestamp, num_fragments, seed,
         fragments_generated, fragments_captured, capture_rate,
         read_level.sample_captured, read_level.nonsample_target_captured, read_level.distractor_captured,
+        read_level.untargeted_captured,
         read_level.reads_correctly_mapped, read_level.reads_incorrectly_mapped,
         sample_total, nonsample_target_total, distractors_total,
         metrics.tp_count, metrics.fn_count,
@@ -495,6 +643,7 @@ struct CaptureStats {
     sample_captured: usize,
     nonsample_target_captured: usize,
     distractor_captured: usize,
+    untargeted_captured: usize,
 }
 
 #[derive(Serialize)]
@@ -528,11 +677,12 @@ struct JsonDetails {
     tn_targets: Vec<String>,
     tn_distractors: Vec<String>,
     unknown_detected: Vec<String>,
+    untargeted_genomes: Vec<String>,
     detail_rows: Vec<DetailRow>,
 }
 
 fn build_detail_rows(
-    sample: &HashSet<String>,
+    effective_sample: &HashSet<String>,
     targets: &HashSet<String>,
     distractors: &HashSet<String>,
     detected: &HashMap<String, usize>,
@@ -540,11 +690,12 @@ fn build_detail_rows(
     generated_per_ref: &HashMap<String, usize>,
     captured_per_ref: &HashMap<String, usize>,
     coverage_stats: &HashMap<String, coverage::CoverageStats>,
+    genome_ctx: Option<&GenomeContext>,
 ) -> Vec<DetailRow> {
     let mut rows: Vec<DetailRow> = Vec::new();
 
     for (ref_id, &count) in detected {
-        let (category, expected, classification) = if sample.contains(ref_id) {
+        let (category, expected, classification) = if effective_sample.contains(ref_id) {
             ("sample", "true", "TP")
         } else if targets.contains(ref_id) {
             ("target", "false", "FP_target")
@@ -554,14 +705,40 @@ fn build_detail_rows(
             ("unknown", "false", "UNKNOWN")
         };
 
+        // In genome mode, fragment counts are per genome source, but detected
+        // is per target. Use target-to-genome mapping to aggregate fragment counts.
+        let (frag_gen, frag_cap) = if let Some(ctx) = genome_ctx {
+            if let Some(genome_list) = ctx.target_to_genomes.get(ref_id) {
+                let gen: usize = genome_list
+                    .iter()
+                    .map(|g| generated_per_ref.get(g).copied().unwrap_or(0))
+                    .sum();
+                let cap: usize = genome_list
+                    .iter()
+                    .map(|g| captured_per_ref.get(g).copied().unwrap_or(0))
+                    .sum();
+                (gen, cap)
+            } else {
+                (
+                    generated_per_ref.get(ref_id).copied().unwrap_or(0),
+                    captured_per_ref.get(ref_id).copied().unwrap_or(0),
+                )
+            }
+        } else {
+            (
+                generated_per_ref.get(ref_id).copied().unwrap_or(0),
+                captured_per_ref.get(ref_id).copied().unwrap_or(0),
+            )
+        };
+
         let cov = coverage_stats.get(ref_id);
         rows.push(DetailRow {
             reference_id: ref_id.clone(),
             category: category.to_string(),
             expected: expected.to_string(),
             detected: "true".to_string(),
-            fragments_generated: generated_per_ref.get(ref_id).copied().unwrap_or(0),
-            fragments_captured: captured_per_ref.get(ref_id).copied().unwrap_or(0),
+            fragments_generated: frag_gen,
+            fragments_captured: frag_cap,
             reads_assigned: count,
             classification: classification.to_string(),
             ref_length: cov.map(|c| c.ref_length).unwrap_or(0),
@@ -589,6 +766,28 @@ fn build_detail_rows(
         });
     }
 
+    // Add untargeted genomes to detail rows
+    if let Some(ctx) = genome_ctx {
+        for genome_id in &ctx.untargeted_genomes {
+            let frag_gen = generated_per_ref.get(genome_id).copied().unwrap_or(0);
+            let frag_cap = captured_per_ref.get(genome_id).copied().unwrap_or(0);
+            rows.push(DetailRow {
+                reference_id: genome_id.clone(),
+                category: "untargeted".to_string(),
+                expected: "false".to_string(),
+                detected: if frag_cap > 0 { "true" } else { "false" }.to_string(),
+                fragments_generated: frag_gen,
+                fragments_captured: frag_cap,
+                reads_assigned: 0, // untargeted genomes have no target to detect reads against
+                classification: "untargeted".to_string(),
+                ref_length: 0,
+                avg_coverage: 0.0,
+                pct_covered_5x: 0.0,
+                pct_covered_20x: 0.0,
+            });
+        }
+    }
+
     rows.sort_by(|a, b| {
         let order = |c: &str| match c {
             "TP" => 0,
@@ -596,6 +795,7 @@ fn build_detail_rows(
             "FP_distractor" => 2,
             "UNKNOWN" => 3,
             "FN" => 4,
+            "untargeted" => 5,
             _ => 99,
         };
         order(&a.classification)
@@ -633,6 +833,7 @@ fn write_json(
             sample_captured: read_level.sample_captured,
             nonsample_target_captured: read_level.nonsample_target_captured,
             distractor_captured: read_level.distractor_captured,
+            untargeted_captured: read_level.untargeted_captured,
         },
         read_level: ReadLevelStats {
             reads_correctly_mapped: read_level.reads_correctly_mapped,
@@ -660,6 +861,7 @@ fn write_json(
             tn_targets: metrics.tn_targets.clone(),
             tn_distractors: metrics.tn_distractors.clone(),
             unknown_detected: metrics.unknown_detected.clone(),
+            untargeted_genomes: metrics.untargeted_genomes.clone(),
             detail_rows,
         },
     };

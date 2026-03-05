@@ -95,9 +95,64 @@ zika_virus	1.0
 chikungunya	0.5
 ```
 
-All IDs must match a FASTA header in the targets file. IDs are taken from the first whitespace-delimited word of each FASTA header (everything after `>` up to the first space), so **sequence names must not contain spaces**. Use underscores or other delimiters instead (e.g. `>Zika_virus`, not `>Zika virus`).
+All IDs must match a FASTA header in the targets file (or genomes file, if using `--genomes`). IDs are taken from the first whitespace-delimited word of each FASTA header (everything after `>` up to the first space), so **sequence names must not contain spaces**. Use underscores or other delimiters instead (e.g. `>Zika_virus`, not `>Zika virus`).
 
-Without `--sample`, all targets are treated as present with equal weight. When `--sample` is provided, only the listed targets generate fragments; remaining targets become "non-sample targets" and are treated as negatives alongside distractors (see [3-way classification](#3-way-classification)).
+Without `--sample`, all targets (or genomes) are treated as present with equal weight. When `--sample` is provided, only the listed entries generate fragments; remaining entries become "non-sample" and are treated as negatives alongside distractors (see [3-way classification](#3-way-classification)).
+
+### Genome mode (bacteria and large pathogens)
+
+For organisms where the genome is much larger than the probe target regions (e.g., bacteria with specific gene targets), use `--genomes` to provide full genomes for fragment generation while keeping `--targets` as the probe target subsequences:
+
+```bash
+baitbench run \
+  --targets target_regions.fa \
+  --genomes full_genomes.fa \
+  --distractors human.fa \
+  --probes probes.fa \
+  --sample-target-map mapping.tsv \
+  --sample e_coli influenza_a \
+  --num-fragments 50000 \
+  --outdir results
+```
+
+**How it works:**
+- Fragments are generated from `--genomes` (not `--targets`)
+- Reads are mapped back to `--targets` for evaluation
+- `--sample` IDs refer to genome IDs (not target IDs)
+- `--sample-target-map` links genomes to their target regions
+
+**Sample-target-map format** (`mapping.tsv`):
+
+```
+# genome_id	target_id
+e_coli	e_coli_16S
+e_coli	e_coli_gyrB
+influenza_a	influenza_a
+```
+
+Multiple targets per genome are supported (one line per mapping). **Auto-linking:** genomes whose IDs match a target ID are automatically linked — you only need explicit entries for genomes with different target IDs. The map file is optional; without it, only identity matches are used.
+
+**Untargeted genomes:** Sample genomes with no target mapping (explicit or auto-linked) are treated as "untargeted." Their fragments enter the pipeline but they have no expected target to detect. This models unknown organisms in the sample.
+
+**Mixed panels** (virus + bacteria) work naturally:
+
+```bash
+# genomes.fa contains: influenza_a (13kb), e_coli (5Mb)
+# targets.fa contains: influenza_a (same), e_coli_16S (1.5kb subsequence)
+# influenza_a auto-links, e_coli needs explicit mapping
+
+baitbench run \
+  --targets targets.fa \
+  --genomes genomes.fa \
+  --distractors human.fa \
+  --probes probes.fa \
+  --sample-target-map mapping.tsv \
+  --sample influenza_a e_coli \
+  --num-fragments 50000 \
+  --outdir results
+```
+
+**Note:** Bacterial genomes are much larger than viral genomes, so the same number of fragments yields much sparser coverage of target regions. Use higher `--num-fragments` for bacteria-heavy panels.
 
 ### Individual steps
 
@@ -231,10 +286,12 @@ All other pipeline parameters (`--read-length`, `--capture-method`, etc.) are al
 
 | File | Description |
 |------|-------------|
-| `targets.fa` | FASTA of genomes your probes are designed to capture |
+| `targets.fa` | FASTA of target sequences your probes are designed to capture |
+| `genomes.fa` (optional) | FASTA of full genomes for fragment generation (use with `--genomes` for bacteria/large pathogens) |
 | `distractors.fa` | FASTA of background genomes that should NOT be captured (can specify multiple files) |
 | `probes.fa` | FASTA of probe sequences to test |
-| `sample.tsv` (optional) | TSV listing which targets are present in the sample, with optional weights |
+| `sample.tsv` (optional) | TSV listing which targets (or genomes) are present in the sample, with optional weights |
+| `mapping.tsv` (optional) | TSV mapping genome IDs to target IDs (use with `--genomes` via `--sample-target-map`) |
 | `host.fa` (optional) | Host genome for filtering captured reads |
 
 **Note:** Sequence IDs are derived from the first word of each FASTA header (text after `>` up to the first space). Sequence names must not contain spaces. These IDs are used throughout the pipeline and must match between input files (e.g. sample manifest IDs must match target FASTA header IDs).
@@ -246,7 +303,9 @@ All other pipeline parameters (`--read-length`, `--capture-method`, etc.) are al
 | `--targets` | required | Path to target genomes FASTA |
 | `--distractors` | required | Path to distractor genomes FASTA (can be specified multiple times) |
 | `--probes` | required | Path to probe sequences FASTA |
-| `--sample` | none | Sample targets: TSV manifest file or inline IDs with optional weights (e.g. `--sample t1 t2 t3 5 t4`) |
+| `--genomes` | none | Full genomes FASTA for fragment generation (for bacteria/large pathogens) |
+| `--sample` | none | Sample targets (or genomes): TSV manifest file or inline IDs with optional weights (e.g. `--sample t1 t2 t3 5 t4`) |
+| `--sample-target-map` | none | TSV mapping genome IDs to target IDs (used with `--genomes`) |
 | `--num-fragments` | 10000 | Number of fragments to simulate |
 | `--fragment-length-mean` | 175 | Mean fragment length (bp) |
 | `--fragment-length-min` | 150 | Minimum fragment length (bp) |
@@ -305,11 +364,14 @@ baitbench run \
 
 ```
 results/<run_name>/
-├── combined_reference.fa   # Merged targets + distractors
+├── combined_reference.fa   # Merged targets + distractors (or genomes + distractors)
+├── mapping_reference.fa    # Targets + distractors for read mapping (genomes mode only)
 ├── weights.txt             # Sampling weights
 ├── targets.txt             # Target IDs
+├── genomes.txt             # Genome IDs (genomes mode only)
 ├── distractors.txt         # Distractor IDs
-├── sample.txt              # Sample IDs (subset of targets)
+├── sample.txt              # Sample IDs (subset of targets or genomes)
+├── sample_target_map.txt   # Genome-to-target mapping (genomes mode only)
 ├── fragments.fa             # Simulated fragments
 ├── captured.fa              # Fragments passing capture filter
 ├── enriched.fa              # Post-enrichment fragments (if --fold-enrichment)
@@ -338,6 +400,7 @@ results/<run_name>/
 | `sample_captured` | Captured fragments originating from sample target sequences |
 | `nonsample_target_captured` | Captured fragments originating from non-sample target sequences |
 | `distractor_captured` | Captured fragments originating from distractor sequences |
+| `untargeted_captured` | Captured fragments from untargeted sample genomes (genomes mode only) |
 | `reads_correctly_mapped` | Reads that map back to their source reference |
 | `reads_incorrectly_mapped` | Reads that map to a different reference than their source |
 | `sample_total` | Number of distinct sample genomes |
@@ -363,11 +426,11 @@ Each row corresponds to one reference sequence, with detection status and covera
 | Column | Description |
 |--------|-------------|
 | `reference_id` | Reference sequence ID |
-| `category` | `sample`, `nonsample_target`, or `distractor` |
+| `category` | `sample`, `nonsample_target`, `distractor`, or `untargeted` |
 | `expected` / `detected` | Whether detection was expected and whether it occurred |
 | `fragments_generated` / `fragments_captured` | Fragment counts for this reference |
 | `reads_assigned` | Number of reads mapped to this reference |
-| `classification` | `TP`, `FN`, `FP_target`, `FP_distractor`, `TN_target`, or `TN_distractor` |
+| `classification` | `TP`, `FN`, `FP_target`, `FP_distractor`, `TN_target`, `TN_distractor`, or `untargeted` |
 | `ref_length` | Reference sequence length (bp) |
 | `avg_coverage` | Average coverage depth across the reference |
 | `pct_covered_5x` | Percentage of positions with >= 5X coverage |
@@ -387,6 +450,8 @@ BaitBench uses a 3-way genome classification:
 | Distractor | No | TN_distractor |
 
 This distinguishes between two types of false positives: detecting a non-sample target (cross-reactivity within the target panel) vs detecting a distractor (off-target capture). Without `--sample`, all targets are in the sample, so there are no non-sample targets and the classification reduces to the traditional 2-way TP/FP/FN/TN.
+
+In genomes mode (with `--genomes`), sample genomes with no target mapping are classified as **untargeted** — they generate fragments but have no expected target. This models unknown organisms in the sample.
 
 ### Genome-level vs read-level metrics
 
@@ -460,7 +525,7 @@ baitbench run \
 
 ## How It Works
 
-1. **Prepare**: Combines target and distractor genomes into a single reference. If a sample manifest is provided, only sample targets get non-zero weights; non-sample targets get weight 0. Calculates distractor weights so that a configurable fraction of fragments come from distractors.
+1. **Prepare**: Combines target and distractor genomes into a single reference for fragment generation. In genomes mode, also creates a separate mapping reference (targets + distractors) for read mapping. If a sample manifest is provided, only sample entries get non-zero weights; non-sample entries get weight 0. Calculates distractor weights so that a configurable fraction of fragments come from distractors. Resolves genome-to-target mapping (auto-linking by ID match + explicit `--sample-target-map`).
 
 2. **Simulate**: Generates random fragments from the reference using weighted sampling. Fragment lengths follow a normal distribution (default: mean 175bp, range 150-200bp). Sequences with weight 0 produce no fragments.
 

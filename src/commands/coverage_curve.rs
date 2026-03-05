@@ -11,9 +11,11 @@ use crate::io_utils;
 
 pub struct CoverageCurveArgs<'a> {
     pub targets: &'a Path,
+    pub genomes: Option<&'a Path>,
     pub distractors: &'a [PathBuf],
     pub probes: &'a Path,
     pub sample: &'a HashMap<String, f64>,
+    pub sample_target_map: Option<&'a HashMap<String, Vec<String>>>,
     // Sweep dimensions — each has 1+ values
     pub ct_display_values: Vec<f64>,     // original CT values as entered by the user (for display/TSV/dirs)
     pub ct_distractor_fractions: Vec<f64>, // resolved distractor fractions (for pipeline use)
@@ -89,6 +91,8 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
         bail!("Sample is empty — at least one sample target is required");
     }
 
+    let has_genomes = args.genomes.is_some();
+
     minimap2::check_available()?;
     fs::create_dir_all(&args.outdir)?;
 
@@ -100,13 +104,16 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
     log::info!("BaitBench - Coverage Curve Analysis");
     log::info!("=============================================");
     log::info!("Targets        : {}", args.targets.display());
+    if let Some(genomes) = args.genomes {
+        log::info!("Genomes        : {}", genomes.display());
+    }
     log::info!("Probes         : {}", args.probes.display());
     log::info!(
         "Sample         : {}",
         io_utils::format_sample_display(args.sample)
     );
     log::info!(
-        "Sample targets : {} ({})",
+        "Sample entries : {} ({})",
         sample_ids.len(),
         {
             let mut ids: Vec<_> = sample_ids.iter().cloned().collect();
@@ -140,6 +147,10 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
     let mut all_curves: Vec<DepthCurveRow> = Vec::new();
     let mut combo_idx = 0usize;
 
+    // In genome mode, coverage curves track sample *targets* (derived from mapping),
+    // not sample genome IDs. Resolved after first prepare step.
+    let mut curve_target_ids: Option<HashSet<String>> = None;
+
     // Outer loop: CT values (affects prepare/simulate/capture)
     for (ct_idx, (&ct_display, &distractor_fraction)) in args
         .ct_display_values
@@ -157,9 +168,51 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
         );
         run_prepare_simulate_capture(&prep_dir, distractor_fraction, args)?;
 
+        // Resolve curve target IDs on first iteration
+        if curve_target_ids.is_none() {
+            if has_genomes {
+                let map_path = prep_dir.join("sample_target_map.txt");
+                if map_path.exists() {
+                    let stm = io_utils::parse_sample_target_map(&map_path)?;
+                    let mut target_ids = HashSet::new();
+                    for sample_id in &sample_ids {
+                        if let Some(targets) = stm.get(sample_id) {
+                            for t in targets {
+                                target_ids.insert(t.clone());
+                            }
+                        }
+                    }
+                    log::info!(
+                        "Coverage curves will track {} sample targets (derived from genome mapping)",
+                        target_ids.len()
+                    );
+                    curve_target_ids = Some(target_ids);
+                } else {
+                    curve_target_ids = Some(sample_ids.clone());
+                }
+            } else {
+                curve_target_ids = Some(sample_ids.clone());
+            }
+        }
+
+        let tracking_ids = curve_target_ids.as_ref().unwrap();
+
+        // Determine mapping reference
+        let mapping_reference = if has_genomes {
+            prep_dir.join("mapping_reference.fa")
+        } else {
+            prep_dir.join("combined_reference.fa")
+        };
+
         // Middle loop: fold-enrichment values (affects enrich step)
         for fe_val in &args.fe_values {
-            // Run enrich if needed
+            // In genomes mode, enrich classifies by genome IDs
+            let enrich_targets_file = if has_genomes {
+                prep_dir.join("genomes.txt")
+            } else {
+                prep_dir.join("targets.txt")
+            };
+
             let capture_output = if let Some(fe) = fe_val {
                 let enrich_dir = prep_dir.join(format!("_enrich_fe_{}", fe));
                 fs::create_dir_all(&enrich_dir)?;
@@ -169,7 +222,7 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
                     enrich::execute(&enrich::EnrichArgs {
                         captured: &prep_dir.join("captured.fa"),
                         fragments: &prep_dir.join("fragments.fa"),
-                        targets: &prep_dir.join("targets.txt"),
+                        targets: &enrich_targets_file,
                         distractors: &prep_dir.join("distractors.txt"),
                         fold_enrichment: *fe,
                         seed: args.seed,
@@ -221,10 +274,10 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
                     combo_dir.join("reads.fa")
                 };
 
-                // Map reads — use reference from prep dir
+                // Map reads — use correct reference
                 log::info!("  Mapping reads...");
                 map_reads::execute(&map_reads::MapArgs {
-                    reference: &prep_dir.join("combined_reference.fa"),
+                    reference: &mapping_reference,
                     reads: &reads_for_mapping,
                     minimap_preset: args.minimap_preset,
                     output: &combo_dir.join("mapped.sam"),
@@ -235,24 +288,24 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
                 let sam_path = combo_dir.join("mapped.sam");
                 let coverage_result = coverage::compute_coverage(&sam_path)?;
 
-                // Extract depth curves for sample targets
+                // Extract depth curves for tracked target IDs
                 let fe_tsv = fe_val.unwrap_or(0.0);
                 let ns_tsv = ns_val.unwrap_or(0);
 
-                for sample_id in &sample_ids {
-                    let curves = match coverage_result.coverage.get(sample_id) {
+                for target_id in tracking_ids {
+                    let curves = match coverage_result.coverage.get(target_id) {
                         Some(depths) => {
                             let ref_len = coverage_result
                                 .ref_lengths
-                                .get(sample_id)
+                                .get(target_id)
                                 .copied()
                                 .unwrap_or(depths.len());
                             compute_depth_curve(depths, ref_len)
                         }
                         None => {
                             log::warn!(
-                                "No coverage found for sample target '{}' in combo {}",
-                                sample_id,
+                                "No coverage found for target '{}' in combo {}",
+                                target_id,
                                 dir_name
                             );
                             vec![(1, 0.0)]
@@ -264,7 +317,7 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
                             ct: ct_display,
                             fold_enrichment: fe_tsv,
                             num_sequences: ns_tsv,
-                            reference_id: sample_id.clone(),
+                            reference_id: target_id.clone(),
                             depth_threshold: threshold,
                             pct_covered: pct,
                         });
@@ -280,11 +333,12 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
     log::info!("Depth curves written to {}", curves_path.display());
 
     // Generate report
+    let tracking_ids = curve_target_ids.as_ref().unwrap_or(&sample_ids);
     if args.no_report {
         log::info!("Skipping report generation (--no-report)");
     } else if rscript::check_available() {
         log::info!("Generating coverage curve report...");
-        match generate_report(&curves_path, &sample_ids, &args.swept_params, &args.outdir) {
+        match generate_report(&curves_path, tracking_ids, &args.swept_params, &args.outdir) {
             Ok(()) => log::info!(
                 "Report generated: {}",
                 args.outdir.join("coverage_curve_report.html").display()
@@ -319,8 +373,10 @@ fn run_prepare_simulate_capture(
     log::info!("  Preparing reference...");
     prepare::execute(&prepare::PrepareArgs {
         targets: args.targets,
+        genomes: args.genomes,
         distractors: args.distractors,
         sample: Some(args.sample),
+        sample_target_map: args.sample_target_map,
         distractor_fraction,
         outdir,
     })?;
@@ -356,9 +412,6 @@ fn run_prepare_simulate_capture(
 }
 
 /// Compute the depth threshold curve for a single reference.
-///
-/// Returns a vector of (depth_threshold, pct_covered) tuples for thresholds 1..max_depth.
-/// Uses a histogram + reverse cumulative sum for O(n + max_depth) efficiency.
 fn compute_depth_curve(depths: &[u32], ref_length: usize) -> Vec<(usize, f64)> {
     if ref_length == 0 || depths.is_empty() {
         return vec![(1, 0.0)];
