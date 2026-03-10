@@ -1516,7 +1516,41 @@ influenza_a	influenza_a
 - Lines starting with `#` are ignored
 - Empty lines are ignored
 
-**Auto-linking:** Genome IDs that match a target ID are automatically linked. You only need explicit entries for genomes with different target IDs.
+**Auto-linking:** When `--sample-target-map` is omitted (or for genomes not listed in the map), BaitBench auto-links genomes to targets by:
+
+1. **Exact match**: genome ID equals a target ID (e.g., genome `influenza_a` → target `influenza_a`)
+2. **Prefix match**: target ID starts with `{genome_id}|` (e.g., genome `Bartonella_grahamii` → targets `Bartonella_grahamii|ompB`, `Bartonella_grahamii|16S`)
+
+This means you can name targets using the `organism|gene` convention and genomes using just `organism`, and they will auto-link without needing an explicit map file:
+
+```
+# genomes.fa
+>Bartonella_grahamii
+ATGC...
+>Rickettsia_montanensis
+ATGC...
+
+# targets.fa (organism|gene naming)
+>Bartonella_grahamii|ompB
+ATGC...
+>Rickettsia_montanensis|ompA
+ATGC...
+>Rickettsia_montanensis|gltA
+ATGC...
+```
+
+With this naming, `Bartonella_grahamii` auto-links to `Bartonella_grahamii|ompB`, and `Rickettsia_montanensis` auto-links to both `Rickettsia_montanensis|ompA` and `Rickettsia_montanensis|gltA`.
+
+**Using `--sample-target-map` for non-standard naming:** If your genome and target IDs don't follow either naming convention (exact match or `organism|gene`), provide an explicit mapping file:
+
+```
+# mapping.tsv — needed when genome IDs don't match target IDs
+NC_012846.1	bartonella_ompB
+NC_012846.1	bartonella_16S
+GCF_000022725.1	rickettsia_gltA
+```
+
+Explicit mappings take precedence over auto-linking for the same genome ID.
 
 **Untargeted genomes:** Sample genomes with no target mapping (explicit or auto-linked) become "untargeted" -- they generate fragments but have no expected target to detect. This models unknown organisms.
 

@@ -160,13 +160,13 @@ TSV format: `id<tab>weight` (weight optional, defaults to 1.0). In standard mode
 
 ### Sample-Target Map
 
-Optional TSV format: `genome_id<tab>target_id` (one mapping per line, `#` comments). Links genome IDs to their corresponding target IDs. Supports one-to-one, one-to-many, and many-to-one relationships. If omitted, auto-linking matches genome IDs to target IDs by name. Genome IDs with no matching target become "untargeted" — they generate fragments but aren't expected to produce reads mapping to any target. Errors if map references IDs not found in genomes or targets FASTA.
+Optional TSV format: `genome_id<tab>target_id` (one mapping per line, `#` comments). Links genome IDs to their corresponding target IDs. Supports one-to-one, one-to-many, and many-to-one relationships. If omitted, auto-linking matches genome IDs to target IDs by (1) exact name match or (2) prefix match where a target ID starts with `{genome_id}|` (e.g., genome `Bartonella_grahamii` auto-links to `Bartonella_grahamii|ompB`). Genome IDs with no matching target become "untargeted" — they generate fragments but aren't expected to produce reads mapping to any target. Errors if map references IDs not found in genomes or targets FASTA.
 
 ## Important Rules
 
 - **Read `ARCHITECTURE.md` first.** Before exploring the codebase, read `ARCHITECTURE.md` for a complete map of every source file, its public types/functions, data flow between modules, and intermediate file formats. This avoids redundant exploration.
 - **Keep `ARCHITECTURE.md` up to date.** After adding, removing, or modifying source files, structs, public functions, intermediate files, or report sections, update `ARCHITECTURE.md` to reflect the changes.
-- **Always update documentation when making changes.** When adding, removing, or modifying CLI flags, subcommands, metrics, output files, or any user-facing behavior, update the relevant documentation files: `README.md`, `ARCHITECTURE.md`, this file (`CLAUDE.md`), and CLI help text in `src/cli.rs`.
+- **Always update documentation when making changes.** When adding, removing, or modifying CLI flags, subcommands, metrics, output files, or any user-facing behavior, update the relevant documentation files: `README.md`, `ARCHITECTURE.md`, `MANUAL.md`, this file (`CLAUDE.md`), and CLI help text in `src/cli.rs`.
 
 ## Development Guidelines
 

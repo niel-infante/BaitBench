@@ -158,11 +158,36 @@ pub fn execute(args: &PrepareArgs) -> Result<()> {
             }
         }
 
-        // Auto-infer identity mappings for genomes not in the explicit map
+        // Auto-infer mappings for genomes not in the explicit map
+        // Match by: (1) exact name match, or (2) target starts with "{genome_id}|"
         let mut auto_linked = 0usize;
         for genome_id in genome_id_list {
-            if !resolved_map.contains_key(genome_id) && target_set.contains(genome_id.as_str()) {
-                resolved_map.insert(genome_id.clone(), vec![genome_id.clone()]);
+            if resolved_map.contains_key(genome_id) {
+                continue;
+            }
+            let mut matched_targets: Vec<String> = Vec::new();
+
+            // Exact match
+            if target_set.contains(genome_id.as_str()) {
+                matched_targets.push(genome_id.clone());
+            }
+
+            // Prefix match: target IDs like "{genome_id}|gene_name"
+            let prefix = format!("{}|", genome_id);
+            for target_id in &target_ids {
+                if target_id.starts_with(&prefix) {
+                    matched_targets.push(target_id.clone());
+                }
+            }
+
+            if !matched_targets.is_empty() {
+                log::info!(
+                    "  Auto-linked genome '{}' to {} target(s): {}",
+                    genome_id,
+                    matched_targets.len(),
+                    matched_targets.join(", ")
+                );
+                resolved_map.insert(genome_id.clone(), matched_targets);
                 auto_linked += 1;
             }
         }
