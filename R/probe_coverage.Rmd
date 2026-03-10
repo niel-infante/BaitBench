@@ -167,8 +167,9 @@ if (is_small) {
 }
 ```
 
+### Worst Targets
+
 ```{r coverage-breadth-table, eval=is_large}
-cat("\n\n**Worst-covered targets:**\n\n")
 worst <- summary_df %>%
   arrange(pct_covered_1x) %>%
   head(20) %>%
@@ -282,8 +283,9 @@ if (nrow(gap_data) == 0) {
 }
 ```
 
+### Gap Details
+
 ```{r gap-table, eval=(nrow(gap_data) > 0 && !is_small)}
-cat("\n\n**Gap details:**\n\n")
 gap_table <- gap_data %>%
   arrange(desc(max_gap_length)) %>%
   select(reference_id, ref_length, pct_covered_1x, num_gaps, max_gap_length)
