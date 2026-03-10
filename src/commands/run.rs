@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use crate::cli::ReportMode;
 use crate::commands::{capture, enrich, filter, generate_list, map_reads, metrics, prepare, report, sequence, simulate};
 use crate::external::rscript;
 use crate::io_utils;
@@ -36,7 +37,7 @@ pub struct RunArgs<'a> {
     pub outdir: PathBuf,
     pub threads: usize,
     pub fold_enrichment: Option<f64>,
-    pub no_report: bool,
+    pub report: ReportMode,
 }
 
 pub fn execute(args: &RunArgs) -> Result<()> {
@@ -282,26 +283,47 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         output_coverage: Some(&outdir.join("coverage.tsv")),
     })?;
 
-    // Generate report (optional — skip if R not available or --no-report)
-    if args.no_report {
-        log::info!("Skipping report generation (--no-report)");
-    } else if rscript::check_available() {
-        log::info!("Generating report...");
-        match report::execute(&report::ReportArgs {
-            summary: &outdir.join("results.tsv"),
-            detail: &outdir.join("detected_detail.tsv"),
-            params: &outdir.join("run_params.tsv"),
-            coverage: Some(&outdir.join("coverage.tsv")),
-            run_name: &args.run_name,
-            output: &outdir.join("report.html"),
-        }) {
-            Ok(()) => {}
-            Err(e) => log::warn!("Report generation failed (non-fatal): {}", e),
+    // Generate report
+    match args.report {
+        ReportMode::None => {
+            log::info!("Skipping report generation (--report none)");
         }
-    } else {
-        log::warn!(
-            "Rscript not found — skipping HTML report. Install R to enable report generation."
-        );
+        ReportMode::Full => {
+            if rscript::check_available() {
+                log::info!("Generating report...");
+                match report::execute(&report::ReportArgs {
+                    summary: &outdir.join("results.tsv"),
+                    detail: &outdir.join("detected_detail.tsv"),
+                    params: &outdir.join("run_params.tsv"),
+                    coverage: Some(&outdir.join("coverage.tsv")),
+                    run_name: &args.run_name,
+                    output: &outdir.join("report.html"),
+                    report: ReportMode::Full,
+                }) {
+                    Ok(()) => {}
+                    Err(e) => log::warn!("Report generation failed (non-fatal): {}", e),
+                }
+            } else {
+                log::warn!(
+                    "Rscript not found — skipping HTML report. Install R to enable report generation."
+                );
+            }
+        }
+        ReportMode::Rmd => {
+            log::info!("Generating RMarkdown file...");
+            match report::execute(&report::ReportArgs {
+                summary: &outdir.join("results.tsv"),
+                detail: &outdir.join("detected_detail.tsv"),
+                params: &outdir.join("run_params.tsv"),
+                coverage: Some(&outdir.join("coverage.tsv")),
+                run_name: &args.run_name,
+                output: &outdir.join("report.html"),
+                report: ReportMode::Rmd,
+            }) {
+                Ok(()) => {}
+                Err(e) => log::warn!("RMarkdown generation failed (non-fatal): {}", e),
+            }
+        }
     }
 
     log::info!("=============================================");

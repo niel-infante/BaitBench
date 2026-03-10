@@ -135,7 +135,7 @@ Installed via `environment.yml`:
 | r-DT | >= 0.27 | Interactive tables |
 | pandoc | >= 2.19 | Document conversion |
 
-R and its packages are only required for HTML report generation. All other pipeline steps work without R. Use `--no-report` to skip report generation.
+R and its packages are only required for full HTML report generation (`--report full`). Use `--report none` to skip report generation entirely, or `--report rmd` to produce an editable RMarkdown file that can be rendered later without requiring R at pipeline run time.
 
 ---
 
@@ -590,7 +590,7 @@ baitbench metrics \
 
 ### report
 
-Generates an HTML report with figures. Requires R.
+Generates an HTML report with figures, or outputs an editable RMarkdown file.
 
 ```bash
 baitbench report \
@@ -599,11 +599,13 @@ baitbench report \
   --params run_params.tsv \
   --output report.html \
   [--coverage coverage.tsv] \
-  [--run-name "BaitBench Run"]
+  [--run-name "BaitBench Run"] \
+  [--report full|rmd]
 ```
 
 **Output files:**
-- `report.html` -- HTML report with ggplot2 visualizations
+- `report.html` -- HTML report with ggplot2 visualizations (`--report full`)
+- `report.Rmd` -- editable RMarkdown file with parameters pre-filled (`--report rmd`)
 
 ### probe-coverage
 
@@ -616,7 +618,7 @@ baitbench probe-coverage \
   [--outdir probe_coverage] \
   [--minimap-preset sr] \
   [--proximity 50] \
-  [--no-report]
+  [--report full|none|rmd]
 ```
 
 Maps probes to targets and computes per-target tiling statistics.
@@ -628,13 +630,14 @@ Maps probes to targets and computes per-target tiling statistics.
 | `--outdir` | ./probe_coverage | Output directory |
 | `--minimap-preset` | sr | Minimap2 alignment preset |
 | `--proximity` | 50 | Pull-down zone distance in bp |
-| `--no-report` | false | Skip HTML report |
+| `--report` | full | Report mode: `full` (HTML), `none` (skip), `rmd` (editable RMarkdown) |
 
 **Output files:**
 - `probe_depth.tsv` -- per-position probe depth (TSV: `reference_id\tposition\tdepth`)
 - `probe_coverage_summary.tsv` -- per-target coverage statistics
 - `multi_mapping_probes.tsv` -- probes mapping to multiple targets
-- `probe_coverage_report.html` -- HTML report (if R available)
+- `probe_coverage_report.html` -- HTML report (`--report full`, requires R)
+- `probe_coverage_report.Rmd` -- editable RMarkdown file (`--report rmd`)
 
 **Coverage summary columns:**
 
@@ -685,7 +688,8 @@ The pipeline shares intermediate files across combinations for efficiency: prepa
 **Output files:**
 - Combo subdirectories named by swept params (e.g., `ct_20/`, `ct_20_fe_100/`, `ct_20_fe_100_ns_500/`)
 - `coverage_curve_depth_curves.tsv` -- aggregated depth data
-- `coverage_curve_report.html` -- HTML report with depth curves
+- `coverage_curve_report.html` -- HTML report with depth curves (`--report full`)
+- `coverage_curve_report.Rmd` -- editable RMarkdown file (`--report rmd`)
 
 ---
 
@@ -756,7 +760,7 @@ See [CT Score Calculation](#ct-score-calculation) for details.
 | Threads | `--threads` | 1 | Number of threads for external tools (minimap2, BLAST) |
 | Output dir | `--outdir`, `-o` | ./results | Output directory. A timestamped subdirectory is created for each run |
 | Run name | `--run-name` | auto | Custom name for the run. Default: `run_YYYYMMDD_HHMMSS` |
-| No report | `--no-report` | false | Skip HTML report generation |
+| Report mode | `--report` | full | Report output: `full` (render HTML), `none` (skip), `rmd` (editable RMarkdown file) |
 | Seed | `--seed`, `-s` | random | Random seed for reproducibility. If not set, results vary between runs |
 | Verbose | `--verbose` | false | Enable debug logging (global flag) |
 | Minimap preset | `--minimap-preset` | sr | Minimap2 preset for read mapping |
@@ -874,7 +878,8 @@ results/run_20250101_120000/
 ├── detected_detail.tsv         # Per-reference detection and coverage detail
 ├── results.json                # Machine-readable JSON metrics
 ├── coverage.tsv                # Per-position read depth
-├── report.html                 # HTML report (if R available)
+├── report.html                 # HTML report (--report full, requires R)
+├── report.Rmd                  # Editable RMarkdown (--report rmd)
 ├── capture.log                 # Capture alignment log
 ├── mapping.log                 # Read mapping log
 └── host_filter.log             # Host filtering log (if --host-fasta)
@@ -1323,7 +1328,7 @@ for ct in 20 25 30 35; do
     --ct $ct \
     --num-fragments 10000 \
     --seed 42 \
-    --no-report \
+    --report none \
     --outdir "results_ct${ct}"
 done
 
@@ -1337,6 +1342,34 @@ done
 ---
 
 ## Report Guide
+
+### Report Modes
+
+The `--report` flag controls report output for `run`, `probe-coverage`, `coverage-curve`, and `report` commands:
+
+| Mode | Description |
+|------|-------------|
+| `full` (default) | Render the full HTML report using R/rmarkdown. Requires R and pandoc. |
+| `none` | Skip report generation entirely. All other outputs (TSV, JSON) are still produced. |
+| `rmd` | Write a parameterized RMarkdown (`.Rmd`) file with all file paths and parameters pre-filled. Does not require R at run time. |
+
+**Using `--report rmd`:**
+
+The `rmd` mode produces an `.Rmd` file in the output directory with all parameters baked in. You can then:
+
+1. Open the `.Rmd` file in RStudio or any text editor
+2. Customize the report -- add sections, change figures, adjust formatting
+3. Render it when ready:
+
+```bash
+Rscript -e 'rmarkdown::render("results/run_20250101_120000/report.Rmd")'
+```
+
+This is useful when you want to:
+- Customize the report before rendering
+- Render on a different machine that has R installed
+- Add project-specific analysis sections
+- Iterate on the report without re-running the pipeline
 
 ### HTML Report Sections
 

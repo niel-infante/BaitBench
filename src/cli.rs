@@ -141,9 +141,9 @@ pub enum Commands {
         #[arg(long)]
         fold_enrichment: Option<f64>,
 
-        /// Skip HTML report generation
-        #[arg(long)]
-        no_report: bool,
+        /// Report output mode: full (HTML report), none (skip), rmd (editable RMarkdown file)
+        #[arg(long, default_value = "full")]
+        report: ReportMode,
     },
 
     /// Combine target and distractor FASTAs, generate weights
@@ -458,9 +458,9 @@ pub enum Commands {
         #[arg(long, default_value = "50")]
         proximity: usize,
 
-        /// Skip HTML report generation
-        #[arg(long)]
-        no_report: bool,
+        /// Report output mode: full (HTML report), none (skip), rmd (editable RMarkdown file)
+        #[arg(long, default_value = "full")]
+        report: ReportMode,
     },
 
     /// Generate HTML report with ggplot2 figures
@@ -485,9 +485,13 @@ pub enum Commands {
         #[arg(long, default_value = "BaitBench Run")]
         run_name: String,
 
-        /// Output HTML file
+        /// Output file (HTML for full mode, RMarkdown for rmd mode)
         #[arg(short, long)]
         output: PathBuf,
+
+        /// Report output mode: full (HTML report), rmd (editable RMarkdown file)
+        #[arg(long, default_value = "full")]
+        report: ReportMode,
     },
 
     /// Generate coverage depth curves, optionally sweeping CT, fold-enrichment, and/or num-sequences
@@ -614,10 +618,20 @@ pub enum Commands {
         #[arg(short, long, default_value = "./coverage_curve_results")]
         outdir: PathBuf,
 
-        /// Skip HTML report generation
-        #[arg(long)]
-        no_report: bool,
+        /// Report output mode: full (HTML report), none (skip), rmd (editable RMarkdown file)
+        #[arg(long, default_value = "full")]
+        report: ReportMode,
     },
+}
+
+#[derive(Clone, Copy, ValueEnum, Debug, PartialEq, Eq)]
+pub enum ReportMode {
+    /// Generate full HTML report (default)
+    Full,
+    /// Skip report generation
+    None,
+    /// Output parameterized RMarkdown file for manual editing and rendering
+    Rmd,
 }
 
 #[derive(Clone, Copy, ValueEnum)]

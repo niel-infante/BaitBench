@@ -57,7 +57,7 @@ src/
 │   ├── map_reads.rs     # Map reads to reference (minimap2)
 │   ├── generate_list.rs # Count reads per reference from SAM → detected.list
 │   ├── metrics.rs       # TP/FP/FN/TN classification, coverage stats, TSV/JSON output
-│   ├── report.rs        # Invoke Rscript to render HTML report
+│   ├── report.rs        # Report generation: HTML (Rscript), RMarkdown (template substitution), or skip; shared substitute_rmd_params utility
 │   ├── probe_coverage.rs # Standalone probe tiling QC (maps probes to targets)
 │   └── coverage_curve.rs # Coverage curve: pipeline at multiple param combos → depth curves
 ├── external/
@@ -86,6 +86,7 @@ R/
 
 - **`Commands`** enum — one variant per subcommand (Run, Prepare, Simulate, Capture, Enrich, Sequence, Filter, Map, List, Metrics, ProbeCoverage, Report, CoverageCurve), each with its own fields
 - **`CaptureMethodArg`** — ValueEnum: Minimap2 | Blast
+- **`ReportMode`** — ValueEnum: Full | None | Rmd — controls report output (HTML, skip, or editable RMarkdown)
 - **CT score flags** — `--ct`, `--ct-baseline`, `--ct-baseline-fraction` on Run and Prepare; `--ct` conflicts with `--distractor-fraction`
 - **Genome mode flags** — `--genomes` (optional genome FASTA for fragment generation), `--sample-target-map` (optional genome-to-target mapping TSV) on Run, Prepare, and CoverageCurve
 
@@ -104,7 +105,7 @@ Every command module exports an `Args` struct and an `execute(&Args) -> Result<(
 | `map_reads` | `MapArgs` | reference, reads, minimap_preset | mapped.sam |
 | `generate_list` | `ListArgs` | sam | detected.list |
 | `metrics` | `MetricsArgs` | targets, distractors, sample, detected, fragments, captured, sam, sample_target_map | results.tsv, detected_detail.tsv, results.json, coverage.tsv |
-| `report` | `ReportArgs` | summary, detail, params, coverage, run_name | report.html |
+| `report` | `ReportArgs` | summary, detail, params, coverage, run_name, report (ReportMode) | report.html or report.Rmd |
 | `probe_coverage` | `ProbeCoverageArgs` | targets, probes, minimap_preset, proximity | probe_depth.tsv, probe_coverage_summary.tsv, probe_coverage_report.html |
 | `run` | `RunArgs` | all pipeline inputs + ct, ct_baseline, ct_baseline_fraction, num_sequences, genomes, sample_target_map | all of the above |
 | `coverage_curve` | `CoverageCurveArgs` | targets, distractors, probes, sample (required), ct/fe/ns values (sweep or fixed), all pipeline params, genomes, sample_target_map | coverage_curve_depth_curves.tsv, coverage_curve_report.html, combo subdirs |

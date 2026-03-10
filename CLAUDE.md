@@ -170,6 +170,14 @@ Optional TSV format: `genome_id<tab>target_id` (one mapping per line, `#` commen
 
 ## Development Guidelines
 
+### Environment Setup
+```bash
+conda activate baitbench
+```
+This ensures pandoc and other dependencies (R, minimap2, blast) are available for report generation.
+
+Cargo is located at `/Users/niel/.cargo/bin/cargo` — ensure it's on `PATH` before building.
+
 ### Building
 ```bash
 cargo build --release
@@ -202,7 +210,7 @@ cargo build --release
   --probes examples/minimal/probes.fa \
   --num-fragments 1000 \
   --seed 42 \
-  --no-report \
+  --report none \
   --outdir test_results
 
 # Run with sample manifest (subset of targets)
@@ -214,7 +222,7 @@ echo "target_virus_1" > /tmp/sample.tsv
   --sample /tmp/sample.tsv \
   --num-fragments 1000 \
   --seed 42 \
-  --no-report \
+  --report none \
   --outdir test_results_sample
 
 # Run with genomes mode (bacteria + virus mix)
@@ -229,7 +237,7 @@ echo "target_virus_1" > /tmp/sample.tsv
   --probes probes.fa \
   --num-fragments 1000 \
   --seed 42 \
-  --no-report \
+  --report none \
   --outdir test_results_genomes
 
 # Check outputs

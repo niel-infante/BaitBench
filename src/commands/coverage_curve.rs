@@ -5,7 +5,9 @@ use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 
 use crate::alignment::coverage;
+use crate::cli::ReportMode;
 use crate::commands::{capture, enrich, filter, map_reads, prepare, sequence, simulate};
+use crate::commands::report::{substitute_rmd_params, rmd_output_path};
 use crate::external::{minimap2, rscript};
 use crate::io_utils;
 
@@ -38,7 +40,7 @@ pub struct CoverageCurveArgs<'a> {
     pub host_minimap_preset: &'a str,
     pub threads: usize,
     pub outdir: PathBuf,
-    pub no_report: bool,
+    pub report: ReportMode,
 }
 
 struct DepthCurveRow {
@@ -334,19 +336,31 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
 
     // Generate report
     let tracking_ids = curve_target_ids.as_ref().unwrap_or(&sample_ids);
-    if args.no_report {
-        log::info!("Skipping report generation (--no-report)");
-    } else if rscript::check_available() {
-        log::info!("Generating coverage curve report...");
-        match generate_report(&curves_path, tracking_ids, &args.swept_params, &args.outdir) {
-            Ok(()) => log::info!(
-                "Report generated: {}",
-                args.outdir.join("coverage_curve_report.html").display()
-            ),
-            Err(e) => log::warn!("Report generation failed (non-fatal): {}", e),
+    match args.report {
+        ReportMode::None => {
+            log::info!("Skipping report generation (--report none)");
         }
-    } else {
-        log::warn!("Rscript not found — skipping HTML report.");
+        ReportMode::Full => {
+            if rscript::check_available() {
+                log::info!("Generating coverage curve report...");
+                match generate_report(&curves_path, tracking_ids, &args.swept_params, &args.outdir) {
+                    Ok(()) => log::info!(
+                        "Report generated: {}",
+                        args.outdir.join("coverage_curve_report.html").display()
+                    ),
+                    Err(e) => log::warn!("Report generation failed (non-fatal): {}", e),
+                }
+            } else {
+                log::warn!("Rscript not found — skipping HTML report.");
+            }
+        }
+        ReportMode::Rmd => {
+            log::info!("Generating coverage curve RMarkdown file...");
+            match write_coverage_curve_rmd(&curves_path, tracking_ids, &args.swept_params, &args.outdir) {
+                Ok(()) => {}
+                Err(e) => log::warn!("RMarkdown generation failed (non-fatal): {}", e),
+            }
+        }
     }
 
     log::info!("=============================================");
@@ -470,6 +484,75 @@ fn write_depth_curves_tsv(path: &Path, rows: &[DepthCurveRow]) -> Result<()> {
     }
 
     w.flush()?;
+    Ok(())
+}
+
+fn write_coverage_curve_rmd(
+    sweep_tsv: &Path,
+    sample_ids: &HashSet<String>,
+    swept_params: &[String],
+    outdir: &Path,
+) -> Result<()> {
+    let r_dir = rscript::find_r_dir()
+        .ok_or_else(|| anyhow::anyhow!("Cannot find R scripts directory."))?;
+
+    let rmd_template = r_dir.join("coverage_curve.Rmd");
+    if !rmd_template.exists() {
+        bail!("RMarkdown template not found: {}", rmd_template.display());
+    }
+
+    let sweep_abs = fs::canonicalize(sweep_tsv)?;
+
+    let mut ids: Vec<&String> = sample_ids.iter().collect();
+    ids.sort();
+    let ids_r = format!(
+        "!r c({})",
+        ids.iter()
+            .map(|s| format!("\"{}\"", s))
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
+
+    let swept_r = if swept_params.is_empty() {
+        "!r c()".to_string()
+    } else {
+        format!(
+            "!r c({})",
+            swept_params
+                .iter()
+                .map(|s| format!("\"{}\"", s))
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
+    };
+
+    let params = vec![
+        ("sweep_file", sweep_abs.to_str().unwrap_or("")),
+        ("sample_ids", &ids_r),
+        ("swept_params", &swept_r),
+    ];
+
+    let template_content = std::fs::read_to_string(&rmd_template)
+        .with_context(|| format!("Failed to read template: {}", rmd_template.display()))?;
+
+    let output_content = substitute_rmd_params(&template_content, &params);
+
+    let html_path = if outdir.is_absolute() {
+        outdir.join("coverage_curve_report.html")
+    } else {
+        std::env::current_dir()?
+            .join(outdir)
+            .join("coverage_curve_report.html")
+    };
+    let rmd_path = rmd_output_path(&html_path);
+    std::fs::write(&rmd_path, &output_content)
+        .with_context(|| format!("Failed to write RMarkdown file: {}", rmd_path.display()))?;
+
+    log::info!("RMarkdown file written: {}", rmd_path.display());
+    log::info!(
+        "Edit and render with: Rscript -e 'rmarkdown::render(\"{}\")'",
+        rmd_path.display()
+    );
     Ok(())
 }
 

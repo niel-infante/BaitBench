@@ -97,7 +97,7 @@ fn main() -> Result<()> {
             outdir,
             threads,
             fold_enrichment,
-            no_report,
+            report,
         } => {
             let resolved_df = resolve_distractor_fraction(
                 distractor_fraction, ct, ct_baseline, ct_baseline_fraction,
@@ -147,7 +147,7 @@ fn main() -> Result<()> {
                 outdir: full_outdir,
                 threads,
                 fold_enrichment,
-                no_report,
+                report,
             })?;
         }
 
@@ -350,7 +350,7 @@ fn main() -> Result<()> {
             outdir,
             minimap_preset,
             proximity,
-            no_report,
+            report,
         } => {
             probe_coverage::execute(&probe_coverage::ProbeCoverageArgs {
                 targets: &targets,
@@ -358,7 +358,7 @@ fn main() -> Result<()> {
                 outdir: &outdir,
                 minimap_preset: &minimap_preset,
                 proximity,
-                no_report,
+                report,
             })?;
         }
 
@@ -369,6 +369,7 @@ fn main() -> Result<()> {
             coverage,
             run_name,
             output,
+            report,
         } => {
             report::execute(&report::ReportArgs {
                 summary: &summary,
@@ -377,6 +378,7 @@ fn main() -> Result<()> {
                 coverage: coverage.as_deref(),
                 run_name: &run_name,
                 output: &output,
+                report,
             })?;
         }
 
@@ -411,7 +413,7 @@ fn main() -> Result<()> {
             host_minimap_preset,
             threads,
             outdir,
-            no_report,
+            report,
         } => {
             let resolved_sample = resolve_sample_arg(&sample)?;
             let resolved_stm = sample_target_map
@@ -482,7 +484,7 @@ fn main() -> Result<()> {
                 host_minimap_preset: &host_minimap_preset,
                 threads,
                 outdir,
-                no_report,
+                report,
             })?;
         }
     }

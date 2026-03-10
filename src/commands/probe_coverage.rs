@@ -5,6 +5,8 @@ use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::Path;
 
 use crate::alignment::coverage;
+use crate::cli::ReportMode;
+use crate::commands::report::{substitute_rmd_params, rmd_output_path};
 use crate::external::{minimap2, rscript};
 use crate::fasta;
 
@@ -14,7 +16,7 @@ pub struct ProbeCoverageArgs<'a> {
     pub outdir: &'a Path,
     pub minimap_preset: &'a str,
     pub proximity: usize,
-    pub no_report: bool,
+    pub report: ReportMode,
 }
 
 pub fn execute(args: &ProbeCoverageArgs) -> Result<()> {
@@ -111,18 +113,31 @@ pub fn execute(args: &ProbeCoverageArgs) -> Result<()> {
     log::info!("Targets 100% tiled : {}", fully_covered);
     log::info!("Targets >=90% tiled: {}", well_covered);
 
-    // Step 7: Optional report
-    if args.no_report {
-        log::info!("Skipping report generation (--no-report)");
-    } else if rscript::check_available() {
-        let report_path = args.outdir.join("probe_coverage_report.html");
-        log::info!("Generating probe coverage report...");
-        match generate_probe_report(&summary_path, &depth_path, &multi_mapping_path, &report_path, args.proximity) {
-            Ok(()) => log::info!("Report generated: {}", report_path.display()),
-            Err(e) => log::warn!("Report generation failed (non-fatal): {}", e),
+    // Step 7: Report
+    match args.report {
+        ReportMode::None => {
+            log::info!("Skipping report generation (--report none)");
         }
-    } else {
-        log::warn!("Rscript not found -- skipping HTML report.");
+        ReportMode::Full => {
+            if rscript::check_available() {
+                let report_path = args.outdir.join("probe_coverage_report.html");
+                log::info!("Generating probe coverage report...");
+                match generate_probe_report(&summary_path, &depth_path, &multi_mapping_path, &report_path, args.proximity) {
+                    Ok(()) => log::info!("Report generated: {}", report_path.display()),
+                    Err(e) => log::warn!("Report generation failed (non-fatal): {}", e),
+                }
+            } else {
+                log::warn!("Rscript not found -- skipping HTML report.");
+            }
+        }
+        ReportMode::Rmd => {
+            let report_path = args.outdir.join("probe_coverage_report.html");
+            log::info!("Generating probe coverage RMarkdown file...");
+            match write_probe_coverage_rmd(&summary_path, &depth_path, &multi_mapping_path, &report_path, args.proximity) {
+                Ok(()) => {}
+                Err(e) => log::warn!("RMarkdown generation failed (non-fatal): {}", e),
+            }
+        }
     }
 
     log::info!("=============================================");
@@ -235,6 +250,50 @@ fn write_multi_mapping_probes(
     }
 
     w.flush()?;
+    Ok(())
+}
+
+fn write_probe_coverage_rmd(
+    summary_path: &Path,
+    depth_path: &Path,
+    multi_mapping_path: &Path,
+    output_path: &Path,
+    proximity: usize,
+) -> Result<()> {
+    let r_dir = rscript::find_r_dir()
+        .ok_or_else(|| anyhow::anyhow!("Cannot find R scripts directory."))?;
+
+    let rmd_template = r_dir.join("probe_coverage.Rmd");
+    if !rmd_template.exists() {
+        bail!("RMarkdown template not found: {}", rmd_template.display());
+    }
+
+    let summary_abs = std::fs::canonicalize(summary_path)?;
+    let depth_abs = std::fs::canonicalize(depth_path)?;
+    let multi_abs = std::fs::canonicalize(multi_mapping_path)?;
+    let proximity_str = proximity.to_string();
+
+    let params = vec![
+        ("summary_file", summary_abs.to_str().unwrap_or("")),
+        ("depth_file", depth_abs.to_str().unwrap_or("")),
+        ("multi_mapping_file", multi_abs.to_str().unwrap_or("")),
+        ("proximity", &proximity_str),
+    ];
+
+    let template_content = std::fs::read_to_string(&rmd_template)
+        .with_context(|| format!("Failed to read template: {}", rmd_template.display()))?;
+
+    let output_content = substitute_rmd_params(&template_content, &params);
+
+    let rmd_path = rmd_output_path(output_path);
+    std::fs::write(&rmd_path, output_content)
+        .with_context(|| format!("Failed to write RMarkdown file: {}", rmd_path.display()))?;
+
+    log::info!("RMarkdown file written: {}", rmd_path.display());
+    log::info!(
+        "Edit and render with: Rscript -e 'rmarkdown::render(\"{}\")'",
+        rmd_path.display()
+    );
     Ok(())
 }
 

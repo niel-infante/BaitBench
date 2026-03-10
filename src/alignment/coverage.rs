@@ -369,7 +369,7 @@ pub fn calculate_probe_stats(
 /// Write per-position coverage to a TSV file.
 ///
 /// Format: reference_id\tposition\tdepth (1-based positions)
-/// Only writes entries for references that have at least one position with depth > 0.
+/// Writes all references, including those with zero coverage.
 pub fn write_coverage_tsv(
     path: &Path,
     coverage: &HashMap<String, Vec<u32>>,
@@ -386,10 +386,6 @@ pub fn write_coverage_tsv(
 
     for ref_name in ref_names {
         let depths = &coverage[ref_name];
-        let has_coverage = depths.iter().any(|&d| d > 0);
-        if !has_coverage {
-            continue;
-        }
         for (pos, &depth) in depths.iter().enumerate() {
             writeln!(w, "{}\t{}\t{}", ref_name, pos + 1, depth)?; // 1-based position
         }
