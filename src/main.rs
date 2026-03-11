@@ -10,7 +10,7 @@ use anyhow::{bail, Result};
 use clap::Parser;
 
 use cli::{Cli, Commands};
-use commands::{capture, coverage_curve, enrich, filter, generate_list, map_reads, metrics, prepare, probe_coverage, report, run, sequence, simulate};
+use commands::{capture, coverage_curve, enrich, filter, generate_list, map_reads, metrics, prepare, probe_coverage, report, run, sequence, simulate, xreact};
 use io_utils::resolve_sample_arg;
 
 /// Default distractor fraction when neither --distractor-fraction nor --ct is specified.
@@ -379,6 +379,24 @@ fn main() -> Result<()> {
                 run_name: &run_name,
                 output: &output,
                 report,
+            })?;
+        }
+
+        Commands::Xreact {
+            probes,
+            against,
+            self_mode,
+            threshold,
+            minimap_preset,
+            outdir,
+        } => {
+            xreact::execute(&xreact::XreactArgs {
+                probes: &probes,
+                against: &against.unwrap_or_default(),
+                self_mode,
+                threshold,
+                minimap_preset: &minimap_preset,
+                outdir: &outdir,
             })?;
         }
 

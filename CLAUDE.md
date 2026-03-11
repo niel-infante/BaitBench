@@ -68,6 +68,8 @@ genomes.fa + targets.fa + distractors.fa [+ sample.tsv] [+ mapping.tsv]
 
 `baitbench ct-sweep` runs the pipeline at multiple CT values and produces coverage depth curve plots.
 
+`baitbench xreact` checks probe cross-reactivity against genomes and/or other probes (standalone, not part of the pipeline).
+
 ### Key Files
 
 | File | Purpose |
@@ -85,6 +87,7 @@ genomes.fa + targets.fa + distractors.fa [+ sample.tsv] [+ mapping.tsv]
 | `src/commands/generate_list.rs` | SAM parsing → per-reference counts |
 | `src/commands/metrics.rs` | 3-way classification (genome-aware with --sample-target-map), TSV/JSON output |
 | `src/commands/report.rs` | Invokes Rscript for HTML report |
+| `src/commands/xreact.rs` | Cross-reactivity analysis (probes vs genomes, probes vs probes) |
 | `src/commands/ct_sweep.rs` | CT sweep: pipeline at multiple CT values → depth curves |
 | `src/fasta/` | FASTA parsing, writing, extract-by-ID (replaces seqtk) |
 | `src/alignment/paf.rs` | PAF format parser for minimap2 output |

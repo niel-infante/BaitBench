@@ -117,6 +117,28 @@ baitbench probe-coverage \
   --outdir probe_qc
 ```
 
+### Cross-reactivity analysis
+
+Check which probes have high homology to off-target genomes:
+
+```bash
+baitbench xreact \
+  --probes probes.fa \
+  --against human_genome.fa other_genomes.fa \
+  --threshold 80 \
+  --outdir xreact_results
+```
+
+Check for probes that are too similar to each other:
+
+```bash
+baitbench xreact \
+  --probes probes.fa \
+  --self \
+  --threshold 80 \
+  --outdir xreact_self
+```
+
 ## Key Parameters
 
 | Parameter | Default | Description |

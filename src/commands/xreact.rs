@@ -1,0 +1,359 @@
+use anyhow::{bail, Context, Result};
+use std::collections::HashMap;
+use std::fs::{self, File};
+use std::io::{BufWriter, Write};
+use std::path::{Path, PathBuf};
+
+use crate::alignment::paf;
+use crate::external::minimap2;
+use crate::fasta;
+
+pub struct XreactArgs<'a> {
+    pub probes: &'a Path,
+    pub against: &'a [PathBuf],
+    pub self_mode: bool,
+    pub threshold: f64,
+    pub outdir: &'a Path,
+    pub minimap_preset: &'a str,
+}
+
+struct HitRecord {
+    probe_id: String,
+    target_id: String,
+    homology_pct: f64,
+    identity_pct: f64,
+    query_coverage_pct: f64,
+    matching_bases: u32,
+    alignment_length: u32,
+    probe_length: u32,
+    mode: &'static str,
+}
+
+struct SummaryRecord {
+    probe_id: String,
+    mode: &'static str,
+    max_homology_pct: f64,
+    best_hit: String,
+    num_hits: usize,
+}
+
+pub fn execute(args: &XreactArgs) -> Result<()> {
+    if args.against.is_empty() && !args.self_mode {
+        bail!("At least one of --against or --self must be specified");
+    }
+    if !args.probes.exists() {
+        bail!("Probes file not found: {}", args.probes.display());
+    }
+    for path in args.against {
+        if !path.exists() {
+            bail!("Reference file not found: {}", path.display());
+        }
+    }
+
+    fs::create_dir_all(args.outdir)?;
+    minimap2::check_available()?;
+
+    log::info!("=============================================");
+    log::info!("BaitBench - Cross-Reactivity Analysis");
+    log::info!("=============================================");
+    log::info!("Probes    : {}", args.probes.display());
+    if !args.against.is_empty() {
+        for p in args.against {
+            log::info!("Against   : {}", p.display());
+        }
+    }
+    log::info!("Self mode : {}", args.self_mode);
+    log::info!("Threshold : {:.1}%", args.threshold);
+    log::info!("Preset    : {}", args.minimap_preset);
+    log::info!("Output    : {}", args.outdir.display());
+
+    let n_probes = fasta::count_sequences(args.probes)?;
+    let probe_ids = fasta::parse_fasta_ids(args.probes)?;
+    log::info!("Probe sequences: {}", n_probes);
+
+    let mut all_hits: Vec<HitRecord> = Vec::new();
+
+    // Probe-to-genome mode
+    if !args.against.is_empty() {
+        let reference_path = if args.against.len() == 1 {
+            args.against[0].clone()
+        } else {
+            let combined = args.outdir.join("against_combined.fa");
+            let refs: Vec<&Path> = args.against.iter().map(|p| p.as_path()).collect();
+            fasta::concatenate_fastas(&refs, &combined)?;
+            combined
+        };
+
+        let n_refs = fasta::count_sequences(&reference_path)?;
+        log::info!("Reference sequences: {}", n_refs);
+
+        let paf_path = args.outdir.join("against.paf");
+        let log_path = args.outdir.join("against.log");
+
+        log::info!("Aligning probes against reference...");
+        minimap2::xreact_align(
+            args.minimap_preset,
+            &reference_path,
+            args.probes,
+            &paf_path,
+            &log_path,
+        )?;
+
+        let records = paf::parse_paf_records(&paf_path)?;
+        log::info!("PAF records (against): {}", records.len());
+
+        for rec in &records {
+            if rec.query_length == 0 {
+                continue;
+            }
+            let homology = rec.matching_bases as f64 / rec.query_length as f64 * 100.0;
+            if homology >= args.threshold {
+                let identity = if rec.block_length > 0 {
+                    rec.matching_bases as f64 / rec.block_length as f64 * 100.0
+                } else {
+                    0.0
+                };
+                let query_cov =
+                    (rec.query_end - rec.query_start) as f64 / rec.query_length as f64 * 100.0;
+                all_hits.push(HitRecord {
+                    probe_id: rec.query_name.clone(),
+                    target_id: rec.target_name.clone(),
+                    homology_pct: homology,
+                    identity_pct: identity,
+                    query_coverage_pct: query_cov,
+                    matching_bases: rec.matching_bases,
+                    alignment_length: rec.block_length,
+                    probe_length: rec.query_length,
+                    mode: "against",
+                });
+            }
+        }
+
+        let _ = fs::remove_file(&paf_path);
+        if args.against.len() > 1 {
+            let _ = fs::remove_file(args.outdir.join("against_combined.fa"));
+        }
+    }
+
+    // Self mode
+    if args.self_mode {
+        let paf_path = args.outdir.join("self.paf");
+        let log_path = args.outdir.join("self.log");
+
+        log::info!("Aligning probes against themselves...");
+        minimap2::xreact_align(
+            args.minimap_preset,
+            args.probes,
+            args.probes,
+            &paf_path,
+            &log_path,
+        )?;
+
+        let records = paf::parse_paf_records(&paf_path)?;
+        log::info!("PAF records (self, including self-hits): {}", records.len());
+
+        for rec in &records {
+            // Skip self-hits
+            if rec.query_name == rec.target_name {
+                continue;
+            }
+            if rec.query_length == 0 {
+                continue;
+            }
+            let homology = rec.matching_bases as f64 / rec.query_length as f64 * 100.0;
+            if homology >= args.threshold {
+                let identity = if rec.block_length > 0 {
+                    rec.matching_bases as f64 / rec.block_length as f64 * 100.0
+                } else {
+                    0.0
+                };
+                let query_cov =
+                    (rec.query_end - rec.query_start) as f64 / rec.query_length as f64 * 100.0;
+                all_hits.push(HitRecord {
+                    probe_id: rec.query_name.clone(),
+                    target_id: rec.target_name.clone(),
+                    homology_pct: homology,
+                    identity_pct: identity,
+                    query_coverage_pct: query_cov,
+                    matching_bases: rec.matching_bases,
+                    alignment_length: rec.block_length,
+                    probe_length: rec.query_length,
+                    mode: "self",
+                });
+            }
+        }
+
+        let _ = fs::remove_file(&paf_path);
+    }
+
+    // Write hits.tsv
+    let hits_path = args.outdir.join("hits.tsv");
+    write_hits_tsv(&hits_path, &all_hits)?;
+    log::info!(
+        "Hits above {:.1}% threshold: {} (written to {})",
+        args.threshold,
+        all_hits.len(),
+        hits_path.display()
+    );
+
+    // Build and write summary.tsv
+    let summaries = build_summaries(
+        &probe_ids,
+        &all_hits,
+        args.self_mode,
+        !args.against.is_empty(),
+    );
+    let summary_path = args.outdir.join("summary.tsv");
+    write_summary_tsv(&summary_path, &summaries)?;
+
+    // Console summary
+    if !args.against.is_empty() {
+        let against_flagged = summaries
+            .iter()
+            .filter(|s| s.mode == "against" && s.num_hits > 0)
+            .count();
+        log::info!(
+            "Probes with cross-reactive genome hits: {}/{}",
+            against_flagged,
+            n_probes
+        );
+    }
+    if args.self_mode {
+        let self_flagged = summaries
+            .iter()
+            .filter(|s| s.mode == "self" && s.num_hits > 0)
+            .count();
+        log::info!(
+            "Probes with cross-reactive probe hits: {}/{}",
+            self_flagged,
+            n_probes
+        );
+    }
+
+    log::info!("=============================================");
+    log::info!("Cross-reactivity analysis complete!");
+    log::info!("Results in {}", args.outdir.display());
+    log::info!("=============================================");
+
+    Ok(())
+}
+
+fn write_hits_tsv(path: &Path, hits: &[HitRecord]) -> Result<()> {
+    let file =
+        File::create(path).with_context(|| format!("Cannot create hits file: {}", path.display()))?;
+    let mut w = BufWriter::new(file);
+
+    writeln!(
+        w,
+        "probe_id\ttarget_id\thomology_pct\tidentity_pct\tquery_coverage_pct\tmatching_bases\talignment_length\tprobe_length\tmode"
+    )?;
+
+    // Sort by probe_id, then mode, then descending homology
+    let mut sorted: Vec<usize> = (0..hits.len()).collect();
+    sorted.sort_by(|&a, &b| {
+        hits[a]
+            .probe_id
+            .cmp(&hits[b].probe_id)
+            .then(hits[a].mode.cmp(&hits[b].mode))
+            .then(
+                hits[b]
+                    .homology_pct
+                    .partial_cmp(&hits[a].homology_pct)
+                    .unwrap_or(std::cmp::Ordering::Equal),
+            )
+    });
+
+    for &i in &sorted {
+        let h = &hits[i];
+        writeln!(
+            w,
+            "{}\t{}\t{:.1}\t{:.1}\t{:.1}\t{}\t{}\t{}\t{}",
+            h.probe_id,
+            h.target_id,
+            h.homology_pct,
+            h.identity_pct,
+            h.query_coverage_pct,
+            h.matching_bases,
+            h.alignment_length,
+            h.probe_length,
+            h.mode,
+        )?;
+    }
+
+    w.flush()?;
+    Ok(())
+}
+
+fn build_summaries(
+    probe_ids: &[String],
+    hits: &[HitRecord],
+    self_mode: bool,
+    against_mode: bool,
+) -> Vec<SummaryRecord> {
+    // Group hits by (probe_id, mode) → track max homology + count
+    let mut map: HashMap<(&str, &str), (f64, String, usize)> = HashMap::new();
+
+    for h in hits {
+        let entry = map
+            .entry((&h.probe_id, h.mode))
+            .or_insert((0.0, "NA".to_string(), 0));
+        entry.2 += 1;
+        if h.homology_pct > entry.0 {
+            entry.0 = h.homology_pct;
+            entry.1 = h.target_id.clone();
+        }
+    }
+
+    let mut summaries = Vec::new();
+
+    let modes: Vec<&str> = {
+        let mut m = Vec::new();
+        if against_mode {
+            m.push("against");
+        }
+        if self_mode {
+            m.push("self");
+        }
+        m
+    };
+
+    for probe_id in probe_ids {
+        for &mode in &modes {
+            let (max_hom, best_hit, num_hits) = map
+                .get(&(probe_id.as_str(), mode))
+                .cloned()
+                .unwrap_or((0.0, "NA".to_string(), 0));
+            summaries.push(SummaryRecord {
+                probe_id: probe_id.clone(),
+                mode,
+                max_homology_pct: max_hom,
+                best_hit,
+                num_hits,
+            });
+        }
+    }
+
+    summaries
+}
+
+fn write_summary_tsv(path: &Path, summaries: &[SummaryRecord]) -> Result<()> {
+    let file = File::create(path)
+        .with_context(|| format!("Cannot create summary file: {}", path.display()))?;
+    let mut w = BufWriter::new(file);
+
+    writeln!(
+        w,
+        "probe_id\tmode\tmax_homology_pct\tbest_hit\tnum_hits_above_threshold"
+    )?;
+
+    for s in summaries {
+        writeln!(
+            w,
+            "{}\t{}\t{:.1}\t{}\t{}",
+            s.probe_id, s.mode, s.max_homology_pct, s.best_hit, s.num_hits,
+        )?;
+    }
+
+    w.flush()?;
+    Ok(())
+}

@@ -31,6 +31,7 @@ Complete reference for BaitBench, an in-silico probe capture simulation tool.
   - [metrics](#metrics)
   - [report](#report)
   - [probe-coverage](#probe-coverage)
+  - [xreact](#xreact)
   - [coverage-curve](#coverage-curve)
 - [Parameter Reference](#parameter-reference)
   - [Input Files](#input-files)
@@ -63,6 +64,7 @@ Complete reference for BaitBench, an in-silico probe capture simulation tool.
   - [Host Filtering](#host-filtering)
   - [Coverage Curve Analysis](#coverage-curve-analysis)
   - [Probe Design QC](#probe-design-qc)
+  - [Cross-Reactivity Analysis](#cross-reactivity-analysis)
   - [Running Individual Steps](#running-individual-steps)
   - [Reproducible Runs](#reproducible-runs)
   - [Batch Comparisons](#batch-comparisons)
@@ -654,6 +656,64 @@ Maps probes to targets and computes per-target tiling statistics.
 | `num_gaps` | Number of gaps with no probe coverage |
 | `pct_near_probe` | % bases within `--proximity` distance of a probe alignment |
 
+### xreact
+
+Standalone cross-reactivity analysis tool. Checks whether probes have high homology to off-target genomes or to each other. Not part of the main simulation pipeline.
+
+```bash
+baitbench xreact \
+  --probes probes.fa \
+  [--against genome1.fa genome2.fa ...] \
+  [--self] \
+  [--threshold 80.0] \
+  [--minimap-preset sr] \
+  [--outdir xreact_results]
+```
+
+At least one of `--against` or `--self` must be specified; both can be used together.
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `--probes` | required | Probe sequences FASTA |
+| `--against` | none | Reference genome FASTA(s) to check cross-reactivity against (repeatable) |
+| `--self` | false | Check probe-vs-probe cross-reactivity (self-hits excluded) |
+| `--threshold` | 80.0 | Minimum homology % to report: `matching_bases / probe_length * 100` |
+| `--minimap-preset` | sr | Minimap2 alignment preset |
+| `--outdir` | ./xreact_results | Output directory |
+
+**Homology metric:** `matching_bases / probe_length * 100`. This single number captures both alignment identity and query coverage -- a probe with 90% identity over 90% of its length scores ~81%.
+
+**Self-mode filtering:** In `--self` mode, self-hits (probeA mapping to probeA) are excluded from all output. Only cross-probe hits (probeA mapping to probeB where A != B) are reported.
+
+**Output files:**
+
+- `hits.tsv` -- All alignments above the threshold
+- `summary.tsv` -- Per-probe summary (every probe gets a row, even with zero hits)
+
+**hits.tsv columns:**
+
+| Column | Description |
+|--------|-------------|
+| `probe_id` | Query probe ID |
+| `target_id` | Reference sequence the probe maps to (genome ID or other probe ID) |
+| `homology_pct` | `matching_bases / probe_length * 100` |
+| `identity_pct` | `matching_bases / alignment_block_length * 100` |
+| `query_coverage_pct` | `aligned_query_span / probe_length * 100` |
+| `matching_bases` | Number of matching bases in the alignment |
+| `alignment_length` | Alignment block length |
+| `probe_length` | Total probe sequence length |
+| `mode` | `against` (probe-to-genome) or `self` (probe-to-probe) |
+
+**summary.tsv columns:**
+
+| Column | Description |
+|--------|-------------|
+| `probe_id` | Probe ID |
+| `mode` | `against` or `self` |
+| `max_homology_pct` | Highest homology % across all hits (0.0 if no hits) |
+| `best_hit` | Target ID with highest homology (NA if no hits) |
+| `num_hits_above_threshold` | Number of distinct alignments above threshold |
+
 ### coverage-curve
 
 Runs the pipeline at multiple parameter combinations and generates coverage depth curves.
@@ -1239,6 +1299,41 @@ baitbench probe-coverage \
   --probes probes.fa \
   --proximity 100 \
   --outdir probe_qc
+```
+
+### Cross-Reactivity Analysis
+
+Check whether probes have off-target homology to specific genomes:
+
+```bash
+# Probe-to-genome: which probes match the human genome?
+baitbench xreact \
+  --probes probes.fa \
+  --against human_genome.fa \
+  --threshold 80 \
+  --outdir xreact_human
+
+# Probe-to-genome: check against multiple references
+baitbench xreact \
+  --probes probes.fa \
+  --against human_genome.fa mouse_genome.fa \
+  --threshold 80 \
+  --outdir xreact_hosts
+
+# Probe-to-probe: find probes that are too similar to each other
+baitbench xreact \
+  --probes probes.fa \
+  --self \
+  --threshold 80 \
+  --outdir xreact_self
+
+# Both modes together
+baitbench xreact \
+  --probes probes.fa \
+  --against human_genome.fa \
+  --self \
+  --threshold 80 \
+  --outdir xreact_full
 ```
 
 ### Running Individual Steps

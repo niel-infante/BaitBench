@@ -120,6 +120,47 @@ pub fn probe_align(
     Ok(())
 }
 
+/// Run minimap2 for cross-reactivity analysis (PAF output with secondary alignments).
+///
+/// `minimap2 -x <preset> -c --secondary=yes -N 10000 -p 0.5 <reference> <probes> > <output>`
+///
+/// Uses PAF output to get lightweight tabular format with matching base counts.
+/// Secondary alignments are kept to capture all cross-reactive hits.
+/// -p 0.5 lowers the secondary score threshold to catch weaker homology.
+pub fn xreact_align(
+    preset: &str,
+    reference: &Path,
+    probes: &Path,
+    output_paf: &Path,
+    log_file: &Path,
+) -> Result<()> {
+    let log = File::create(log_file)
+        .with_context(|| format!("Cannot create log: {}", log_file.display()))?;
+    let out = File::create(output_paf)
+        .with_context(|| format!("Cannot create PAF: {}", output_paf.display()))?;
+
+    let status = Command::new("minimap2")
+        .args(["-x", preset, "-c"])
+        .arg("--secondary=yes")
+        .args(["-N", "10000"])
+        .args(["-p", "0.5"])
+        .arg(reference)
+        .arg(probes)
+        .stdout(out)
+        .stderr(log)
+        .status()
+        .context("Failed to execute minimap2")?;
+
+    if !status.success() {
+        bail!(
+            "minimap2 xreact alignment failed (exit code {:?})",
+            status.code()
+        );
+    }
+
+    Ok(())
+}
+
 /// Run minimap2 for host filtering (SAM output).
 ///
 /// `minimap2 -ax <preset> <host> <reads> > <output>`

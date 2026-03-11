@@ -11,3 +11,4 @@ pub mod report;
 pub mod run;
 pub mod probe_coverage;
 pub mod coverage_curve;
+pub mod xreact;

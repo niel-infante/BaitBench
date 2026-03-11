@@ -44,7 +44,7 @@ src/
 ├── io_utils.rs           # Shared helpers: parse_id_set, extract_source_id, parse_sample_manifest, parse_sample_target_map
 ├── alignment/
 │   ├── coverage.rs      # CIGAR-based per-position coverage from SAM
-│   ├── paf.rs           # PAF record filtering (mismatch/indel criteria)
+│   ├── paf.rs           # PAF record filtering (mismatch/indel criteria) + structured PafRecord parsing
 │   └── sam.rs           # SAM parsing: read counts, mappings, mapped IDs
 ├── commands/
 │   ├── run.rs           # Full pipeline orchestrator (steps 1-8 + report)
@@ -59,6 +59,7 @@ src/
 │   ├── metrics.rs       # TP/FP/FN/TN classification, coverage stats, TSV/JSON output
 │   ├── report.rs        # Report generation: HTML (Rscript), RMarkdown (template substitution), or skip; shared substitute_rmd_params utility
 │   ├── probe_coverage.rs # Standalone probe tiling QC (maps probes to targets)
+│   ├── xreact.rs        # Standalone cross-reactivity analysis (probes vs genomes, probes vs probes)
 │   └── coverage_curve.rs # Coverage curve: pipeline at multiple param combos → depth curves
 ├── external/
 │   ├── minimap2.rs      # minimap2 wrapper: capture_align (PAF), map_reads (SAM), host_align, probe_align
@@ -84,7 +85,7 @@ R/
 
 ### CLI (`cli.rs`)
 
-- **`Commands`** enum — one variant per subcommand (Run, Prepare, Simulate, Capture, Enrich, Sequence, Filter, Map, List, Metrics, ProbeCoverage, Report, CoverageCurve), each with its own fields
+- **`Commands`** enum — one variant per subcommand (Run, Prepare, Simulate, Capture, Enrich, Sequence, Filter, Map, List, Metrics, ProbeCoverage, Xreact, Report, CoverageCurve), each with its own fields
 - **`CaptureMethodArg`** — ValueEnum: Minimap2 | Blast
 - **`ReportMode`** — ValueEnum: Full | None | Rmd — controls report output (HTML, skip, or editable RMarkdown)
 - **CT score flags** — `--ct`, `--ct-baseline`, `--ct-baseline-fraction` on Run and Prepare; `--ct` conflicts with `--distractor-fraction`
@@ -107,6 +108,7 @@ Every command module exports an `Args` struct and an `execute(&Args) -> Result<(
 | `metrics` | `MetricsArgs` | targets, distractors, sample, detected, fragments, captured, sam, sample_target_map | results.tsv, detected_detail.tsv, results.json, coverage.tsv |
 | `report` | `ReportArgs` | summary, detail, params, coverage, run_name, report (ReportMode) | report.html or report.Rmd |
 | `probe_coverage` | `ProbeCoverageArgs` | targets, probes, minimap_preset, proximity | probe_depth.tsv, probe_coverage_summary.tsv, probe_coverage_report.html |
+| `xreact` | `XreactArgs` | probes, against (genome FASTAs), self_mode, threshold, minimap_preset | hits.tsv, summary.tsv |
 | `run` | `RunArgs` | all pipeline inputs + ct, ct_baseline, ct_baseline_fraction, num_sequences, genomes, sample_target_map | all of the above |
 | `coverage_curve` | `CoverageCurveArgs` | targets, distractors, probes, sample (required), ct/fe/ns values (sweep or fixed), all pipeline params, genomes, sample_target_map | coverage_curve_depth_curves.tsv, coverage_curve_report.html, combo subdirs |
 
@@ -125,6 +127,12 @@ Every command module exports an `Args` struct and an `execute(&Args) -> Result<(
 - **`ProbeCoverageStats`** — ref_length, covered_bases, pct_covered_1x, mean_depth, median_depth, pct_covered_2x/5x/10x, max_gap_length, num_gaps, pct_near_probe (used by probe-coverage QC)
 - `compute_coverage(sam)` — pipeline read coverage (skips secondary alignments)
 - `compute_probe_coverage(sam)` — probe tiling depth (includes secondary alignments)
+
+### PAF (`alignment/paf.rs`)
+
+- **`PafRecord`** — structured PAF alignment record: query_name, query_length, query_start, query_end, target_name, target_length, target_start, target_end, matching_bases, block_length, mapq
+- `filter_paf(paf, max_mismatches, min_match_bases) → HashSet<String>` — filter for capture
+- `parse_paf_records(paf) → Vec<PafRecord>` — parse all records (no filtering)
 
 ### FASTA (`fasta/`)
 
@@ -156,7 +164,7 @@ All wrappers follow the pattern: `check_available() → bool/Result`, then speci
 
 | Tool | Functions | Output format |
 |------|-----------|---------------|
-| minimap2 | `capture_align` (PAF), `map_reads` (SAM), `host_align` (SAM), `probe_align` (SAM, with secondary) | PAF or SAM |
+| minimap2 | `capture_align` (PAF), `map_reads` (SAM), `host_align` (SAM), `probe_align` (SAM, with secondary), `xreact_align` (PAF, with secondary) | PAF or SAM |
 | blastn | `capture_align` (TSV outfmt 6), `filter_blast_results` | TSV |
 | rscript | `check_available`, `find_r_dir`, `run_rscript` | HTML |
 
@@ -234,6 +242,13 @@ Report sections adapt dynamically based on target count: tables switch from kabl
 | `probe_coverage_summary.tsv` | TSV (per-target stats) | probe_coverage | probe_coverage report |
 | `multi_mapping_probes.tsv` | TSV (probe_id num_targets targets) | probe_coverage | probe_coverage report |
 | `probe_coverage_report.html` | HTML | probe_coverage (via R) | — |
+
+### Cross-Reactivity (standalone, not part of main pipeline)
+
+| File | Format | Written by | Read by |
+|------|--------|------------|---------|
+| `hits.tsv` | TSV (probe_id, target_id, homology_pct, identity_pct, query_coverage_pct, matching_bases, alignment_length, probe_length, mode) | xreact | — |
+| `summary.tsv` | TSV (probe_id, mode, max_homology_pct, best_hit, num_hits_above_threshold) | xreact | — |
 
 ### Coverage Curve (standalone, not part of main pipeline)
 

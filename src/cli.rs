@@ -494,6 +494,33 @@ pub enum Commands {
         report: ReportMode,
     },
 
+    /// Analyze probe cross-reactivity against genomes or other probes
+    Xreact {
+        /// Probe sequences FASTA
+        #[arg(short, long)]
+        probes: PathBuf,
+
+        /// Reference genome FASTA(s) to check cross-reactivity against (can be specified multiple times)
+        #[arg(long, num_args = 1..)]
+        against: Option<Vec<PathBuf>>,
+
+        /// Check probe-vs-probe cross-reactivity (self-hits excluded)
+        #[arg(long = "self")]
+        self_mode: bool,
+
+        /// Minimum homology percentage to report (matching_bases / probe_length * 100)
+        #[arg(long, default_value = "80.0")]
+        threshold: f64,
+
+        /// Minimap2 alignment preset
+        #[arg(long, default_value = "sr")]
+        minimap_preset: String,
+
+        /// Output directory
+        #[arg(short, long, default_value = "./xreact_results")]
+        outdir: PathBuf,
+    },
+
     /// Generate coverage depth curves, optionally sweeping CT, fold-enrichment, and/or num-sequences
     CoverageCurve {
         /// Target sequences FASTA
