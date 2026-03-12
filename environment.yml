@@ -17,4 +17,5 @@ dependencies:
   - r-knitr>=1.40
   - r-optparse>=1.7
   - r-dt>=0.27
+  - r-plotly>=4.8.0
   - pandoc>=2.19

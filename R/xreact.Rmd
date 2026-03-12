@@ -1,0 +1,321 @@
+---
+title: "BaitBench Cross-Reactivity Report"
+output:
+  html_document:
+    self_contained: true
+    theme: flatly
+    toc: true
+    toc_float: true
+params:
+  hits_file: ""
+  summary_file: ""
+  threshold: 80.0
+---
+
+<style>
+.main-container { max-width: 100%; margin-left: 1em; margin-right: 1em; }
+.dataTables_wrapper { width: 100%; }
+table { width: 100%; }
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE,
+                      fig.width = 10, fig.height = 5, out.width = "100%")
+
+suppressPackageStartupMessages({
+  library(ggplot2)
+  library(dplyr)
+  library(tidyr)
+  library(DT)
+  library(plotly)
+})
+
+theme_set(theme_minimal(base_size = 14))
+
+hits <- read.delim(params$hits_file, stringsAsFactors = FALSE)
+summary_df <- read.delim(params$summary_file, stringsAsFactors = FALSE)
+
+threshold <- params$threshold
+
+has_self <- any(hits$mode == "self") || any(summary_df$mode == "self")
+has_against <- any(hits$mode == "against") || any(summary_df$mode == "against")
+
+hits_self <- hits %>% filter(mode == "self")
+hits_against <- hits %>% filter(mode == "against")
+summary_self <- summary_df %>% filter(mode == "self")
+summary_against <- summary_df %>% filter(mode == "against")
+
+n_probes <- length(unique(summary_df$probe_id))
+```
+
+## Analysis Summary
+
+```{r summary_table, results='asis'}
+info <- data.frame(
+  Parameter = c("Homology threshold", "Total probes"),
+  Value = c(paste0(threshold, "%"), n_probes),
+  stringsAsFactors = FALSE
+)
+
+if (has_self) {
+  n_self_flagged <- sum(summary_self$num_hits_above_threshold > 0)
+  info <- rbind(info, data.frame(
+    Parameter = c("Mode: self", "Probes with self-homology hits"),
+    Value = c("Yes", paste0(n_self_flagged, " / ", n_probes,
+                            " (", round(100 * n_self_flagged / max(n_probes, 1), 1), "%)"))
+  ))
+}
+
+if (has_against) {
+  n_against_flagged <- sum(summary_against$num_hits_above_threshold > 0)
+  n_genomes <- length(unique(hits_against$target_id))
+  info <- rbind(info, data.frame(
+    Parameter = c("Mode: against", "Probes with cross-reactive hits", "Genomes with hits"),
+    Value = c("Yes",
+              paste0(n_against_flagged, " / ", n_probes,
+                     " (", round(100 * n_against_flagged / max(n_probes, 1), 1), "%)"),
+              n_genomes)
+  ))
+}
+
+knitr::kable(info, col.names = c("Parameter", "Value"), align = "lr")
+```
+
+```{r self_section, eval=has_self, results='asis'}
+cat("\n## Self-Homology (Probe vs Probe)\n")
+```
+
+```{r self_heatmap, eval=has_self && n_probes < 1000, fig.height=8}
+all_probe_ids <- sort(unique(summary_df$probe_id))
+n <- length(all_probe_ids)
+
+# Build NxN matrix (rows = target, cols = probe)
+mat <- matrix(NA_real_, nrow = n, ncol = n,
+              dimnames = list(all_probe_ids, all_probe_ids))
+hover_mat <- matrix("", nrow = n, ncol = n,
+                    dimnames = list(all_probe_ids, all_probe_ids))
+
+if (nrow(hits_self) > 0) {
+  for (i in seq_len(nrow(hits_self))) {
+    row <- hits_self[i, ]
+    ri <- match(row$target_id, all_probe_ids)
+    ci <- match(row$probe_id, all_probe_ids)
+    if (!is.na(ri) && !is.na(ci)) {
+      # Keep the highest homology if multiple alignments exist
+      if (is.na(mat[ri, ci]) || row$homology_pct > mat[ri, ci]) {
+        mat[ri, ci] <- row$homology_pct
+        hover_mat[ri, ci] <- paste0(
+          "Probe: ", row$probe_id, "<br>",
+          "Target: ", row$target_id, "<br>",
+          "Homology: ", round(row$homology_pct, 1), "%<br>",
+          "Identity: ", round(row$identity_pct, 1), "%<br>",
+          "Query coverage: ", round(row$query_coverage_pct, 1), "%"
+        )
+      }
+    }
+  }
+}
+
+show_labels <- n <= 20
+
+# Color scale: steelblue (low) → firebrick (high), NA = white
+plot_ly(
+  z = mat,
+  x = colnames(mat),
+  y = rownames(mat),
+  type = "heatmap",
+  colorscale = list(c(0, "steelblue"), c(0.5, "orange"), c(1, "firebrick")),
+  zmin = threshold,
+  zmax = 100,
+  hoverinfo = "text",
+  text = hover_mat,
+  showscale = TRUE,
+  colorbar = list(title = "Homology %")
+) %>%
+  layout(
+    title = "Self-Homology Matrix",
+    xaxis = list(
+      title = "Probe",
+      showticklabels = show_labels,
+      tickangle = if (show_labels) -45 else 0
+    ),
+    yaxis = list(
+      title = "Target probe",
+      showticklabels = show_labels,
+      autorange = "reversed"
+    ),
+    plot_bgcolor = "white"
+  )
+```
+
+```{r self_heatmap_skip, eval=has_self && n_probes >= 1000, results='asis'}
+cat(paste0("\n*Heatmap omitted: ", n_probes,
+           " probes exceeds the 1,000 probe limit for interactive display.*\n"))
+```
+
+```{r self_density_header, eval=has_self && nrow(hits_self) > 0, results='asis'}
+cat("\n### Homology Distribution\n")
+```
+
+```{r self_density, eval=has_self && nrow(hits_self) > 0, fig.height=4}
+ggplot(hits_self, aes(x = homology_pct)) +
+  geom_density(fill = "steelblue", alpha = 0.5, color = "steelblue") +
+  geom_vline(xintercept = threshold, linetype = "dashed", color = "firebrick", linewidth = 0.8) +
+  annotate("text", x = threshold, y = Inf, label = paste0("Threshold: ", threshold, "%"),
+           hjust = -0.1, vjust = 1.5, color = "firebrick", size = 3.5) +
+  scale_x_continuous(limits = c(max(threshold - 10, 0), 100)) +
+  labs(x = "Homology (%)", y = "Density", title = "Self-Homology Distribution") +
+  theme_minimal(base_size = 14)
+```
+
+```{r self_table_header, eval=has_self, results='asis'}
+cat("\n### All Self-Homology Hits\n")
+```
+
+```{r self_table, eval=has_self}
+display_self <- hits_self %>%
+  select(probe_id, target_id, homology_pct, identity_pct,
+         query_coverage_pct, matching_bases, probe_length) %>%
+  arrange(desc(homology_pct))
+
+datatable(
+  display_self,
+  colnames = c("Probe", "Target Probe", "Homology %", "Identity %",
+               "Query Cov %", "Matching Bases", "Probe Length"),
+  options = list(pageLength = 25, scrollX = TRUE),
+  rownames = FALSE
+) %>%
+  formatRound(c("homology_pct", "identity_pct", "query_coverage_pct"), 1)
+```
+
+```{r against_section, eval=has_against, results='asis'}
+cat("\n## Cross-Reactivity (Probe vs Genome)\n")
+```
+
+```{r against_heatmap, eval=has_against && n_probes < 1000, fig.height=8}
+# Only include probes that have at least one against-mode hit
+probes_with_hits <- sort(unique(hits_against$probe_id))
+genomes <- sort(unique(hits_against$target_id))
+n_probes_hit <- length(probes_with_hits)
+n_genomes_hit <- length(genomes)
+
+if (n_probes_hit > 0 && n_genomes_hit > 0) {
+  # Build genome (rows) x probe (cols) matrix
+  mat_ag <- matrix(NA_real_, nrow = n_genomes_hit, ncol = n_probes_hit,
+                   dimnames = list(genomes, probes_with_hits))
+  hover_ag <- matrix("", nrow = n_genomes_hit, ncol = n_probes_hit,
+                     dimnames = list(genomes, probes_with_hits))
+
+  for (i in seq_len(nrow(hits_against))) {
+    row <- hits_against[i, ]
+    ri <- match(row$target_id, genomes)
+    ci <- match(row$probe_id, probes_with_hits)
+    if (!is.na(ri) && !is.na(ci)) {
+      if (is.na(mat_ag[ri, ci]) || row$homology_pct > mat_ag[ri, ci]) {
+        mat_ag[ri, ci] <- row$homology_pct
+        hover_ag[ri, ci] <- paste0(
+          "Probe: ", row$probe_id, "<br>",
+          "Genome: ", row$target_id, "<br>",
+          "Homology: ", round(row$homology_pct, 1), "%<br>",
+          "Identity: ", round(row$identity_pct, 1), "%<br>",
+          "Query coverage: ", round(row$query_coverage_pct, 1), "%"
+        )
+      }
+    }
+  }
+
+  show_x <- n_probes_hit <= 20
+  show_y <- n_genomes_hit <= 20
+
+  # Dynamic height: at least 400px, scale with genome count
+  plot_height <- max(400, n_genomes_hit * 20 + 150)
+
+  plot_ly(
+    z = mat_ag,
+    x = colnames(mat_ag),
+    y = rownames(mat_ag),
+    type = "heatmap",
+    colorscale = list(c(0, "steelblue"), c(0.5, "orange"), c(1, "firebrick")),
+    zmin = threshold,
+    zmax = 100,
+    hoverinfo = "text",
+    text = hover_ag,
+    showscale = TRUE,
+    colorbar = list(title = "Homology %"),
+    height = plot_height
+  ) %>%
+    layout(
+      title = paste0("Cross-Reactivity Matrix (",
+                     n_probes_hit, " probes x ", n_genomes_hit, " genomes)"),
+      xaxis = list(
+        title = "Probe",
+        showticklabels = show_x,
+        tickangle = if (show_x) -45 else 0
+      ),
+      yaxis = list(
+        title = "Genome",
+        showticklabels = show_y,
+        autorange = "reversed"
+      ),
+      plot_bgcolor = "white"
+    )
+}
+```
+
+```{r against_heatmap_skip, eval=has_against && n_probes >= 1000, results='asis'}
+cat(paste0("\n*Heatmap omitted: ", n_probes,
+           " probes exceeds the 1,000 probe limit for interactive display.*\n"))
+```
+
+```{r against_genome_bar_header, eval=has_against && nrow(hits_against) > 0, results='asis'}
+cat("\n### Probes per Genome\n")
+```
+
+```{r against_genome_bar, eval=has_against && nrow(hits_against) > 0, fig.height=max(4, length(unique(hits_against$target_id)) * 0.3 + 1)}
+genome_counts <- hits_against %>%
+  group_by(target_id) %>%
+  summarise(n_probes = n_distinct(probe_id), .groups = "drop") %>%
+  arrange(n_probes) %>%
+  mutate(target_id = factor(target_id, levels = target_id))
+
+ggplot(genome_counts, aes(x = n_probes, y = target_id)) +
+  geom_col(fill = "steelblue", alpha = 0.8) +
+  labs(x = "Number of cross-reactive probes", y = NULL,
+       title = "Cross-Reactive Probes per Genome") +
+  theme_minimal(base_size = 14)
+```
+
+```{r against_density_header, eval=has_against && nrow(hits_against) > 0, results='asis'}
+cat("\n### Homology Distribution\n")
+```
+
+```{r against_density, eval=has_against && nrow(hits_against) > 0, fig.height=4}
+ggplot(hits_against, aes(x = homology_pct)) +
+  geom_density(fill = "steelblue", alpha = 0.5, color = "steelblue") +
+  geom_vline(xintercept = threshold, linetype = "dashed", color = "firebrick", linewidth = 0.8) +
+  annotate("text", x = threshold, y = Inf, label = paste0("Threshold: ", threshold, "%"),
+           hjust = -0.1, vjust = 1.5, color = "firebrick", size = 3.5) +
+  scale_x_continuous(limits = c(max(threshold - 10, 0), 100)) +
+  labs(x = "Homology (%)", y = "Density", title = "Cross-Reactivity Homology Distribution") +
+  theme_minimal(base_size = 14)
+```
+
+```{r against_table_header, eval=has_against, results='asis'}
+cat("\n### All Cross-Reactivity Hits\n")
+```
+
+```{r against_table, eval=has_against}
+display_against <- hits_against %>%
+  select(probe_id, target_id, homology_pct, identity_pct,
+         query_coverage_pct, matching_bases, probe_length) %>%
+  arrange(desc(homology_pct))
+
+datatable(
+  display_against,
+  colnames = c("Probe", "Genome", "Homology %", "Identity %",
+               "Query Cov %", "Matching Bases", "Probe Length"),
+  options = list(pageLength = 25, scrollX = TRUE),
+  rownames = FALSE
+) %>%
+  formatRound(c("homology_pct", "identity_pct", "query_coverage_pct"), 1)
+```

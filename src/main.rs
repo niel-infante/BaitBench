@@ -389,6 +389,7 @@ fn main() -> Result<()> {
             threshold,
             minimap_preset,
             outdir,
+            report,
         } => {
             xreact::execute(&xreact::XreactArgs {
                 probes: &probes,
@@ -397,6 +398,7 @@ fn main() -> Result<()> {
                 threshold,
                 minimap_preset: &minimap_preset,
                 outdir: &outdir,
+                report,
             })?;
         }
 

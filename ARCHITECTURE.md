@@ -78,7 +78,9 @@ R/
 ├── probe_coverage.R     # CLI wrapper for probe coverage report
 ├── probe_coverage.Rmd   # RMarkdown template: probe tiling depth, gap analysis, proximity
 ├── coverage_curve.R     # CLI wrapper for coverage curve report
-└── coverage_curve.Rmd   # RMarkdown template: coverage depth curves (multi-param sweep)
+├── coverage_curve.Rmd   # RMarkdown template: coverage depth curves (multi-param sweep)
+├── xreact.R             # CLI wrapper for cross-reactivity report
+└── xreact.Rmd           # RMarkdown template: plotly heatmaps, density plots, DT hit tables
 ```
 
 ## Key Data Types
@@ -108,7 +110,7 @@ Every command module exports an `Args` struct and an `execute(&Args) -> Result<(
 | `metrics` | `MetricsArgs` | targets, distractors, sample, detected, fragments, captured, sam, sample_target_map | results.tsv, detected_detail.tsv, results.json, coverage.tsv |
 | `report` | `ReportArgs` | summary, detail, params, coverage, run_name, report (ReportMode) | report.html or report.Rmd |
 | `probe_coverage` | `ProbeCoverageArgs` | targets, probes, minimap_preset, proximity | probe_depth.tsv, probe_coverage_summary.tsv, probe_coverage_report.html |
-| `xreact` | `XreactArgs` | probes, against (genome FASTAs), self_mode, threshold, minimap_preset | hits.tsv, summary.tsv |
+| `xreact` | `XreactArgs` | probes, against (genome FASTAs), self_mode, threshold, minimap_preset, report (ReportMode) | hits.tsv, summary.tsv, xreact_report.html |
 | `run` | `RunArgs` | all pipeline inputs + ct, ct_baseline, ct_baseline_fraction, num_sequences, genomes, sample_target_map | all of the above |
 | `coverage_curve` | `CoverageCurveArgs` | targets, distractors, probes, sample (required), ct/fe/ns values (sweep or fixed), all pipeline params, genomes, sample_target_map | coverage_curve_depth_curves.tsv, coverage_curve_report.html, combo subdirs |
 
@@ -247,8 +249,27 @@ Report sections adapt dynamically based on target count: tables switch from kabl
 
 | File | Format | Written by | Read by |
 |------|--------|------------|---------|
-| `hits.tsv` | TSV (probe_id, target_id, homology_pct, identity_pct, query_coverage_pct, matching_bases, alignment_length, probe_length, mode) | xreact | — |
-| `summary.tsv` | TSV (probe_id, mode, max_homology_pct, best_hit, num_hits_above_threshold) | xreact | — |
+| `hits.tsv` | TSV (probe_id, target_id, homology_pct, identity_pct, query_coverage_pct, matching_bases, alignment_length, probe_length, mode) | xreact | xreact report |
+| `summary.tsv` | TSV (probe_id, mode, max_homology_pct, best_hit, num_hits_above_threshold) | xreact | xreact report |
+| `xreact_report.html` | HTML | xreact (via R) | — |
+
+### Cross-Reactivity Report (`R/xreact.Rmd`)
+
+`xreact.R` accepts CLI args and calls `rmarkdown::render()` on `xreact.Rmd`.
+
+| Param | Source |
+|-------|--------|
+| `hits_file` | hits.tsv |
+| `summary_file` | summary.tsv |
+| `threshold` | `--threshold` CLI value (float, default 80.0) |
+
+Report sections (conditional on mode):
+
+1. **Summary** — threshold, probe count, per-mode hit counts
+2. **Self-Homology** (if `--self`) — plotly heatmap (<1000 probes), density plot, DT hits table
+3. **Cross-Reactivity** (if `--against`) — plotly heatmap (<1000 probes), per-genome bar chart, density plot, DT hits table
+
+Heatmaps show axis labels when ≤20 items on that axis.
 
 ### Coverage Curve (standalone, not part of main pipeline)
 

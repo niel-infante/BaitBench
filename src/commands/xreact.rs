@@ -5,7 +5,9 @@ use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 
 use crate::alignment::paf;
-use crate::external::minimap2;
+use crate::cli::ReportMode;
+use crate::commands::report::{rmd_output_path, substitute_rmd_params};
+use crate::external::{minimap2, rscript};
 use crate::fasta;
 
 pub struct XreactArgs<'a> {
@@ -15,6 +17,7 @@ pub struct XreactArgs<'a> {
     pub threshold: f64,
     pub outdir: &'a Path,
     pub minimap_preset: &'a str,
+    pub report: ReportMode,
 }
 
 struct HitRecord {
@@ -230,11 +233,131 @@ pub fn execute(args: &XreactArgs) -> Result<()> {
         );
     }
 
+    // Report generation
+    match args.report {
+        ReportMode::None => {
+            log::info!("Skipping report generation (--report none)");
+        }
+        ReportMode::Full => {
+            if rscript::check_available() {
+                let report_path = args.outdir.join("xreact_report.html");
+                log::info!("Generating cross-reactivity report...");
+                match generate_xreact_report(
+                    &hits_path,
+                    &summary_path,
+                    args.threshold,
+                    &report_path,
+                ) {
+                    Ok(()) => log::info!("Report generated: {}", report_path.display()),
+                    Err(e) => log::warn!("Report generation failed (non-fatal): {}", e),
+                }
+            } else {
+                log::warn!("Rscript not found -- skipping HTML report.");
+            }
+        }
+        ReportMode::Rmd => {
+            let report_path = args.outdir.join("xreact_report.html");
+            log::info!("Generating cross-reactivity RMarkdown file...");
+            match write_xreact_rmd(
+                &hits_path,
+                &summary_path,
+                args.threshold,
+                &report_path,
+            ) {
+                Ok(()) => {}
+                Err(e) => log::warn!("RMarkdown generation failed (non-fatal): {}", e),
+            }
+        }
+    }
+
     log::info!("=============================================");
     log::info!("Cross-reactivity analysis complete!");
     log::info!("Results in {}", args.outdir.display());
     log::info!("=============================================");
 
+    Ok(())
+}
+
+fn generate_xreact_report(
+    hits_path: &Path,
+    summary_path: &Path,
+    threshold: f64,
+    output_path: &Path,
+) -> Result<()> {
+    let r_dir = rscript::find_r_dir()
+        .ok_or_else(|| anyhow::anyhow!("Cannot find R scripts directory."))?;
+
+    let script = r_dir.join("xreact.R");
+    if !script.exists() {
+        bail!("Xreact R script not found: {}", script.display());
+    }
+
+    let hits_abs = std::fs::canonicalize(hits_path)?;
+    let summary_abs = std::fs::canonicalize(summary_path)?;
+    let output_abs = if output_path.is_absolute() {
+        output_path.to_path_buf()
+    } else {
+        std::env::current_dir()?.join(output_path)
+    };
+
+    let hits_str = hits_abs.to_str().unwrap_or("");
+    let summary_str = summary_abs.to_str().unwrap_or("");
+    let output_str = output_abs.to_str().unwrap_or("");
+    let threshold_str = format!("{:.1}", threshold);
+
+    rscript::run_rscript(
+        &script,
+        &[
+            "--hits",
+            hits_str,
+            "--summary",
+            summary_str,
+            "--threshold",
+            &threshold_str,
+            "--output",
+            output_str,
+        ],
+    )
+}
+
+fn write_xreact_rmd(
+    hits_path: &Path,
+    summary_path: &Path,
+    threshold: f64,
+    output_path: &Path,
+) -> Result<()> {
+    let r_dir = rscript::find_r_dir()
+        .ok_or_else(|| anyhow::anyhow!("Cannot find R scripts directory."))?;
+
+    let rmd_template = r_dir.join("xreact.Rmd");
+    if !rmd_template.exists() {
+        bail!("RMarkdown template not found: {}", rmd_template.display());
+    }
+
+    let hits_abs = std::fs::canonicalize(hits_path)?;
+    let summary_abs = std::fs::canonicalize(summary_path)?;
+    let threshold_str = format!("{:.1}", threshold);
+
+    let params = vec![
+        ("hits_file", hits_abs.to_str().unwrap_or("")),
+        ("summary_file", summary_abs.to_str().unwrap_or("")),
+        ("threshold", &threshold_str),
+    ];
+
+    let template_content = std::fs::read_to_string(&rmd_template)
+        .with_context(|| format!("Failed to read template: {}", rmd_template.display()))?;
+
+    let output_content = substitute_rmd_params(&template_content, &params);
+
+    let rmd_path = rmd_output_path(output_path);
+    std::fs::write(&rmd_path, output_content)
+        .with_context(|| format!("Failed to write RMarkdown file: {}", rmd_path.display()))?;
+
+    log::info!("RMarkdown file written: {}", rmd_path.display());
+    log::info!(
+        "Edit and render with: Rscript -e 'rmarkdown::render(\"{}\")'",
+        rmd_path.display()
+    );
     Ok(())
 }
 

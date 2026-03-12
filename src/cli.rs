@@ -519,6 +519,10 @@ pub enum Commands {
         /// Output directory
         #[arg(short, long, default_value = "./xreact_results")]
         outdir: PathBuf,
+
+        /// Report output mode: full (HTML report), none (skip), rmd (editable RMarkdown file)
+        #[arg(long, default_value = "full")]
+        report: ReportMode,
     },
 
     /// Generate coverage depth curves, optionally sweeping CT, fold-enrichment, and/or num-sequences
