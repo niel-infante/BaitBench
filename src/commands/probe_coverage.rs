@@ -113,6 +113,10 @@ pub fn execute(args: &ProbeCoverageArgs) -> Result<()> {
     log::info!("Targets 100% tiled : {}", fully_covered);
     log::info!("Targets >=90% tiled: {}", well_covered);
 
+    // Write run_params.tsv
+    let params_path = args.outdir.join("run_params.tsv");
+    write_run_params(&params_path, args)?;
+
     // Step 7: Report
     match args.report {
         ReportMode::None => {
@@ -122,7 +126,7 @@ pub fn execute(args: &ProbeCoverageArgs) -> Result<()> {
             if rscript::check_available() {
                 let report_path = args.outdir.join("probe_coverage_report.html");
                 log::info!("Generating probe coverage report...");
-                match generate_probe_report(&summary_path, &depth_path, &multi_mapping_path, &report_path, args.proximity) {
+                match generate_probe_report(&summary_path, &depth_path, &multi_mapping_path, &params_path, &report_path, args.proximity) {
                     Ok(()) => log::info!("Report generated: {}", report_path.display()),
                     Err(e) => log::warn!("Report generation failed (non-fatal): {}", e),
                 }
@@ -133,7 +137,7 @@ pub fn execute(args: &ProbeCoverageArgs) -> Result<()> {
         ReportMode::Rmd => {
             let report_path = args.outdir.join("probe_coverage_report.html");
             log::info!("Generating probe coverage RMarkdown file...");
-            match write_probe_coverage_rmd(&summary_path, &depth_path, &multi_mapping_path, &report_path, args.proximity) {
+            match write_probe_coverage_rmd(&summary_path, &depth_path, &multi_mapping_path, &params_path, &report_path, args.proximity) {
                 Ok(()) => {}
                 Err(e) => log::warn!("RMarkdown generation failed (non-fatal): {}", e),
             }
@@ -253,10 +257,27 @@ fn write_multi_mapping_probes(
     Ok(())
 }
 
+fn write_run_params(path: &Path, args: &ProbeCoverageArgs) -> Result<()> {
+    let file = File::create(path)
+        .with_context(|| format!("Cannot create params file: {}", path.display()))?;
+    let mut w = BufWriter::new(file);
+
+    writeln!(w, "parameter\tflag\tvalue")?;
+    writeln!(w, "targets\t--targets\t{}", args.targets.display())?;
+    writeln!(w, "probes\t--probes\t{}", args.probes.display())?;
+    writeln!(w, "minimap_preset\t--minimap-preset\t{}", args.minimap_preset)?;
+    writeln!(w, "proximity\t--proximity\t{}", args.proximity)?;
+    writeln!(w, "outdir\t-o\t{}", args.outdir.display())?;
+
+    w.flush()?;
+    Ok(())
+}
+
 fn write_probe_coverage_rmd(
     summary_path: &Path,
     depth_path: &Path,
     multi_mapping_path: &Path,
+    params_path: &Path,
     output_path: &Path,
     proximity: usize,
 ) -> Result<()> {
@@ -271,12 +292,14 @@ fn write_probe_coverage_rmd(
     let summary_abs = std::fs::canonicalize(summary_path)?;
     let depth_abs = std::fs::canonicalize(depth_path)?;
     let multi_abs = std::fs::canonicalize(multi_mapping_path)?;
+    let params_abs = std::fs::canonicalize(params_path)?;
     let proximity_str = proximity.to_string();
 
     let params = vec![
         ("summary_file", summary_abs.to_str().unwrap_or("")),
         ("depth_file", depth_abs.to_str().unwrap_or("")),
         ("multi_mapping_file", multi_abs.to_str().unwrap_or("")),
+        ("params_file", params_abs.to_str().unwrap_or("")),
         ("proximity", &proximity_str),
     ];
 
@@ -301,6 +324,7 @@ fn generate_probe_report(
     summary_path: &Path,
     depth_path: &Path,
     multi_mapping_path: &Path,
+    params_path: &Path,
     output_path: &Path,
     proximity: usize,
 ) -> Result<()> {
@@ -318,6 +342,7 @@ fn generate_probe_report(
     let summary_abs = std::fs::canonicalize(summary_path)?;
     let depth_abs = std::fs::canonicalize(depth_path)?;
     let multi_abs = std::fs::canonicalize(multi_mapping_path)?;
+    let params_abs = std::fs::canonicalize(params_path)?;
     let output_abs = if output_path.is_absolute() {
         output_path.to_path_buf()
     } else {
@@ -327,6 +352,7 @@ fn generate_probe_report(
     let summary_str = summary_abs.to_str().unwrap_or("");
     let depth_str = depth_abs.to_str().unwrap_or("");
     let multi_str = multi_abs.to_str().unwrap_or("");
+    let params_str = params_abs.to_str().unwrap_or("");
     let output_str = output_abs.to_str().unwrap_or("");
     let proximity_str = proximity.to_string();
 
@@ -339,6 +365,8 @@ fn generate_probe_report(
             depth_str,
             "--multi-mapping",
             multi_str,
+            "--params",
+            params_str,
             "--proximity",
             &proximity_str,
             "--output",

@@ -334,6 +334,10 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
     write_depth_curves_tsv(&curves_path, &all_curves)?;
     log::info!("Depth curves written to {}", curves_path.display());
 
+    // Write run_params.tsv
+    let params_path = args.outdir.join("run_params.tsv");
+    write_run_params(&params_path, args)?;
+
     // Generate report
     let tracking_ids = curve_target_ids.as_ref().unwrap_or(&sample_ids);
     match args.report {
@@ -343,7 +347,7 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
         ReportMode::Full => {
             if rscript::check_available() {
                 log::info!("Generating coverage curve report...");
-                match generate_report(&curves_path, tracking_ids, &args.swept_params, &args.outdir) {
+                match generate_report(&curves_path, tracking_ids, &args.swept_params, &params_path, &args.outdir) {
                     Ok(()) => log::info!(
                         "Report generated: {}",
                         args.outdir.join("coverage_curve_report.html").display()
@@ -356,7 +360,7 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
         }
         ReportMode::Rmd => {
             log::info!("Generating coverage curve RMarkdown file...");
-            match write_coverage_curve_rmd(&curves_path, tracking_ids, &args.swept_params, &args.outdir) {
+            match write_coverage_curve_rmd(&curves_path, tracking_ids, &args.swept_params, &params_path, &args.outdir) {
                 Ok(()) => {}
                 Err(e) => log::warn!("RMarkdown generation failed (non-fatal): {}", e),
             }
@@ -487,10 +491,46 @@ fn write_depth_curves_tsv(path: &Path, rows: &[DepthCurveRow]) -> Result<()> {
     Ok(())
 }
 
+fn write_run_params(path: &Path, args: &CoverageCurveArgs) -> Result<()> {
+    let file = File::create(path)
+        .with_context(|| format!("Cannot create params file: {}", path.display()))?;
+    let mut w = BufWriter::new(file);
+
+    writeln!(w, "parameter\tflag\tvalue")?;
+    writeln!(w, "targets\t--targets\t{}", args.targets.display())?;
+    if let Some(genomes) = args.genomes {
+        writeln!(w, "genomes\t--genomes\t{}", genomes.display())?;
+    }
+    for d in args.distractors {
+        writeln!(w, "distractors\t--distractors\t{}", d.display())?;
+    }
+    writeln!(w, "probes\t--probes\t{}", args.probes.display())?;
+    writeln!(w, "sample\t--sample\t{}", io_utils::format_sample_display(args.sample))?;
+    writeln!(w, "num_fragments\t--num-fragments\t{}", args.num_fragments)?;
+    writeln!(w, "read_length\t--read-length\t{}", args.read_length)?;
+    writeln!(w, "capture_method\t--capture-method\t{}", if args.capture_method == capture::CaptureMethod::Blast { "blast" } else { "minimap2" })?;
+    writeln!(w, "max_mismatches\t--max-mismatches\t{}", args.max_mismatches)?;
+    writeln!(w, "min_match_bases\t--min-match-bases\t{}", args.min_match_bases)?;
+    writeln!(w, "minimap_preset\t--minimap-preset\t{}", args.minimap_preset)?;
+    writeln!(w, "fragment_length_mean\t--fragment-length-mean\t{}", args.fragment_length_mean)?;
+    writeln!(w, "fragment_length_min\t--fragment-length-min\t{}", args.fragment_length_min)?;
+    writeln!(w, "fragment_length_max\t--fragment-length-max\t{}", args.fragment_length_max)?;
+    writeln!(w, "seed\t--seed\t{}", args.seed.map(|s| s.to_string()).unwrap_or_else(|| "none".to_string()))?;
+    writeln!(w, "threads\t--threads\t{}", args.threads)?;
+    if !args.swept_params.is_empty() {
+        writeln!(w, "swept_params\t(info)\t{}", args.swept_params.join(", "))?;
+    }
+    writeln!(w, "outdir\t--outdir\t{}", args.outdir.display())?;
+
+    w.flush()?;
+    Ok(())
+}
+
 fn write_coverage_curve_rmd(
     sweep_tsv: &Path,
     sample_ids: &HashSet<String>,
     swept_params: &[String],
+    params_path: &Path,
     outdir: &Path,
 ) -> Result<()> {
     let r_dir = rscript::find_r_dir()
@@ -526,10 +566,13 @@ fn write_coverage_curve_rmd(
         )
     };
 
+    let params_abs = fs::canonicalize(params_path)?;
+
     let params = vec![
         ("sweep_file", sweep_abs.to_str().unwrap_or("")),
         ("sample_ids", &ids_r),
         ("swept_params", &swept_r),
+        ("params_file", params_abs.to_str().unwrap_or("")),
     ];
 
     let template_content = std::fs::read_to_string(&rmd_template)
@@ -560,6 +603,7 @@ fn generate_report(
     sweep_tsv: &Path,
     sample_ids: &HashSet<String>,
     swept_params: &[String],
+    params_path: &Path,
     outdir: &Path,
 ) -> Result<()> {
     let r_dir = rscript::find_r_dir()
@@ -574,6 +618,7 @@ fn generate_report(
     }
 
     let sweep_abs = fs::canonicalize(sweep_tsv)?;
+    let params_abs = fs::canonicalize(params_path)?;
     let output_path = if outdir.is_absolute() {
         outdir.join("coverage_curve_report.html")
     } else {
@@ -583,6 +628,7 @@ fn generate_report(
     };
 
     let sweep_str = sweep_abs.to_str().unwrap_or("");
+    let params_str = params_abs.to_str().unwrap_or("");
     let output_str = output_path.to_str().unwrap_or("");
 
     let mut ids: Vec<&String> = sample_ids.iter().collect();
@@ -604,6 +650,8 @@ fn generate_report(
             &ids_str,
             "--swept-params",
             &swept_str,
+            "--params",
+            params_str,
             "--output",
             output_str,
         ],

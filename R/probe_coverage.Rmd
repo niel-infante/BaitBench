@@ -10,6 +10,7 @@ params:
   summary_file: ""
   depth_file: ""
   multi_mapping_file: ""
+  params_file: ""
   proximity: 50
 ---
 
@@ -51,11 +52,43 @@ is_large  <- n_targets > 100
 
 # Proximity parameter for labels
 proximity_bp <- params$proximity
+
+# Read run parameters if available
+has_params <- nchar(params$params_file) > 0 && file.exists(params$params_file)
+if (has_params) {
+  params_df <- read.delim(params$params_file, stringsAsFactors = FALSE)
+}
 ```
 
 **Generated:** `r Sys.time()`
 
 **Targets analyzed:** `r n_targets` | **Fully tiled (100%):** `r sum(summary_df$pct_covered_1x >= 100)` | **Well tiled (>=90%):** `r sum(summary_df$pct_covered_1x >= 90)` | **Multi-mapping probes:** `r nrow(multi_df)` | **Proximity:** `r proximity_bp` bp
+
+```{r params_fold, eval=has_params, results='asis'}
+cat('<details><summary>Parameters</summary>\n\n')
+```
+
+```{r params_table, eval=has_params}
+display_params <- params_df %>% select(parameter, value)
+knitr::kable(display_params, col.names = c("Parameter", "Value"), align = "ll")
+```
+
+```{r params_command, eval=has_params, results='asis'}
+cmd_parts <- c("baitbench probe-coverage")
+for (i in seq_len(nrow(params_df))) {
+  flag <- params_df$flag[i]
+  value <- params_df$value[i]
+  if (value == "none") next
+  cmd_parts <- c(cmd_parts, sprintf("  %s %s", flag, value))
+}
+cat("```bash\n")
+cat(paste(cmd_parts, collapse = " \\\n"), "\n")
+cat("```\n")
+```
+
+```{r params_fold_end, eval=has_params, results='asis'}
+cat('</details>\n\n')
+```
 
 ---
 

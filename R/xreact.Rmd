@@ -9,6 +9,7 @@ output:
 params:
   hits_file: ""
   summary_file: ""
+  params_file: ""
   threshold: 80.0
 ---
 
@@ -46,6 +47,14 @@ summary_self <- summary_df %>% filter(mode == "self")
 summary_against <- summary_df %>% filter(mode == "against")
 
 n_probes <- length(unique(summary_df$probe_id))
+
+has_params <- params$params_file != "" && file.exists(params$params_file)
+if (has_params) {
+  params_df <- read.delim(params$params_file, stringsAsFactors = FALSE)
+}
+
+# Scalability thresholds
+n_genomes_against <- length(unique(hits_against$target_id))
 ```
 
 ## Analysis Summary
@@ -60,25 +69,58 @@ info <- data.frame(
 if (has_self) {
   n_self_flagged <- sum(summary_self$num_hits_above_threshold > 0)
   info <- rbind(info, data.frame(
-    Parameter = c("Mode: self", "Probes with self-homology hits"),
+    Parameter = c("Mode: self", "Probes with self-homology hits", "Self-mode hits"),
     Value = c("Yes", paste0(n_self_flagged, " / ", n_probes,
-                            " (", round(100 * n_self_flagged / max(n_probes, 1), 1), "%)"))
+                            " (", round(100 * n_self_flagged / max(n_probes, 1), 1), "%)"),
+              nrow(hits_self))
   ))
 }
 
 if (has_against) {
   n_against_flagged <- sum(summary_against$num_hits_above_threshold > 0)
-  n_genomes <- length(unique(hits_against$target_id))
   info <- rbind(info, data.frame(
-    Parameter = c("Mode: against", "Probes with cross-reactive hits", "Genomes with hits"),
+    Parameter = c("Mode: against", "Probes with cross-reactive hits",
+                  "Genomes with hits", "Against-mode hits"),
     Value = c("Yes",
               paste0(n_against_flagged, " / ", n_probes,
                      " (", round(100 * n_against_flagged / max(n_probes, 1), 1), "%)"),
-              n_genomes)
+              n_genomes_against,
+              nrow(hits_against))
   ))
 }
 
 knitr::kable(info, col.names = c("Parameter", "Value"), align = "lr")
+```
+
+```{r params_fold, eval=has_params, results='asis'}
+cat('<details><summary>Parameters</summary>\n\n')
+```
+
+```{r params_table, eval=has_params}
+display_params <- params_df %>%
+  select(parameter, value)
+knitr::kable(display_params, col.names = c("Parameter", "Value"), align = "ll")
+```
+
+```{r params_command, eval=has_params, results='asis'}
+cmd_parts <- c("baitbench xreact")
+for (i in seq_len(nrow(params_df))) {
+  flag <- params_df$flag[i]
+  value <- params_df$value[i]
+  if (value == "none" || value == "false") next
+  if (value == "true") {
+    cmd_parts <- c(cmd_parts, sprintf("  %s", flag))
+  } else {
+    cmd_parts <- c(cmd_parts, sprintf("  %s %s", flag, value))
+  }
+}
+cat("```bash\n")
+cat(paste(cmd_parts, collapse = " \\\n"), "\n")
+cat("```\n")
+```
+
+```{r params_fold_end, eval=has_params, results='asis'}
+cat('</details>\n\n')
 ```
 
 ```{r self_section, eval=has_self, results='asis'}
@@ -182,8 +224,10 @@ datatable(
   display_self,
   colnames = c("Probe", "Target Probe", "Homology %", "Identity %",
                "Query Cov %", "Matching Bases", "Probe Length"),
-  options = list(pageLength = 25, scrollX = TRUE),
-  rownames = FALSE
+  options = list(pageLength = 25, scrollX = TRUE,
+                 order = list(list(2, "desc"))),
+  rownames = FALSE,
+  filter = if (nrow(display_self) > 50) "top" else "none"
 ) %>%
   formatRound(c("homology_pct", "identity_pct", "query_coverage_pct"), 1)
 ```
@@ -271,7 +315,8 @@ cat(paste0("\n*Heatmap omitted: ", n_probes,
 cat("\n### Probes per Genome\n")
 ```
 
-```{r against_genome_bar, eval=has_against && nrow(hits_against) > 0, fig.height=max(4, length(unique(hits_against$target_id)) * 0.3 + 1)}
+```{r against_genome_bar, eval=has_against && nrow(hits_against) > 0 && n_genomes_against <= 100, fig.height=max(4, n_genomes_against * 0.3 + 1)}
+# Bar chart: individual genome bars (small/medium panels)
 genome_counts <- hits_against %>%
   group_by(target_id) %>%
   summarise(n_probes = n_distinct(probe_id), .groups = "drop") %>%
@@ -282,6 +327,20 @@ ggplot(genome_counts, aes(x = n_probes, y = target_id)) +
   geom_col(fill = "steelblue", alpha = 0.8) +
   labs(x = "Number of cross-reactive probes", y = NULL,
        title = "Cross-Reactive Probes per Genome") +
+  theme_minimal(base_size = if (n_genomes_against <= 20) 14 else 8)
+```
+
+```{r against_genome_bar_large, eval=has_against && nrow(hits_against) > 0 && n_genomes_against > 100, fig.height=5}
+# Histogram: distribution of hit counts per genome (large panels)
+genome_counts <- hits_against %>%
+  group_by(target_id) %>%
+  summarise(n_probes = n_distinct(probe_id), .groups = "drop")
+
+ggplot(genome_counts, aes(x = n_probes)) +
+  geom_histogram(fill = "steelblue", alpha = 0.8, color = "white", binwidth = max(1, ceiling(max(genome_counts$n_probes) / 30))) +
+  labs(x = "Number of cross-reactive probes per genome", y = "Number of genomes",
+       title = paste0("Distribution of Cross-Reactive Probes (",
+                      n_genomes_against, " genomes)")) +
   theme_minimal(base_size = 14)
 ```
 
@@ -314,8 +373,10 @@ datatable(
   display_against,
   colnames = c("Probe", "Genome", "Homology %", "Identity %",
                "Query Cov %", "Matching Bases", "Probe Length"),
-  options = list(pageLength = 25, scrollX = TRUE),
-  rownames = FALSE
+  options = list(pageLength = 25, scrollX = TRUE,
+                 order = list(list(2, "desc"))),
+  rownames = FALSE,
+  filter = if (nrow(display_against) > 50) "top" else "none"
 ) %>%
   formatRound(c("homology_pct", "identity_pct", "query_coverage_pct"), 1)
 ```

@@ -12,6 +12,7 @@ option_list <- list(
   make_option("--sample-ids", type = "character", help = "Comma-separated sample target IDs"),
   make_option("--swept-params", type = "character", default = "",
               help = "Comma-separated swept parameter names (ct, fold_enrichment, num_sequences)"),
+  make_option("--params", type = "character", default = NULL, help = "Run parameters TSV file"),
   make_option("--output", type = "character", help = "Output HTML file")
 )
 
@@ -43,7 +44,8 @@ rmarkdown::render(
   params = list(
     sweep_file = normalizePath(opt$sweep),
     sample_ids = strsplit(opt$`sample-ids`, ",")[[1]],
-    swept_params = swept_params
+    swept_params = swept_params,
+    params_file = if (!is.null(opt$params)) normalizePath(opt$params) else ""
   ),
   quiet = TRUE
 )

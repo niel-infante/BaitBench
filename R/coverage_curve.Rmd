@@ -10,6 +10,7 @@ params:
   sweep_file: ""
   sample_ids: !r c()
   swept_params: !r c()
+  params_file: ""
 ---
 
 <style>
@@ -25,6 +26,7 @@ suppressPackageStartupMessages({
   library(ggplot2)
   library(dplyr)
   library(tidyr)
+  library(DT)
 })
 
 theme_set(theme_minimal(base_size = 14))
@@ -35,6 +37,12 @@ sweep_df <- read.delim(params$sweep_file, stringsAsFactors = FALSE)
 sample_ids <- params$sample_ids
 swept_params <- params$swept_params
 n_targets <- length(unique(sweep_df$reference_id))
+
+# Read run parameters if available
+has_params <- nchar(params$params_file) > 0 && file.exists(params$params_file)
+if (has_params) {
+  params_df <- read.delim(params$params_file, stringsAsFactors = FALSE)
+}
 
 # Detect swept params from data if not explicitly provided
 if (length(swept_params) == 0 || (length(swept_params) == 1 && swept_params[1] == "")) {
@@ -71,6 +79,32 @@ sample_display <- paste(sample_ids, collapse = ", ")
 
 **Sample targets:** `r sample_display` | **Swept parameters:** `r if (length(swept_params) > 0) paste(swept_params, collapse = ", ") else "none (single run)"`
 
+```{r params_fold, eval=has_params, results='asis'}
+cat('<details><summary>Parameters</summary>\n\n')
+```
+
+```{r params_table, eval=has_params}
+display_params <- params_df %>% dplyr::select(parameter, value)
+knitr::kable(display_params, col.names = c("Parameter", "Value"), align = "ll")
+```
+
+```{r params_command, eval=has_params, results='asis'}
+cmd_parts <- c("baitbench coverage-curve")
+for (i in seq_len(nrow(params_df))) {
+  flag <- params_df$flag[i]
+  value <- params_df$value[i]
+  if (value == "none" || flag == "(info)") next
+  cmd_parts <- c(cmd_parts, sprintf("  %s %s", flag, value))
+}
+cat("```bash\n")
+cat(paste(cmd_parts, collapse = " \\\n"), "\n")
+cat("```\n")
+```
+
+```{r params_fold_end, eval=has_params, results='asis'}
+cat('</details>\n\n')
+```
+
 ---
 
 ## Coverage Depth Curves
@@ -78,7 +112,7 @@ sample_display <- paste(sample_ids, collapse = ", ")
 Percentage of each target genome covered at increasing depth thresholds.
 `r if (length(swept_params) > 0) "Each line represents a different parameter combination." else ""`
 
-```{r depth-curves, fig.height=if (n_targets > 1) max(6, ceiling(n_targets / 2) * 4) else 6}
+```{r depth-curves, fig.height=if (n_targets > 1) min(max(6, ceiling(n_targets / 2) * 4), 60) else 6}
 # Determine faceting strategy
 use_facet_param <- FALSE
 facet_param <- NULL
@@ -209,12 +243,22 @@ if (length(available_thresholds) > 0) {
   col_names <- c(col_names, "Target")
   col_names <- c(col_names, names(summary_wide)[-(1:length(c(display_cols, "reference_id")))])
 
-  knitr::kable(
-    summary_wide,
-    digits = 1,
-    col.names = col_names,
-    align = c(rep("l", length(id_cols)), rep("r", ncol(summary_wide) - length(id_cols)))
-  )
+  if (nrow(summary_wide) > 20) {
+    datatable(
+      summary_wide,
+      colnames = col_names,
+      options = list(pageLength = 25, scrollX = TRUE),
+      rownames = FALSE,
+      filter = if (nrow(summary_wide) > 50) "top" else "none"
+    ) %>% formatRound(names(summary_wide)[-(1:length(id_cols))], 1)
+  } else {
+    knitr::kable(
+      summary_wide,
+      digits = 1,
+      col.names = col_names,
+      align = c(rep("l", length(id_cols)), rep("r", ncol(summary_wide) - length(id_cols)))
+    )
+  }
 } else {
   cat("No data available at standard depth thresholds.")
 }

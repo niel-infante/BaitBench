@@ -201,6 +201,18 @@ cargo build --release
 - Uses ggplot2, dplyr, tidyr for visualization
 - Called via `Rscript R/report.R --summary ... --detail ... --output ...`
 
+### Report Conventions
+When adding or modifying any RMarkdown report (`R/*.Rmd`):
+
+- **Scalability guards**: Adapt visualizations and tables based on data size. Use tiered strategies:
+  - **Small** (≤20 items): Full detail — named axis labels, `knitr::kable()` tables, per-item plots
+  - **Medium** (21–100 items): Compressed — `DT::datatable()` with pagination/filtering, smaller axis text, limit faceted plots
+  - **Large** (>100 items): Distribution-based — histograms/boxplots instead of per-item bars, omit individual detail plots, downsample data for rendering speed
+  - Reference `R/probe_coverage.Rmd` as the canonical example of this pattern
+- **Parameters under fold**: Every report must include a `<details><summary>Parameters</summary>` section showing the parameters used to generate the report and a reconstructed CLI command. Pass a `run_params.tsv` (3-column: `parameter`, `flag`, `value`) from the Rust side. Use the data-driven command reconstruction pattern from `R/report.Rmd`.
+- **Interactive tables**: Use `DT::datatable()` for any table that could exceed ~20 rows. Always set `scrollX = TRUE` and a reasonable `pageLength`.
+- **Self-contained HTML**: Always use `self_contained: true` in the YAML front matter so reports are portable single-file HTML.
+
 ### Testing Changes
 ```bash
 # Build

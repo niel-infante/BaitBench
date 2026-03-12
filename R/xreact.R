@@ -10,6 +10,7 @@ suppressPackageStartupMessages({
 option_list <- list(
   make_option("--hits", type = "character", help = "Hits TSV file"),
   make_option("--summary", type = "character", help = "Summary TSV file"),
+  make_option("--params", type = "character", default = NULL, help = "Run parameters TSV file"),
   make_option("--threshold", type = "double", default = 80.0, help = "Homology threshold [default %default]"),
   make_option("--output", type = "character", help = "Output HTML file")
 )
@@ -36,6 +37,7 @@ rmarkdown::render(
   params = list(
     hits_file = normalizePath(opt$hits),
     summary_file = normalizePath(opt$summary),
+    params_file = if (!is.null(opt$params)) normalizePath(opt$params) else "",
     threshold = opt$threshold
   ),
   quiet = TRUE

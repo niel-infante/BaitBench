@@ -21,6 +21,7 @@ suppressPackageStartupMessages({
   library(ggplot2)
   library(dplyr)
   library(tidyr)
+  library(DT)
 })
 
 theme_set(theme_minimal(base_size = 14))
@@ -40,6 +41,8 @@ if (has_coverage) {
 ## Run: `r params$run_name`
 
 **Generated:** `r Sys.time()`
+
+<details><summary>Parameters</summary>
 
 ```{r run-params}
 # Helper to look up a parameter value
@@ -77,8 +80,6 @@ param_table <- data.frame(
 
 knitr::kable(param_table, align = "ll")
 ```
-
-<details><summary>Command</summary>
 
 ```{r command, results='asis'}
 # Reconstruct the baitbench command from run_params.tsv.
@@ -215,7 +216,7 @@ ggplot(cm_data, aes(x = predicted, y = actual, fill = count)) +
 
 ```{r detail-table}
 if (nrow(detail_df) > 0) {
-  detail_df %>%
+  display_detail <- detail_df %>%
     arrange(factor(classification,
                    levels = c("TP", "FP_target", "FP_distractor", "UNKNOWN", "FN")),
             desc(reads_assigned)) %>%
@@ -224,43 +225,70 @@ if (nrow(detail_df) > 0) {
       avg_coverage = sprintf("%.1fX", avg_coverage),
       pct_covered_5x = sprintf("%.1f%%", pct_covered_5x),
       pct_covered_20x = sprintf("%.1f%%", pct_covered_20x)
-    ) %>%
-    knitr::kable(
-      col.names = c("Reference ID", "Category", "Expected", "Detected",
-                     "Fragments Generated", "Fragments Captured", "Reads Assigned",
-                     "Classification", "Ref Length", "Avg Coverage",
-                     "% \u22655X", "% \u226520X"),
-      align = "llllrrrllrrr"
     )
+
+  col_labels <- c("Reference ID", "Category", "Expected", "Detected",
+                   "Fragments Generated", "Fragments Captured", "Reads Assigned",
+                   "Classification", "Ref Length", "Avg Coverage",
+                   "% \u22655X", "% \u226520X")
+
+  if (nrow(display_detail) > 20) {
+    datatable(
+      display_detail,
+      colnames = col_labels,
+      options = list(pageLength = 25, scrollX = TRUE,
+                     order = list(list(6, "desc"))),
+      rownames = FALSE,
+      filter = if (nrow(display_detail) > 50) "top" else "none"
+    )
+  } else {
+    knitr::kable(display_detail, col.names = col_labels, align = "llllrrrllrrr")
+  }
 } else {
   cat("No detection details available.")
 }
 ```
 
-```{r detection-lollipop, fig.height=max(3, nrow(detail_df) * 0.4)}
+```{r detection-lollipop, fig.height=max(3, min(nrow(detail_df %>% filter(reads_assigned > 0)), 50) * 0.4)}
 detected_only <- detail_df %>% filter(reads_assigned > 0)
+n_detected <- nrow(detected_only)
 
-if (nrow(detected_only) > 0) {
+if (n_detected > 0) {
   class_colors <- c("TP" = "#27ae60", "FP_target" = "#e67e22",
                      "FP_distractor" = "#e74c3c", "UNKNOWN" = "#95a5a6")
 
-  ggplot(detected_only,
+  # Show top 50 by reads_assigned if too many references
+  plot_data_lollipop <- if (n_detected > 50) {
+    detected_only %>% slice_max(reads_assigned, n = 50)
+  } else {
+    detected_only
+  }
+
+  p <- ggplot(plot_data_lollipop,
          aes(x = reorder(reference_id, reads_assigned),
              y = reads_assigned, color = classification)) +
     geom_segment(aes(xend = reference_id, y = 0, yend = reads_assigned), linewidth = 1) +
-    geom_point(size = 4) +
+    geom_point(size = if (n_detected <= 20) 4 else 2) +
     scale_color_manual(values = class_colors) +
     coord_flip() +
     labs(x = NULL, y = "Reads Assigned", color = "Classification",
-         title = "Reads per Detected Reference") +
-    theme(legend.position = "bottom")
+         title = if (n_detected > 50) sprintf("Top 50 of %d Detected References", n_detected)
+                 else "Reads per Detected Reference") +
+    theme(legend.position = "bottom",
+          axis.text.y = element_text(size = if (n_detected <= 20) 10 else 7))
+
+  print(p)
 }
 ```
 
 ## Coverage {.tabset}
 
-```{r coverage-overview, eval=has_coverage, fig.height=max(3, ceiling(length(unique(coverage_df$reference_id)) / 3) * 2.5), fig.width=10}
-# Only plot detected references
+```{r coverage-overview-count, eval=has_coverage, include=FALSE}
+n_detected_refs <- sum(detail_df$detected == "true")
+show_coverage_overview <- n_detected_refs > 0 && n_detected_refs <= 30
+```
+
+```{r coverage-overview, eval=has_coverage && show_coverage_overview, fig.height=max(3, ceiling(min(n_detected_refs, 30) / 3) * 2.5), fig.width=10}
 detected_refs <- detail_df$reference_id[detail_df$detected == "true"]
 plot_data <- coverage_df %>% filter(reference_id %in% detected_refs)
 
@@ -288,11 +316,24 @@ if (nrow(plot_data) > 0) {
 }
 ```
 
+```{r coverage-overview-skip, eval=has_coverage && !show_coverage_overview && n_detected_refs > 0, results='asis'}
+cat(paste0("\n*Coverage overview omitted: ", n_detected_refs,
+           " detected references exceeds the 30-reference limit for faceted display. See individual coverage plots below.*\n"))
+```
+
 ```{r coverage-detail-plots, eval=has_coverage, results='asis', fig.width=8, fig.height=3}
 if (has_coverage && nrow(coverage_df) > 0) {
   detected_refs <- detail_df %>%
     filter(detected == "true", ref_length > 0) %>%
     arrange(desc(avg_coverage))
+
+  max_detail_plots <- 100
+  n_detail <- nrow(detected_refs)
+  if (n_detail > max_detail_plots) {
+    detected_refs <- detected_refs %>% slice_head(n = max_detail_plots)
+    cat(sprintf('\n\n*Showing top %d of %d detected references by average coverage.*\n\n',
+                max_detail_plots, n_detail))
+  }
 
   for (i in seq_len(nrow(detected_refs))) {
     ref_id <- detected_refs$reference_id[i]

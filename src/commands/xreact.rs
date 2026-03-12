@@ -189,6 +189,10 @@ pub fn execute(args: &XreactArgs) -> Result<()> {
         let _ = fs::remove_file(&paf_path);
     }
 
+    // Write run_params.tsv
+    let params_path = args.outdir.join("run_params.tsv");
+    write_run_params(&params_path, args)?;
+
     // Write hits.tsv
     let hits_path = args.outdir.join("hits.tsv");
     write_hits_tsv(&hits_path, &all_hits)?;
@@ -245,6 +249,7 @@ pub fn execute(args: &XreactArgs) -> Result<()> {
                 match generate_xreact_report(
                     &hits_path,
                     &summary_path,
+                    &params_path,
                     args.threshold,
                     &report_path,
                 ) {
@@ -261,6 +266,7 @@ pub fn execute(args: &XreactArgs) -> Result<()> {
             match write_xreact_rmd(
                 &hits_path,
                 &summary_path,
+                &params_path,
                 args.threshold,
                 &report_path,
             ) {
@@ -278,9 +284,29 @@ pub fn execute(args: &XreactArgs) -> Result<()> {
     Ok(())
 }
 
+fn write_run_params(path: &Path, args: &XreactArgs) -> Result<()> {
+    let file =
+        File::create(path).with_context(|| format!("Cannot create params file: {}", path.display()))?;
+    let mut w = BufWriter::new(file);
+
+    writeln!(w, "parameter\tflag\tvalue")?;
+    writeln!(w, "probes\t--probes\t{}", args.probes.display())?;
+    for p in args.against {
+        writeln!(w, "against\t--against\t{}", p.display())?;
+    }
+    writeln!(w, "self\t--self\t{}", args.self_mode)?;
+    writeln!(w, "threshold\t--threshold\t{:.1}", args.threshold)?;
+    writeln!(w, "minimap_preset\t--minimap-preset\t{}", args.minimap_preset)?;
+    writeln!(w, "outdir\t-o\t{}", args.outdir.display())?;
+
+    w.flush()?;
+    Ok(())
+}
+
 fn generate_xreact_report(
     hits_path: &Path,
     summary_path: &Path,
+    params_path: &Path,
     threshold: f64,
     output_path: &Path,
 ) -> Result<()> {
@@ -294,6 +320,7 @@ fn generate_xreact_report(
 
     let hits_abs = std::fs::canonicalize(hits_path)?;
     let summary_abs = std::fs::canonicalize(summary_path)?;
+    let params_abs = std::fs::canonicalize(params_path)?;
     let output_abs = if output_path.is_absolute() {
         output_path.to_path_buf()
     } else {
@@ -302,6 +329,7 @@ fn generate_xreact_report(
 
     let hits_str = hits_abs.to_str().unwrap_or("");
     let summary_str = summary_abs.to_str().unwrap_or("");
+    let params_str = params_abs.to_str().unwrap_or("");
     let output_str = output_abs.to_str().unwrap_or("");
     let threshold_str = format!("{:.1}", threshold);
 
@@ -312,6 +340,8 @@ fn generate_xreact_report(
             hits_str,
             "--summary",
             summary_str,
+            "--params",
+            params_str,
             "--threshold",
             &threshold_str,
             "--output",
@@ -323,6 +353,7 @@ fn generate_xreact_report(
 fn write_xreact_rmd(
     hits_path: &Path,
     summary_path: &Path,
+    params_path: &Path,
     threshold: f64,
     output_path: &Path,
 ) -> Result<()> {
@@ -336,11 +367,13 @@ fn write_xreact_rmd(
 
     let hits_abs = std::fs::canonicalize(hits_path)?;
     let summary_abs = std::fs::canonicalize(summary_path)?;
+    let params_abs = std::fs::canonicalize(params_path)?;
     let threshold_str = format!("{:.1}", threshold);
 
     let params = vec![
         ("hits_file", hits_abs.to_str().unwrap_or("")),
         ("summary_file", summary_abs.to_str().unwrap_or("")),
+        ("params_file", params_abs.to_str().unwrap_or("")),
         ("threshold", &threshold_str),
     ];
 
