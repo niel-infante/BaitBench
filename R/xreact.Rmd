@@ -19,6 +19,10 @@ params:
 table { width: 100%; }
 </style>
 
+
+
+
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE,
                       fig.width = 10, fig.height = 5, out.width = "100%")
@@ -127,7 +131,7 @@ cat('</details>\n\n')
 cat("\n## Self-Homology (Probe vs Probe)\n")
 ```
 
-```{r self_heatmap, eval=has_self && n_probes < 1000, fig.height=8}
+```{r self_heatmap, eval=has_self && n_probes < 1000,  out.width="100%"}
 all_probe_ids <- sort(unique(summary_df$probe_id))
 n <- length(all_probe_ids)
 
@@ -167,26 +171,37 @@ plot_ly(
   y = rownames(mat),
   type = "heatmap",
   colorscale = list(c(0, "steelblue"), c(0.5, "orange"), c(1, "firebrick")),
+#  colorscale = list(c(0.0, "#32CD32"), c(1, "#FF00FF")),
+  #colorscale = list(c(0.0, "#00BFFF"), c(1, "#FF1493")),
+
   zmin = threshold,
   zmax = 100,
   hoverinfo = "text",
   text = hover_mat,
   showscale = TRUE,
-  colorbar = list(title = "Homology %")
+  colorbar = list(title = "Homology %"),
+  height = 800,
+  width = 1000
 ) %>%
   layout(
     title = "Self-Homology Matrix",
     xaxis = list(
       title = "Probe",
       showticklabels = show_labels,
-      tickangle = if (show_labels) -45 else 0
+      tickangle = if (show_labels) -45 else 0,
+      showgrid = FALSE
+
     ),
     yaxis = list(
       title = "Target probe",
       showticklabels = show_labels,
-      autorange = "reversed"
+      autorange = "reversed",
+      showgrid = FALSE 
     ),
-    plot_bgcolor = "white"
+#    plot_bgcolor = "#EDE8D0",
+    plot_bgcolor = "white",
+    height = NULL,  # Auto scale to container size
+    xgap = 0.5, ygap = 0.5
   )
 ```
 
@@ -200,14 +215,29 @@ cat("\n### Homology Distribution\n")
 ```
 
 ```{r self_density, eval=has_self && nrow(hits_self) > 0, fig.height=4}
+
+ggplot(summary_self, aes(x = max_homology_pct)) +
+  geom_density(fill = "steelblue", alpha = 0.5, color = "steelblue", adjust = 1/4) +
+  geom_vline(xintercept = threshold, linetype = "dashed", color = "firebrick", linewidth = 0.8) +
+  annotate("text", x = threshold, y = Inf, label = paste0("Threshold: ", threshold, "%"),
+           hjust = -0.1, vjust = 1.5, color = "firebrick", size = 3.5) +
+  labs(x = "Homology (%)", y = "Density", title = "Maximum Homology for All Probes") +
+  theme_minimal(base_size = 14)
+
 ggplot(hits_self, aes(x = homology_pct)) +
-  geom_density(fill = "steelblue", alpha = 0.5, color = "steelblue") +
+  geom_density(fill = "steelblue", alpha = 0.5, color = "steelblue", adjust = 1/2) +
   geom_vline(xintercept = threshold, linetype = "dashed", color = "firebrick", linewidth = 0.8) +
   annotate("text", x = threshold, y = Inf, label = paste0("Threshold: ", threshold, "%"),
            hjust = -0.1, vjust = 1.5, color = "firebrick", size = 3.5) +
   scale_x_continuous(limits = c(max(threshold - 10, 0), 100)) +
-  labs(x = "Homology (%)", y = "Density", title = "Self-Homology Distribution") +
+  labs(x = "Homology (%)", y = "Density", title = "Self-Homology Distribution for Hits Above Threshold") +
   theme_minimal(base_size = 14)
+
+
+
+
+
+
 ```
 
 ```{r self_table_header, eval=has_self, results='asis'}
@@ -294,12 +324,14 @@ if (n_probes_hit > 0 && n_genomes_hit > 0) {
       xaxis = list(
         title = "Probe",
         showticklabels = show_x,
-        tickangle = if (show_x) -45 else 0
+        tickangle = if (show_x) -45 else 0,
+        showgrid = FALSE
       ),
       yaxis = list(
         title = "Genome",
         showticklabels = show_y,
-        autorange = "reversed"
+        autorange = "reversed",
+        showgrid = FALSE
       ),
       plot_bgcolor = "white"
     )
