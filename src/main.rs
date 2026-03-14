@@ -1,4 +1,5 @@
 mod alignment;
+mod cleanup;
 mod cli;
 mod commands;
 mod external;
@@ -98,6 +99,7 @@ fn main() -> Result<()> {
             threads,
             fold_enrichment,
             report,
+            cleanup,
         } => {
             let resolved_df = resolve_distractor_fraction(
                 distractor_fraction, ct, ct_baseline, ct_baseline_fraction,
@@ -148,6 +150,7 @@ fn main() -> Result<()> {
                 threads,
                 fold_enrichment,
                 report,
+                cleanup,
             })?;
         }
 
@@ -351,6 +354,7 @@ fn main() -> Result<()> {
             minimap_preset,
             proximity,
             report,
+            cleanup,
         } => {
             probe_coverage::execute(&probe_coverage::ProbeCoverageArgs {
                 targets: &targets,
@@ -359,6 +363,7 @@ fn main() -> Result<()> {
                 minimap_preset: &minimap_preset,
                 proximity,
                 report,
+                cleanup,
             })?;
         }
 
@@ -390,6 +395,7 @@ fn main() -> Result<()> {
             minimap_preset,
             outdir,
             report,
+            cleanup,
         } => {
             xreact::execute(&xreact::XreactArgs {
                 probes: &probes,
@@ -399,6 +405,7 @@ fn main() -> Result<()> {
                 minimap_preset: &minimap_preset,
                 outdir: &outdir,
                 report,
+                cleanup,
             })?;
         }
 
@@ -434,6 +441,7 @@ fn main() -> Result<()> {
             threads,
             outdir,
             report,
+            cleanup,
         } => {
             let resolved_sample = resolve_sample_arg(&sample)?;
             let resolved_stm = sample_target_map
@@ -505,6 +513,7 @@ fn main() -> Result<()> {
                 threads,
                 outdir,
                 report,
+                cleanup,
             })?;
         }
     }

@@ -5,6 +5,7 @@ use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 
 use crate::alignment::paf;
+use crate::cleanup;
 use crate::cli::ReportMode;
 use crate::commands::report::{rmd_output_path, substitute_rmd_params};
 use crate::external::{minimap2, rscript};
@@ -18,6 +19,7 @@ pub struct XreactArgs<'a> {
     pub outdir: &'a Path,
     pub minimap_preset: &'a str,
     pub report: ReportMode,
+    pub cleanup: bool,
 }
 
 struct HitRecord {
@@ -274,6 +276,15 @@ pub fn execute(args: &XreactArgs) -> Result<()> {
                 Err(e) => log::warn!("RMarkdown generation failed (non-fatal): {}", e),
             }
         }
+    }
+
+    // Cleanup intermediate files if requested
+    if args.cleanup {
+        log::info!("Cleaning up intermediate files...");
+        cleanup::cleanup_files(args.outdir, &[
+            "against.log",
+            "self.log",
+        ]);
     }
 
     log::info!("=============================================");

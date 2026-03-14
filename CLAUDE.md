@@ -93,6 +93,7 @@ genomes.fa + targets.fa + distractors.fa [+ sample.tsv] [+ mapping.tsv]
 | `src/alignment/paf.rs` | PAF format parser for minimap2 output |
 | `src/alignment/sam.rs` | SAM format parser |
 | `src/sampling/` | Weights calculation and fragment sampling |
+| `src/cleanup.rs` | Post-pipeline cleanup: delete intermediate files/dirs, keep report inputs |
 | `src/io_utils.rs` | ID set parsing, sample manifest parsing, source ID extraction, sample-target-map I/O |
 | `src/external/` | minimap2, blastn, Rscript process wrappers |
 | `R/report.Rmd` | RMarkdown template with ggplot2 figures |

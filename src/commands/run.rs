@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use crate::cleanup;
 use crate::cli::ReportMode;
 use crate::commands::{capture, enrich, filter, generate_list, map_reads, metrics, prepare, report, sequence, simulate};
 use crate::external::rscript;
@@ -38,6 +39,7 @@ pub struct RunArgs<'a> {
     pub threads: usize,
     pub fold_enrichment: Option<f64>,
     pub report: ReportMode,
+    pub cleanup: bool,
 }
 
 pub fn execute(args: &RunArgs) -> Result<()> {
@@ -324,6 +326,31 @@ pub fn execute(args: &RunArgs) -> Result<()> {
                 Err(e) => log::warn!("RMarkdown generation failed (non-fatal): {}", e),
             }
         }
+    }
+
+    // Cleanup intermediate files if requested
+    if args.cleanup {
+        log::info!("Cleaning up intermediate files...");
+        cleanup::cleanup_files(outdir, &[
+            "combined_reference.fa",
+            "mapping_reference.fa",
+            "weights.txt",
+            "targets.txt",
+            "distractors.txt",
+            "sample.txt",
+            "genomes.txt",
+            "sample_target_map.txt",
+            "fragments.fa",
+            "captured.fa",
+            "enriched.fa",
+            "reads.fa",
+            "filtered.fa",
+            "mapped.sam",
+            "detected.list",
+            "capture.log",
+            "mapping.log",
+            "host_filter.log",
+        ]);
     }
 
     log::info!("=============================================");

@@ -5,6 +5,7 @@ use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::Path;
 
 use crate::alignment::coverage;
+use crate::cleanup;
 use crate::cli::ReportMode;
 use crate::commands::report::{substitute_rmd_params, rmd_output_path};
 use crate::external::{minimap2, rscript};
@@ -17,6 +18,7 @@ pub struct ProbeCoverageArgs<'a> {
     pub minimap_preset: &'a str,
     pub proximity: usize,
     pub report: ReportMode,
+    pub cleanup: bool,
 }
 
 pub fn execute(args: &ProbeCoverageArgs) -> Result<()> {
@@ -142,6 +144,15 @@ pub fn execute(args: &ProbeCoverageArgs) -> Result<()> {
                 Err(e) => log::warn!("RMarkdown generation failed (non-fatal): {}", e),
             }
         }
+    }
+
+    // Cleanup intermediate files if requested
+    if args.cleanup {
+        log::info!("Cleaning up intermediate files...");
+        cleanup::cleanup_files(args.outdir, &[
+            "probe_alignment.sam",
+            "probe_alignment.log",
+        ]);
     }
 
     log::info!("=============================================");

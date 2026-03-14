@@ -41,6 +41,7 @@ Report: report     → report.html
 src/
 ├── main.rs              # Entry point: CLI parsing → command dispatch
 ├── cli.rs               # clap argument definitions (Commands enum, all flags)
+├── cleanup.rs           # Post-pipeline cleanup: delete intermediate files/dirs, keep report inputs
 ├── io_utils.rs           # Shared helpers: parse_id_set, extract_source_id, parse_sample_manifest, parse_sample_target_map
 ├── alignment/
 │   ├── coverage.rs      # CIGAR-based per-position coverage from SAM

@@ -153,6 +153,7 @@ baitbench xreact \
 | `--fold-enrichment` | -- | Post-capture enrichment factor |
 | `--seed` | random | Random seed for reproducibility |
 | `--outdir` | ./results | Output directory |
+| `--cleanup` | false | Delete intermediate files after completion, keeping only report inputs |
 
 Run `baitbench run --help` for the full list.
 

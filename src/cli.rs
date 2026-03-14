@@ -144,6 +144,10 @@ pub enum Commands {
         /// Report output mode: full (HTML report), none (skip), rmd (editable RMarkdown file)
         #[arg(long, default_value = "full")]
         report: ReportMode,
+
+        /// Delete intermediate files after pipeline completes, keeping only report inputs and final outputs
+        #[arg(long)]
+        cleanup: bool,
     },
 
     /// Combine target and distractor FASTAs, generate weights
@@ -461,6 +465,10 @@ pub enum Commands {
         /// Report output mode: full (HTML report), none (skip), rmd (editable RMarkdown file)
         #[arg(long, default_value = "full")]
         report: ReportMode,
+
+        /// Delete intermediate files after completion, keeping only report inputs and final outputs
+        #[arg(long)]
+        cleanup: bool,
     },
 
     /// Generate HTML report with ggplot2 figures
@@ -523,6 +531,10 @@ pub enum Commands {
         /// Report output mode: full (HTML report), none (skip), rmd (editable RMarkdown file)
         #[arg(long, default_value = "full")]
         report: ReportMode,
+
+        /// Delete intermediate files after completion, keeping only report inputs and final outputs
+        #[arg(long)]
+        cleanup: bool,
     },
 
     /// Generate coverage depth curves, optionally sweeping CT, fold-enrichment, and/or num-sequences
@@ -652,6 +664,10 @@ pub enum Commands {
         /// Report output mode: full (HTML report), none (skip), rmd (editable RMarkdown file)
         #[arg(long, default_value = "full")]
         report: ReportMode,
+
+        /// Delete intermediate files after completion, keeping only report inputs and final outputs
+        #[arg(long)]
+        cleanup: bool,
     },
 }
 

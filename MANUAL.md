@@ -403,7 +403,7 @@ Runs the complete pipeline from input files to metrics and report.
 baitbench run [OPTIONS]
 ```
 
-This is the primary command for most use cases. It chains all pipeline steps (prepare through report) automatically. See [Parameter Reference](#parameter-reference) for all options.
+This is the primary command for most use cases. It chains all pipeline steps (prepare through report) automatically. Use `--cleanup` to delete intermediate files (FASTA, SAM, logs) after completion, keeping only report inputs and final outputs. See [Parameter Reference](#parameter-reference) for all options.
 
 ### prepare
 
@@ -633,6 +633,7 @@ Maps probes to targets and computes per-target tiling statistics.
 | `--minimap-preset` | sr | Minimap2 alignment preset |
 | `--proximity` | 50 | Pull-down zone distance in bp |
 | `--report` | full | Report mode: `full` (HTML), `none` (skip), `rmd` (editable RMarkdown) |
+| `--cleanup` | false | Delete intermediate files (SAM, logs) after completion |
 
 **Output files:**
 - `probe_depth.tsv` -- per-position probe depth (TSV: `reference_id\tposition\tdepth`)
@@ -680,6 +681,7 @@ At least one of `--against` or `--self` must be specified; both can be used toge
 | `--threshold` | 80.0 | Minimum homology % to report: `matching_bases / probe_length * 100` |
 | `--minimap-preset` | sr | Minimap2 alignment preset |
 | `--outdir` | ./xreact_results | Output directory |
+| `--cleanup` | false | Delete intermediate files (logs) after completion |
 
 **Homology metric:** `matching_bases / probe_length * 100`. This single number captures both alignment identity and query coverage -- a probe with 90% identity over 90% of its length scores ~81%.
 
@@ -728,6 +730,7 @@ baitbench coverage-curve \
   [--fold-enrichment-values 10 100 | --fold-enrichment 100] \
   [--num-sequences-values 100 500 | --num-sequences 500] \
   [--outdir coverage_curve_results] \
+  [--cleanup] \
   [... other pipeline parameters ...]
 ```
 
@@ -825,6 +828,7 @@ See [CT Score Calculation](#ct-score-calculation) for details.
 | Verbose | `--verbose` | false | Enable debug logging (global flag) |
 | Minimap preset | `--minimap-preset` | sr | Minimap2 preset for read mapping |
 | Host minimap preset | `--host-minimap-preset` | sr | Minimap2 preset for host read filtering |
+| Cleanup | `--cleanup` | false | Delete intermediate files after completion, keeping only report inputs and final outputs. Available on `run`, `coverage-curve`, `probe-coverage`, and `xreact` |
 
 ---
 

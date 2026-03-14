@@ -5,6 +5,7 @@ use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 
 use crate::alignment::coverage;
+use crate::cleanup;
 use crate::cli::ReportMode;
 use crate::commands::{capture, enrich, filter, map_reads, prepare, sequence, simulate};
 use crate::commands::report::{substitute_rmd_params, rmd_output_path};
@@ -41,6 +42,7 @@ pub struct CoverageCurveArgs<'a> {
     pub threads: usize,
     pub outdir: PathBuf,
     pub report: ReportMode,
+    pub cleanup: bool,
 }
 
 struct DepthCurveRow {
@@ -365,6 +367,14 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
                 Err(e) => log::warn!("RMarkdown generation failed (non-fatal): {}", e),
             }
         }
+    }
+
+    // Cleanup intermediate directories if requested
+    if args.cleanup {
+        log::info!("Cleaning up intermediate files...");
+        // Remove all subdirectories (prep dirs and combo run dirs)
+        // Final outputs are files at the root level (TSVs, reports)
+        cleanup::cleanup_all_subdirs(&args.outdir);
     }
 
     log::info!("=============================================");
