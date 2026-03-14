@@ -366,11 +366,12 @@ pub fn calculate_probe_stats(
     }
 }
 
-/// Write per-position coverage to a TSV file.
+/// Write run-length encoded coverage intervals to a TSV file.
 ///
-/// Format: reference_id\tposition\tdepth (1-based positions)
-/// Writes all references, including those with zero coverage.
-pub fn write_coverage_tsv(
+/// Format: reference_id\tstart\tend\tdepth (1-based inclusive coordinates)
+/// Consecutive positions with identical depth are collapsed into a single interval.
+/// Writes all references, including those with zero coverage (as a single 0-depth interval).
+pub fn write_coverage_intervals(
     path: &Path,
     coverage: &HashMap<String, Vec<u32>>,
 ) -> Result<()> {
@@ -378,7 +379,7 @@ pub fn write_coverage_tsv(
         .with_context(|| format!("Cannot create coverage TSV: {}", path.display()))?;
     let mut w = BufWriter::new(file);
 
-    writeln!(w, "reference_id\tposition\tdepth")?;
+    writeln!(w, "reference_id\tstart\tend\tdepth")?;
 
     // Sort reference names for deterministic output
     let mut ref_names: Vec<&String> = coverage.keys().collect();
@@ -386,9 +387,30 @@ pub fn write_coverage_tsv(
 
     for ref_name in ref_names {
         let depths = &coverage[ref_name];
-        for (pos, &depth) in depths.iter().enumerate() {
-            writeln!(w, "{}\t{}\t{}", ref_name, pos + 1, depth)?; // 1-based position
+        if depths.is_empty() {
+            continue;
         }
+
+        let mut run_start: usize = 0; // 0-based index
+        let mut run_depth: u32 = depths[0];
+
+        for i in 1..depths.len() {
+            if depths[i] != run_depth {
+                // Emit the previous run (1-based inclusive)
+                writeln!(w, "{}\t{}\t{}\t{}", ref_name, run_start + 1, i, run_depth)?;
+                run_start = i;
+                run_depth = depths[i];
+            }
+        }
+        // Emit the final run
+        writeln!(
+            w,
+            "{}\t{}\t{}\t{}",
+            ref_name,
+            run_start + 1,
+            depths.len(),
+            run_depth
+        )?;
     }
 
     w.flush()?;

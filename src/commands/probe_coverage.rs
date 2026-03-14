@@ -77,10 +77,10 @@ pub fn execute(args: &ProbeCoverageArgs) -> Result<()> {
     }
     stats.sort_by(|a, b| a.0.cmp(&b.0));
 
-    // Step 4: Write per-position depth TSV
+    // Step 4: Write run-length encoded depth intervals
     let depth_path = args.outdir.join("probe_depth.tsv");
     log::info!("Writing probe depth to {}", depth_path.display());
-    coverage::write_coverage_tsv(&depth_path, &coverage_result.coverage)?;
+    coverage::write_coverage_intervals(&depth_path, &coverage_result.coverage)?;
 
     // Step 5: Write summary statistics TSV
     let summary_path = args.outdir.join("probe_coverage_summary.tsv");

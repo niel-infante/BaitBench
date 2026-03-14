@@ -588,7 +588,7 @@ baitbench metrics \
 - `results.tsv` -- genome-level summary metrics
 - `detected_detail.tsv` -- per-reference detection and coverage detail
 - `results.json` -- structured JSON output (optional)
-- `coverage.tsv` -- per-position read depth (optional)
+- `coverage.tsv` -- run-length encoded read depth intervals (optional)
 
 ### report
 
@@ -636,7 +636,7 @@ Maps probes to targets and computes per-target tiling statistics.
 | `--cleanup` | false | Delete intermediate files (SAM, logs) after completion |
 
 **Output files:**
-- `probe_depth.tsv` -- per-position probe depth (TSV: `reference_id\tposition\tdepth`)
+- `probe_depth.tsv` -- run-length encoded probe depth intervals (TSV: `reference_id\tstart\tend\tdepth`)
 - `probe_coverage_summary.tsv` -- per-target coverage statistics
 - `multi_mapping_probes.tsv` -- probes mapping to multiple targets
 - `probe_coverage_report.html` -- HTML report (`--report full`, requires R)
@@ -941,7 +941,7 @@ results/run_20250101_120000/
 ├── results.tsv                 # Summary metrics
 ├── detected_detail.tsv         # Per-reference detection and coverage detail
 ├── results.json                # Machine-readable JSON metrics
-├── coverage.tsv                # Per-position read depth
+├── coverage.tsv                # Run-length encoded read depth intervals
 ├── report.html                 # HTML report (--report full, requires R)
 ├── report.Rmd                  # Editable RMarkdown (--report rmd)
 ├── capture.log                 # Capture alignment log
@@ -1041,15 +1041,17 @@ Structured JSON output with nested sections:
 
 ### coverage.tsv Format
 
-Per-position read depth for detected references:
+Run-length encoded read depth intervals. Consecutive positions with the same depth are collapsed into a single interval (1-based inclusive coordinates):
 
 ```
-reference_id	position	depth
-dengue_1	1	0
-dengue_1	2	3
-dengue_1	3	5
+reference_id	start	end	depth
+dengue_1	1	50	0
+dengue_1	51	100	3
+dengue_1	101	200	5
 ...
 ```
+
+This format is typically 100-1000x smaller than per-position output, making it feasible for large target panels.
 
 ---
 

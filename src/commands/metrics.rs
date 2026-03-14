@@ -286,10 +286,10 @@ pub fn execute(args: &MetricsArgs) -> Result<()> {
         )?;
     }
 
-    // Write per-position coverage TSV
+    // Write run-length encoded coverage intervals
     if let Some(cov_path) = args.output_coverage {
         log::info!("Writing coverage profile to {}...", cov_path.display());
-        coverage::write_coverage_tsv(cov_path, &coverage_result.coverage)?;
+        coverage::write_coverage_intervals(cov_path, &coverage_result.coverage)?;
     }
 
     log::info!("Metrics calculation complete.");

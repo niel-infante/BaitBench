@@ -130,6 +130,7 @@ Every command module exports an `Args` struct and an `execute(&Args) -> Result<(
 - **`ProbeCoverageStats`** — ref_length, covered_bases, pct_covered_1x, mean_depth, median_depth, pct_covered_2x/5x/10x, max_gap_length, num_gaps, pct_near_probe (used by probe-coverage QC)
 - `compute_coverage(sam)` — pipeline read coverage (skips secondary alignments)
 - `compute_probe_coverage(sam)` — probe tiling depth (includes secondary alignments)
+- `write_coverage_intervals(path, coverage)` — run-length encode Vec<u32> depth vectors into interval TSV (reference_id, start, end, depth; 1-based inclusive)
 
 ### PAF (`alignment/paf.rs`)
 
@@ -220,7 +221,7 @@ All wrappers follow the pattern: `check_available() → bool/Result`, then speci
 | `results.tsv` | TSV | metrics | report |
 | `detected_detail.tsv` | TSV | metrics | report |
 | `results.json` | JSON | metrics | — |
-| `coverage.tsv` | TSV (reference_id position depth) | metrics | report |
+| `coverage.tsv` | TSV intervals (reference_id start end depth) | metrics | report |
 | `report.html` | HTML | report | — |
 
 ### Probe Coverage Report (`R/probe_coverage.Rmd`)
@@ -241,7 +242,7 @@ Report sections adapt dynamically based on target count: tables switch from kabl
 | File | Format | Written by | Read by |
 |------|--------|------------|---------|
 | `probe_alignment.sam` | SAM | probe_coverage | probe_coverage |
-| `probe_depth.tsv` | TSV (reference_id position depth) | probe_coverage | probe_coverage report |
+| `probe_depth.tsv` | TSV intervals (reference_id start end depth) | probe_coverage | probe_coverage report |
 | `probe_coverage_summary.tsv` | TSV (per-target stats) | probe_coverage | probe_coverage report |
 | `multi_mapping_probes.tsv` | TSV (probe_id num_targets targets) | probe_coverage | probe_coverage report |
 | `probe_coverage_report.html` | HTML | probe_coverage (via R) | — |

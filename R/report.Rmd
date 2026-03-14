@@ -31,10 +31,23 @@ summary_df <- read.delim(params$summary_file, stringsAsFactors = FALSE)
 detail_df <- read.delim(params$detail_file, stringsAsFactors = FALSE)
 params_df <- read.delim(params$params_file, stringsAsFactors = FALSE)
 
-# Read coverage data if available
+# Read coverage data if available (run-length encoded intervals)
 has_coverage <- nchar(params$coverage_file) > 0 && file.exists(params$coverage_file)
 if (has_coverage) {
-  coverage_df <- read.delim(params$coverage_file, stringsAsFactors = FALSE)
+  coverage_intervals <- read.delim(params$coverage_file, stringsAsFactors = FALSE)
+}
+
+# Expand interval-format coverage to per-position for a single reference.
+# Input: data frame with columns start, end, depth (for one reference_id)
+# Output: data frame with columns reference_id, position, depth
+expand_intervals <- function(interval_df) {
+  if (nrow(interval_df) == 0) {
+    return(data.frame(reference_id = character(), position = integer(), depth = numeric()))
+  }
+  ref_id <- interval_df$reference_id[1]
+  positions <- unlist(mapply(seq, interval_df$start, interval_df$end, SIMPLIFY = FALSE))
+  depths <- rep(interval_df$depth, interval_df$end - interval_df$start + 1L)
+  data.frame(reference_id = ref_id, position = positions, depth = depths)
 }
 ```
 
@@ -290,17 +303,18 @@ show_coverage_overview <- n_detected_refs > 0 && n_detected_refs <= 30
 
 ```{r coverage-overview, eval=has_coverage && show_coverage_overview, fig.height=max(3, ceiling(min(n_detected_refs, 30) / 3) * 2.5), fig.width=10}
 detected_refs <- detail_df$reference_id[detail_df$detected == "true"]
-plot_data <- coverage_df %>% filter(reference_id %in% detected_refs)
+ref_intervals <- coverage_intervals %>% filter(reference_id %in% detected_refs)
 
-if (nrow(plot_data) > 0) {
-  # Downsample if genome is large (>500 positions per facet) for rendering speed
-  plot_data <- plot_data %>%
-    group_by(reference_id) %>%
-    mutate(
-      bin = ceiling(row_number() / max(1, ceiling(n() / 500)))
-    ) %>%
-    group_by(reference_id, bin) %>%
-    summarise(position = mean(position), depth = mean(depth), .groups = "drop")
+if (nrow(ref_intervals) > 0) {
+  # Expand intervals per reference and downsample to 500 points for rendering speed
+  plot_data <- do.call(rbind, lapply(unique(ref_intervals$reference_id), function(rid) {
+    expanded <- expand_intervals(ref_intervals %>% filter(reference_id == rid))
+    expanded %>%
+      mutate(bin = ceiling(row_number() / max(1, ceiling(n() / 500)))) %>%
+      group_by(bin) %>%
+      summarise(position = mean(position), depth = mean(depth), .groups = "drop") %>%
+      mutate(reference_id = rid)
+  }))
 
   ggplot(plot_data, aes(x = position, y = depth)) +
     geom_area(fill = "#3498db", alpha = 0.4) +
@@ -322,7 +336,7 @@ cat(paste0("\n*Coverage overview omitted: ", n_detected_refs,
 ```
 
 ```{r coverage-detail-plots, eval=has_coverage, results='asis', fig.width=8, fig.height=3}
-if (has_coverage && nrow(coverage_df) > 0) {
+if (has_coverage && nrow(coverage_intervals) > 0) {
   detected_refs <- detail_df %>%
     filter(detected == "true", ref_length > 0) %>%
     arrange(desc(avg_coverage))
@@ -341,7 +355,7 @@ if (has_coverage && nrow(coverage_df) > 0) {
     ref_len <- detected_refs$ref_length[i]
     pct5 <- detected_refs$pct_covered_5x[i]
     pct20 <- detected_refs$pct_covered_20x[i]
-    ref_data <- coverage_df %>% filter(reference_id == ref_id)
+    ref_data <- expand_intervals(coverage_intervals %>% filter(reference_id == ref_id))
 
     if (nrow(ref_data) == 0) next
 

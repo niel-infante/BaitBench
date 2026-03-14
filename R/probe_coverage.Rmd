@@ -34,7 +34,20 @@ theme_set(theme_minimal(base_size = 14))
 
 # Read data
 summary_df <- read.delim(params$summary_file, stringsAsFactors = FALSE)
-depth_df <- read.delim(params$depth_file, stringsAsFactors = FALSE)
+depth_intervals <- read.delim(params$depth_file, stringsAsFactors = FALSE)
+
+# Expand interval-format coverage to per-position for a single reference.
+# Input: data frame with columns start, end, depth (for one reference_id)
+# Output: data frame with columns reference_id, position, depth
+expand_intervals <- function(interval_df) {
+  if (nrow(interval_df) == 0) {
+    return(data.frame(reference_id = character(), position = integer(), depth = numeric()))
+  }
+  ref_id <- interval_df$reference_id[1]
+  positions <- unlist(mapply(seq, interval_df$start, interval_df$end, SIMPLIFY = FALSE))
+  depths <- rep(interval_df$depth, interval_df$end - interval_df$start + 1L)
+  data.frame(reference_id = ref_id, position = positions, depth = depths)
+}
 
 # Read multi-mapping probes if available
 has_multi <- nchar(params$multi_mapping_file) > 0 && file.exists(params$multi_mapping_file)
@@ -345,23 +358,26 @@ if (nrow(gap_table) <= 20) {
 Targets concatenated end-to-end, sorted by name.`r if (n_targets <= 12) " Vertical grey lines mark target boundaries." else ""`
 
 ```{r pangenome, fig.height=4, fig.width=10}
-if (nrow(depth_df) > 0) {
+if (nrow(depth_intervals) > 0) {
   # Build cumulative offsets for each target
   target_order <- summary_df %>% arrange(reference_id)
   offsets <- target_order %>%
     mutate(offset = cumsum(lag(ref_length, default = 0)))
 
-  # Join offsets and compute pangenome position
-  pan_df <- depth_df %>%
+  # Shift intervals to pangenome coordinates
+  pan_intervals <- depth_intervals %>%
     inner_join(offsets %>% select(reference_id, offset), by = "reference_id") %>%
-    mutate(pan_position = position + offset)
+    mutate(pan_start = start + offset, pan_end = end + offset) %>%
+    arrange(pan_start)
 
-  # Downsample for rendering speed
-  pan_df <- pan_df %>%
-    mutate(bin = ceiling(row_number() / max(1, ceiling(n() / 2000)))) %>%
-    group_by(bin) %>%
-    summarise(pan_position = mean(pan_position), depth = mean(depth),
-              reference_id = first(reference_id), .groups = "drop")
+  # Sample 2000 evenly-spaced positions using findInterval for efficiency
+  total_len <- sum(target_order$ref_length)
+  n_points <- min(2000, total_len)
+  sample_pos <- seq(1, total_len, length.out = n_points)
+  idx <- findInterval(sample_pos, pan_intervals$pan_start)
+  pan_depth <- ifelse(idx > 0 & sample_pos <= pan_intervals$pan_end[pmax(idx, 1)],
+                      pan_intervals$depth[pmax(idx, 1)], 0)
+  pan_df <- data.frame(pan_position = sample_pos, depth = pan_depth)
 
   # Target boundary positions for vertical lines
   boundaries <- offsets %>%
@@ -394,14 +410,12 @@ show_detail <- n_targets <= 100  # skip individual plots for very large panels
 ```
 
 ```{r depth-overview, fig.height=max(3, ceiling(min(n_facet, 12) / 3) * 2.5), fig.width=10}
-if (nrow(depth_df) > 0) {
+if (nrow(depth_intervals) > 0) {
   # Show worst-covered targets in faceted overview
   worst_refs <- summary_df %>%
     arrange(pct_covered_1x) %>%
     head(n_facet) %>%
     pull(reference_id)
-
-  overview_data <- depth_df %>% filter(reference_id %in% worst_refs)
 
   if (n_targets > n_facet) {
     overview_subtitle <- sprintf("Showing %d worst-covered of %d targets | Dashed lines: 1X (green), 5X (orange)",
@@ -410,14 +424,16 @@ if (nrow(depth_df) > 0) {
     overview_subtitle <- "Dashed lines: 1X (green), 5X (orange)"
   }
 
-  # Downsample for rendering speed
-  plot_data <- overview_data %>%
-    group_by(reference_id) %>%
-    mutate(
-      bin = ceiling(row_number() / max(1, ceiling(n() / 500)))
-    ) %>%
-    group_by(reference_id, bin) %>%
-    summarise(position = mean(position), depth = mean(depth), .groups = "drop")
+  # Expand intervals per reference and downsample to 500 points for rendering speed
+  plot_data <- do.call(rbind, lapply(worst_refs, function(rid) {
+    expanded <- expand_intervals(depth_intervals %>% filter(reference_id == rid))
+    if (nrow(expanded) == 0) return(NULL)
+    expanded %>%
+      mutate(bin = ceiling(row_number() / max(1, ceiling(n() / 500)))) %>%
+      group_by(bin) %>%
+      summarise(position = mean(position), depth = mean(depth), .groups = "drop") %>%
+      mutate(reference_id = rid)
+  }))
 
   ggplot(plot_data, aes(x = position, y = depth)) +
     geom_area(fill = "#3498db", alpha = 0.4) +
@@ -434,7 +450,7 @@ if (nrow(depth_df) > 0) {
 ```
 
 ```{r depth-detail, results='asis', fig.width=8, fig.height=3, eval=show_detail}
-if (nrow(depth_df) > 0 && nrow(summary_df) > 0) {
+if (nrow(depth_intervals) > 0 && nrow(summary_df) > 0) {
   ordered <- summary_df %>% arrange(pct_covered_1x)
 
   if (n_targets > n_detail) {
@@ -444,7 +460,8 @@ if (nrow(depth_df) > 0 && nrow(summary_df) > 0) {
 
   for (i in seq_len(n_detail)) {
     ref_id <- ordered$reference_id[i]
-    ref_data <- depth_df %>% filter(reference_id == ref_id)
+    ref_intervals_i <- depth_intervals %>% filter(reference_id == ref_id)
+    ref_data <- expand_intervals(ref_intervals_i)
 
     if (nrow(ref_data) == 0) next
 
@@ -454,8 +471,8 @@ if (nrow(depth_df) > 0 && nrow(summary_df) > 0) {
                 format(s$ref_length, big.mark = ","),
                 s$num_gaps, format(s$max_gap_length, big.mark = ",")))
 
-    # Identify zero-depth positions for gap rug marks
-    zero_pos <- ref_data %>% filter(depth == 0)
+    # Identify zero-depth intervals for gap markers
+    zero_intervals <- ref_intervals_i %>% filter(depth == 0)
 
     p <- ggplot(ref_data, aes(x = position, y = depth)) +
       geom_area(fill = "#3498db", alpha = 0.3) +
@@ -463,9 +480,11 @@ if (nrow(depth_df) > 0 && nrow(summary_df) > 0) {
       geom_hline(yintercept = 1, linetype = "dashed", color = "#27ae60", linewidth = 0.5) +
       geom_hline(yintercept = 5, linetype = "dashed", color = "#f39c12", linewidth = 0.5)
 
-    if (nrow(zero_pos) > 0) {
-      p <- p + geom_rug(data = zero_pos, aes(x = position), color = "darkgreen",
-                        alpha = 0.3, sides = "b", inherit.aes = FALSE)
+    if (nrow(zero_intervals) > 0) {
+      p <- p + geom_segment(data = zero_intervals,
+                            aes(x = start, xend = end, y = 0, yend = 0),
+                            color = "darkgreen", linewidth = 2, alpha = 0.5,
+                            inherit.aes = FALSE)
     }
 
     p <- p +
@@ -478,7 +497,7 @@ if (nrow(depth_df) > 0 && nrow(summary_df) > 0) {
            subtitle = sprintf("%.1f%% covered | %.1fX mean | %.1f median | %s bp",
                               s$pct_covered_1x, s$mean_depth, s$median_depth,
                               format(s$ref_length, big.mark = ",")),
-           caption = if (nrow(zero_pos) > 0) "Rug: uncovered positions" else NULL) +
+           caption = if (nrow(zero_intervals) > 0) "Green bars: uncovered regions" else NULL) +
       theme_minimal(base_size = 12)
 
     print(p)
