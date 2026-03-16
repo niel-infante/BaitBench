@@ -29,4 +29,6 @@ test_results/
 # BLAST databases (user-generated)
 blast_db/
 
+# Other
+paper.md
 
