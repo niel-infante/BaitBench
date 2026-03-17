@@ -28,6 +28,10 @@ pub struct MetricsArgs<'a> {
     pub output_detail: &'a Path,
     pub output_json: Option<&'a Path>,
     pub output_coverage: Option<&'a Path>,
+    /// Number of reads after sequencing step (for pipeline flow tracking)
+    pub reads_sequenced: Option<usize>,
+    /// Number of reads after host filtering (for pipeline flow tracking)
+    pub reads_after_filter: Option<usize>,
 }
 
 /// Read-level metrics derived from capture and mapping.
@@ -214,6 +218,23 @@ pub fn execute(args: &MetricsArgs) -> Result<()> {
     log::info!("  Reads correctly mapped: {}", read_level.reads_correctly_mapped);
     log::info!("  Reads incorrectly mapped: {}", read_level.reads_incorrectly_mapped);
 
+    // Pipeline flow counts for Sankey diagram
+    let reads_mapped = read_level.reads_correctly_mapped + read_level.reads_incorrectly_mapped;
+    let reads_input_to_mapping = args
+        .reads_after_filter
+        .or(args.reads_sequenced)
+        .unwrap_or(fragments_captured);
+    let reads_unmapped = reads_input_to_mapping.saturating_sub(reads_mapped);
+
+    if let Some(rs) = args.reads_sequenced {
+        log::info!("  Reads after sequencing: {}", rs);
+    }
+    if let Some(rf) = args.reads_after_filter {
+        log::info!("  Reads after host filtering: {}", rf);
+    }
+    log::info!("  Reads mapped: {}", reads_mapped);
+    log::info!("  Reads unmapped: {}", reads_unmapped);
+
     // Compute per-reference coverage from SAM
     log::info!("Computing per-reference coverage...");
     let coverage_result = coverage::compute_coverage(args.sam)?;
@@ -255,6 +276,10 @@ pub fn execute(args: &MetricsArgs) -> Result<()> {
         capture_rate,
         &metrics,
         &read_level,
+        args.reads_sequenced,
+        args.reads_after_filter,
+        reads_mapped,
+        reads_unmapped,
     )?;
 
     // Build detail rows (shared between TSV and JSON)
@@ -283,6 +308,10 @@ pub fn execute(args: &MetricsArgs) -> Result<()> {
             &metrics,
             &read_level,
             detail_rows,
+            args.reads_sequenced,
+            args.reads_after_filter,
+            reads_mapped,
+            reads_unmapped,
         )?;
     }
 
@@ -540,6 +569,10 @@ fn write_summary_tsv(
     capture_rate: f64,
     metrics: &MetricsResult,
     read_level: &ReadLevelMetrics,
+    reads_sequenced: Option<usize>,
+    reads_after_filter: Option<usize>,
+    reads_mapped: usize,
+    reads_unmapped: usize,
 ) -> Result<()> {
     let file = File::create(path)?;
     let mut w = BufWriter::new(file);
@@ -555,6 +588,7 @@ fn write_summary_tsv(
         "fp_target_count", "fp_distractor_count", "fp_total",
         "tn_target_count", "tn_distractor_count", "tn_total",
         "sensitivity", "specificity", "precision", "f1_score",
+        "reads_sequenced", "reads_after_filter", "reads_mapped", "reads_unmapped",
     ];
     writeln!(w, "{}", headers.join("\t"))?;
 
@@ -563,7 +597,7 @@ fn write_summary_tsv(
     let distractors_total = metrics.fp_distractor_count + metrics.tn_distractor_count;
 
     let values = format!(
-        "{}\t{}\t{}\t{}\t{}\t{}\t{:.4}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{:.4}\t{:.4}\t{:.4}\t{:.4}",
+        "{}\t{}\t{}\t{}\t{}\t{}\t{:.4}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{:.4}\t{:.4}\t{:.4}\t{:.4}\t{}\t{}\t{}\t{}",
         run_name, timestamp, num_fragments, seed,
         fragments_generated, fragments_captured, capture_rate,
         read_level.sample_captured, read_level.nonsample_target_captured, read_level.distractor_captured,
@@ -574,6 +608,8 @@ fn write_summary_tsv(
         metrics.fp_target_count, metrics.fp_distractor_count, metrics.fp_total,
         metrics.tn_target_count, metrics.tn_distractor_count, metrics.tn_total,
         metrics.sensitivity, metrics.specificity, metrics.precision, metrics.f1_score,
+        reads_sequenced.unwrap_or(0), reads_after_filter.unwrap_or(0),
+        reads_mapped, reads_unmapped,
     );
     writeln!(w, "{}", values)?;
 
@@ -650,6 +686,10 @@ struct CaptureStats {
 struct ReadLevelStats {
     reads_correctly_mapped: usize,
     reads_incorrectly_mapped: usize,
+    reads_mapped: usize,
+    reads_unmapped: usize,
+    reads_sequenced: usize,
+    reads_after_filter: usize,
 }
 
 #[derive(Serialize)]
@@ -818,6 +858,10 @@ fn write_json(
     metrics: &MetricsResult,
     read_level: &ReadLevelMetrics,
     detail_rows: Vec<DetailRow>,
+    reads_sequenced: Option<usize>,
+    reads_after_filter: Option<usize>,
+    reads_mapped: usize,
+    reads_unmapped: usize,
 ) -> Result<()> {
     let output = JsonOutput {
         run_info: RunInfo {
@@ -838,6 +882,10 @@ fn write_json(
         read_level: ReadLevelStats {
             reads_correctly_mapped: read_level.reads_correctly_mapped,
             reads_incorrectly_mapped: read_level.reads_incorrectly_mapped,
+            reads_mapped,
+            reads_unmapped,
+            reads_sequenced: reads_sequenced.unwrap_or(0),
+            reads_after_filter: reads_after_filter.unwrap_or(0),
         },
         metrics: JsonMetrics {
             tp_count: metrics.tp_count,

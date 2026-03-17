@@ -981,6 +981,10 @@ results/run_20250101_120000/
 | `specificity` | TN_total / (TN_total + FP_total) |
 | `precision` | TP / (TP + FP_total) |
 | `f1_score` | 2 * (precision * sensitivity) / (precision + sensitivity) |
+| `reads_sequenced` | Number of reads after the sequencing step (0 if not tracked) |
+| `reads_after_filter` | Number of reads after host filtering (0 if filter not applied) |
+| `reads_mapped` | reads_correctly_mapped + reads_incorrectly_mapped |
+| `reads_unmapped` | Reads that entered mapping but did not map to any reference |
 
 ### detected_detail.tsv Columns
 
@@ -1019,12 +1023,12 @@ Structured JSON output with nested sections:
     "capture_rate": 0.35
   },
   "read_level": {
-    "sample_captured": 3000,
-    "nonsample_target_captured": 100,
-    "distractor_captured": 400,
-    "untargeted_captured": 0,
     "reads_correctly_mapped": 3400,
-    "reads_incorrectly_mapped": 100
+    "reads_incorrectly_mapped": 100,
+    "reads_mapped": 3500,
+    "reads_unmapped": 0,
+    "reads_sequenced": 3500,
+    "reads_after_filter": 0
   },
   "metrics": {
     "sensitivity": 1.0,
@@ -1544,6 +1548,10 @@ These track how fragments and reads flow through the pipeline:
 | `untargeted_captured` | Fragments from untargeted genomes that were captured (genome mode) |
 | `reads_correctly_mapped` | Reads that map back to their source reference |
 | `reads_incorrectly_mapped` | Reads that map to a different reference than their source |
+| `reads_sequenced` | Number of reads after the sequencing step (may differ from captured if `--num-sequences` is used) |
+| `reads_after_filter` | Number of reads after host filtering (0 if `--host-fasta` not provided) |
+| `reads_mapped` | Total reads that mapped to any reference (= correctly + incorrectly mapped) |
+| `reads_unmapped` | Reads that entered the mapping step but did not map to any reference |
 
 In genome mode, a read from genome G mapping to target T is considered correctly mapped if T is linked to G in the sample-target-map.
 

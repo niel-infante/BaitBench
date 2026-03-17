@@ -108,7 +108,7 @@ Every command module exports an `Args` struct and an `execute(&Args) -> Result<(
 | `filter` | `FilterArgs` | host, reads, minimap_preset | filtered.fa |
 | `map_reads` | `MapArgs` | reference, reads, minimap_preset | mapped.sam |
 | `generate_list` | `ListArgs` | sam | detected.list |
-| `metrics` | `MetricsArgs` | targets, distractors, sample, detected, fragments, captured, sam, sample_target_map | results.tsv, detected_detail.tsv, results.json, coverage.tsv |
+| `metrics` | `MetricsArgs` | targets, distractors, sample, detected, fragments, captured, sam, sample_target_map, reads_sequenced, reads_after_filter | results.tsv, detected_detail.tsv, results.json, coverage.tsv |
 | `report` | `ReportArgs` | summary, detail, params, coverage, run_name, report (ReportMode) | report.html or report.Rmd |
 | `probe_coverage` | `ProbeCoverageArgs` | targets, probes, minimap_preset, proximity | probe_depth.tsv, probe_coverage_summary.tsv, probe_coverage_report.html |
 | `xreact` | `XreactArgs` | probes, against (genome FASTAs), self_mode, threshold, minimap_preset, report (ReportMode) | hits.tsv, summary.tsv, xreact_report.html |
@@ -118,7 +118,7 @@ Every command module exports an `Args` struct and an `execute(&Args) -> Result<(
 ### Metrics (`metrics.rs`)
 
 - **`MetricsResult`** — genome-level classification: tp/fn/fp_target/fp_distractor/tn_target/tn_distractor counts, sensitivity/specificity/precision/f1, plus ID lists (false_negatives, etc.), untargeted_genomes list
-- **`ReadLevelMetrics`** — fragment/read counts: sample_captured, nonsample_target_captured, distractor_captured, untargeted_captured, reads_correctly_mapped, reads_incorrectly_mapped
+- **`ReadLevelMetrics`** — fragment/read counts: sample_captured, nonsample_target_captured, distractor_captured, untargeted_captured, reads_correctly_mapped, reads_incorrectly_mapped. Summary TSV also includes derived pipeline flow counts: reads_sequenced, reads_after_filter, reads_mapped, reads_unmapped
 - **`GenomeContext`** — derived from sample_target_map: sample_targets, genome_ids, sample_genome_ids, genome_to_targets, target_to_genomes, untargeted_genomes (genomes with no target mapping)
 - **`DetailRow`** (Serialize) — per-reference row: reference_id, category, expected, detected, fragments_generated, fragments_captured, reads_assigned, classification, ref_length, avg_coverage, pct_covered_5x, pct_covered_20x
 - **`JsonOutput`** (Serialize) — wraps RunInfo, CaptureStats, ReadLevelStats, JsonMetrics, JsonDetails
@@ -190,13 +190,14 @@ All wrappers follow the pattern: `check_available() → bool/Result`, then speci
 
 1. **Run parameters** — curated table from run_params.tsv
 2. **Command** — reconstructed from run_params.tsv (auto-adapts to new params)
-3. **Capture Summary** — generated vs captured bar chart, captured by source
-4. **Detection Performance** — sensitivity/specificity/precision/F1 bar chart
-5. **Read Mapping Accuracy** — correct vs incorrect mapped reads
-6. **Confusion Matrix** — TP/FN/FP/TN heatmap
-7. **Detection Detail** — per-reference table with coverage stats
-8. **Detection Lollipop** — reads per detected reference, colored by classification
-9. **Coverage** (conditional) — faceted overview + expandable per-reference detail plots
+3. **Capture Summary** — captured vs not-captured pie chart, captured by source pie chart
+4. **Pipeline Flow** — custom ggplot2 flow diagram (sigmoid-curved bands) showing: [source bars] → generated → captured/not-captured → [sequenced] → [filtered] → correctly/incorrectly mapped. Features a zoom expansion effect where the small captured flow widens to ~85% of generated height for downstream detail. Defined inline via `pipeline_flow_diagram()` function.
+5. **Detection Performance** — sensitivity/specificity/precision/F1 bar chart
+6. **Read Mapping Accuracy** — correct vs incorrect mapped reads
+7. **Confusion Matrix** — TP/FN/FP/TN heatmap (distractor row hidden when no distractors present)
+8. **Detection Detail** — per-reference table with coverage stats
+9. **Detection Lollipop** — reads per detected reference, colored by classification
+10. **Coverage** (conditional) — faceted overview + expandable per-reference detail plots
 
 ## Intermediate Files
 

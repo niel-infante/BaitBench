@@ -327,6 +327,8 @@ fn main() -> Result<()> {
             output_detail,
             output_json,
             output_coverage,
+            reads_sequenced,
+            reads_after_filter,
         } => {
             metrics::execute(&metrics::MetricsArgs {
                 targets: &targets,
@@ -344,6 +346,8 @@ fn main() -> Result<()> {
                 output_detail: &output_detail,
                 output_json: output_json.as_deref(),
                 output_coverage: output_coverage.as_deref(),
+                reads_sequenced,
+                reads_after_filter,
             })?;
         }
 

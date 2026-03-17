@@ -7,6 +7,7 @@ use crate::cleanup;
 use crate::cli::ReportMode;
 use crate::commands::{capture, enrich, filter, generate_list, map_reads, metrics, prepare, report, sequence, simulate};
 use crate::external::rscript;
+use crate::fasta;
 use crate::io_utils;
 
 pub struct RunArgs<'a> {
@@ -212,9 +213,11 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         num_sequences: args.num_sequences,
         seed: args.seed,
     })?;
+    let reads_sequenced = fasta::count_sequences(&outdir.join("reads.fa"))?;
+    log::info!("  Reads after sequencing: {}", reads_sequenced);
 
     // Step 5: Optional host filtering
-    let reads_for_mapping = if let Some(host) = args.host_fasta {
+    let (reads_for_mapping, reads_after_filter) = if let Some(host) = args.host_fasta {
         log::info!("Step 5/8: Filtering host reads...");
         filter::execute(&filter::FilterArgs {
             host,
@@ -223,10 +226,12 @@ pub fn execute(args: &RunArgs) -> Result<()> {
             output: &outdir.join("filtered.fa"),
             log_file: &outdir.join("host_filter.log"),
         })?;
-        outdir.join("filtered.fa")
+        let count = fasta::count_sequences(&outdir.join("filtered.fa"))?;
+        log::info!("  Reads after host filtering: {}", count);
+        (outdir.join("filtered.fa"), Some(count))
     } else {
         log::info!("Step 5/8: Skipping host filtering (no host genome provided)");
-        outdir.join("reads.fa")
+        (outdir.join("reads.fa"), None)
     };
 
     // Step 6: Map reads
@@ -283,6 +288,8 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         output_detail: &outdir.join("detected_detail.tsv"),
         output_json: Some(&outdir.join("results.json")),
         output_coverage: Some(&outdir.join("coverage.tsv")),
+        reads_sequenced: Some(reads_sequenced),
+        reads_after_filter,
     })?;
 
     // Generate report

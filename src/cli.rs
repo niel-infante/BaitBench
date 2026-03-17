@@ -438,6 +438,14 @@ pub enum Commands {
         /// Output per-position coverage TSV (optional)
         #[arg(long)]
         output_coverage: Option<PathBuf>,
+
+        /// Number of reads after sequencing step (for pipeline flow tracking)
+        #[arg(long)]
+        reads_sequenced: Option<usize>,
+
+        /// Number of reads after host filtering (for pipeline flow tracking)
+        #[arg(long)]
+        reads_after_filter: Option<usize>,
     },
 
     /// Analyze probe tiling and coverage across target sequences (probe design QC)
