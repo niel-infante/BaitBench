@@ -36,17 +36,59 @@ theme_set(theme_minimal(base_size = 14))
 summary_df <- read.delim(params$summary_file, stringsAsFactors = FALSE)
 depth_intervals <- read.delim(params$depth_file, stringsAsFactors = FALSE)
 
-# Expand interval-format coverage to per-position for a single reference.
+# Convert interval-format coverage to plottable points for a single reference.
+# For small references (<=max_points positions) expands to per-position data.
+# For large references, bins intervals into at most max_points summary points.
 # Input: data frame with columns start, end, depth (for one reference_id)
 # Output: data frame with columns reference_id, position, depth
-expand_intervals <- function(interval_df) {
+expand_intervals <- function(interval_df, max_points = 2000) {
   if (nrow(interval_df) == 0) {
     return(data.frame(reference_id = character(), position = integer(), depth = numeric()))
   }
   ref_id <- interval_df$reference_id[1]
-  positions <- unlist(mapply(seq, interval_df$start, interval_df$end, SIMPLIFY = FALSE))
-  depths <- rep(interval_df$depth, interval_df$end - interval_df$start + 1L)
-  data.frame(reference_id = ref_id, position = positions, depth = depths)
+  total_len <- max(interval_df$end) - min(interval_df$start) + 1L
+
+  if (total_len <= max_points) {
+    # Small reference: expand fully
+    positions <- unlist(mapply(seq, interval_df$start, interval_df$end, SIMPLIFY = FALSE))
+    depths <- rep(interval_df$depth, interval_df$end - interval_df$start + 1L)
+    return(data.frame(reference_id = ref_id, position = positions, depth = depths))
+  }
+
+  # Large reference: bin intervals into max_points bins
+  genome_start <- min(interval_df$start)
+  genome_end <- max(interval_df$end)
+  bin_size <- (genome_end - genome_start + 1) / max_points
+  bin_edges <- genome_start + bin_size * (0:max_points)
+
+  bin_depth_sum <- numeric(max_points)
+  bin_width <- numeric(max_points)
+
+  for (i in seq_len(nrow(interval_df))) {
+    iv_start <- interval_df$start[i]
+    iv_end   <- interval_df$end[i]
+    iv_depth <- interval_df$depth[i]
+    # Find which bins this interval overlaps
+    first_bin <- max(1L, ceiling((iv_start - genome_start) / bin_size))
+    last_bin  <- min(max_points, ceiling((iv_end - genome_start) / bin_size))
+    if (first_bin > max_points || last_bin < 1L) next
+    first_bin <- max(1L, first_bin)
+    last_bin  <- min(max_points, last_bin)
+    for (b in first_bin:last_bin) {
+      overlap_start <- max(iv_start, bin_edges[b])
+      overlap_end   <- min(iv_end, bin_edges[b + 1] - 1)
+      overlap_len   <- overlap_end - overlap_start + 1
+      if (overlap_len > 0) {
+        bin_depth_sum[b] <- bin_depth_sum[b] + iv_depth * overlap_len
+        bin_width[b]     <- bin_width[b] + overlap_len
+      }
+    }
+  }
+
+  avg_depth <- ifelse(bin_width > 0, bin_depth_sum / bin_width, 0)
+  bin_centers <- (bin_edges[1:max_points] + bin_edges[2:(max_points + 1)]) / 2
+
+  data.frame(reference_id = ref_id, position = bin_centers, depth = avg_depth)
 }
 
 # Read multi-mapping probes if available
@@ -424,15 +466,10 @@ if (nrow(depth_intervals) > 0) {
     overview_subtitle <- "Dashed lines: 1X (green), 5X (orange)"
   }
 
-  # Expand intervals per reference and downsample to 500 points for rendering speed
   plot_data <- do.call(rbind, lapply(worst_refs, function(rid) {
-    expanded <- expand_intervals(depth_intervals %>% filter(reference_id == rid))
+    expanded <- expand_intervals(depth_intervals %>% filter(reference_id == rid), max_points = 500)
     if (nrow(expanded) == 0) return(NULL)
-    expanded %>%
-      mutate(bin = ceiling(row_number() / max(1, ceiling(n() / 500)))) %>%
-      group_by(bin) %>%
-      summarise(position = mean(position), depth = mean(depth), .groups = "drop") %>%
-      mutate(reference_id = rid)
+    expanded
   }))
 
   ggplot(plot_data, aes(x = position, y = depth)) +
