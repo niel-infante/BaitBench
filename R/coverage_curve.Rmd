@@ -52,24 +52,65 @@ if (length(swept_params) == 0 || (length(swept_params) == 1 && swept_params[1] =
   if (length(unique(sweep_df$num_sequences)) > 1) swept_params <- c(swept_params, "num_sequences")
 }
 
+# Format numbers with commas for display (e.g. 10000 -> "10,000")
+format_number <- function(x) {
+  sapply(x, function(v) {
+    if (is.na(v)) return(NA_character_)
+    if (v == floor(v)) {
+      formatC(as.integer(v), format = "d", big.mark = ",")
+    } else {
+      as.character(v)
+    }
+  })
+}
+
+# Full display names for swept parameter types
+param_full_names <- c(
+  ct = "CT",
+  fold_enrichment = "Fold Enrichment",
+  num_sequences = "Num Sequences"
+)
+
 # Build combo label from swept params
+# When a single param is swept, omits the prefix (e.g. "10,000" instead of "NS=10,000")
 build_combo_label <- function(df, swept) {
   if (length(swept) == 0) return(rep("default", nrow(df)))
+  single_param <- length(swept) == 1
   parts <- list()
-  if ("ct" %in% swept) parts[["CT"]] <- paste0("CT=", df$ct)
+  if ("ct" %in% swept) {
+    formatted <- format_number(df$ct)
+    parts[["CT"]] <- if (single_param) formatted else paste0("CT=", formatted)
+  }
   if ("fold_enrichment" %in% swept) {
-    parts[["FE"]] <- ifelse(df$fold_enrichment == 0, "FE=none",
-                            paste0("FE=", df$fold_enrichment))
+    fe_val <- ifelse(df$fold_enrichment == 0, "none", format_number(df$fold_enrichment))
+    parts[["FE"]] <- if (single_param) fe_val else paste0("FE=", fe_val)
   }
   if ("num_sequences" %in% swept) {
-    parts[["NS"]] <- ifelse(df$num_sequences == 0, "NS=all",
-                            paste0("NS=", df$num_sequences))
+    ns_val <- ifelse(df$num_sequences == 0, "all", format_number(df$num_sequences))
+    parts[["NS"]] <- if (single_param) ns_val else paste0("NS=", ns_val)
   }
   do.call(paste, c(parts, sep = ", "))
 }
 
 sweep_df$combo_label <- build_combo_label(sweep_df, swept_params)
+
+# Order combo labels numerically by underlying parameter values
+if (length(swept_params) > 0) {
+  sort_cols <- intersect(c("ct", "fold_enrichment", "num_sequences"), swept_params)
+  order_df <- sweep_df %>%
+    distinct(combo_label, .keep_all = TRUE) %>%
+    arrange(across(all_of(sort_cols)))
+  sweep_df$combo_label <- factor(sweep_df$combo_label, levels = order_df$combo_label)
+}
+
 n_combos <- length(unique(sweep_df$combo_label))
+
+# Legend title: full parameter name when only one type is swept
+legend_title <- if (length(swept_params) == 1) {
+  param_full_names[swept_params]
+} else {
+  "Parameters"
+}
 
 # Sample display for title
 sample_display <- paste(sample_ids, collapse = ", ")
@@ -130,16 +171,37 @@ if (n_combos >= 10 && length(swept_params) >= 2) {
   remaining_swept <- setdiff(swept_params, facet_param)
   sweep_df$color_label <- build_combo_label(sweep_df, remaining_swept)
 
-  # Build facet label
+  # Order color labels numerically
+  color_sort_cols <- intersect(c("ct", "fold_enrichment", "num_sequences"), remaining_swept)
+  color_order_df <- sweep_df %>%
+    distinct(color_label, .keep_all = TRUE) %>%
+    arrange(across(all_of(color_sort_cols)))
+  sweep_df$color_label <- factor(sweep_df$color_label, levels = color_order_df$color_label)
+
+  # Update legend title for remaining swept params
+  legend_title <- if (length(remaining_swept) == 1) {
+    param_full_names[remaining_swept]
+  } else {
+    "Parameters"
+  }
+
+  # Build facet label with formatted numbers
   if (facet_param == "ct") {
-    sweep_df$facet_label <- paste0("CT=", sweep_df$ct)
+    sweep_df$facet_label <- paste0("CT=", format_number(sweep_df$ct))
   } else if (facet_param == "fold_enrichment") {
     sweep_df$facet_label <- ifelse(sweep_df$fold_enrichment == 0, "FE=none",
-                                    paste0("FE=", sweep_df$fold_enrichment))
+                                    paste0("FE=", format_number(sweep_df$fold_enrichment)))
   } else if (facet_param == "num_sequences") {
     sweep_df$facet_label <- ifelse(sweep_df$num_sequences == 0, "NS=all",
-                                    paste0("NS=", sweep_df$num_sequences))
+                                    paste0("NS=", format_number(sweep_df$num_sequences)))
   }
+
+  # Order facet labels numerically
+  facet_order_df <- sweep_df %>%
+    distinct(facet_label, .keep_all = TRUE) %>%
+    arrange(.data[[facet_param]])
+  sweep_df$facet_label <- factor(sweep_df$facet_label, levels = facet_order_df$facet_label)
+
   color_label <- "color_label"
 }
 
@@ -157,7 +219,7 @@ if (n_combos == 1) {
   p <- ggplot(sweep_df, aes(x = depth_threshold, y = pct_covered,
                              color = combo_label, group = combo_label)) +
     geom_line(linewidth = 1, alpha = 0.85) +
-    scale_color_manual(values = combo_colors, name = "Parameters") +
+    scale_color_manual(values = combo_colors, name = legend_title) +
     labs(title = paste0("Coverage Depth Curves \u2014 ", sample_display))
 } else {
   # >=10 combos — facet by param with fewest levels
@@ -168,7 +230,7 @@ if (n_combos == 1) {
                              color = .data[[color_label]],
                              group = combo_label)) +
     geom_line(linewidth = 1, alpha = 0.85) +
-    scale_color_manual(values = combo_colors, name = "Parameters") +
+    scale_color_manual(values = combo_colors, name = legend_title) +
     labs(title = paste0("Coverage Depth Curves \u2014 ", sample_display))
 }
 
