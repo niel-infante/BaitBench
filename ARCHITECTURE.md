@@ -30,7 +30,8 @@ Step 5: filter     → filtered.fa
 Step 6: map_reads  → mapped.sam  (against mapping_reference.fa — targets+distractors)
 Step 7: list       → detected.list
 Step 8: metrics    → results.tsv, detected_detail.tsv, results.json, coverage.tsv  (genome-aware classification)
-Report: report     → report.html
+Step 9: identify   → species_calls.tsv, species_calls.json  (optional, if --identify)
+Report: report     → report.html  (includes Species Identification section if species_calls.tsv exists)
 ```
 
 `run.rs` orchestrates all steps. Each step is also available as a standalone subcommand.
@@ -43,6 +44,7 @@ src/
 ├── cli.rs               # clap argument definitions (Commands enum, all flags)
 ├── cleanup.rs           # Post-pipeline cleanup: delete intermediate files/dirs, keep report inputs
 ├── io_utils.rs           # Shared helpers: parse_id_set, extract_source_id, parse_sample_manifest, parse_sample_target_map
+├── target_similarity.rs  # Shared library: target-vs-target similarity computation, discriminability scoring, confusion matrices
 ├── alignment/
 │   ├── coverage.rs      # CIGAR-based per-position coverage from SAM
 │   ├── paf.rs           # PAF record filtering (mismatch/indel criteria) + structured PafRecord parsing
@@ -61,6 +63,8 @@ src/
 │   ├── report.rs        # Report generation: HTML (Rscript), RMarkdown (template substitution), or skip; shared substitute_rmd_params utility
 │   ├── probe_coverage.rs # Standalone probe tiling QC (maps probes to targets)
 │   ├── xreact.rs        # Standalone cross-reactivity analysis (probes vs genomes, probes vs probes)
+│   ├── panel_qc.rs      # Standalone target panel discriminability QC (target-vs-target similarity, species discrimination)
+│   ├── identify.rs      # Species-level calling from multi-target detection patterns (standalone or pipeline step)
 │   └── coverage_curve.rs # Coverage curve: pipeline at multiple param combos → depth curves
 ├── external/
 │   ├── minimap2.rs      # minimap2 wrapper: capture_align (PAF), map_reads (SAM), host_align, probe_align
@@ -81,14 +85,16 @@ R/
 ├── coverage_curve.R     # CLI wrapper for coverage curve report
 ├── coverage_curve.Rmd   # RMarkdown template: coverage depth curves (multi-param sweep)
 ├── xreact.R             # CLI wrapper for cross-reactivity report
-└── xreact.Rmd           # RMarkdown template: plotly heatmaps, density plots, DT hit tables
+├── xreact.Rmd           # RMarkdown template: plotly heatmaps, density plots, DT hit tables
+├── panel_qc.R           # CLI wrapper for panel QC report
+└── panel_qc.Rmd         # RMarkdown template: discriminability charts, confusion heatmaps, target tables
 ```
 
 ## Key Data Types
 
 ### CLI (`cli.rs`)
 
-- **`Commands`** enum — one variant per subcommand (Run, Prepare, Simulate, Capture, Enrich, Sequence, Filter, Map, List, Metrics, ProbeCoverage, Xreact, Report, CoverageCurve), each with its own fields
+- **`Commands`** enum — one variant per subcommand (Run, Prepare, Simulate, Capture, Enrich, Sequence, Filter, Map, List, Metrics, ProbeCoverage, Xreact, PanelQc, Identify, Report, CoverageCurve), each with its own fields
 - **`CaptureMethodArg`** — ValueEnum: Minimap2 | Blast
 - **`ReportMode`** — ValueEnum: Full | None | Rmd — controls report output (HTML, skip, or editable RMarkdown)
 - **CT score flags** — `--ct`, `--ct-baseline`, `--ct-baseline-fraction` on Run and Prepare; `--ct` conflicts with `--distractor-fraction`
@@ -112,7 +118,9 @@ Every command module exports an `Args` struct and an `execute(&Args) -> Result<(
 | `report` | `ReportArgs` | summary, detail, params, coverage, run_name, report (ReportMode) | report.html or report.Rmd |
 | `probe_coverage` | `ProbeCoverageArgs` | targets, probes, minimap_preset, proximity | probe_depth.tsv, probe_coverage_summary.tsv, probe_coverage_report.html |
 | `xreact` | `XreactArgs` | probes, against (genome FASTAs), self_mode, threshold, minimap_preset, report (ReportMode) | hits.tsv, summary.tsv, xreact_report.html |
-| `run` | `RunArgs` | all pipeline inputs + ct, ct_baseline, ct_baseline_fraction, num_sequences, genomes, sample_target_map | all of the above |
+| `panel_qc` | `PanelQcArgs` | targets, sample_target_map, identity_threshold, minimap_preset, report (ReportMode) | target_similarity.tsv, species_discriminability.tsv, species_confusion_matrix.tsv, panel_qc_report.html |
+| `identify` | `IdentifyArgs` | detected_detail, sample_target_map, target_similarity (or targets for on-the-fly), identity_threshold, min_unique_targets | species_calls.tsv, species_calls.json |
+| `run` | `RunArgs` | all pipeline inputs + ct, ct_baseline, ct_baseline_fraction, num_sequences, genomes, sample_target_map, identify, identity_threshold, min_unique_targets | all of the above |
 | `coverage_curve` | `CoverageCurveArgs` | targets, distractors, probes, sample (required), ct/fe/ns values (sweep or fixed), all pipeline params, genomes, sample_target_map | coverage_curve_depth_curves.tsv, coverage_curve_report.html, combo subdirs |
 
 ### Metrics (`metrics.rs`)
@@ -151,6 +159,22 @@ Every command module exports an `Args` struct and an `execute(&Args) -> Result<(
 - Fragment naming: `{seq_id}_fragment_{n} start={pos} length={len}`
 - `generate_weights(target_ids, distractor_ids, sample_weights, distractor_fraction, output)`
 
+### Target Similarity (`target_similarity.rs`)
+
+- **`TargetSimilarity`** — pairwise record: target_a, target_b, identity_pct, matching_bases, len_a, len_b
+- **`SimilarityContext`** — cross_species_similar (target→set of similar targets from other species), target_is_unique, species_targets, target_to_species
+- **`SpeciesDiscriminability`** — per-species: total/unique/shared targets, discriminability_score, confusable_with
+- `compute_target_similarity(fasta, preset, threshold, work_dir)` — minimap2 all-vs-all, filter by identity
+- `build_similarity_context(similarities, genome_to_targets)` — classify targets as unique/shared
+- `compute_discriminability(ctx)` — per-species discriminability scores
+- `build_confusion_matrix(ctx)` — species×species shared target count matrix
+
+### Species Identification (`commands/identify.rs`)
+
+- **`SpeciesCall`** enum — Present | Absent | Ambiguous
+- **`SpeciesCallResult`** — species_id, call, target counts (total/unique/shared/detected), reads, explained_by, reason
+- `call_species(ctx, detail_rows, min_unique_targets)` — ordered-explanation algorithm: sort by evidence strength, call PRESENT for unique marker hits, ABSENT when all hits explained by cross-reactivity, AMBIGUOUS when indeterminate
+
 ### IO Utilities (`io_utils.rs`)
 
 - `parse_id_set(path) → HashSet<String>` — one ID per line, # comments
@@ -184,6 +208,7 @@ All wrappers follow the pattern: `check_available() → bool/Result`, then speci
 | `detail_file` | detected_detail.tsv |
 | `params_file` | run_params.tsv |
 | `coverage_file` | coverage.tsv (optional) |
+| `species_calls_file` | species_calls.tsv (optional, from --identify) |
 | `run_name` | string |
 
 ### Report Sections
@@ -198,6 +223,7 @@ All wrappers follow the pattern: `check_available() → bool/Result`, then speci
 8. **Detection Detail** — per-reference table with coverage stats
 9. **Detection Lollipop** — reads per detected reference, colored by classification
 10. **Coverage** (conditional) — faceted overview + expandable per-reference detail plots
+11. **Species Identification** (conditional, if species_calls.tsv exists) — species calls summary, bar chart, evidence table
 
 ## Intermediate Files
 
@@ -223,7 +249,45 @@ All wrappers follow the pattern: `check_available() → bool/Result`, then speci
 | `detected_detail.tsv` | TSV | metrics | report |
 | `results.json` | JSON | metrics | — |
 | `coverage.tsv` | TSV intervals (reference_id start end depth) | metrics | report |
+| `species_calls.tsv` | TSV | identify (optional) | report |
+| `species_calls.json` | JSON | identify (optional) | — |
+| `target_similarity.tsv` | TSV | identify / panel_qc | identify |
 | `report.html` | HTML | report | — |
+
+### Panel QC (standalone, not part of pipeline)
+
+| File | Format | Written by | Read by |
+|------|--------|------------|---------|
+| `target_similarity.tsv` | TSV (target_a, target_b, identity_pct, matching_bases, len_a, len_b) | panel_qc | panel_qc report, identify |
+| `species_discriminability.tsv` | TSV (species_id, total/unique/shared targets, score, confusable) | panel_qc | panel_qc report |
+| `species_confusion_matrix.tsv` | TSV (species × species shared target counts) | panel_qc | panel_qc report |
+| `panel_qc_report.html` | HTML | panel_qc (via R) | — |
+
+### Panel QC Report (`R/panel_qc.Rmd`)
+
+`panel_qc.R` accepts CLI args and calls `rmarkdown::render()` on `panel_qc.Rmd`.
+
+| Param | Source |
+|-------|--------|
+| `discriminability_file` | species_discriminability.tsv |
+| `matrix_file` | species_confusion_matrix.tsv |
+| `similarity_file` | target_similarity.tsv |
+| `params_file` | run_params.tsv |
+
+Report sections:
+1. **Panel Summary** — species count, target count, unique/partial/zero discriminability counts
+2. **Species Discriminability** — bar chart (≤50 species) or histogram (>50), colored by tier
+3. **Target Composition** — stacked bar of unique vs shared targets per species
+4. **Species Confusion Matrix** — heatmap (≤30 species) or summary stats (>30)
+5. **Discriminability Table** — full per-species detail (DT::datatable for >20)
+6. **Target Similarity Pairs** — pairwise similarity hits above threshold
+
+### Species Identification (standalone or optional pipeline step)
+
+| File | Format | Written by | Read by |
+|------|--------|------------|---------|
+| `species_calls.tsv` | TSV (species_id, call, targets/detected counts, reads, explained_by, reason) | identify | report |
+| `species_calls.json` | JSON (structured species calls array) | identify | — |
 
 ### Probe Coverage Report (`R/probe_coverage.Rmd`)
 

@@ -187,8 +187,8 @@ pub fn parse_sample_target_map(path: &Path) -> Result<HashMap<String, Vec<String
                 line
             );
         }
-        let genome_id = parts[0].trim().to_string();
-        let target_id = parts[1].trim().to_string();
+        let genome_id = parts[0].trim().trim_start_matches('>').to_string();
+        let target_id = parts[1].trim().trim_start_matches('>').to_string();
         map.entry(genome_id).or_default().push(target_id);
     }
 

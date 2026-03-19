@@ -33,6 +33,8 @@ Complete reference for BaitBench, an in-silico probe capture simulation tool.
   - [probe-coverage](#probe-coverage)
   - [xreact](#xreact)
   - [coverage-curve](#coverage-curve)
+  - [panel-qc](#panel-qc)
+  - [identify](#identify)
 - [Parameter Reference](#parameter-reference)
   - [Input Files](#input-files)
   - [Fragment Generation](#fragment-generation)
@@ -65,6 +67,8 @@ Complete reference for BaitBench, an in-silico probe capture simulation tool.
   - [Coverage Curve Analysis](#coverage-curve-analysis)
   - [Probe Design QC](#probe-design-qc)
   - [Cross-Reactivity Analysis](#cross-reactivity-analysis)
+  - [Target Panel QC](#target-panel-qc)
+  - [Species Identification](#species-identification)
   - [Running Individual Steps](#running-individual-steps)
   - [Reproducible Runs](#reproducible-runs)
   - [Batch Comparisons](#batch-comparisons)
@@ -72,6 +76,8 @@ Complete reference for BaitBench, an in-silico probe capture simulation tool.
   - [HTML Report Sections](#html-report-sections)
   - [Coverage Curve Report](#coverage-curve-report)
   - [Probe Coverage Report](#probe-coverage-report)
+  - [Panel QC Report](#panel-qc-report)
+  - [Species Identification in Main Report](#species-identification-in-main-report)
 - [Metrics Definitions](#metrics-definitions)
   - [Genome-Level Metrics](#genome-level-metrics)
   - [Read-Level Metrics](#read-level-metrics)
@@ -404,6 +410,8 @@ baitbench run [OPTIONS]
 ```
 
 This is the primary command for most use cases. It chains all pipeline steps (prepare through report) automatically. Use `--cleanup` to delete intermediate files (FASTA, SAM, logs) after completion, keeping only report inputs and final outputs. See [Parameter Reference](#parameter-reference) for all options.
+
+In genome mode with `--sample-target-map`, use `--identify` to add species-level calling after metrics. This computes target similarity, calls species PRESENT/ABSENT/AMBIGUOUS, and includes the results in the HTML report with ground-truth comparison against the `--sample` manifest.
 
 ### prepare
 
@@ -754,6 +762,155 @@ The pipeline shares intermediate files across combinations for efficiency: prepa
 - `coverage_curve_report.html` -- HTML report with depth curves (`--report full`)
 - `coverage_curve_report.Rmd` -- editable RMarkdown file (`--report rmd`)
 
+### panel-qc
+
+Standalone pre-experiment QC tool that assesses whether a target panel can discriminate between species. This evaluates target uniqueness before running simulations.
+
+```bash
+baitbench panel-qc \
+  --targets gene_targets.fa \
+  --sample-target-map mapping.tsv \
+  [--identity-threshold 90.0] \
+  [--minimap-preset sr] \
+  [--outdir panel_qc_results] \
+  [--report full] \
+  [--cleanup]
+```
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `--targets` | required | Target sequences FASTA |
+| `--sample-target-map` | required | Mapping TSV linking species/genome IDs to target IDs |
+| `--identity-threshold` | 90.0 | Minimum sequence identity % to consider two targets "similar" |
+| `--minimap-preset` | sr | Minimap2 alignment preset for target-vs-target comparison |
+| `--outdir` | ./panel_qc_results | Output directory |
+| `--report` | full | Report mode: `full` (HTML), `none` (skip), `rmd` (editable RMarkdown) |
+| `--cleanup` | false | Delete intermediate files after completion |
+
+**Algorithm:**
+
+1. All targets are aligned against all targets using minimap2 (`--minimap-preset`)
+2. Pairwise similarity is computed as `matching_bases / min(len_a, len_b) * 100`
+3. Pairs above `--identity-threshold` are reported as similar
+4. Using the sample-target-map, targets are classified as "unique" (no cross-species similarity) or "shared" (has similar targets in other species)
+5. Per-species discriminability score is `unique_targets / total_targets`
+6. A species confusion matrix shows which species pairs share similar targets
+
+**Interpreting results:**
+
+- A species with discriminability score 0.0 has **zero** unique targets -- it cannot be reliably distinguished from other species. Consider adding more targets.
+- The confusion matrix highlights species pairs that share similar targets, indicating potential cross-reactivity in identification.
+- High discriminability (close to 1.0) means most targets are unique to that species -- identification should be reliable.
+
+**Output files:**
+
+- `target_similarity.tsv` -- pairwise target similarities above threshold
+- `species_discriminability.tsv` -- per-species discriminability scores
+- `species_confusion_matrix.tsv` -- species-by-species shared target counts
+- `panel_qc_report.html` -- HTML report with heatmap and discriminability charts (`--report full`)
+- `panel_qc_report.Rmd` -- editable RMarkdown file (`--report rmd`)
+
+**target_similarity.tsv columns:**
+
+| Column | Description |
+|--------|-------------|
+| `target_a` | First target ID |
+| `target_b` | Second target ID |
+| `identity_pct` | `matching_bases / min(len_a, len_b) * 100` |
+| `matching_bases` | Number of matching bases |
+| `len_a` | Length of target A |
+| `len_b` | Length of target B |
+
+**species_discriminability.tsv columns:**
+
+| Column | Description |
+|--------|-------------|
+| `species_id` | Species/genome ID |
+| `total_targets` | Total targets assigned to this species |
+| `unique_targets` | Targets with no cross-species similarity |
+| `shared_targets` | Targets similar to targets in other species |
+| `discriminability_score` | `unique_targets / total_targets` (0.0–1.0) |
+| `confusable_species` | Comma-separated species IDs with shared targets |
+
+### identify
+
+Call species presence/absence from multi-target detection patterns. Can be run standalone on existing pipeline results or integrated into `baitbench run` with `--identify`.
+
+```bash
+# Using pre-computed similarity from panel-qc
+baitbench identify \
+  --detected-detail results/run/detected_detail.tsv \
+  --sample-target-map mapping.tsv \
+  --target-similarity panel_qc/target_similarity.tsv \
+  [--min-unique-targets 1] \
+  [--outdir identify_results]
+
+# Computing similarity on-the-fly
+baitbench identify \
+  --detected-detail results/run/detected_detail.tsv \
+  --sample-target-map mapping.tsv \
+  --targets gene_targets.fa \
+  [--identity-threshold 90.0] \
+  [--minimap-preset sr] \
+  [--min-unique-targets 1] \
+  [--outdir identify_results]
+```
+
+Either `--target-similarity` or `--targets` must be provided (not both).
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `--detected-detail` | required | `detected_detail.tsv` from metrics step |
+| `--sample-target-map` | required | Mapping TSV linking species/genome IDs to target IDs |
+| `--target-similarity` | none | Pre-computed similarity TSV from `panel-qc` |
+| `--targets` | none | Target sequences FASTA (computes similarity on-the-fly) |
+| `--identity-threshold` | 90.0 | Similarity threshold (only with `--targets`) |
+| `--minimap-preset` | sr | Minimap2 preset (only with `--targets`) |
+| `--min-unique-targets` | 1 | Minimum unique target detections to call a species PRESENT |
+| `--outdir` | ./identify_results | Output directory |
+
+**Calling algorithm (ordered-explanation approach):**
+
+1. **Classify targets**: Each target is labeled "unique" (no similar targets in other species) or "shared" (has cross-species similarity), using the similarity data.
+
+2. **Collect evidence**: For each species, count how many unique vs shared targets were detected, and how many total reads were observed.
+
+3. **Sort by evidence strength**: Species are ranked by `(unique_detected DESC, total_reads DESC)`.
+
+4. **Process in order**: Each species is assigned one of three calls:
+   - **PRESENT**: `≥ min_unique_targets` unique targets detected
+   - **ABSENT** (no detections): zero targets detected for this species
+   - **ABSENT** (cross-reactivity explained): all detected targets are "shared" AND every one can be explained by a species already called PRESENT earlier in the ordered processing
+   - **AMBIGUOUS** (no unique markers): species has zero unique targets in the panel -- cannot confirm or deny
+   - **AMBIGUOUS** (insufficient evidence): species has some unique targets but not enough detected (< `min_unique_targets`), and not all shared detections are explained
+
+This creates a natural parsimony effect: the species with the strongest unique evidence is called first, then its presence "explains away" shared target hits in subsequent species.
+
+**Output files:**
+
+- `species_calls.tsv` -- per-species call with evidence breakdown
+- `species_calls.json` -- structured JSON format
+
+**species_calls.tsv columns:**
+
+| Column | Description |
+|--------|-------------|
+| `species_id` | Species/genome ID |
+| `call` | PRESENT, ABSENT, or AMBIGUOUS |
+| `total_targets` | Total targets for this species in the panel |
+| `unique_targets` | Targets unique to this species |
+| `shared_targets` | Targets shared with other species |
+| `unique_detected` | Unique targets that were detected |
+| `shared_detected` | Shared targets that were detected |
+| `total_detected` | Total targets detected |
+| `total_reads` | Total reads across all detected targets |
+| `explained_by` | Comma-separated species IDs that explain shared hits |
+| `reason` | Call reason: `unique_markers_detected`, `no_detections`, `cross_reactivity_explained`, `no_unique_markers`, `insufficient_unique_evidence` |
+
+**Integration with `baitbench run`:**
+
+When `--identify` is passed to `baitbench run` (genome mode with `--sample-target-map` required), species identification runs automatically after the metrics step. The species calls are included in the HTML report and compared against ground truth (the `--sample` manifest) to compute species-level sensitivity and specificity.
+
 ---
 
 ## Parameter Reference
@@ -829,6 +986,9 @@ See [CT Score Calculation](#ct-score-calculation) for details.
 | Minimap preset | `--minimap-preset` | sr | Minimap2 preset for read mapping |
 | Host minimap preset | `--host-minimap-preset` | sr | Minimap2 preset for host read filtering |
 | Cleanup | `--cleanup` | false | Delete intermediate files after completion, keeping only report inputs and final outputs. Available on `run`, `coverage-curve`, `probe-coverage`, and `xreact` |
+| Identify | `--identify` | false | Enable species-level identification after metrics (genome mode only, requires `--sample-target-map`). Available on `run` |
+| Identity threshold | `--identity-threshold` | 90.0 | Minimum sequence identity % to consider targets "similar" for species identification. Available on `run`, `panel-qc`, `identify` |
+| Min unique targets | `--min-unique-targets` | 1 | Minimum unique target detections required to call a species PRESENT. Available on `run`, `identify` |
 
 ---
 
@@ -944,6 +1104,9 @@ results/run_20250101_120000/
 ├── coverage.tsv                # Run-length encoded read depth intervals
 ├── report.html                 # HTML report (--report full, requires R)
 ├── report.Rmd                  # Editable RMarkdown (--report rmd)
+├── species_calls.tsv           # Species-level calls (if --identify)
+├── species_calls.json          # Species calls JSON (if --identify)
+├── target_similarity.tsv       # Target pairwise similarity (if --identify)
 ├── capture.log                 # Capture alignment log
 ├── mapping.log                 # Read mapping log
 └── host_filter.log             # Host filtering log (if --host-fasta)
@@ -1346,6 +1509,81 @@ baitbench xreact \
   --outdir xreact_full
 ```
 
+### Target Panel QC
+
+Assess whether a target panel can distinguish between species before running simulations:
+
+```bash
+# Basic panel QC
+baitbench panel-qc \
+  --targets gene_targets.fa \
+  --sample-target-map mapping.tsv \
+  --outdir panel_qc_results
+
+# Stricter similarity threshold (95% instead of default 90%)
+baitbench panel-qc \
+  --targets gene_targets.fa \
+  --sample-target-map mapping.tsv \
+  --identity-threshold 95 \
+  --outdir panel_qc_strict
+
+# Skip HTML report (just produce TSV files)
+baitbench panel-qc \
+  --targets gene_targets.fa \
+  --sample-target-map mapping.tsv \
+  --report none \
+  --outdir panel_qc_tsv
+```
+
+The HTML report includes a species discriminability chart, confusion matrix heatmap, and target composition breakdown.
+
+### Species Identification
+
+Call species from existing pipeline results or as part of `baitbench run`:
+
+```bash
+# Standalone: using pre-computed similarity from panel-qc
+baitbench identify \
+  --detected-detail results/run/detected_detail.tsv \
+  --sample-target-map mapping.tsv \
+  --target-similarity panel_qc_results/target_similarity.tsv \
+  --outdir identify_results
+
+# Standalone: compute similarity on-the-fly from target FASTA
+baitbench identify \
+  --detected-detail results/run/detected_detail.tsv \
+  --sample-target-map mapping.tsv \
+  --targets gene_targets.fa \
+  --outdir identify_results
+
+# Integrated into pipeline (genome mode)
+baitbench run \
+  --targets gene_targets.fa \
+  --genomes full_genomes.fa \
+  --distractors human.fa \
+  --probes probes.fa \
+  --sample-target-map mapping.tsv \
+  --sample e_coli influenza_a \
+  --identify \
+  --num-fragments 50000 \
+  --outdir results
+
+# With stricter calling threshold (require 2 unique markers)
+baitbench run \
+  --targets gene_targets.fa \
+  --genomes full_genomes.fa \
+  --distractors human.fa \
+  --probes probes.fa \
+  --sample-target-map mapping.tsv \
+  --sample e_coli influenza_a \
+  --identify \
+  --min-unique-targets 2 \
+  --num-fragments 50000 \
+  --outdir results
+```
+
+When `--identify` is used with `baitbench run`, the species calls are compared against the ground-truth `--sample` manifest and included in the HTML report.
+
 ### Running Individual Steps
 
 Run pipeline steps independently for custom workflows:
@@ -1514,6 +1752,25 @@ The probe coverage report (`probe_coverage_report.html`) shows:
 - **Depth profiles** -- Per-position probe depth plots for each target (omitted for > 100 targets)
 - **Gap analysis** -- Uncovered regions and gap statistics
 - **Multi-mapping probes** -- Probes that align to multiple targets (specificity concerns)
+
+### Panel QC Report
+
+The panel QC report (`panel_qc_report.html`) shows:
+
+- **Panel Summary** -- Total species, targets, similar pairs, and species with zero unique targets
+- **Species Discriminability** -- Bar chart (≤50 species) or histogram (>50) of discriminability scores
+- **Target Composition** -- Stacked bar chart of unique vs shared targets per species
+- **Species Confusion Matrix** -- Heatmap (≤30 species) or distribution statistics (>30) of shared target counts
+- **Discriminability Table** -- Full per-species discriminability data (simple table ≤20, interactive DT table >20)
+- **Target Similarity Pairs** -- All pairwise target similarities above the threshold
+
+### Species Identification in Main Report
+
+When species calls are available (from `--identify` or standalone `baitbench identify`), the main HTML report includes a "Species Identification" section with:
+
+- **Summary table** -- Species-level sensitivity and specificity (when ground truth is available via `--sample`)
+- **Species call chart** -- Bar chart of PRESENT/ABSENT/AMBIGUOUS calls per species
+- **Evidence detail table** -- Full breakdown with unique/shared detected counts, reads, and explanation
 
 ---
 

@@ -1,0 +1,271 @@
+---
+title: "BaitBench Target Panel Discriminability Report"
+output:
+  html_document:
+    self_contained: true
+    theme: flatly
+    toc: true
+    toc_float: true
+params:
+  discriminability_file: ""
+  matrix_file: ""
+  similarity_file: ""
+  params_file: ""
+---
+
+<style>
+.main-container { max-width: 100%; margin-left: 1em; margin-right: 1em; }
+.dataTables_wrapper { width: 100%; }
+table { width: 100%; }
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE,
+                      fig.width = 10, fig.height = 6, out.width = "100%")
+
+suppressPackageStartupMessages({
+  library(ggplot2)
+  library(dplyr)
+  library(tidyr)
+  library(plotly)
+  library(DT)
+})
+
+theme_set(theme_minimal(base_size = 14))
+
+disc <- read.delim(params$discriminability_file, stringsAsFactors = FALSE)
+matrix_df <- read.delim(params$matrix_file, stringsAsFactors = FALSE, check.names = FALSE)
+
+has_similarity <- params$similarity_file != "" && file.exists(params$similarity_file)
+if (has_similarity) {
+  sim <- read.delim(params$similarity_file, stringsAsFactors = FALSE)
+}
+
+has_params <- params$params_file != "" && file.exists(params$params_file)
+if (has_params) {
+  params_df <- read.delim(params$params_file, stringsAsFactors = FALSE)
+}
+
+n_species <- nrow(disc)
+n_targets <- sum(disc$total_targets)
+n_unique_species <- sum(disc$discriminability_score >= 1.0)
+n_partial_species <- sum(disc$discriminability_score > 0 & disc$discriminability_score < 1.0)
+n_zero_species <- sum(disc$discriminability_score == 0)
+```
+
+## Panel Summary
+
+```{r summary_table, results='asis'}
+info <- data.frame(
+  Metric = c(
+    "Total species",
+    "Total targets",
+    "Species with all unique targets",
+    "Species with some unique targets",
+    "Species with NO unique targets"
+  ),
+  Value = c(
+    n_species,
+    n_targets,
+    paste0(n_unique_species, " / ", n_species, " (", round(100 * n_unique_species / max(n_species, 1), 1), "%)"),
+    paste0(n_partial_species, " / ", n_species, " (", round(100 * n_partial_species / max(n_species, 1), 1), "%)"),
+    paste0(n_zero_species, " / ", n_species, " (", round(100 * n_zero_species / max(n_species, 1), 1), "%)")
+  ),
+  stringsAsFactors = FALSE
+)
+
+knitr::kable(info, col.names = c("Metric", "Value"), align = "lr")
+```
+
+`r if (n_zero_species > 0) paste0("**Warning:** ", n_zero_species, " species have no unique targets and cannot be reliably distinguished from other species. Consider adding more species-specific targets to the panel.")`
+
+## Species Discriminability
+
+```{r discriminability_plot, fig.height=if (n_species <= 50) max(4, n_species * 0.3) else 5}
+disc_plot <- disc %>%
+  mutate(
+    species_id = factor(species_id, levels = species_id[order(discriminability_score)]),
+    tier = case_when(
+      discriminability_score >= 0.5 ~ "High (>= 50%)",
+      discriminability_score > 0    ~ "Low (> 0%)",
+      TRUE                          ~ "None (0%)"
+    ),
+    tier = factor(tier, levels = c("High (>= 50%)", "Low (> 0%)", "None (0%)"))
+  )
+
+tier_colors <- c("High (>= 50%)" = "#1a7a42", "Low (> 0%)" = "#5b9bd5", "None (0%)" = "#e74c3c")
+
+if (n_species <= 50) {
+  ggplot(disc_plot, aes(x = species_id, y = discriminability_score, fill = tier)) +
+    geom_col(width = 0.7) +
+    geom_text(aes(label = paste0(unique_targets, "/", total_targets)),
+              hjust = -0.1, size = 3) +
+    scale_fill_manual(values = tier_colors, name = "Discriminability") +
+    scale_y_continuous(limits = c(0, 1.15), labels = scales::percent_format()) +
+    coord_flip() +
+    labs(x = NULL, y = "Discriminability Score (unique / total targets)",
+         title = "Species Discriminability") +
+    theme(legend.position = "bottom")
+} else {
+  # For large panels, show distribution instead
+  ggplot(disc_plot, aes(x = discriminability_score, fill = tier)) +
+    geom_histogram(bins = 20, boundary = 0) +
+    scale_fill_manual(values = tier_colors, name = "Discriminability") +
+    scale_x_continuous(labels = scales::percent_format()) +
+    labs(x = "Discriminability Score", y = "Number of Species",
+         title = "Distribution of Species Discriminability Scores") +
+    theme(legend.position = "bottom")
+}
+```
+
+## Target Composition
+
+```{r target_composition, fig.height=if (n_species <= 50) max(4, n_species * 0.3) else 5}
+comp <- disc %>%
+  select(species_id, unique_targets, shared_targets) %>%
+  pivot_longer(cols = c(unique_targets, shared_targets),
+               names_to = "type", values_to = "count") %>%
+  mutate(
+    species_id = factor(species_id, levels = disc$species_id[order(disc$discriminability_score)]),
+    type = factor(type, levels = c("shared_targets", "unique_targets"),
+                  labels = c("Shared", "Unique"))
+  )
+
+comp_colors <- c("Unique" = "#1a7a42", "Shared" = "#5b9bd5")
+
+if (n_species <= 50) {
+  ggplot(comp, aes(x = species_id, y = count, fill = type)) +
+    geom_col(position = "identity", width = 0.7, alpha = 0.6) +
+    scale_fill_manual(values = comp_colors, name = "Target Type") +
+    coord_flip() +
+    labs(x = NULL, y = "Number of Targets",
+         title = "Target Composition per Species (Unique vs Shared)") +
+    theme(legend.position = "bottom")
+} else {
+  ggplot(comp, aes(x = count, fill = type)) +
+    geom_density(alpha = 0.5, adjust = 1.2) +
+    scale_fill_manual(values = comp_colors, name = "Target Type") +
+    labs(x = "Number of Targets", y = "Density",
+         title = "Distribution of Unique vs Shared Targets per Species") +
+    theme(legend.position = "bottom")
+}
+```
+
+## Species Confusion Matrix
+
+```{r confusion_matrix_setup, include=FALSE}
+# The matrix_df has species as first column, rest are species columns
+species_names <- matrix_df[[1]]
+mat <- as.matrix(matrix_df[, -1])
+rownames(mat) <- species_names
+heatmap_height <- max(500, n_species * 12)
+```
+
+```{r confusion_matrix_heatmap, eval=(n_species <= 100), out.height=paste0(heatmap_height, "px")}
+# Build hover text matrix: show species names and count for non-zero cells
+hover_text <- matrix("", nrow = n_species, ncol = n_species)
+for (i in seq_len(n_species)) {
+  for (j in seq_len(n_species)) {
+    if (mat[i, j] > 0) {
+      hover_text[i, j] <- paste0(species_names[i], " \u2194 ", species_names[j],
+                                  "\nShared targets: ", mat[i, j])
+    }
+  }
+}
+
+# Replace zeros with NA for cleaner color scale (white for zero)
+mat_plot <- mat
+mat_plot[mat_plot == 0] <- NA
+
+plot_ly(
+  x = species_names, y = species_names, z = mat_plot,
+  text = hover_text, hoverinfo = "text",
+  type = "heatmap",
+  colorscale = list(c(0, "#fee0d2"), c(0.5, "#fc9272"), c(1, "#de2d26")),
+  colorbar = list(title = "Shared\nTargets"),
+  zmin = 1
+) %>%
+  layout(
+    title = "Cross-Species Target Similarity (shared target count)",
+    xaxis = list(tickangle = -90, tickfont = list(size = if (n_species > 50) 7 else 10)),
+    yaxis = list(tickfont = list(size = if (n_species > 50) 7 else 10), autorange = "reversed"),
+    height = heatmap_height,
+    margin = list(b = 120)
+  )
+```
+
+```{r confusion_matrix_text, eval=(n_species > 100), results='asis'}
+off_diag <- mat[upper.tri(mat)]
+cat("**Panel too large for interactive heatmap (", n_species, " species).** Summary of off-diagonal confusion counts:\n\n")
+cat("- Species pairs with shared targets:", sum(off_diag > 0), "/", length(off_diag), "\n")
+cat("- Max shared targets between any pair:", max(off_diag), "\n")
+cat("- Mean shared targets (non-zero pairs):", round(mean(off_diag[off_diag > 0]), 1), "\n")
+```
+
+## Discriminability Table
+
+```{r disc_table}
+disc_display <- disc %>%
+  mutate(discriminability_score = round(discriminability_score, 3)) %>%
+  select(species_id, total_targets, unique_targets, shared_targets,
+         discriminability_score, confusable_species)
+
+if (n_species <= 20) {
+  knitr::kable(disc_display,
+               col.names = c("Species", "Total Targets", "Unique", "Shared",
+                              "Discriminability", "Confusable With"),
+               align = "lrrrrl")
+} else {
+  datatable(disc_display,
+            colnames = c("Species", "Total Targets", "Unique", "Shared",
+                         "Discriminability", "Confusable With"),
+            options = list(pageLength = 25, scrollX = TRUE),
+            rownames = FALSE) %>%
+    formatRound("discriminability_score", digits = 3)
+}
+```
+
+```{r similarity_table, eval=has_similarity, results='asis'}
+cat("\n## Target Similarity Pairs\n\n")
+
+sim_display <- sim %>%
+  mutate(identity_pct = round(identity_pct, 1)) %>%
+  arrange(desc(identity_pct))
+
+if (nrow(sim_display) <= 20) {
+  knitr::kable(sim_display,
+               col.names = c("Target A", "Target B", "Identity %",
+                              "Matching Bases", "Length A", "Length B"),
+               align = "llrrrr")
+} else {
+  datatable(sim_display,
+            colnames = c("Target A", "Target B", "Identity %",
+                         "Matching Bases", "Length A", "Length B"),
+            options = list(pageLength = 25, scrollX = TRUE),
+            rownames = FALSE) %>%
+    formatRound("identity_pct", digits = 1)
+}
+```
+
+```{r params_section, eval=has_params, results='asis'}
+cat("\n\n<details><summary>Parameters</summary>\n\n")
+
+knitr::kable(params_df, col.names = c("Parameter", "Flag", "Value"), align = "lll")
+
+# Reconstruct CLI command
+cmd_parts <- c("baitbench panel-qc")
+for (i in seq_len(nrow(params_df))) {
+  flag <- params_df$flag[i]
+  val <- params_df$value[i]
+  if (!is.na(val) && val != "" && val != "none" && val != "false") {
+    if (val == "true") {
+      cmd_parts <- c(cmd_parts, flag)
+    } else {
+      cmd_parts <- c(cmd_parts, paste(flag, val))
+    }
+  }
+}
+
+cat("\n**Command:**\n```\n", paste(cmd_parts, collapse = " \\\n  "), "\n```\n")
+cat("\n</details>\n")
+```

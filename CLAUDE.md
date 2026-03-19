@@ -61,14 +61,20 @@ genomes.fa + targets.fa + distractors.fa [+ sample.tsv] [+ mapping.tsv]
          ↓
    baitbench metrics   (genome-aware classification with sample-target-map)
          ↓
-   baitbench report    (HTML with ggplot2 figures)
+   baitbench identify  (optional: species-level calling from multi-target patterns)
+         ↓
+   baitbench report    (HTML with ggplot2 figures + optional species ID section)
 ```
 
-`baitbench run` chains all steps automatically.
+`baitbench run` chains all steps automatically. With `--identify`, adds species-level calling.
 
 `baitbench ct-sweep` runs the pipeline at multiple CT values and produces coverage depth curve plots.
 
 `baitbench xreact` checks probe cross-reactivity against genomes and/or other probes (standalone, not part of the pipeline).
+
+`baitbench panel-qc` assesses whether a target panel can discriminate between species by computing target-vs-target similarity and per-species discriminability scores (standalone, pre-experiment QC).
+
+`baitbench identify` calls species PRESENT/ABSENT/AMBIGUOUS from multi-target detection patterns, using cross-reactivity knowledge to explain away false positives (standalone or as pipeline step via `--identify`).
 
 ### Key Files
 
@@ -88,6 +94,9 @@ genomes.fa + targets.fa + distractors.fa [+ sample.tsv] [+ mapping.tsv]
 | `src/commands/metrics.rs` | 3-way classification (genome-aware with --sample-target-map), TSV/JSON output |
 | `src/commands/report.rs` | Invokes Rscript for HTML report |
 | `src/commands/xreact.rs` | Cross-reactivity analysis (probes vs genomes, probes vs probes) |
+| `src/commands/panel_qc.rs` | Target panel discriminability QC (target-vs-target similarity, species discrimination) |
+| `src/commands/identify.rs` | Species-level calling from multi-target detection patterns |
+| `src/target_similarity.rs` | Shared library: target similarity computation, discriminability scoring, confusion matrices |
 | `src/commands/ct_sweep.rs` | CT sweep: pipeline at multiple CT values → depth curves |
 | `src/fasta/` | FASTA parsing, writing, extract-by-ID (replaces seqtk) |
 | `src/alignment/paf.rs` | PAF format parser for minimap2 output |
@@ -100,6 +109,8 @@ genomes.fa + targets.fa + distractors.fa [+ sample.tsv] [+ mapping.tsv]
 | `R/report.R` | R script entry point for report generation |
 | `R/ct_sweep.R` | R script entry point for CT sweep report |
 | `R/ct_sweep.Rmd` | RMarkdown template for coverage depth curves |
+| `R/panel_qc.R` | R script entry point for panel QC report |
+| `R/panel_qc.Rmd` | RMarkdown template for panel discriminability report |
 | `environment.yml` | Conda environment (minimap2, blast, R packages) |
 
 ### Metrics Definitions

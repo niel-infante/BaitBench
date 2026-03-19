@@ -11,6 +11,7 @@ params:
   detail_file: ""
   params_file: ""
   coverage_file: ""
+  species_calls_file: ""
   run_name: "BaitBench Run"
 ---
 
@@ -35,6 +36,12 @@ params_df <- read.delim(params$params_file, stringsAsFactors = FALSE)
 has_coverage <- nchar(params$coverage_file) > 0 && file.exists(params$coverage_file)
 if (has_coverage) {
   coverage_intervals <- read.delim(params$coverage_file, stringsAsFactors = FALSE)
+}
+
+# Read species calls if available (from --identify step)
+has_species_calls <- nchar(params$species_calls_file) > 0 && file.exists(params$species_calls_file)
+if (has_species_calls) {
+  species_calls <- read.delim(params$species_calls_file, stringsAsFactors = FALSE)
 }
 
 # Convert interval-format coverage to plottable points for a single reference.
@@ -912,6 +919,74 @@ if (has_coverage && nrow(coverage_intervals) > 0) {
     print(p)
     cat('\n\n</details>\n\n')
   }
+}
+```
+
+```{r species-id-section, eval=has_species_calls, results='asis'}
+cat("\n## Species Identification\n\n")
+```
+
+```{r species-id-summary, eval=has_species_calls, results='asis'}
+n_present <- sum(species_calls$call == "PRESENT")
+n_absent <- sum(species_calls$call == "ABSENT")
+n_ambiguous <- sum(species_calls$call == "AMBIGUOUS")
+
+cat(sprintf("Species-level identification based on multi-target detection patterns and cross-reactivity analysis.\n\n"))
+
+info <- data.frame(
+  Metric = c("Species called PRESENT", "Species called ABSENT", "Species called AMBIGUOUS"),
+  Value = c(n_present, n_absent, n_ambiguous),
+  stringsAsFactors = FALSE
+)
+knitr::kable(info, col.names = c("Call", "Count"), align = "lr") |> print()
+```
+
+```{r species-id-plot, eval=has_species_calls, fig.height=if (exists("species_calls")) max(4, nrow(species_calls) * 0.35) else 4}
+call_colors <- c("PRESENT" = "#27ae60", "ABSENT" = "#e74c3c", "AMBIGUOUS" = "#f39c12")
+
+sc_plot <- species_calls %>%
+  mutate(
+    species_id = factor(species_id, levels = rev(species_id[order(call, -total_reads)])),
+    call = factor(call, levels = c("PRESENT", "AMBIGUOUS", "ABSENT"))
+  )
+
+if (nrow(sc_plot) <= 50) {
+  ggplot(sc_plot, aes(x = species_id, y = total_reads, fill = call)) +
+    geom_col(width = 0.7) +
+    geom_text(aes(label = paste0(unique_detected, "u/", shared_detected, "s")),
+              hjust = -0.1, size = 3) +
+    scale_fill_manual(values = call_colors, name = "Call") +
+    coord_flip() +
+    labs(x = NULL, y = "Total Reads",
+         title = "Species Identification Calls",
+         subtitle = "Labels show unique/shared targets detected") +
+    theme(legend.position = "bottom")
+} else {
+  ggplot(sc_plot, aes(x = call, fill = call)) +
+    geom_bar(width = 0.7) +
+    scale_fill_manual(values = call_colors, name = "Call") +
+    labs(x = "Call", y = "Number of Species",
+         title = "Species Identification Summary") +
+    theme(legend.position = "none")
+}
+```
+
+```{r species-id-table, eval=has_species_calls}
+sc_display <- species_calls %>%
+  select(species_id, call, total_targets, unique_targets, shared_targets,
+         unique_detected, shared_detected, total_reads, explained_by, reason)
+
+if (nrow(sc_display) <= 20) {
+  knitr::kable(sc_display,
+               col.names = c("Species", "Call", "Total Targets", "Unique", "Shared",
+                              "Unique Det.", "Shared Det.", "Reads", "Explained By", "Reason"),
+               align = "llrrrrrrll")
+} else {
+  datatable(sc_display,
+            colnames = c("Species", "Call", "Total Targets", "Unique", "Shared",
+                         "Unique Det.", "Shared Det.", "Reads", "Explained By", "Reason"),
+            options = list(pageLength = 25, scrollX = TRUE),
+            rownames = FALSE)
 }
 ```
 

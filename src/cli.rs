@@ -141,6 +141,19 @@ pub enum Commands {
         #[arg(long)]
         fold_enrichment: Option<f64>,
 
+        /// Enable species-level identification after metrics (genome mode only, requires --sample-target-map).
+        /// Calls species PRESENT/ABSENT/AMBIGUOUS based on multi-target detection patterns.
+        #[arg(long)]
+        identify: bool,
+
+        /// Minimum sequence identity % to consider targets "similar" for species identification
+        #[arg(long, default_value = "90.0")]
+        identity_threshold: f64,
+
+        /// Minimum unique targets detected to call a species PRESENT
+        #[arg(long, default_value = "1")]
+        min_unique_targets: usize,
+
         /// Report output mode: full (HTML report), none (skip), rmd (editable RMarkdown file)
         #[arg(long, default_value = "full")]
         report: ReportMode,
@@ -543,6 +556,73 @@ pub enum Commands {
         /// Delete intermediate files after completion, keeping only report inputs and final outputs
         #[arg(long)]
         cleanup: bool,
+    },
+
+    /// Assess target panel discriminability for species-level identification
+    PanelQc {
+        /// Target sequences FASTA
+        #[arg(short, long)]
+        targets: PathBuf,
+
+        /// Sample-to-target mapping TSV (genome_id<tab>target_id).
+        /// Maps species/genome IDs to their target regions.
+        #[arg(long)]
+        sample_target_map: PathBuf,
+
+        /// Minimum sequence identity percentage to consider two targets "similar"
+        #[arg(long, default_value = "90.0")]
+        identity_threshold: f64,
+
+        /// Minimap2 alignment preset for target-vs-target comparison
+        #[arg(long, default_value = "sr")]
+        minimap_preset: String,
+
+        /// Output directory
+        #[arg(short, long, default_value = "./panel_qc_results")]
+        outdir: PathBuf,
+
+        /// Report output mode: full (HTML report), none (skip), rmd (editable RMarkdown file)
+        #[arg(long, default_value = "full")]
+        report: ReportMode,
+
+        /// Delete intermediate files after completion
+        #[arg(long)]
+        cleanup: bool,
+    },
+
+    /// Call species presence/absence from multi-target detection patterns
+    Identify {
+        /// Detected detail TSV from metrics step (detected_detail.tsv)
+        #[arg(long)]
+        detected_detail: PathBuf,
+
+        /// Sample-to-target mapping TSV (genome_id<tab>target_id)
+        #[arg(long)]
+        sample_target_map: PathBuf,
+
+        /// Pre-computed target similarity TSV (from panel-qc). If not provided, --targets is required.
+        #[arg(long)]
+        target_similarity: Option<PathBuf>,
+
+        /// Target sequences FASTA (used to compute similarity on-the-fly if --target-similarity not provided)
+        #[arg(short, long)]
+        targets: Option<PathBuf>,
+
+        /// Minimum sequence identity percentage for target similarity (when computing on-the-fly)
+        #[arg(long, default_value = "90.0")]
+        identity_threshold: f64,
+
+        /// Minimap2 alignment preset (when computing similarity on-the-fly)
+        #[arg(long, default_value = "sr")]
+        minimap_preset: String,
+
+        /// Minimum unique targets detected to call a species PRESENT
+        #[arg(long, default_value = "1")]
+        min_unique_targets: usize,
+
+        /// Output directory
+        #[arg(short, long, default_value = "./identify_results")]
+        outdir: PathBuf,
     },
 
     /// Generate coverage depth curves, optionally sweeping CT, fold-enrichment, and/or num-sequences

@@ -13,6 +13,8 @@ Key capabilities:
 - **CT-based simulation** -- set target abundance using qPCR CT scores instead of abstract fractions
 - **Coverage curves** -- sweep parameters (CT, fold enrichment, sequencing depth) and visualize how coverage changes across conditions
 - **Probe QC** -- evaluate probe tiling coverage across targets independently of the simulation
+- **Species identification** -- call species present/absent from multi-target detection patterns, accounting for cross-reactive targets
+- **Panel QC** -- assess whether a target panel can discriminate between species before running simulations
 
 ## Installation
 
@@ -137,6 +139,44 @@ baitbench xreact \
   --self \
   --threshold 80 \
   --outdir xreact_self
+```
+
+### Target panel discriminability QC
+
+Check if targets can distinguish species before running simulations:
+
+```bash
+baitbench panel-qc \
+  --targets gene_targets.fa \
+  --sample-target-map mapping.tsv \
+  --outdir panel_qc_results
+```
+
+### Species identification
+
+Run the pipeline with species-level calling (genome mode only):
+
+```bash
+baitbench run \
+  --targets gene_targets.fa \
+  --genomes full_genomes.fa \
+  --distractors human.fa \
+  --probes probes.fa \
+  --sample-target-map mapping.tsv \
+  --sample e_coli influenza_a \
+  --identify \
+  --num-fragments 50000 \
+  --outdir results
+```
+
+Or call species from existing pipeline results:
+
+```bash
+baitbench identify \
+  --detected-detail results/run/detected_detail.tsv \
+  --sample-target-map mapping.tsv \
+  --targets gene_targets.fa \
+  --outdir identify_results
 ```
 
 ## Key Parameters

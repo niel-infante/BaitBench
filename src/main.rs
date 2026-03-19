@@ -6,12 +6,13 @@ mod external;
 mod fasta;
 mod io_utils;
 mod sampling;
+mod target_similarity;
 
 use anyhow::{bail, Result};
 use clap::Parser;
 
 use cli::{Cli, Commands};
-use commands::{capture, coverage_curve, enrich, filter, generate_list, map_reads, metrics, prepare, probe_coverage, report, run, sequence, simulate, xreact};
+use commands::{capture, coverage_curve, enrich, filter, generate_list, identify, map_reads, metrics, panel_qc, prepare, probe_coverage, report, run, sequence, simulate, xreact};
 use io_utils::resolve_sample_arg;
 
 /// Default distractor fraction when neither --distractor-fraction nor --ct is specified.
@@ -98,6 +99,9 @@ fn main() -> Result<()> {
             outdir,
             threads,
             fold_enrichment,
+            identify,
+            identity_threshold,
+            min_unique_targets,
             report,
             cleanup,
         } => {
@@ -149,6 +153,9 @@ fn main() -> Result<()> {
                 outdir: full_outdir,
                 threads,
                 fold_enrichment,
+                identify,
+                identity_threshold,
+                min_unique_targets,
                 report,
                 cleanup,
             })?;
@@ -385,6 +392,7 @@ fn main() -> Result<()> {
                 detail: &detail,
                 params: &params,
                 coverage: coverage.as_deref(),
+                species_calls: None,
                 run_name: &run_name,
                 output: &output,
                 report,
@@ -410,6 +418,48 @@ fn main() -> Result<()> {
                 outdir: &outdir,
                 report,
                 cleanup,
+            })?;
+        }
+
+        Commands::PanelQc {
+            targets,
+            sample_target_map,
+            identity_threshold,
+            minimap_preset,
+            outdir,
+            report,
+            cleanup,
+        } => {
+            panel_qc::execute(&panel_qc::PanelQcArgs {
+                targets: &targets,
+                sample_target_map: &sample_target_map,
+                identity_threshold,
+                minimap_preset: &minimap_preset,
+                outdir: &outdir,
+                report,
+                cleanup,
+            })?;
+        }
+
+        Commands::Identify {
+            detected_detail,
+            sample_target_map,
+            target_similarity,
+            targets,
+            identity_threshold,
+            minimap_preset,
+            min_unique_targets,
+            outdir,
+        } => {
+            identify::execute(&identify::IdentifyArgs {
+                detected_detail: &detected_detail,
+                sample_target_map: &sample_target_map,
+                target_similarity_file: target_similarity.as_deref(),
+                targets_fasta: targets.as_deref(),
+                identity_threshold,
+                minimap_preset: &minimap_preset,
+                min_unique_targets,
+                outdir: &outdir,
             })?;
         }
 

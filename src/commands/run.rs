@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 use crate::cleanup;
 use crate::cli::ReportMode;
-use crate::commands::{capture, enrich, filter, generate_list, map_reads, metrics, prepare, report, sequence, simulate};
+use crate::commands::{capture, enrich, filter, generate_list, identify, map_reads, metrics, prepare, report, sequence, simulate};
 use crate::external::rscript;
 use crate::fasta;
 use crate::io_utils;
@@ -39,6 +39,9 @@ pub struct RunArgs<'a> {
     pub outdir: PathBuf,
     pub threads: usize,
     pub fold_enrichment: Option<f64>,
+    pub identify: bool,
+    pub identity_threshold: f64,
+    pub min_unique_targets: usize,
     pub report: ReportMode,
     pub cleanup: bool,
 }
@@ -292,6 +295,38 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         reads_after_filter,
     })?;
 
+    // Optional: Species identification
+    if args.identify {
+        if !has_genomes || args.sample_target_map.is_none() {
+            log::warn!(
+                "--identify requires genome mode (--genomes) and --sample-target-map. Skipping species identification."
+            );
+        } else {
+            log::info!("Step 9: Species identification...");
+            match identify::execute(&identify::IdentifyArgs {
+                detected_detail: &outdir.join("detected_detail.tsv"),
+                sample_target_map: &outdir.join("sample_target_map.txt"),
+                target_similarity_file: None,
+                targets_fasta: Some(args.targets),
+                identity_threshold: args.identity_threshold,
+                minimap_preset: &args.minimap_preset,
+                min_unique_targets: args.min_unique_targets,
+                outdir,
+            }) {
+                Ok(()) => {}
+                Err(e) => log::warn!("Species identification failed (non-fatal): {}", e),
+            }
+        }
+    }
+
+    // Determine species calls file path (if identify step ran)
+    let species_calls_path = outdir.join("species_calls.tsv");
+    let species_calls_opt = if species_calls_path.exists() {
+        Some(species_calls_path.as_path())
+    } else {
+        None
+    };
+
     // Generate report
     match args.report {
         ReportMode::None => {
@@ -305,6 +340,7 @@ pub fn execute(args: &RunArgs) -> Result<()> {
                     detail: &outdir.join("detected_detail.tsv"),
                     params: &outdir.join("run_params.tsv"),
                     coverage: Some(&outdir.join("coverage.tsv")),
+                    species_calls: species_calls_opt,
                     run_name: &args.run_name,
                     output: &outdir.join("report.html"),
                     report: ReportMode::Full,
@@ -325,6 +361,7 @@ pub fn execute(args: &RunArgs) -> Result<()> {
                 detail: &outdir.join("detected_detail.tsv"),
                 params: &outdir.join("run_params.tsv"),
                 coverage: Some(&outdir.join("coverage.tsv")),
+                species_calls: species_calls_opt,
                 run_name: &args.run_name,
                 output: &outdir.join("report.html"),
                 report: ReportMode::Rmd,
