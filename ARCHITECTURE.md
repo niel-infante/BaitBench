@@ -43,7 +43,7 @@ src/
 ├── main.rs              # Entry point: CLI parsing → command dispatch
 ├── cli.rs               # clap argument definitions (Commands enum, all flags)
 ├── cleanup.rs           # Post-pipeline cleanup: delete intermediate files/dirs, keep report inputs
-├── io_utils.rs           # Shared helpers: parse_id_set, extract_source_id, parse_sample_manifest, parse_sample_target_map
+├── io_utils.rs           # Shared helpers: prefixed_join, parse_id_set, extract_source_id, parse_sample_manifest, parse_sample_target_map
 ├── target_similarity.rs  # Shared library: target-vs-target similarity computation, discriminability scoring, confusion matrices
 ├── alignment/
 │   ├── coverage.rs      # CIGAR-based per-position coverage from SAM
@@ -99,6 +99,7 @@ R/
 - **`ReportMode`** — ValueEnum: Full | None | Rmd — controls report output (HTML, skip, or editable RMarkdown)
 - **CT score flags** — `--ct`, `--ct-baseline`, `--ct-baseline-fraction` on Run and Prepare; `--ct` conflicts with `--distractor-fraction`
 - **Genome mode flags** — `--genomes` (optional genome FASTA for fragment generation), `--sample-target-map` (optional genome-to-target mapping TSV) on Run, Prepare, and CoverageCurve
+- **`--output-prefix`** — string prepended to every auto-generated output filename; available on Run, Prepare, ProbeCoverage, CoverageCurve, Xreact, PanelQc, Identify (default: empty string)
 
 ### Command Args Pattern
 
@@ -177,6 +178,7 @@ Every command module exports an `Args` struct and an `execute(&Args) -> Result<(
 
 ### IO Utilities (`io_utils.rs`)
 
+- `prefixed_join(dir, prefix, filename) → PathBuf` — join directory with optionally prefixed filename; used by all directory-based commands to support `--output-prefix`
 - `parse_id_set(path) → HashSet<String>` — one ID per line, # comments
 - `extract_source_id(read_name) → Option<&str>` — extract `seq_id` from `{seq_id}_fragment_{n}...`
 - `parse_sample_manifest(path) → HashMap<String, f64>` — TSV id\tweight

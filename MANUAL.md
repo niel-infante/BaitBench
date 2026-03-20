@@ -979,6 +979,7 @@ See [CT Score Calculation](#ct-score-calculation) for details.
 |-----------|------|---------|-------------|
 | Threads | `--threads` | 1 | Number of threads for external tools (minimap2, BLAST) |
 | Output dir | `--outdir`, `-o` | ./results | Output directory. A timestamped subdirectory is created for each run |
+| Output prefix | `--output-prefix` | (empty) | String prepended to every auto-generated output filename. Available on `run`, `prepare`, `probe-coverage`, `coverage-curve`, `xreact`, `panel-qc`, `identify`. E.g., `--output-prefix myrun_` produces `myrun_results.tsv` instead of `results.tsv` |
 | Run name | `--run-name` | auto | Custom name for the run. Default: `run_YYYYMMDD_HHMMSS` |
 | Report mode | `--report` | full | Report output: `full` (render HTML), `none` (skip), `rmd` (editable RMarkdown file) |
 | Seed | `--seed`, `-s` | random | Random seed for reproducibility. If not set, results vary between runs |

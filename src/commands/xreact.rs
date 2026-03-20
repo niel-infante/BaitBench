@@ -10,6 +10,7 @@ use crate::cli::ReportMode;
 use crate::commands::report::{rmd_output_path, substitute_rmd_params};
 use crate::external::{minimap2, rscript};
 use crate::fasta;
+use crate::io_utils::prefixed_join;
 
 pub struct XreactArgs<'a> {
     pub probes: &'a Path,
@@ -17,6 +18,7 @@ pub struct XreactArgs<'a> {
     pub self_mode: bool,
     pub threshold: f64,
     pub outdir: &'a Path,
+    pub output_prefix: &'a str,
     pub minimap_preset: &'a str,
     pub report: ReportMode,
     pub cleanup: bool,
@@ -72,6 +74,7 @@ pub fn execute(args: &XreactArgs) -> Result<()> {
     log::info!("Preset    : {}", args.minimap_preset);
     log::info!("Output    : {}", args.outdir.display());
 
+    let pfx = args.output_prefix;
     let n_probes = fasta::count_sequences(args.probes)?;
     let probe_ids = fasta::parse_fasta_ids(args.probes)?;
     log::info!("Probe sequences: {}", n_probes);
@@ -83,7 +86,7 @@ pub fn execute(args: &XreactArgs) -> Result<()> {
         let reference_path = if args.against.len() == 1 {
             args.against[0].clone()
         } else {
-            let combined = args.outdir.join("against_combined.fa");
+            let combined = prefixed_join(args.outdir, pfx, "against_combined.fa");
             let refs: Vec<&Path> = args.against.iter().map(|p| p.as_path()).collect();
             fasta::concatenate_fastas(&refs, &combined)?;
             combined
@@ -92,8 +95,8 @@ pub fn execute(args: &XreactArgs) -> Result<()> {
         let n_refs = fasta::count_sequences(&reference_path)?;
         log::info!("Reference sequences: {}", n_refs);
 
-        let paf_path = args.outdir.join("against.paf");
-        let log_path = args.outdir.join("against.log");
+        let paf_path = prefixed_join(args.outdir, pfx, "against.paf");
+        let log_path = prefixed_join(args.outdir, pfx, "against.log");
 
         log::info!("Aligning probes against reference...");
         minimap2::xreact_align(
@@ -136,14 +139,14 @@ pub fn execute(args: &XreactArgs) -> Result<()> {
 
         let _ = fs::remove_file(&paf_path);
         if args.against.len() > 1 {
-            let _ = fs::remove_file(args.outdir.join("against_combined.fa"));
+            let _ = fs::remove_file(prefixed_join(args.outdir, pfx, "against_combined.fa"));
         }
     }
 
     // Self mode
     if args.self_mode {
-        let paf_path = args.outdir.join("self.paf");
-        let log_path = args.outdir.join("self.log");
+        let paf_path = prefixed_join(args.outdir, pfx, "self.paf");
+        let log_path = prefixed_join(args.outdir, pfx, "self.log");
 
         log::info!("Aligning probes against themselves...");
         minimap2::xreact_align(
@@ -192,11 +195,11 @@ pub fn execute(args: &XreactArgs) -> Result<()> {
     }
 
     // Write run_params.tsv
-    let params_path = args.outdir.join("run_params.tsv");
+    let params_path = prefixed_join(args.outdir, pfx, "run_params.tsv");
     write_run_params(&params_path, args)?;
 
     // Write hits.tsv
-    let hits_path = args.outdir.join("hits.tsv");
+    let hits_path = prefixed_join(args.outdir, pfx, "hits.tsv");
     write_hits_tsv(&hits_path, &all_hits)?;
     log::info!(
         "Hits above {:.1}% threshold: {} (written to {})",
@@ -212,7 +215,7 @@ pub fn execute(args: &XreactArgs) -> Result<()> {
         args.self_mode,
         !args.against.is_empty(),
     );
-    let summary_path = args.outdir.join("summary.tsv");
+    let summary_path = prefixed_join(args.outdir, pfx, "summary.tsv");
     write_summary_tsv(&summary_path, &summaries)?;
 
     // Console summary
@@ -246,7 +249,7 @@ pub fn execute(args: &XreactArgs) -> Result<()> {
         }
         ReportMode::Full => {
             if rscript::check_available() {
-                let report_path = args.outdir.join("xreact_report.html");
+                let report_path = prefixed_join(args.outdir, pfx, "xreact_report.html");
                 log::info!("Generating cross-reactivity report...");
                 match generate_xreact_report(
                     &hits_path,
@@ -263,7 +266,7 @@ pub fn execute(args: &XreactArgs) -> Result<()> {
             }
         }
         ReportMode::Rmd => {
-            let report_path = args.outdir.join("xreact_report.html");
+            let report_path = prefixed_join(args.outdir, pfx, "xreact_report.html");
             log::info!("Generating cross-reactivity RMarkdown file...");
             match write_xreact_rmd(
                 &hits_path,
@@ -281,10 +284,12 @@ pub fn execute(args: &XreactArgs) -> Result<()> {
     // Cleanup intermediate files if requested
     if args.cleanup {
         log::info!("Cleaning up intermediate files...");
-        cleanup::cleanup_files(args.outdir, &[
-            "against.log",
-            "self.log",
-        ]);
+        let cleanup_names: Vec<String> = ["against.log", "self.log"]
+            .iter()
+            .map(|f| format!("{}{}", pfx, f))
+            .collect();
+        let cleanup_refs: Vec<&str> = cleanup_names.iter().map(|s| s.as_str()).collect();
+        cleanup::cleanup_files(args.outdir, &cleanup_refs);
     }
 
     log::info!("=============================================");

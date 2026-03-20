@@ -103,7 +103,7 @@ genomes.fa + targets.fa + distractors.fa [+ sample.tsv] [+ mapping.tsv]
 | `src/alignment/sam.rs` | SAM format parser |
 | `src/sampling/` | Weights calculation and fragment sampling |
 | `src/cleanup.rs` | Post-pipeline cleanup: delete intermediate files/dirs, keep report inputs |
-| `src/io_utils.rs` | ID set parsing, sample manifest parsing, source ID extraction, sample-target-map I/O |
+| `src/io_utils.rs` | `prefixed_join` helper, ID set parsing, sample manifest parsing, source ID extraction, sample-target-map I/O |
 | `src/external/` | minimap2, blastn, Rscript process wrappers |
 | `R/report.Rmd` | RMarkdown template with ggplot2 figures |
 | `R/report.R` | R script entry point for report generation |

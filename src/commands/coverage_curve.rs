@@ -11,6 +11,7 @@ use crate::commands::{capture, enrich, filter, map_reads, prepare, sequence, sim
 use crate::commands::report::{substitute_rmd_params, rmd_output_path};
 use crate::external::{minimap2, rscript};
 use crate::io_utils;
+use crate::io_utils::prefixed_join;
 
 pub struct CoverageCurveArgs<'a> {
     pub targets: &'a Path,
@@ -41,6 +42,7 @@ pub struct CoverageCurveArgs<'a> {
     pub host_minimap_preset: &'a str,
     pub threads: usize,
     pub outdir: PathBuf,
+    pub output_prefix: String,
     pub report: ReportMode,
     pub cleanup: bool,
 }
@@ -148,6 +150,7 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
     log::info!("Output dir     : {}", args.outdir.display());
     log::info!("=============================================");
 
+    let pfx = &args.output_prefix;
     let mut all_curves: Vec<DepthCurveRow> = Vec::new();
     let mut combo_idx = 0usize;
 
@@ -175,7 +178,7 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
         // Resolve curve target IDs on first iteration
         if curve_target_ids.is_none() {
             if has_genomes {
-                let map_path = prep_dir.join("sample_target_map.txt");
+                let map_path = prefixed_join(&prep_dir, pfx, "sample_target_map.txt");
                 if map_path.exists() {
                     let stm = io_utils::parse_sample_target_map(&map_path)?;
                     let mut target_ids = HashSet::new();
@@ -203,31 +206,31 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
 
         // Determine mapping reference
         let mapping_reference = if has_genomes {
-            prep_dir.join("mapping_reference.fa")
+            prefixed_join(&prep_dir, pfx, "mapping_reference.fa")
         } else {
-            prep_dir.join("combined_reference.fa")
+            prefixed_join(&prep_dir, pfx, "combined_reference.fa")
         };
 
         // Middle loop: fold-enrichment values (affects enrich step)
         for fe_val in &args.fe_values {
             // In genomes mode, enrich classifies by genome IDs
             let enrich_targets_file = if has_genomes {
-                prep_dir.join("genomes.txt")
+                prefixed_join(&prep_dir, pfx, "genomes.txt")
             } else {
-                prep_dir.join("targets.txt")
+                prefixed_join(&prep_dir, pfx, "targets.txt")
             };
 
             let capture_output = if let Some(fe) = fe_val {
                 let enrich_dir = prep_dir.join(format!("_enrich_fe_{}", fe));
                 fs::create_dir_all(&enrich_dir)?;
-                let enriched_path = enrich_dir.join("enriched.fa");
+                let enriched_path = prefixed_join(&enrich_dir, pfx, "enriched.fa");
                 if !enriched_path.exists() {
                     log::info!("  Applying {:.1}x fold enrichment...", fe);
                     enrich::execute(&enrich::EnrichArgs {
-                        captured: &prep_dir.join("captured.fa"),
-                        fragments: &prep_dir.join("fragments.fa"),
+                        captured: &prefixed_join(&prep_dir, pfx, "captured.fa"),
+                        fragments: &prefixed_join(&prep_dir, pfx, "fragments.fa"),
                         targets: &enrich_targets_file,
-                        distractors: &prep_dir.join("distractors.txt"),
+                        distractors: &prefixed_join(&prep_dir, pfx, "distractors.txt"),
                         fold_enrichment: *fe,
                         seed: args.seed,
                         output: &enriched_path,
@@ -235,7 +238,7 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
                 }
                 enriched_path
             } else {
-                prep_dir.join("captured.fa")
+                prefixed_join(&prep_dir, pfx, "captured.fa")
             };
 
             // Inner loop: num-sequences values (affects sequence step)
@@ -257,7 +260,7 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
                 log::info!("  Sequencing...");
                 sequence::execute(&sequence::SequenceArgs {
                     input: &capture_output,
-                    output: &combo_dir.join("reads.fa"),
+                    output: &prefixed_join(&combo_dir, pfx, "reads.fa"),
                     read_length: args.read_length,
                     num_sequences: *ns_val,
                     seed: args.seed,
@@ -268,14 +271,14 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
                     log::info!("  Filtering host reads...");
                     filter::execute(&filter::FilterArgs {
                         host,
-                        reads: &combo_dir.join("reads.fa"),
+                        reads: &prefixed_join(&combo_dir, pfx, "reads.fa"),
                         minimap_preset: args.host_minimap_preset,
-                        output: &combo_dir.join("filtered.fa"),
-                        log_file: &combo_dir.join("host_filter.log"),
+                        output: &prefixed_join(&combo_dir, pfx, "filtered.fa"),
+                        log_file: &prefixed_join(&combo_dir, pfx, "host_filter.log"),
                     })?;
-                    combo_dir.join("filtered.fa")
+                    prefixed_join(&combo_dir, pfx, "filtered.fa")
                 } else {
-                    combo_dir.join("reads.fa")
+                    prefixed_join(&combo_dir, pfx, "reads.fa")
                 };
 
                 // Map reads — use correct reference
@@ -284,12 +287,12 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
                     reference: &mapping_reference,
                     reads: &reads_for_mapping,
                     minimap_preset: args.minimap_preset,
-                    output: &combo_dir.join("mapped.sam"),
-                    log_file: &combo_dir.join("mapping.log"),
+                    output: &prefixed_join(&combo_dir, pfx, "mapped.sam"),
+                    log_file: &prefixed_join(&combo_dir, pfx, "mapping.log"),
                 })?;
 
                 // Compute coverage
-                let sam_path = combo_dir.join("mapped.sam");
+                let sam_path = prefixed_join(&combo_dir, pfx, "mapped.sam");
                 let coverage_result = coverage::compute_coverage(&sam_path)?;
 
                 // Extract depth curves for tracked target IDs
@@ -332,12 +335,12 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
     }
 
     // Write aggregated depth curves TSV
-    let curves_path = args.outdir.join("coverage_curve_depth_curves.tsv");
+    let curves_path = prefixed_join(&args.outdir, pfx, "coverage_curve_depth_curves.tsv");
     write_depth_curves_tsv(&curves_path, &all_curves)?;
     log::info!("Depth curves written to {}", curves_path.display());
 
     // Write run_params.tsv
-    let params_path = args.outdir.join("run_params.tsv");
+    let params_path = prefixed_join(&args.outdir, pfx, "run_params.tsv");
     write_run_params(&params_path, args)?;
 
     // Generate report
@@ -348,11 +351,12 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
         }
         ReportMode::Full => {
             if rscript::check_available() {
+                let report_path = prefixed_join(&args.outdir, pfx, "coverage_curve_report.html");
                 log::info!("Generating coverage curve report...");
-                match generate_report(&curves_path, tracking_ids, &args.swept_params, &params_path, &args.outdir) {
+                match generate_report(&curves_path, tracking_ids, &args.swept_params, &params_path, &report_path) {
                     Ok(()) => log::info!(
                         "Report generated: {}",
-                        args.outdir.join("coverage_curve_report.html").display()
+                        report_path.display()
                     ),
                     Err(e) => log::warn!("Report generation failed (non-fatal): {}", e),
                 }
@@ -361,8 +365,9 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
             }
         }
         ReportMode::Rmd => {
+            let report_path = prefixed_join(&args.outdir, pfx, "coverage_curve_report.html");
             log::info!("Generating coverage curve RMarkdown file...");
-            match write_coverage_curve_rmd(&curves_path, tracking_ids, &args.swept_params, &params_path, &args.outdir) {
+            match write_coverage_curve_rmd(&curves_path, tracking_ids, &args.swept_params, &params_path, &report_path) {
                 Ok(()) => {}
                 Err(e) => log::warn!("RMarkdown generation failed (non-fatal): {}", e),
             }
@@ -391,8 +396,10 @@ fn run_prepare_simulate_capture(
     distractor_fraction: f64,
     args: &CoverageCurveArgs,
 ) -> Result<()> {
+    let pfx = &args.output_prefix;
+
     // Skip if already done (idempotent for nested loops)
-    if outdir.join("captured.fa").exists() {
+    if prefixed_join(outdir, pfx, "captured.fa").exists() {
         log::info!("  Reusing cached prepare/simulate/capture from {}", outdir.display());
         return Ok(());
     }
@@ -407,16 +414,17 @@ fn run_prepare_simulate_capture(
         sample_target_map: args.sample_target_map,
         distractor_fraction,
         outdir,
+        output_prefix: pfx,
     })?;
 
     // Step 2: Simulate
     log::info!("  Simulating fragments...");
     simulate::execute(&simulate::SimulateArgs {
-        reference: &outdir.join("combined_reference.fa"),
-        weights: &outdir.join("weights.txt"),
+        reference: &prefixed_join(outdir, pfx, "combined_reference.fa"),
+        weights: &prefixed_join(outdir, pfx, "weights.txt"),
         num_fragments: args.num_fragments,
         seed: args.seed,
-        output: &outdir.join("fragments.fa"),
+        output: &prefixed_join(outdir, pfx, "fragments.fa"),
         fragment_length_mean: args.fragment_length_mean,
         fragment_length_min: args.fragment_length_min,
         fragment_length_max: args.fragment_length_max,
@@ -427,12 +435,12 @@ fn run_prepare_simulate_capture(
     capture::execute(&capture::CaptureArgs {
         method: args.capture_method,
         probes: args.probes,
-        fragments: &outdir.join("fragments.fa"),
+        fragments: &prefixed_join(outdir, pfx, "fragments.fa"),
         max_mismatches: args.max_mismatches,
         min_match_bases: args.min_match_bases,
         blast_db: args.blast_db,
-        output: &outdir.join("captured.fa"),
-        log_file: &outdir.join("capture.log"),
+        output: &prefixed_join(outdir, pfx, "captured.fa"),
+        log_file: &prefixed_join(outdir, pfx, "capture.log"),
         threads: args.threads,
     })?;
 
@@ -541,7 +549,7 @@ fn write_coverage_curve_rmd(
     sample_ids: &HashSet<String>,
     swept_params: &[String],
     params_path: &Path,
-    outdir: &Path,
+    output_path: &Path,
 ) -> Result<()> {
     let r_dir = rscript::find_r_dir()
         .ok_or_else(|| anyhow::anyhow!("Cannot find R scripts directory."))?;
@@ -590,12 +598,10 @@ fn write_coverage_curve_rmd(
 
     let output_content = substitute_rmd_params(&template_content, &params);
 
-    let html_path = if outdir.is_absolute() {
-        outdir.join("coverage_curve_report.html")
+    let html_path = if output_path.is_absolute() {
+        output_path.to_path_buf()
     } else {
-        std::env::current_dir()?
-            .join(outdir)
-            .join("coverage_curve_report.html")
+        std::env::current_dir()?.join(output_path)
     };
     let rmd_path = rmd_output_path(&html_path);
     std::fs::write(&rmd_path, &output_content)
@@ -614,7 +620,7 @@ fn generate_report(
     sample_ids: &HashSet<String>,
     swept_params: &[String],
     params_path: &Path,
-    outdir: &Path,
+    output_path: &Path,
 ) -> Result<()> {
     let r_dir = rscript::find_r_dir()
         .ok_or_else(|| anyhow::anyhow!("Cannot find R scripts directory."))?;
@@ -629,17 +635,15 @@ fn generate_report(
 
     let sweep_abs = fs::canonicalize(sweep_tsv)?;
     let params_abs = fs::canonicalize(params_path)?;
-    let output_path = if outdir.is_absolute() {
-        outdir.join("coverage_curve_report.html")
+    let output_abs = if output_path.is_absolute() {
+        output_path.to_path_buf()
     } else {
-        std::env::current_dir()?
-            .join(outdir)
-            .join("coverage_curve_report.html")
+        std::env::current_dir()?.join(output_path)
     };
 
     let sweep_str = sweep_abs.to_str().unwrap_or("");
     let params_str = params_abs.to_str().unwrap_or("");
-    let output_str = output_path.to_str().unwrap_or("");
+    let output_str = output_abs.to_str().unwrap_or("");
 
     let mut ids: Vec<&String> = sample_ids.iter().collect();
     ids.sort();

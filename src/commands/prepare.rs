@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 
 use crate::fasta;
 use crate::io_utils;
+use crate::io_utils::prefixed_join;
 use crate::sampling::weights;
 
 pub struct PrepareArgs<'a> {
@@ -15,16 +16,18 @@ pub struct PrepareArgs<'a> {
     pub sample_target_map: Option<&'a HashMap<String, Vec<String>>>,
     pub distractor_fraction: f64,
     pub outdir: &'a Path,
+    pub output_prefix: &'a str,
 }
 
 pub fn execute(args: &PrepareArgs) -> Result<()> {
     fs::create_dir_all(args.outdir)?;
 
-    let output_fasta = args.outdir.join("combined_reference.fa");
-    let output_weights = args.outdir.join("weights.txt");
-    let targets_list = args.outdir.join("targets.txt");
-    let distractors_list = args.outdir.join("distractors.txt");
-    let sample_list = args.outdir.join("sample.txt");
+    let pfx = args.output_prefix;
+    let output_fasta = prefixed_join(args.outdir, pfx, "combined_reference.fa");
+    let output_weights = prefixed_join(args.outdir, pfx, "weights.txt");
+    let targets_list = prefixed_join(args.outdir, pfx, "targets.txt");
+    let distractors_list = prefixed_join(args.outdir, pfx, "distractors.txt");
+    let sample_list = prefixed_join(args.outdir, pfx, "sample.txt");
 
     // Parse target FASTA for IDs
     log::info!("Reading targets from {}...", args.targets.display());
@@ -116,7 +119,7 @@ pub fn execute(args: &PrepareArgs) -> Result<()> {
         fasta::concatenate_fastas(&input_paths, &output_fasta)?;
 
         // Build mapping_reference.fa = targets + distractors (for read mapping)
-        let mapping_ref = args.outdir.join("mapping_reference.fa");
+        let mapping_ref = prefixed_join(args.outdir, pfx, "mapping_reference.fa");
         log::info!("Combining targets + distractors to {}...", mapping_ref.display());
         let mut mapping_paths: Vec<&Path> = vec![args.targets];
         for d in args.distractors {
@@ -213,13 +216,13 @@ pub fn execute(args: &PrepareArgs) -> Result<()> {
         }
 
         // Write sample-target-map
-        let map_path = args.outdir.join("sample_target_map.txt");
+        let map_path = prefixed_join(args.outdir, pfx, "sample_target_map.txt");
         log::info!("Writing sample-target-map to {}...", map_path.display());
         io_utils::write_sample_target_map(&resolved_map, &map_path)?;
 
         // Write ID lists
         log::info!("Writing ID lists...");
-        io_utils::write_id_list(genome_id_list, &args.outdir.join("genomes.txt"))?;
+        io_utils::write_id_list(genome_id_list, &prefixed_join(args.outdir, pfx, "genomes.txt"))?;
         io_utils::write_id_list(&target_ids, &targets_list)?;
         io_utils::write_id_list(&distractor_ids, &distractors_list)?;
         io_utils::write_id_list(&sample_ids, &sample_list)?;

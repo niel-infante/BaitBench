@@ -9,6 +9,7 @@ use crate::commands::{capture, enrich, filter, generate_list, identify, map_read
 use crate::external::rscript;
 use crate::fasta;
 use crate::io_utils;
+use crate::io_utils::prefixed_join;
 
 pub struct RunArgs<'a> {
     pub targets: &'a Path,
@@ -44,6 +45,7 @@ pub struct RunArgs<'a> {
     pub min_unique_targets: usize,
     pub report: ReportMode,
     pub cleanup: bool,
+    pub output_prefix: String,
 }
 
 pub fn execute(args: &RunArgs) -> Result<()> {
@@ -105,10 +107,12 @@ pub fn execute(args: &RunArgs) -> Result<()> {
     log::info!("Output dir          : {}", outdir.display());
     log::info!("=============================================");
 
+    let pfx = &args.output_prefix;
+
     // Write run parameters file (parameter, CLI flag, value)
     {
         use std::io::Write;
-        let params_path = outdir.join("run_params.tsv");
+        let params_path = prefixed_join(outdir, pfx, "run_params.tsv");
         let mut f = std::io::BufWriter::new(fs::File::create(&params_path)?);
         writeln!(f, "parameter\tflag\tvalue")?;
         writeln!(f, "targets\t--targets\t{}", args.targets.display())?;
@@ -154,16 +158,17 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         sample_target_map: args.sample_target_map,
         distractor_fraction: args.distractor_fraction,
         outdir,
+        output_prefix: pfx,
     })?;
 
     // Step 2: Simulate fragments
     log::info!("Step 2/8: Simulating fragments...");
     simulate::execute(&simulate::SimulateArgs {
-        reference: &outdir.join("combined_reference.fa"),
-        weights: &outdir.join("weights.txt"),
+        reference: &prefixed_join(outdir, pfx, "combined_reference.fa"),
+        weights: &prefixed_join(outdir, pfx, "weights.txt"),
         num_fragments: args.num_fragments,
         seed: args.seed,
-        output: &outdir.join("fragments.fa"),
+        output: &prefixed_join(outdir, pfx, "fragments.fa"),
         fragment_length_mean: args.fragment_length_mean,
         fragment_length_min: args.fragment_length_min,
         fragment_length_max: args.fragment_length_max,
@@ -174,49 +179,49 @@ pub fn execute(args: &RunArgs) -> Result<()> {
     capture::execute(&capture::CaptureArgs {
         method: args.capture_method,
         probes: args.probes,
-        fragments: &outdir.join("fragments.fa"),
+        fragments: &prefixed_join(outdir, pfx, "fragments.fa"),
         max_mismatches: args.max_mismatches,
         min_match_bases: args.min_match_bases,
         blast_db: args.blast_db.as_deref(),
-        output: &outdir.join("captured.fa"),
-        log_file: &outdir.join("capture.log"),
+        output: &prefixed_join(outdir, pfx, "captured.fa"),
+        log_file: &prefixed_join(outdir, pfx, "capture.log"),
         threads: args.threads,
     })?;
 
     // Step 3b: Optional fold enrichment adjustment
     // In genomes mode, enrich classifies by genome IDs (genomes.txt), not target IDs
     let enrich_targets_file = if has_genomes {
-        outdir.join("genomes.txt")
+        prefixed_join(outdir, pfx, "genomes.txt")
     } else {
-        outdir.join("targets.txt")
+        prefixed_join(outdir, pfx, "targets.txt")
     };
 
     let capture_output = if let Some(fe) = args.fold_enrichment {
         log::info!("Step 3b: Applying {:.1}x fold enrichment...", fe);
         enrich::execute(&enrich::EnrichArgs {
-            captured: &outdir.join("captured.fa"),
-            fragments: &outdir.join("fragments.fa"),
+            captured: &prefixed_join(outdir, pfx, "captured.fa"),
+            fragments: &prefixed_join(outdir, pfx, "fragments.fa"),
             targets: &enrich_targets_file,
-            distractors: &outdir.join("distractors.txt"),
+            distractors: &prefixed_join(outdir, pfx, "distractors.txt"),
             fold_enrichment: fe,
             seed: args.seed,
-            output: &outdir.join("enriched.fa"),
+            output: &prefixed_join(outdir, pfx, "enriched.fa"),
         })?;
-        outdir.join("enriched.fa")
+        prefixed_join(outdir, pfx, "enriched.fa")
     } else {
-        outdir.join("captured.fa")
+        prefixed_join(outdir, pfx, "captured.fa")
     };
 
     // Step 4: Sequence captured fragments into reads
     log::info!("Step 4/8: Sequencing captured fragments...");
     sequence::execute(&sequence::SequenceArgs {
         input: &capture_output,
-        output: &outdir.join("reads.fa"),
+        output: &prefixed_join(outdir, pfx, "reads.fa"),
         read_length: args.read_length,
         num_sequences: args.num_sequences,
         seed: args.seed,
     })?;
-    let reads_sequenced = fasta::count_sequences(&outdir.join("reads.fa"))?;
+    let reads_sequenced = fasta::count_sequences(&prefixed_join(outdir, pfx, "reads.fa"))?;
     log::info!("  Reads after sequencing: {}", reads_sequenced);
 
     // Step 5: Optional host filtering
@@ -224,26 +229,26 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         log::info!("Step 5/8: Filtering host reads...");
         filter::execute(&filter::FilterArgs {
             host,
-            reads: &outdir.join("reads.fa"),
+            reads: &prefixed_join(outdir, pfx, "reads.fa"),
             minimap_preset: &args.host_minimap_preset,
-            output: &outdir.join("filtered.fa"),
-            log_file: &outdir.join("host_filter.log"),
+            output: &prefixed_join(outdir, pfx, "filtered.fa"),
+            log_file: &prefixed_join(outdir, pfx, "host_filter.log"),
         })?;
-        let count = fasta::count_sequences(&outdir.join("filtered.fa"))?;
+        let count = fasta::count_sequences(&prefixed_join(outdir, pfx, "filtered.fa"))?;
         log::info!("  Reads after host filtering: {}", count);
-        (outdir.join("filtered.fa"), Some(count))
+        (prefixed_join(outdir, pfx, "filtered.fa"), Some(count))
     } else {
         log::info!("Step 5/8: Skipping host filtering (no host genome provided)");
-        (outdir.join("reads.fa"), None)
+        (prefixed_join(outdir, pfx, "reads.fa"), None)
     };
 
     // Step 6: Map reads
     // In genomes mode, map to mapping_reference.fa (targets + distractors)
     // In standard mode, map to combined_reference.fa (targets + distractors, same thing)
     let mapping_reference = if has_genomes {
-        outdir.join("mapping_reference.fa")
+        prefixed_join(outdir, pfx, "mapping_reference.fa")
     } else {
-        outdir.join("combined_reference.fa")
+        prefixed_join(outdir, pfx, "combined_reference.fa")
     };
 
     log::info!("Step 6/8: Mapping reads to reference...");
@@ -251,15 +256,15 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         reference: &mapping_reference,
         reads: &reads_for_mapping,
         minimap_preset: &args.minimap_preset,
-        output: &outdir.join("mapped.sam"),
-        log_file: &outdir.join("mapping.log"),
+        output: &prefixed_join(outdir, pfx, "mapped.sam"),
+        log_file: &prefixed_join(outdir, pfx, "mapping.log"),
     })?;
 
     // Step 7: Generate detection list
     log::info!("Step 7/8: Generating detection list...");
     generate_list::execute(&generate_list::ListArgs {
-        sam: &outdir.join("mapped.sam"),
-        output: &outdir.join("detected.list"),
+        sam: &prefixed_join(outdir, pfx, "mapped.sam"),
+        output: &prefixed_join(outdir, pfx, "detected.list"),
     })?;
 
     // Step 8: Calculate metrics and coverage
@@ -270,27 +275,27 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         .unwrap_or_else(|| "NA".to_string());
 
     let sample_target_map_path = if has_genomes {
-        Some(outdir.join("sample_target_map.txt"))
+        Some(prefixed_join(outdir, pfx, "sample_target_map.txt"))
     } else {
         None
     };
 
     metrics::execute(&metrics::MetricsArgs {
-        targets: &outdir.join("targets.txt"),
-        distractors: &outdir.join("distractors.txt"),
-        sample: &outdir.join("sample.txt"),
+        targets: &prefixed_join(outdir, pfx, "targets.txt"),
+        distractors: &prefixed_join(outdir, pfx, "distractors.txt"),
+        sample: &prefixed_join(outdir, pfx, "sample.txt"),
         sample_target_map: sample_target_map_path.as_deref(),
-        detected: &outdir.join("detected.list"),
-        fragments: &outdir.join("fragments.fa"),
+        detected: &prefixed_join(outdir, pfx, "detected.list"),
+        fragments: &prefixed_join(outdir, pfx, "fragments.fa"),
         captured: &capture_output,
-        sam: &outdir.join("mapped.sam"),
+        sam: &prefixed_join(outdir, pfx, "mapped.sam"),
         run_name: &args.run_name,
         num_fragments: args.num_fragments,
         seed: &seed_str,
-        output_summary: &outdir.join("results.tsv"),
-        output_detail: &outdir.join("detected_detail.tsv"),
-        output_json: Some(&outdir.join("results.json")),
-        output_coverage: Some(&outdir.join("coverage.tsv")),
+        output_summary: &prefixed_join(outdir, pfx, "results.tsv"),
+        output_detail: &prefixed_join(outdir, pfx, "detected_detail.tsv"),
+        output_json: Some(&prefixed_join(outdir, pfx, "results.json")),
+        output_coverage: Some(&prefixed_join(outdir, pfx, "coverage.tsv")),
         reads_sequenced: Some(reads_sequenced),
         reads_after_filter,
     })?;
@@ -304,14 +309,15 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         } else {
             log::info!("Step 9: Species identification...");
             match identify::execute(&identify::IdentifyArgs {
-                detected_detail: &outdir.join("detected_detail.tsv"),
-                sample_target_map: &outdir.join("sample_target_map.txt"),
+                detected_detail: &prefixed_join(outdir, pfx, "detected_detail.tsv"),
+                sample_target_map: &prefixed_join(outdir, pfx, "sample_target_map.txt"),
                 target_similarity_file: None,
                 targets_fasta: Some(args.targets),
                 identity_threshold: args.identity_threshold,
                 minimap_preset: &args.minimap_preset,
                 min_unique_targets: args.min_unique_targets,
                 outdir,
+                output_prefix: pfx,
             }) {
                 Ok(()) => {}
                 Err(e) => log::warn!("Species identification failed (non-fatal): {}", e),
@@ -320,7 +326,7 @@ pub fn execute(args: &RunArgs) -> Result<()> {
     }
 
     // Determine species calls file path (if identify step ran)
-    let species_calls_path = outdir.join("species_calls.tsv");
+    let species_calls_path = prefixed_join(outdir, pfx, "species_calls.tsv");
     let species_calls_opt = if species_calls_path.exists() {
         Some(species_calls_path.as_path())
     } else {
@@ -336,13 +342,13 @@ pub fn execute(args: &RunArgs) -> Result<()> {
             if rscript::check_available() {
                 log::info!("Generating report...");
                 match report::execute(&report::ReportArgs {
-                    summary: &outdir.join("results.tsv"),
-                    detail: &outdir.join("detected_detail.tsv"),
-                    params: &outdir.join("run_params.tsv"),
-                    coverage: Some(&outdir.join("coverage.tsv")),
+                    summary: &prefixed_join(outdir, pfx, "results.tsv"),
+                    detail: &prefixed_join(outdir, pfx, "detected_detail.tsv"),
+                    params: &prefixed_join(outdir, pfx, "run_params.tsv"),
+                    coverage: Some(&prefixed_join(outdir, pfx, "coverage.tsv")),
                     species_calls: species_calls_opt,
                     run_name: &args.run_name,
-                    output: &outdir.join("report.html"),
+                    output: &prefixed_join(outdir, pfx, "report.html"),
                     report: ReportMode::Full,
                 }) {
                     Ok(()) => {}
@@ -357,13 +363,13 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         ReportMode::Rmd => {
             log::info!("Generating RMarkdown file...");
             match report::execute(&report::ReportArgs {
-                summary: &outdir.join("results.tsv"),
-                detail: &outdir.join("detected_detail.tsv"),
-                params: &outdir.join("run_params.tsv"),
-                coverage: Some(&outdir.join("coverage.tsv")),
+                summary: &prefixed_join(outdir, pfx, "results.tsv"),
+                detail: &prefixed_join(outdir, pfx, "detected_detail.tsv"),
+                params: &prefixed_join(outdir, pfx, "run_params.tsv"),
+                coverage: Some(&prefixed_join(outdir, pfx, "coverage.tsv")),
                 species_calls: species_calls_opt,
                 run_name: &args.run_name,
-                output: &outdir.join("report.html"),
+                output: &prefixed_join(outdir, pfx, "report.html"),
                 report: ReportMode::Rmd,
             }) {
                 Ok(()) => {}
@@ -375,7 +381,7 @@ pub fn execute(args: &RunArgs) -> Result<()> {
     // Cleanup intermediate files if requested
     if args.cleanup {
         log::info!("Cleaning up intermediate files...");
-        cleanup::cleanup_files(outdir, &[
+        let cleanup_names: Vec<String> = [
             "combined_reference.fa",
             "mapping_reference.fa",
             "weights.txt",
@@ -394,7 +400,12 @@ pub fn execute(args: &RunArgs) -> Result<()> {
             "capture.log",
             "mapping.log",
             "host_filter.log",
-        ]);
+        ]
+        .iter()
+        .map(|f| format!("{}{}", pfx, f))
+        .collect();
+        let cleanup_refs: Vec<&str> = cleanup_names.iter().map(|s| s.as_str()).collect();
+        cleanup::cleanup_files(outdir, &cleanup_refs);
     }
 
     log::info!("=============================================");

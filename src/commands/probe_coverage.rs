@@ -10,11 +10,13 @@ use crate::cli::ReportMode;
 use crate::commands::report::{substitute_rmd_params, rmd_output_path};
 use crate::external::{minimap2, rscript};
 use crate::fasta;
+use crate::io_utils::prefixed_join;
 
 pub struct ProbeCoverageArgs<'a> {
     pub targets: &'a Path,
     pub probes: &'a Path,
     pub outdir: &'a Path,
+    pub output_prefix: &'a str,
     pub minimap_preset: &'a str,
     pub proximity: usize,
     pub report: ReportMode,
@@ -47,9 +49,11 @@ pub fn execute(args: &ProbeCoverageArgs) -> Result<()> {
     log::info!("Target sequences: {}", n_targets);
     log::info!("Probe sequences : {}", n_probes);
 
+    let pfx = args.output_prefix;
+
     // Step 1: Align probes to targets
-    let sam_path = args.outdir.join("probe_alignment.sam");
-    let log_path = args.outdir.join("probe_alignment.log");
+    let sam_path = prefixed_join(args.outdir, pfx, "probe_alignment.sam");
+    let log_path = prefixed_join(args.outdir, pfx, "probe_alignment.log");
     log::info!("Aligning probes to targets...");
     minimap2::probe_align(
         args.minimap_preset,
@@ -78,12 +82,12 @@ pub fn execute(args: &ProbeCoverageArgs) -> Result<()> {
     stats.sort_by(|a, b| a.0.cmp(&b.0));
 
     // Step 4: Write run-length encoded depth intervals
-    let depth_path = args.outdir.join("probe_depth.tsv");
+    let depth_path = prefixed_join(args.outdir, pfx, "probe_depth.tsv");
     log::info!("Writing probe depth to {}", depth_path.display());
     coverage::write_coverage_intervals(&depth_path, &coverage_result.coverage)?;
 
     // Step 5: Write summary statistics TSV
-    let summary_path = args.outdir.join("probe_coverage_summary.tsv");
+    let summary_path = prefixed_join(args.outdir, pfx, "probe_coverage_summary.tsv");
     log::info!(
         "Writing probe coverage summary to {}",
         summary_path.display()
@@ -93,7 +97,7 @@ pub fn execute(args: &ProbeCoverageArgs) -> Result<()> {
     // Step 6: Identify probes mapping to multiple targets
     log::info!("Identifying multi-mapping probes...");
     let multi_mapping = find_multi_mapping_probes(&sam_path)?;
-    let multi_mapping_path = args.outdir.join("multi_mapping_probes.tsv");
+    let multi_mapping_path = prefixed_join(args.outdir, pfx, "multi_mapping_probes.tsv");
     write_multi_mapping_probes(&multi_mapping_path, &multi_mapping)?;
     log::info!(
         "Multi-mapping probes: {} of {} probes map to multiple targets",
@@ -116,7 +120,7 @@ pub fn execute(args: &ProbeCoverageArgs) -> Result<()> {
     log::info!("Targets >=90% tiled: {}", well_covered);
 
     // Write run_params.tsv
-    let params_path = args.outdir.join("run_params.tsv");
+    let params_path = prefixed_join(args.outdir, pfx, "run_params.tsv");
     write_run_params(&params_path, args)?;
 
     // Step 7: Report
@@ -126,7 +130,7 @@ pub fn execute(args: &ProbeCoverageArgs) -> Result<()> {
         }
         ReportMode::Full => {
             if rscript::check_available() {
-                let report_path = args.outdir.join("probe_coverage_report.html");
+                let report_path = prefixed_join(args.outdir, pfx, "probe_coverage_report.html");
                 log::info!("Generating probe coverage report...");
                 match generate_probe_report(&summary_path, &depth_path, &multi_mapping_path, &params_path, &report_path, args.proximity) {
                     Ok(()) => log::info!("Report generated: {}", report_path.display()),
@@ -137,7 +141,7 @@ pub fn execute(args: &ProbeCoverageArgs) -> Result<()> {
             }
         }
         ReportMode::Rmd => {
-            let report_path = args.outdir.join("probe_coverage_report.html");
+            let report_path = prefixed_join(args.outdir, pfx, "probe_coverage_report.html");
             log::info!("Generating probe coverage RMarkdown file...");
             match write_probe_coverage_rmd(&summary_path, &depth_path, &multi_mapping_path, &params_path, &report_path, args.proximity) {
                 Ok(()) => {}
@@ -149,10 +153,12 @@ pub fn execute(args: &ProbeCoverageArgs) -> Result<()> {
     // Cleanup intermediate files if requested
     if args.cleanup {
         log::info!("Cleaning up intermediate files...");
-        cleanup::cleanup_files(args.outdir, &[
-            "probe_alignment.sam",
-            "probe_alignment.log",
-        ]);
+        let cleanup_names: Vec<String> = ["probe_alignment.sam", "probe_alignment.log"]
+            .iter()
+            .map(|f| format!("{}{}", pfx, f))
+            .collect();
+        let cleanup_refs: Vec<&str> = cleanup_names.iter().map(|s| s.as_str()).collect();
+        cleanup::cleanup_files(args.outdir, &cleanup_refs);
     }
 
     log::info!("=============================================");

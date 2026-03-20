@@ -7,6 +7,7 @@ use crate::cli::ReportMode;
 use crate::commands::report::{rmd_output_path, substitute_rmd_params};
 use crate::external::rscript;
 use crate::io_utils;
+use crate::io_utils::prefixed_join;
 use crate::target_similarity;
 
 pub struct PanelQcArgs<'a> {
@@ -15,6 +16,7 @@ pub struct PanelQcArgs<'a> {
     pub identity_threshold: f64,
     pub minimap_preset: &'a str,
     pub outdir: &'a Path,
+    pub output_prefix: &'a str,
     pub report: ReportMode,
     pub cleanup: bool,
 }
@@ -56,8 +58,10 @@ pub fn execute(args: &PanelQcArgs) -> Result<()> {
         args.outdir,
     )?;
 
+    let pfx = args.output_prefix;
+
     // Write target similarity TSV
-    let sim_path = args.outdir.join("target_similarity.tsv");
+    let sim_path = prefixed_join(args.outdir, pfx, "target_similarity.tsv");
     target_similarity::write_target_similarity(&similarities, &sim_path)?;
     log::info!(
         "Target similarity pairs: {} (written to {})",
@@ -70,12 +74,12 @@ pub fn execute(args: &PanelQcArgs) -> Result<()> {
         target_similarity::build_similarity_context(&similarities, &genome_to_targets);
     let discriminability = target_similarity::compute_discriminability(&ctx);
 
-    let disc_path = args.outdir.join("species_discriminability.tsv");
+    let disc_path = prefixed_join(args.outdir, pfx, "species_discriminability.tsv");
     target_similarity::write_discriminability(&discriminability, &disc_path)?;
 
     // Step 3: Build and write confusion matrix
     let (species_ids, matrix) = target_similarity::build_confusion_matrix(&ctx);
-    let matrix_path = args.outdir.join("species_confusion_matrix.tsv");
+    let matrix_path = prefixed_join(args.outdir, pfx, "species_confusion_matrix.tsv");
     target_similarity::write_confusion_matrix(&species_ids, &matrix, &matrix_path)?;
 
     // Console summary
@@ -124,7 +128,7 @@ pub fn execute(args: &PanelQcArgs) -> Result<()> {
     }
 
     // Write run_params.tsv
-    let params_path = args.outdir.join("run_params.tsv");
+    let params_path = prefixed_join(args.outdir, pfx, "run_params.tsv");
     write_run_params(&params_path, args)?;
 
     // Report generation
@@ -134,7 +138,7 @@ pub fn execute(args: &PanelQcArgs) -> Result<()> {
         }
         ReportMode::Full => {
             if rscript::check_available() {
-                let report_path = args.outdir.join("panel_qc_report.html");
+                let report_path = prefixed_join(args.outdir, pfx, "panel_qc_report.html");
                 log::info!("Generating panel QC report...");
                 match generate_panel_qc_report(
                     &disc_path,
@@ -151,7 +155,7 @@ pub fn execute(args: &PanelQcArgs) -> Result<()> {
             }
         }
         ReportMode::Rmd => {
-            let report_path = args.outdir.join("panel_qc_report.html");
+            let report_path = prefixed_join(args.outdir, pfx, "panel_qc_report.html");
             log::info!("Generating panel QC RMarkdown file...");
             match write_panel_qc_rmd(
                 &disc_path,

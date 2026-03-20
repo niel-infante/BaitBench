@@ -2,7 +2,19 @@ use anyhow::{bail, Context, Result};
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
+
+/// Join a directory with a (possibly prefixed) filename.
+///
+/// When `prefix` is empty, equivalent to `dir.join(filename)`.
+/// Otherwise produces `dir.join(format!("{}{}", prefix, filename))`.
+pub fn prefixed_join(dir: &Path, prefix: &str, filename: &str) -> PathBuf {
+    if prefix.is_empty() {
+        dir.join(filename)
+    } else {
+        dir.join(format!("{}{}", prefix, filename))
+    }
+}
 
 /// Parse a plain-text ID list file into a HashSet.
 /// Skips empty lines and lines starting with '#'.

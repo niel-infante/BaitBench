@@ -5,6 +5,7 @@ use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::Path;
 
 use crate::io_utils;
+use crate::io_utils::prefixed_join;
 use crate::target_similarity::{self, SimilarityContext};
 
 pub struct IdentifyArgs<'a> {
@@ -16,6 +17,7 @@ pub struct IdentifyArgs<'a> {
     pub minimap_preset: &'a str,
     pub min_unique_targets: usize,
     pub outdir: &'a Path,
+    pub output_prefix: &'a str,
 }
 
 /// Species call result.
@@ -122,10 +124,10 @@ pub fn execute(args: &IdentifyArgs) -> Result<()> {
     let calls = call_species(&ctx, &detail_rows, args.min_unique_targets);
 
     // Write results
-    let calls_tsv_path = args.outdir.join("species_calls.tsv");
+    let calls_tsv_path = prefixed_join(args.outdir, args.output_prefix, "species_calls.tsv");
     write_species_calls_tsv(&calls, &calls_tsv_path)?;
 
-    let calls_json_path = args.outdir.join("species_calls.json");
+    let calls_json_path = prefixed_join(args.outdir, args.output_prefix, "species_calls.json");
     write_species_calls_json(&calls, &calls_json_path)?;
 
     // Console summary

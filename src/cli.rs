@@ -133,6 +133,10 @@ pub enum Commands {
         #[arg(short, long, default_value = "./results")]
         outdir: PathBuf,
 
+        /// String to prepend to every output filename
+        #[arg(long, default_value = "")]
+        output_prefix: String,
+
         /// Number of threads for external tools
         #[arg(long, default_value = "1")]
         threads: usize,
@@ -207,6 +211,10 @@ pub enum Commands {
         /// Output directory
         #[arg(short, long, default_value = ".")]
         outdir: PathBuf,
+
+        /// String to prepend to every output filename
+        #[arg(long, default_value = "")]
+        output_prefix: String,
     },
 
     /// Generate weighted random fragments from FASTA
@@ -483,6 +491,10 @@ pub enum Commands {
         #[arg(long, default_value = "50")]
         proximity: usize,
 
+        /// String to prepend to every output filename
+        #[arg(long, default_value = "")]
+        output_prefix: String,
+
         /// Report output mode: full (HTML report), none (skip), rmd (editable RMarkdown file)
         #[arg(long, default_value = "full")]
         report: ReportMode,
@@ -549,6 +561,10 @@ pub enum Commands {
         #[arg(short, long, default_value = "./xreact_results")]
         outdir: PathBuf,
 
+        /// String to prepend to every output filename
+        #[arg(long, default_value = "")]
+        output_prefix: String,
+
         /// Report output mode: full (HTML report), none (skip), rmd (editable RMarkdown file)
         #[arg(long, default_value = "full")]
         report: ReportMode,
@@ -580,6 +596,10 @@ pub enum Commands {
         /// Output directory
         #[arg(short, long, default_value = "./panel_qc_results")]
         outdir: PathBuf,
+
+        /// String to prepend to every output filename
+        #[arg(long, default_value = "")]
+        output_prefix: String,
 
         /// Report output mode: full (HTML report), none (skip), rmd (editable RMarkdown file)
         #[arg(long, default_value = "full")]
@@ -623,6 +643,10 @@ pub enum Commands {
         /// Output directory
         #[arg(short, long, default_value = "./identify_results")]
         outdir: PathBuf,
+
+        /// String to prepend to every output filename
+        #[arg(long, default_value = "")]
+        output_prefix: String,
     },
 
     /// Generate coverage depth curves, optionally sweeping CT, fold-enrichment, and/or num-sequences
@@ -748,6 +772,10 @@ pub enum Commands {
         /// Output directory
         #[arg(short, long, default_value = "./coverage_curve_results")]
         outdir: PathBuf,
+
+        /// String to prepend to every output filename
+        #[arg(long, default_value = "")]
+        output_prefix: String,
 
         /// Report output mode: full (HTML report), none (skip), rmd (editable RMarkdown file)
         #[arg(long, default_value = "full")]

@@ -97,6 +97,7 @@ fn main() -> Result<()> {
             read_length,
             num_sequences,
             outdir,
+            output_prefix,
             threads,
             fold_enrichment,
             identify,
@@ -158,6 +159,7 @@ fn main() -> Result<()> {
                 min_unique_targets,
                 report,
                 cleanup,
+                output_prefix,
             })?;
         }
 
@@ -172,6 +174,7 @@ fn main() -> Result<()> {
             ct_baseline,
             ct_baseline_fraction,
             outdir,
+            output_prefix,
         } => {
             let resolved_df = resolve_distractor_fraction(
                 distractor_fraction, ct, ct_baseline, ct_baseline_fraction,
@@ -195,6 +198,7 @@ fn main() -> Result<()> {
                 sample_target_map: resolved_stm.as_ref(),
                 distractor_fraction: resolved_df,
                 outdir: &outdir,
+                output_prefix: &output_prefix,
             })?;
         }
 
@@ -364,6 +368,7 @@ fn main() -> Result<()> {
             outdir,
             minimap_preset,
             proximity,
+            output_prefix,
             report,
             cleanup,
         } => {
@@ -371,6 +376,7 @@ fn main() -> Result<()> {
                 targets: &targets,
                 probes: &probes,
                 outdir: &outdir,
+                output_prefix: &output_prefix,
                 minimap_preset: &minimap_preset,
                 proximity,
                 report,
@@ -406,6 +412,7 @@ fn main() -> Result<()> {
             threshold,
             minimap_preset,
             outdir,
+            output_prefix,
             report,
             cleanup,
         } => {
@@ -416,6 +423,7 @@ fn main() -> Result<()> {
                 threshold,
                 minimap_preset: &minimap_preset,
                 outdir: &outdir,
+                output_prefix: &output_prefix,
                 report,
                 cleanup,
             })?;
@@ -427,6 +435,7 @@ fn main() -> Result<()> {
             identity_threshold,
             minimap_preset,
             outdir,
+            output_prefix,
             report,
             cleanup,
         } => {
@@ -436,6 +445,7 @@ fn main() -> Result<()> {
                 identity_threshold,
                 minimap_preset: &minimap_preset,
                 outdir: &outdir,
+                output_prefix: &output_prefix,
                 report,
                 cleanup,
             })?;
@@ -450,6 +460,7 @@ fn main() -> Result<()> {
             minimap_preset,
             min_unique_targets,
             outdir,
+            output_prefix,
         } => {
             identify::execute(&identify::IdentifyArgs {
                 detected_detail: &detected_detail,
@@ -460,6 +471,7 @@ fn main() -> Result<()> {
                 minimap_preset: &minimap_preset,
                 min_unique_targets,
                 outdir: &outdir,
+                output_prefix: &output_prefix,
             })?;
         }
 
@@ -494,6 +506,7 @@ fn main() -> Result<()> {
             host_minimap_preset,
             threads,
             outdir,
+            output_prefix,
             report,
             cleanup,
         } => {
@@ -566,6 +579,7 @@ fn main() -> Result<()> {
                 host_minimap_preset: &host_minimap_preset,
                 threads,
                 outdir,
+                output_prefix,
                 report,
                 cleanup,
             })?;
