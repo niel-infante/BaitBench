@@ -15,6 +15,7 @@ Key capabilities:
 - **Probe QC** -- evaluate probe tiling coverage across targets independently of the simulation
 - **Species identification** -- call species present/absent from multi-target detection patterns, accounting for cross-reactive targets
 - **Panel QC** -- assess whether a target panel can discriminate between species before running simulations
+- **Probe building** -- construct a probe set from target sequences (collapse, tile, GC filter, complexity filter, deduplicate)
 
 ## Installation
 
@@ -179,6 +180,19 @@ baitbench identify \
   --outdir identify_results
 ```
 
+### Build probes from targets
+
+Construct a filtered, deduplicated probe set from target sequences:
+
+```bash
+baitbench build-probes \
+  --targets targets.fa \
+  --probe-length 120 \
+  --min-gc 0.20 \
+  --max-gc 0.80 \
+  --outdir probes_output
+```
+
 ## Key Parameters
 
 | Parameter | Default | Description |
@@ -222,6 +236,7 @@ See [MANUAL.md](MANUAL.md) for complete documentation including:
 
 - [minimap2](https://github.com/lh3/minimap2) -- alignment
 - [BLAST+](https://blast.ncbi.nlm.nih.gov/) -- alternative capture method
+- [cd-hit](https://github.com/weizhongli/cdhit) -- sequence clustering (used by build-probes)
 - [R](https://www.r-project.org/) with ggplot2, rmarkdown -- report generation (optional)
 
 All installable via `conda env create -f environment.yml`.

@@ -6,13 +6,14 @@ mod external;
 mod fasta;
 mod io_utils;
 mod sampling;
+mod sdust;
 mod target_similarity;
 
 use anyhow::{bail, Result};
 use clap::Parser;
 
 use cli::{Cli, Commands};
-use commands::{capture, coverage_curve, enrich, filter, generate_list, identify, map_reads, metrics, panel_qc, prepare, probe_coverage, report, run, sequence, simulate, xreact};
+use commands::{build_probes, capture, coverage_curve, enrich, filter, generate_list, identify, map_reads, metrics, panel_qc, prepare, probe_coverage, report, run, sequence, simulate, xreact};
 use io_utils::resolve_sample_arg;
 
 /// Default distractor fraction when neither --distractor-fraction nor --ct is specified.
@@ -472,6 +473,46 @@ fn main() -> Result<()> {
                 min_unique_targets,
                 outdir: &outdir,
                 output_prefix: &output_prefix,
+            })?;
+        }
+
+        Commands::BuildProbes {
+            targets,
+            method,
+            probe_length,
+            step,
+            min_gc,
+            max_gc,
+            max_n_frac,
+            dust_threshold,
+            dust_window,
+            max_masked_frac,
+            collapse_threshold,
+            dedup_threshold,
+            threads,
+            outdir,
+            output_prefix,
+            report,
+            cleanup,
+        } => {
+            build_probes::execute(&build_probes::BuildProbesArgs {
+                targets: &targets,
+                method,
+                probe_length,
+                step,
+                min_gc,
+                max_gc,
+                max_n_frac,
+                dust_threshold,
+                dust_window,
+                max_masked_frac,
+                collapse_threshold,
+                dedup_threshold,
+                threads,
+                outdir: &outdir,
+                output_prefix: &output_prefix,
+                report,
+                cleanup,
             })?;
         }
 

@@ -65,10 +65,13 @@ src/
 │   ├── xreact.rs        # Standalone cross-reactivity analysis (probes vs genomes, probes vs probes)
 │   ├── panel_qc.rs      # Standalone target panel discriminability QC (target-vs-target similarity, species discrimination)
 │   ├── identify.rs      # Species-level calling from multi-target detection patterns (standalone or pipeline step)
-│   └── coverage_curve.rs # Coverage curve: pipeline at multiple param combos → depth curves
+│   ├── coverage_curve.rs # Coverage curve: pipeline at multiple param combos → depth curves
+│   └── build_probes.rs  # Standalone probe building: N filter → collapse → tile → GC filter → complexity filter (sDUST) → deduplicate
+├── sdust.rs             # sDUST low-complexity detection: sdust(), masked_fraction() (Morgulis et al. 2006)
 ├── external/
 │   ├── minimap2.rs      # minimap2 wrapper: capture_align (PAF), map_reads (SAM), host_align, probe_align
 │   ├── blastn.rs        # BLAST+ wrapper: capture_align, filter_blast_results
+│   ├── cdhit.rs         # cd-hit-est wrapper: check_available, cluster (sequence clustering by identity)
 │   └── rscript.rs       # Rscript discovery (BAITBENCH_R_DIR, binary walk, ./R/) and execution
 ├── fasta/
 │   ├── reader.rs        # parse_fasta (id→seq), parse_fasta_ids, count_sequences
@@ -87,15 +90,18 @@ R/
 ├── xreact.R             # CLI wrapper for cross-reactivity report
 ├── xreact.Rmd           # RMarkdown template: plotly heatmaps, density plots, DT hit tables
 ├── panel_qc.R           # CLI wrapper for panel QC report
-└── panel_qc.Rmd         # RMarkdown template: discriminability charts, confusion heatmaps, target tables
+├── panel_qc.Rmd         # RMarkdown template: discriminability charts, confusion heatmaps, target tables
+├── build_probes.R       # CLI wrapper for build probes report
+└── build_probes.Rmd     # RMarkdown template: pipeline stats table, sequence/base count bar charts
 ```
 
 ## Key Data Types
 
 ### CLI (`cli.rs`)
 
-- **`Commands`** enum — one variant per subcommand (Run, Prepare, Simulate, Capture, Enrich, Sequence, Filter, Map, List, Metrics, ProbeCoverage, Xreact, PanelQc, Identify, Report, CoverageCurve), each with its own fields
+- **`Commands`** enum — one variant per subcommand (Run, Prepare, Simulate, Capture, Enrich, Sequence, Filter, Map, List, Metrics, ProbeCoverage, Xreact, PanelQc, Identify, Report, CoverageCurve, BuildProbes), each with its own fields
 - **`CaptureMethodArg`** — ValueEnum: Minimap2 | Blast
+- **`ProbeMethod`** — ValueEnum: Tile (future: additional probe construction methods)
 - **`ReportMode`** — ValueEnum: Full | None | Rmd — controls report output (HTML, skip, or editable RMarkdown)
 - **CT score flags** — `--ct`, `--ct-baseline`, `--ct-baseline-fraction` on Run and Prepare; `--ct` conflicts with `--distractor-fraction`
 - **Genome mode flags** — `--genomes` (optional genome FASTA for fragment generation), `--sample-target-map` (optional genome-to-target mapping TSV) on Run, Prepare, and CoverageCurve
@@ -123,6 +129,7 @@ Every command module exports an `Args` struct and an `execute(&Args) -> Result<(
 | `identify` | `IdentifyArgs` | detected_detail, sample_target_map, target_similarity (or targets for on-the-fly), identity_threshold, min_unique_targets | species_calls.tsv, species_calls.json |
 | `run` | `RunArgs` | all pipeline inputs + ct, ct_baseline, ct_baseline_fraction, num_sequences, genomes, sample_target_map, identify, identity_threshold, min_unique_targets | all of the above |
 | `coverage_curve` | `CoverageCurveArgs` | targets, distractors, probes, sample (required), ct/fe/ns values (sweep or fixed), all pipeline params, genomes, sample_target_map | coverage_curve_depth_curves.tsv, coverage_curve_report.html, combo subdirs |
+| `build_probes` | `BuildProbesArgs` | targets, method, probe_length, max_n_frac, min/max_gc, dust_threshold/dust_window/max_masked_frac, collapse/dedup thresholds, threads | probes_final.fa, build_probes_stats.tsv, build_probes_report.html |
 
 ### Metrics (`metrics.rs`)
 
@@ -196,6 +203,7 @@ All wrappers follow the pattern: `check_available() → bool/Result`, then speci
 |------|-----------|---------------|
 | minimap2 | `capture_align` (PAF), `map_reads` (SAM), `host_align` (SAM), `probe_align` (SAM, with secondary), `xreact_align` (PAF, with secondary) | PAF or SAM |
 | blastn | `capture_align` (TSV outfmt 6), `filter_blast_results` | TSV |
+| cd-hit-est | `check_available`, `cluster` (identity-based sequence clustering) | FASTA + .clstr |
 | rscript | `check_available`, `find_r_dir`, `run_rscript` | HTML |
 
 ## R Report (`R/`)
@@ -368,6 +376,33 @@ Combo directory names use only swept params: `ct_20`, `ct_20_fe_100`, `ct_20_fe_
 | `swept_params` | comma-separated swept parameter names |
 
 Report logic: detects swept params from data, builds combo labels. <10 combos: single plot colored by combo. ≥10 combos: faceted by param with fewest levels, colored by remaining. Sample name in title. Summary table at key depth thresholds.
+
+### Build Probes (standalone, not part of pipeline)
+
+| File | Format | Written by | Read by |
+|------|--------|------------|---------|
+| `targets_clean.fa` | FASTA | build_probes (N filter) | build_probes (cd-hit-est collapse) |
+| `collapsed.fa` | FASTA | build_probes (cd-hit-est) | build_probes (tile) |
+| `probes_raw.fa` | FASTA | build_probes (tile) | build_probes (GC filter) |
+| `probes_gc.fa` | FASTA | build_probes (GC filter) | build_probes (complexity filter) |
+| `probes_complexity.fa` | FASTA | build_probes (sDUST filter) | build_probes (cd-hit-est dedup) |
+| `probes_final.fa` | FASTA | build_probes (cd-hit-est dedup) | user (final output) |
+| `build_probes_stats.tsv` | TSV (step, sequences, bases) | build_probes | build_probes report |
+| `build_probes_report.html` | HTML | build_probes (via R) | — |
+
+### Build Probes Report (`R/build_probes.Rmd`)
+
+`build_probes.R` accepts CLI args and calls `rmarkdown::render()` on `build_probes.Rmd`.
+
+| Param | Source |
+|-------|--------|
+| `stats_file` | build_probes_stats.tsv |
+| `params_file` | run_params.tsv |
+
+Report sections:
+1. **Pipeline Summary** — table showing sequences/bases at each step with drop counts and retention %
+2. **Sequences per Step** — bar chart of sequence counts through pipeline
+3. **Total Bases per Step** — bar chart of total bases through pipeline
 
 ## Key Conventions
 

@@ -1,0 +1,109 @@
+---
+title: "BaitBench Build Probes Report"
+output:
+  html_document:
+    self_contained: true
+    theme: flatly
+    toc: true
+    toc_float: true
+params:
+  stats_file: ""
+  params_file: ""
+---
+
+<style>
+.main-container { max-width: 100%; margin-left: 1em; margin-right: 1em; }
+table { width: 100%; }
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE,
+                      fig.width = 10, fig.height = 6, out.width = "100%")
+
+suppressPackageStartupMessages({
+  library(ggplot2)
+  library(dplyr)
+})
+
+theme_set(theme_minimal(base_size = 14))
+
+stats <- read.delim(params$stats_file, stringsAsFactors = FALSE)
+
+has_params <- params$params_file != "" && file.exists(params$params_file)
+if (has_params) {
+  params_df <- read.delim(params$params_file, stringsAsFactors = FALSE)
+}
+
+# Compute drop from previous step
+stats$step <- factor(stats$step, levels = stats$step)
+stats$dropped_seqs <- c(NA, -diff(stats$sequences))
+stats$dropped_bases <- c(NA, -diff(stats$bases))
+stats$pct_retained <- c(NA, round(100 * stats$sequences[-1] / stats$sequences[-nrow(stats)], 1))
+```
+
+## Pipeline Summary
+
+```{r summary_table, results='asis'}
+display <- stats %>%
+  mutate(
+    Step = step,
+    Sequences = format(sequences, big.mark = ","),
+    Bases = format(bases, big.mark = ","),
+    `Dropped (seqs)` = ifelse(is.na(dropped_seqs), "-", format(dropped_seqs, big.mark = ",")),
+    `Retained (%)` = ifelse(is.na(pct_retained), "-", paste0(pct_retained, "%"))
+  ) %>%
+  select(Step, Sequences, Bases, `Dropped (seqs)`, `Retained (%)`)
+
+knitr::kable(display, align = "lrrrr")
+```
+
+**Overall retention:** `r format(stats$sequences[nrow(stats)], big.mark = ",")` probes from `r format(stats$sequences[1], big.mark = ",")` input sequences (`r round(100 * stats$sequences[nrow(stats)] / max(stats$sequences[1], 1), 1)`%).
+
+## Sequences per Step
+
+```{r bar_chart}
+ggplot(stats, aes(x = step, y = sequences)) +
+  geom_col(fill = "#2c7fb8", width = 0.6) +
+  geom_text(aes(label = format(sequences, big.mark = ",")),
+            vjust = -0.5, size = 4) +
+  labs(x = "Pipeline Step", y = "Number of Sequences",
+       title = "Sequence Count Through Build Pipeline") +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.15))) +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1))
+```
+
+## Total Bases per Step
+
+```{r bases_chart}
+ggplot(stats, aes(x = step, y = bases)) +
+  geom_col(fill = "#41ae76", width = 0.6) +
+  geom_text(aes(label = format(bases, big.mark = ",")),
+            vjust = -0.5, size = 4) +
+  labs(x = "Pipeline Step", y = "Total Bases",
+       title = "Total Bases Through Build Pipeline") +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.15))) +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1))
+```
+
+```{r params_section, eval=has_params, results='asis'}
+cat("\n\n<details><summary>Parameters</summary>\n\n")
+
+knitr::kable(params_df, col.names = c("Parameter", "Flag", "Value"), align = "lll")
+
+# Reconstruct CLI command
+cmd_parts <- c("baitbench build-probes")
+for (i in seq_len(nrow(params_df))) {
+  flag <- params_df$flag[i]
+  val <- params_df$value[i]
+  if (!is.na(val) && val != "" && val != "none" && val != "false") {
+    if (val == "true") {
+      cmd_parts <- c(cmd_parts, flag)
+    } else {
+      cmd_parts <- c(cmd_parts, paste(flag, val))
+    }
+  }
+}
+
+cat("\n**Command:**\n```\n", paste(cmd_parts, collapse = " \\\n  "), "\n```\n")
+cat("\n</details>\n")
+```

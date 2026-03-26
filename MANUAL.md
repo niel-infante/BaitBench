@@ -35,6 +35,7 @@ Complete reference for BaitBench, an in-silico probe capture simulation tool.
   - [coverage-curve](#coverage-curve)
   - [panel-qc](#panel-qc)
   - [identify](#identify)
+  - [build-probes](#build-probes)
 - [Parameter Reference](#parameter-reference)
   - [Input Files](#input-files)
   - [Fragment Generation](#fragment-generation)
@@ -910,6 +911,79 @@ This creates a natural parsimony effect: the species with the strongest unique e
 **Integration with `baitbench run`:**
 
 When `--identify` is passed to `baitbench run` (genome mode with `--sample-target-map` required), species identification runs automatically after the metrics step. The species calls are included in the HTML report and compared against ground truth (the `--sample` manifest) to compute species-level sensitivity and specificity.
+
+### build-probes
+
+Build a probe set from target sequences. Runs a multi-step pipeline: collapse redundant targets, construct probes, filter by GC content and sequence complexity, and deduplicate.
+
+```bash
+baitbench build-probes \
+  --targets targets.fa \
+  [--method tile] \
+  [--probe-length 120] \
+  [--step -60] \
+  [--min-gc 0.20] \
+  [--max-gc 0.80] \
+  [--max-n-frac 0.05] \
+  [--dust-threshold 2.0] \
+  [--dust-window 64] \
+  [--max-masked-frac 0.25] \
+  [--collapse-threshold 0.95] \
+  [--dedup-threshold 0.95] \
+  [--threads 5] \
+  [--outdir build_probes_results] \
+  [--report full|none|rmd]
+```
+
+**Pipeline steps:**
+
+1. **N filter**: Remove target sequences with more than `--max-n-frac` fraction of ambiguous (non-ACGT) bases. Sequences with excessive N content are poor probe sources and would generate uninformative probes.
+2. **Collapse**: cd-hit-est clusters targets at `--collapse-threshold` identity to remove near-duplicates
+3. **Build**: Construct probes from collapsed sequences. Method `tile` generates sliding-window probes of `--probe-length` bp across each sequence with `--step` controlling overlap/gap. A final probe is anchored to the end of each sequence to ensure full coverage.
+4. **GC filter**: Remove probes with GC content outside `--min-gc` to `--max-gc` range
+5. **Complexity filter**: Remove low-complexity probes using the sDUST algorithm (Morgulis et al. 2006). Probes where more than `--max-masked-frac` of bases are identified as low-complexity (e.g., homopolymers, dinucleotide repeats) are removed. Set `--max-masked-frac 1.0` to disable.
+6. **Deduplicate**: cd-hit-est clusters probes at `--dedup-threshold` identity to remove redundant probes
+
+**Tiling geometry (`--step`):**
+
+The stride between consecutive probes is `probe_length + step`. The step is measured from the end of the previous probe:
+
+- `--step -60` (default): stride = 60, probes overlap by 60bp (50% overlap with 120bp probes)
+- `--step 0`: stride = 120, probes are perfectly tiled (no overlap, no gap)
+- `--step 10`: stride = 130, 10bp gap between probes
+
+Probes are named `{target_id}|tile_{n}`. A final probe is always placed at the sequence end regardless of overlap.
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `--targets` | required | Input target sequences FASTA |
+| `--method` | tile | Probe construction method |
+| `--probe-length` | 120 | Probe length in bp |
+| `--step` | -60 | Step from end of previous probe. Negative = overlap, 0 = tiled, positive = gap |
+| `--min-gc` | 0.20 | Minimum GC fraction (0–1) |
+| `--max-gc` | 0.80 | Maximum GC fraction (0–1) |
+| `--max-n-frac` | 0.05 | Maximum fraction of ambiguous (non-ACGT) bases in a target sequence (0–1). Targets exceeding this are removed before collapse. |
+| `--dust-threshold` | 2.0 | sDUST score threshold *T* for low-complexity detection |
+| `--dust-window` | 64 | sDUST window size *W* in bases |
+| `--max-masked-frac` | 0.25 | Maximum fraction of bases masked by sDUST to keep a probe (0–1). Set to 1.0 to disable. |
+| `--collapse-threshold` | 0.95 | cd-hit-est identity threshold for initial collapse |
+| `--dedup-threshold` | 0.95 | cd-hit-est identity threshold for final dedup |
+| `--threads` | 5 | Threads for cd-hit-est |
+| `--outdir` | ./build_probes_results | Output directory |
+| `--report` | full | Report mode (full, none, rmd) |
+| `--cleanup` | false | Delete intermediate files |
+
+**Complexity filtering (sDUST):**
+
+Low-complexity sequences (homopolymer runs, dinucleotide repeats, etc.) make poor probes because they hybridize non-specifically. The sDUST algorithm identifies low-complexity regions by computing a score based on triplet (3-mer) frequencies within sliding windows. Regions where a single triplet dominates receive high scores. The `--dust-threshold` parameter controls the sensitivity (lower = more aggressive masking). The default threshold of 2.0 and window size of 64 match NCBI's dustmasker defaults.
+
+> Morgulis A, Gertz EM, Schäffer AA, Agarwala R. "A Fast and Symmetric DUST Implementation to Mask Low-Complexity DNA Sequences." *J Comput Biol.* 2006;13(5):1028-1040. doi:10.1089/cmb.2006.13.1028
+
+**Output files:**
+
+- `probes_final.fa` -- final deduplicated probe set
+- `build_probes_stats.tsv` -- sequence/base counts at each pipeline step
+- `build_probes_report.html` -- HTML report with pipeline summary
 
 ---
 

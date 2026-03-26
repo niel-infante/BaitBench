@@ -649,6 +649,82 @@ pub enum Commands {
         output_prefix: String,
     },
 
+    /// Build a probe set from target sequences (collapse, tile, filter, deduplicate)
+    BuildProbes {
+        /// Target sequences FASTA
+        #[arg(short, long)]
+        targets: PathBuf,
+
+        /// Probe construction method
+        #[arg(long, default_value = "tile")]
+        method: ProbeMethod,
+
+        /// Probe length in bp
+        #[arg(long, default_value = "120")]
+        probe_length: usize,
+
+        /// Step from the end of each probe before starting the next one.
+        /// Negative = overlap (default -60 gives 60bp overlap), 0 = perfectly tiled,
+        /// positive = gap between probes.
+        #[arg(long, default_value = "-60", allow_hyphen_values = true)]
+        step: i64,
+
+        /// Minimum GC fraction to keep a probe (0-1)
+        #[arg(long, default_value = "0.20")]
+        min_gc: f64,
+
+        /// Maximum GC fraction to keep a probe (0-1)
+        #[arg(long, default_value = "0.80")]
+        max_gc: f64,
+
+        /// Maximum fraction of ambiguous (N) bases allowed in a target sequence (0-1).
+        /// Sequences exceeding this threshold are removed before probe construction.
+        #[arg(long, default_value = "0.05")]
+        max_n_frac: f64,
+
+        /// DUST score threshold for low-complexity filtering (Morgulis et al. 2006)
+        #[arg(long, default_value = "2.0")]
+        dust_threshold: f64,
+
+        /// DUST window size in bases for low-complexity filtering
+        #[arg(long, default_value = "64")]
+        dust_window: usize,
+
+        /// Maximum fraction of bases masked by DUST to keep a probe (0-1).
+        /// Probes exceeding this fraction of low-complexity bases are removed.
+        /// Set to 1.0 to disable complexity filtering.
+        #[arg(long, default_value = "0.25")]
+        max_masked_frac: f64,
+
+        /// cd-hit-est identity threshold for initial target collapse
+        #[arg(long, default_value = "0.95")]
+        collapse_threshold: f64,
+
+        /// cd-hit-est identity threshold for final probe deduplication
+        #[arg(long, default_value = "0.95")]
+        dedup_threshold: f64,
+
+        /// Number of threads for cd-hit-est
+        #[arg(long, default_value = "5")]
+        threads: usize,
+
+        /// Output directory
+        #[arg(short, long, default_value = "./build_probes_results")]
+        outdir: PathBuf,
+
+        /// String to prepend to every output filename
+        #[arg(long, default_value = "")]
+        output_prefix: String,
+
+        /// Report output mode: full (HTML report), none (skip), rmd (editable RMarkdown file)
+        #[arg(long, default_value = "full")]
+        report: ReportMode,
+
+        /// Delete intermediate files after completion
+        #[arg(long)]
+        cleanup: bool,
+    },
+
     /// Generate coverage depth curves, optionally sweeping CT, fold-enrichment, and/or num-sequences
     CoverageCurve {
         /// Target sequences FASTA
@@ -785,6 +861,12 @@ pub enum Commands {
         #[arg(long)]
         cleanup: bool,
     },
+}
+
+#[derive(Clone, Copy, ValueEnum, Debug, PartialEq, Eq)]
+pub enum ProbeMethod {
+    /// Tile: take the first N bp of each target sequence
+    Tile,
 }
 
 #[derive(Clone, Copy, ValueEnum, Debug, PartialEq, Eq)]

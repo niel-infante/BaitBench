@@ -1,3 +1,4 @@
 pub mod minimap2;
 pub mod blastn;
+pub mod cdhit;
 pub mod rscript;
