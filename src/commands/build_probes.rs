@@ -1,9 +1,10 @@
 use anyhow::{Context, Result};
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader, BufWriter, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::cli::{ProbeMethod, ReportMode};
+use crate::commands::assess_probes;
 use crate::external::{cdhit, rscript};
 use crate::io_utils::prefixed_join;
 use crate::sdust;
@@ -22,6 +23,11 @@ pub struct BuildProbesArgs<'a> {
     pub collapse_threshold: f64,
     pub dedup_threshold: f64,
     pub threads: usize,
+    pub genomes: &'a [PathBuf],
+    pub threshold: f64,
+    pub minimap_preset: &'a str,
+    pub proximity: usize,
+    pub skip_assess: bool,
     pub outdir: &'a Path,
     pub output_prefix: &'a str,
     pub report: ReportMode,
@@ -240,37 +246,57 @@ pub fn execute(args: &BuildProbesArgs) -> Result<()> {
     let params_path = prefixed_join(args.outdir, args.output_prefix, "run_params.tsv");
     write_run_params(&params_path, args)?;
 
-    // --- Report ---
-    match args.report {
-        ReportMode::None => {
-            log::info!("Skipping report generation (--report none)");
-        }
-        ReportMode::Full => {
-            if rscript::check_available() {
+    // --- Assessment and/or Report ---
+    if !args.skip_assess {
+        // Chain into assess_probes: runs coverage + xreact + combined report
+        log::info!("Chaining into probe assessment...");
+        assess_probes::execute(&assess_probes::AssessProbesArgs {
+            targets: args.targets,
+            probes: &probes_final_path,
+            genomes: args.genomes,
+            threshold: args.threshold,
+            minimap_preset: args.minimap_preset,
+            proximity: args.proximity,
+            outdir: args.outdir,
+            output_prefix: args.output_prefix,
+            report: args.report,
+            cleanup: args.cleanup,
+            build_stats_file: Some(&stats_path),
+            build_params_file: Some(&params_path),
+        })?;
+    } else {
+        // Original build-probes-only report when assessment is skipped
+        match args.report {
+            ReportMode::None => {
+                log::info!("Skipping report generation (--report none)");
+            }
+            ReportMode::Full => {
+                if rscript::check_available() {
+                    let report_path =
+                        prefixed_join(args.outdir, args.output_prefix, "build_probes_report.html");
+                    match generate_report(&stats_path, &params_path, &report_path) {
+                        Ok(()) => log::info!("Report generated: {}", report_path.display()),
+                        Err(e) => log::warn!("Report generation failed (non-fatal): {}", e),
+                    }
+                } else {
+                    log::warn!("Rscript not found -- skipping HTML report.");
+                }
+            }
+            ReportMode::Rmd => {
                 let report_path =
                     prefixed_join(args.outdir, args.output_prefix, "build_probes_report.html");
-                match generate_report(&stats_path, &params_path, &report_path) {
-                    Ok(()) => log::info!("Report generated: {}", report_path.display()),
-                    Err(e) => log::warn!("Report generation failed (non-fatal): {}", e),
+                let rmd_path = crate::commands::report::rmd_output_path(&report_path);
+                match write_rmd(&stats_path, &params_path, &rmd_path) {
+                    Ok(()) => log::info!("RMarkdown written: {}", rmd_path.display()),
+                    Err(e) => log::warn!("RMarkdown generation failed (non-fatal): {}", e),
                 }
-            } else {
-                log::warn!("Rscript not found -- skipping HTML report.");
-            }
-        }
-        ReportMode::Rmd => {
-            let report_path =
-                prefixed_join(args.outdir, args.output_prefix, "build_probes_report.html");
-            let rmd_path = crate::commands::report::rmd_output_path(&report_path);
-            match write_rmd(&stats_path, &params_path, &rmd_path) {
-                Ok(()) => log::info!("RMarkdown written: {}", rmd_path.display()),
-                Err(e) => log::warn!("RMarkdown generation failed (non-fatal): {}", e),
             }
         }
     }
 
     // --- Cleanup ---
     if args.cleanup {
-        log::info!("Cleaning up intermediate files...");
+        log::info!("Cleaning up build intermediate files...");
         let intermediates = [
             "targets_clean.fa",
             "collapsed.fa",

@@ -1,0 +1,980 @@
+---
+title: "BaitBench Probe Assessment Report"
+output:
+  html_document:
+    self_contained: true
+    theme: flatly
+    toc: true
+    toc_float: true
+params:
+  build_stats_file: ""
+  build_params_file: ""
+  xreact_hits_file: ""
+  xreact_summary_file: ""
+  xreact_threshold: 80.0
+  coverage_summary_file: ""
+  coverage_depth_file: ""
+  coverage_multi_mapping_file: ""
+  coverage_proximity: 50
+  params_file: ""
+---
+
+<style>
+.main-container { max-width: 100%; margin-left: 1em; margin-right: 1em; }
+.dataTables_wrapper { width: 100%; }
+table { width: 100%; }
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE,
+                      fig.width = 10, fig.height = 5, out.width = "100%")
+
+suppressPackageStartupMessages({
+  library(ggplot2)
+  library(dplyr)
+  library(tidyr)
+  library(DT)
+  library(plotly)
+})
+
+theme_set(theme_minimal(base_size = 14))
+
+# --- Load build pipeline data (optional) ---
+has_build_stats <- nchar(params$build_stats_file) > 0 && file.exists(params$build_stats_file)
+if (has_build_stats) {
+  build_stats <- read.delim(params$build_stats_file, stringsAsFactors = FALSE)
+  build_stats$step <- factor(build_stats$step, levels = build_stats$step)
+  build_stats$dropped_seqs <- c(NA, -diff(build_stats$sequences))
+  build_stats$dropped_bases <- c(NA, -diff(build_stats$bases))
+  build_stats$pct_retained <- c(NA, round(100 * build_stats$sequences[-1] /
+    build_stats$sequences[-nrow(build_stats)], 1))
+}
+
+has_build_params <- nchar(params$build_params_file) > 0 && file.exists(params$build_params_file)
+if (has_build_params) {
+  build_params_df <- read.delim(params$build_params_file, stringsAsFactors = FALSE)
+}
+
+# --- Load cross-reactivity data ---
+hits <- read.delim(params$xreact_hits_file, stringsAsFactors = FALSE)
+xreact_summary_df <- read.delim(params$xreact_summary_file, stringsAsFactors = FALSE)
+
+threshold <- params$xreact_threshold
+
+has_self <- any(hits$mode == "self") || any(xreact_summary_df$mode == "self")
+has_against <- any(hits$mode == "against") || any(xreact_summary_df$mode == "against")
+
+hits_self <- hits %>% filter(mode == "self")
+hits_against <- hits %>% filter(mode == "against")
+summary_self <- xreact_summary_df %>% filter(mode == "self")
+summary_against <- xreact_summary_df %>% filter(mode == "against")
+
+n_probes_xreact <- length(unique(xreact_summary_df$probe_id))
+n_genomes_against <- length(unique(hits_against$target_id))
+
+# --- Load coverage data ---
+cov_summary_df <- read.delim(params$coverage_summary_file, stringsAsFactors = FALSE)
+depth_intervals <- read.delim(params$coverage_depth_file, stringsAsFactors = FALSE)
+
+# Interval expansion helper (from probe_coverage.Rmd)
+expand_intervals <- function(interval_df, max_points = 2000) {
+  if (nrow(interval_df) == 0) {
+    return(data.frame(reference_id = character(), position = integer(), depth = numeric()))
+  }
+  ref_id <- interval_df$reference_id[1]
+  total_len <- max(interval_df$end) - min(interval_df$start) + 1L
+  if (total_len <= max_points) {
+    positions <- unlist(mapply(seq, interval_df$start, interval_df$end, SIMPLIFY = FALSE))
+    depths <- rep(interval_df$depth, interval_df$end - interval_df$start + 1L)
+    return(data.frame(reference_id = ref_id, position = positions, depth = depths))
+  }
+  genome_start <- min(interval_df$start)
+  genome_end <- max(interval_df$end)
+  bin_size <- (genome_end - genome_start + 1) / max_points
+  bin_edges <- genome_start + bin_size * (0:max_points)
+  bin_depth_sum <- numeric(max_points)
+  bin_width <- numeric(max_points)
+  for (i in seq_len(nrow(interval_df))) {
+    iv_start <- interval_df$start[i]
+    iv_end   <- interval_df$end[i]
+    iv_depth <- interval_df$depth[i]
+    first_bin <- max(1L, ceiling((iv_start - genome_start) / bin_size))
+    last_bin  <- min(max_points, ceiling((iv_end - genome_start) / bin_size))
+    if (first_bin > max_points || last_bin < 1L) next
+    first_bin <- max(1L, first_bin)
+    last_bin  <- min(max_points, last_bin)
+    for (b in first_bin:last_bin) {
+      overlap_start <- max(iv_start, bin_edges[b])
+      overlap_end   <- min(iv_end, bin_edges[b + 1] - 1)
+      overlap_len   <- overlap_end - overlap_start + 1
+      if (overlap_len > 0) {
+        bin_depth_sum[b] <- bin_depth_sum[b] + iv_depth * overlap_len
+        bin_width[b]     <- bin_width[b] + overlap_len
+      }
+    }
+  }
+  avg_depth <- ifelse(bin_width > 0, bin_depth_sum / bin_width, 0)
+  bin_centers <- (bin_edges[1:max_points] + bin_edges[2:(max_points + 1)]) / 2
+  data.frame(reference_id = ref_id, position = bin_centers, depth = avg_depth)
+}
+
+has_multi <- nchar(params$coverage_multi_mapping_file) > 0 &&
+  file.exists(params$coverage_multi_mapping_file)
+if (has_multi) {
+  multi_df <- read.delim(params$coverage_multi_mapping_file, stringsAsFactors = FALSE)
+} else {
+  multi_df <- data.frame(probe_id = character(), num_targets = integer(), targets = character())
+}
+
+n_targets <- nrow(cov_summary_df)
+is_small  <- n_targets <= 20
+is_medium <- n_targets > 20 & n_targets <= 100
+is_large  <- n_targets > 100
+
+proximity_bp <- params$coverage_proximity
+
+has_params <- nchar(params$params_file) > 0 && file.exists(params$params_file)
+if (has_params) {
+  params_df <- read.delim(params$params_file, stringsAsFactors = FALSE)
+}
+```
+
+**Generated:** `r Sys.time()`
+
+---
+
+```{r build_section_header, eval=has_build_stats, results='asis'}
+cat("\n# Build Pipeline {.tabset}\n")
+```
+
+```{r build_section_header2, eval=!has_build_stats, results='asis'}
+cat("")
+```
+
+```{r build_summary_header, eval=has_build_stats, results='asis'}
+cat("\n## Pipeline Summary\n")
+```
+
+```{r build_summary_table, eval=has_build_stats, results='asis'}
+display <- build_stats %>%
+  mutate(
+    Step = step,
+    Sequences = format(sequences, big.mark = ","),
+    Bases = format(bases, big.mark = ","),
+    `Dropped (seqs)` = ifelse(is.na(dropped_seqs), "-", format(dropped_seqs, big.mark = ",")),
+    `Retained (%)` = ifelse(is.na(pct_retained), "-", paste0(pct_retained, "%"))
+  ) %>%
+  select(Step, Sequences, Bases, `Dropped (seqs)`, `Retained (%)`)
+
+knitr::kable(display, align = "lrrrr")
+```
+
+```{r build_retention_text, eval=has_build_stats, results='asis'}
+cat(sprintf(
+  "\n**Overall retention:** %s probes from %s input sequences (%s%%).\n",
+  format(build_stats$sequences[nrow(build_stats)], big.mark = ","),
+  format(build_stats$sequences[1], big.mark = ","),
+  round(100 * build_stats$sequences[nrow(build_stats)] / max(build_stats$sequences[1], 1), 1)
+))
+```
+
+```{r build_seq_header, eval=has_build_stats, results='asis'}
+cat("\n## Sequences per Step\n")
+```
+
+```{r build_seq_chart, eval=has_build_stats}
+ggplot(build_stats, aes(x = step, y = sequences)) +
+  geom_col(fill = "#2c7fb8", width = 0.6) +
+  geom_text(aes(label = format(sequences, big.mark = ",")),
+            vjust = -0.5, size = 4) +
+  labs(x = "Pipeline Step", y = "Number of Sequences",
+       title = "Sequence Count Through Build Pipeline") +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.15))) +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1))
+```
+
+```{r build_bases_header, eval=has_build_stats, results='asis'}
+cat("\n## Total Bases per Step\n")
+```
+
+```{r build_bases_chart, eval=has_build_stats}
+ggplot(build_stats, aes(x = step, y = bases)) +
+  geom_col(fill = "#41ae76", width = 0.6) +
+  geom_text(aes(label = format(bases, big.mark = ",")),
+            vjust = -0.5, size = 4) +
+  labs(x = "Pipeline Step", y = "Total Bases",
+       title = "Total Bases Through Build Pipeline") +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.15))) +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1))
+```
+
+---
+
+# Probe Coverage
+
+**Targets analyzed:** `r n_targets` | **Fully tiled (100%):** `r sum(cov_summary_df$pct_covered_1x >= 100)` | **Well tiled (>=90%):** `r sum(cov_summary_df$pct_covered_1x >= 90)` | **Multi-mapping probes:** `r nrow(multi_df)` | **Proximity:** `r proximity_bp` bp
+
+## Summary Table
+
+```{r cov-summary-table}
+display_df <- cov_summary_df %>%
+  arrange(pct_covered_1x) %>%
+  mutate(
+    ref_length_fmt = format(ref_length, big.mark = ","),
+    covered_bases_fmt = format(covered_bases, big.mark = ","),
+    pct_covered_1x_fmt = sprintf("%.1f%%", pct_covered_1x),
+    mean_depth_fmt = sprintf("%.1f", mean_depth),
+    median_depth_fmt = sprintf("%.1f", median_depth),
+    pct_covered_2x_fmt = sprintf("%.1f%%", pct_covered_2x),
+    pct_covered_5x_fmt = sprintf("%.1f%%", pct_covered_5x),
+    pct_covered_10x_fmt = sprintf("%.1f%%", pct_covered_10x),
+    max_gap_length_fmt = format(max_gap_length, big.mark = ","),
+    pct_near_probe_fmt = sprintf("%.1f%%", pct_near_probe)
+  )
+
+if (is_small) {
+  display_df %>%
+    select(reference_id, ref_length_fmt, covered_bases_fmt, pct_covered_1x_fmt,
+           mean_depth_fmt, median_depth_fmt, pct_covered_2x_fmt, pct_covered_5x_fmt,
+           pct_covered_10x_fmt, max_gap_length_fmt, num_gaps, pct_near_probe_fmt) %>%
+    knitr::kable(
+      col.names = c("Reference", "Length", "Covered", "%\u22651X", "Mean Depth",
+                     "Median Depth", "%\u22652X", "%\u22655X", "%\u226510X",
+                     "Max Gap", "Gaps", "% Near Probe"),
+      align = "lrrrrrrrrrrr"
+    )
+} else {
+  cov_summary_df %>%
+    arrange(pct_covered_1x) %>%
+    select(reference_id, ref_length, covered_bases, pct_covered_1x,
+           mean_depth, median_depth, pct_covered_2x, pct_covered_5x,
+           pct_covered_10x, max_gap_length, num_gaps, pct_near_probe) %>%
+    datatable(
+      colnames = c("Reference", "Length", "Covered", "%\u22651X", "Mean Depth",
+                    "Median Depth", "%\u22652X", "%\u22655X", "%\u226510X",
+                    "Max Gap", "Gaps", "% Near Probe"),
+      options = list(pageLength = 15, scrollX = TRUE, order = list(list(3, "asc"))),
+      rownames = FALSE,
+      filter = "top"
+    ) %>%
+      formatRound(columns = c("mean_depth", "median_depth"), digits = 1) %>%
+      formatRound(columns = c("pct_covered_1x", "pct_covered_2x", "pct_covered_5x",
+                               "pct_covered_10x", "pct_near_probe"), digits = 1) %>%
+      formatCurrency(columns = c("ref_length", "covered_bases", "max_gap_length"),
+                     currency = "", digits = 0)
+}
+```
+
+## Coverage Breadth
+
+```{r cov-breadth, fig.height=if (is_small) max(3, n_targets * 0.4) else if (is_medium) 6 else 5, fig.width=if (is_large) 10 else 8}
+cov_summary_df <- cov_summary_df %>%
+  mutate(
+    coverage_class = case_when(
+      pct_covered_1x >= 95 ~ "Excellent (>=95%)",
+      pct_covered_1x >= 80 ~ "Good (>=80%)",
+      TRUE ~ "Poor (<80%)"
+    ),
+    coverage_class = factor(coverage_class,
+                            levels = c("Excellent (>=95%)", "Good (>=80%)", "Poor (<80%)"))
+  )
+
+quality_colors <- c("Excellent (>=95%)" = "#27ae60",
+                     "Good (>=80%)" = "#f39c12",
+                     "Poor (<80%)" = "#e74c3c")
+
+if (is_small) {
+  ggplot(cov_summary_df, aes(x = reorder(reference_id, pct_covered_1x),
+                          y = pct_covered_1x, fill = coverage_class)) +
+    geom_col(width = 0.7) +
+    geom_hline(yintercept = c(80, 95), linetype = "dashed", color = "grey40", linewidth = 0.3) +
+    coord_flip() +
+    scale_fill_manual(values = quality_colors) +
+    labs(x = NULL, y = "% Bases Covered (>= 1X)", fill = "Quality",
+         title = "Probe Tiling Breadth per Target") +
+    theme(legend.position = "bottom")
+} else if (is_medium) {
+  ggplot(cov_summary_df, aes(x = reorder(reference_id, pct_covered_1x),
+                          y = pct_covered_1x, fill = coverage_class)) +
+    geom_col(width = 0.9) +
+    geom_hline(yintercept = c(80, 95), linetype = "dashed", color = "grey40", linewidth = 0.3) +
+    coord_flip() +
+    scale_fill_manual(values = quality_colors) +
+    labs(x = NULL, y = "% Bases Covered (>= 1X)", fill = "Quality",
+         title = "Probe Tiling Breadth per Target") +
+    theme(legend.position = "bottom",
+          axis.text.y = element_text(size = 5))
+} else {
+  ggplot(cov_summary_df, aes(x = pct_covered_1x, fill = coverage_class)) +
+    geom_histogram(binwidth = 2, boundary = 0, color = "white", linewidth = 0.2) +
+    scale_fill_manual(values = quality_colors) +
+    geom_vline(xintercept = c(80, 95), linetype = "dashed", color = "grey40", linewidth = 0.5) +
+    labs(x = "% Bases Covered (>= 1X)", y = "Number of Targets", fill = "Quality",
+         title = "Distribution of Probe Tiling Breadth",
+         subtitle = sprintf("%d targets | Dashed lines: 80%% and 95%%", n_targets)) +
+    theme(legend.position = "bottom")
+}
+```
+
+```{r cov-worst, eval=is_large}
+worst <- cov_summary_df %>%
+  arrange(pct_covered_1x) %>%
+  head(20) %>%
+  select(reference_id, ref_length, pct_covered_1x, mean_depth, max_gap_length, num_gaps)
+
+datatable(worst,
+  colnames = c("Reference", "Length", "%\u22651X", "Mean Depth", "Max Gap", "Gaps"),
+  options = list(pageLength = 10, dom = "tp"),
+  rownames = FALSE
+) %>%
+  formatRound(columns = c("pct_covered_1x", "mean_depth"), digits = 1) %>%
+  formatCurrency(columns = c("ref_length", "max_gap_length"), currency = "", digits = 0)
+```
+
+## Tiered Coverage
+
+```{r cov-tiered, fig.height=if (is_small) max(3, n_targets * 0.5) else if (is_medium) 6 else 5}
+tiered <- cov_summary_df %>%
+  select(reference_id, pct_covered_1x, pct_covered_2x, pct_covered_5x, pct_covered_10x) %>%
+  pivot_longer(cols = starts_with("pct_covered_"),
+               names_to = "threshold_tier", values_to = "pct") %>%
+  mutate(threshold_tier = case_when(
+    threshold_tier == "pct_covered_1x"  ~ ">=1X",
+    threshold_tier == "pct_covered_2x"  ~ ">=2X",
+    threshold_tier == "pct_covered_5x"  ~ ">=5X",
+    threshold_tier == "pct_covered_10x" ~ ">=10X"
+  ),
+  threshold_tier = factor(threshold_tier, levels = c(">=1X", ">=2X", ">=5X", ">=10X")))
+
+tier_colors <- c(">=1X" = "#3498db", ">=2X" = "#2ecc71",
+                  ">=5X" = "#f39c12", ">=10X" = "#e74c3c")
+
+if (is_small) {
+  ggplot(tiered, aes(x = reorder(reference_id, pct), y = pct, fill = threshold_tier)) +
+    geom_col(position = "dodge", width = 0.7) +
+    coord_flip() +
+    scale_fill_manual(values = tier_colors) +
+    labs(x = NULL, y = "% Bases Covered", fill = "Depth Threshold",
+         title = "Tiered Probe Coverage per Target") +
+    theme(legend.position = "bottom")
+} else if (is_medium) {
+  ggplot(tiered, aes(x = reorder(reference_id, pct), y = pct, fill = threshold_tier)) +
+    geom_col(position = "dodge", width = 0.9) +
+    coord_flip() +
+    scale_fill_manual(values = tier_colors) +
+    labs(x = NULL, y = "% Bases Covered", fill = "Depth Threshold",
+         title = "Tiered Probe Coverage per Target") +
+    theme(legend.position = "bottom",
+          axis.text.y = element_text(size = 5))
+} else {
+  ggplot(tiered, aes(x = threshold_tier, y = pct, fill = threshold_tier)) +
+    geom_boxplot(alpha = 0.7, outlier.size = 0.5) +
+    geom_jitter(width = 0.2, alpha = 0.1, size = 0.3) +
+    scale_fill_manual(values = tier_colors) +
+    labs(x = "Depth Threshold", y = "% Bases Covered",
+         title = "Distribution of Tiered Probe Coverage",
+         subtitle = sprintf("%d targets", n_targets)) +
+    theme(legend.position = "none")
+}
+```
+
+## Gap Analysis
+
+```{r cov-gap, fig.height=if (is_small) max(3, n_targets * 0.4) else if (is_medium) 6 else 4}
+gap_data <- cov_summary_df %>% filter(num_gaps > 0)
+
+if (nrow(gap_data) == 0) {
+  cat("All targets are fully tiled with no gaps.")
+} else if (is_small) {
+  ggplot(gap_data, aes(x = reorder(reference_id, max_gap_length), y = max_gap_length)) +
+    geom_segment(aes(xend = reference_id, y = 0, yend = max_gap_length),
+                 color = "#e74c3c", linewidth = 1) +
+    geom_point(size = 4, color = "#e74c3c") +
+    geom_text(aes(label = sprintf("%s bp (%d gaps)",
+                                   format(max_gap_length, big.mark = ","), num_gaps)),
+              hjust = -0.1, size = 3.5) +
+    coord_flip() +
+    labs(x = NULL, y = "Largest Gap (bp)",
+         title = "Largest Uncovered Stretch per Target",
+         subtitle = "Targets with no gaps are omitted") +
+    expand_limits(y = max(gap_data$max_gap_length) * 1.3)
+} else if (is_medium) {
+  ggplot(gap_data, aes(x = reorder(reference_id, max_gap_length), y = max_gap_length)) +
+    geom_col(fill = "#e74c3c", width = 0.9, alpha = 0.8) +
+    coord_flip() +
+    labs(x = NULL, y = "Largest Gap (bp)",
+         title = "Largest Uncovered Stretch per Target",
+         subtitle = sprintf("%d of %d targets have gaps", nrow(gap_data), n_targets)) +
+    theme(axis.text.y = element_text(size = 5))
+} else {
+  gap_data <- gap_data %>% arrange(desc(max_gap_length)) %>%
+    mutate(rank = row_number())
+  ggplot(gap_data, aes(x = max_gap_length, y = reorder(factor(rank), -rank))) +
+    geom_col(fill = "#e74c3c", alpha = 0.7, width = 1) +
+    labs(x = "Largest Gap (bp)", y = NULL,
+         title = "Gap Sizes Across All Targets",
+         subtitle = sprintf("%d of %d targets have gaps (sorted by gap size, largest at top)",
+                            nrow(gap_data), n_targets)) +
+    theme(axis.text.y = element_blank(),
+          axis.ticks.y = element_blank(),
+          panel.grid.major.y = element_blank())
+}
+```
+
+## Pangenome Probe Depth
+
+Targets concatenated end-to-end, sorted by name.`r if (n_targets <= 12) " Vertical grey lines mark target boundaries." else ""`
+
+```{r cov-pangenome, fig.height=4, fig.width=10}
+if (nrow(depth_intervals) > 0) {
+  target_order <- cov_summary_df %>% arrange(reference_id)
+  offsets <- target_order %>%
+    mutate(offset = cumsum(lag(ref_length, default = 0)))
+  pan_intervals <- depth_intervals %>%
+    inner_join(offsets %>% select(reference_id, offset), by = "reference_id") %>%
+    mutate(pan_start = start + offset, pan_end = end + offset) %>%
+    arrange(pan_start)
+  total_len <- sum(target_order$ref_length)
+  n_points <- min(2000, total_len)
+  sample_pos <- seq(1, total_len, length.out = n_points)
+  idx <- findInterval(sample_pos, pan_intervals$pan_start)
+  pan_depth <- ifelse(idx > 0 & sample_pos <= pan_intervals$pan_end[pmax(idx, 1)],
+                      pan_intervals$depth[pmax(idx, 1)], 0)
+  pan_df <- data.frame(pan_position = sample_pos, depth = pan_depth)
+  boundaries <- offsets %>%
+    mutate(boundary = offset + ref_length) %>%
+    filter(row_number() < n())
+
+  ggplot(pan_df, aes(x = pan_position, y = depth)) +
+    geom_area(fill = "#3498db", alpha = 0.4) +
+    geom_line(color = "#2c3e50", linewidth = 0.2) +
+    geom_hline(yintercept = 1, linetype = "dashed", color = "#27ae60", linewidth = 0.3) +
+    geom_hline(yintercept = 5, linetype = "dashed", color = "#f39c12", linewidth = 0.3) +
+    { if (nrow(boundaries) > 0 && n_targets <= 12)
+        geom_vline(data = boundaries, aes(xintercept = boundary),
+                   color = "grey50", linetype = "solid", linewidth = 0.3) } +
+    labs(x = "Pangenome Position", y = "Probe Depth",
+         title = "Probe Depth Across Concatenated Targets",
+         subtitle = sprintf("%d targets | Dashed lines: 1X (green), 5X (orange)",
+                            nrow(target_order))) +
+    theme(axis.text.x = element_text(size = 7))
+}
+```
+
+## Probe Depth Profiles {.tabset}
+
+```{r cov-depth-overview-calc, include=FALSE}
+n_facet <- if (is_small) n_targets else min(12, n_targets)
+n_detail <- if (is_small) n_targets else min(10, n_targets)
+show_detail <- n_targets <= 100
+```
+
+```{r cov-depth-overview, fig.height=max(3, ceiling(min(n_facet, 12) / 3) * 2.5), fig.width=10}
+if (nrow(depth_intervals) > 0) {
+  worst_refs <- cov_summary_df %>%
+    arrange(pct_covered_1x) %>%
+    head(n_facet) %>%
+    pull(reference_id)
+
+  if (n_targets > n_facet) {
+    overview_subtitle <- sprintf("Showing %d worst-covered of %d targets | Dashed lines: 1X (green), 5X (orange)",
+                                  n_facet, n_targets)
+  } else {
+    overview_subtitle <- "Dashed lines: 1X (green), 5X (orange)"
+  }
+
+  plot_data <- do.call(rbind, lapply(worst_refs, function(rid) {
+    expanded <- expand_intervals(depth_intervals %>% filter(reference_id == rid), max_points = 500)
+    if (nrow(expanded) == 0) return(NULL)
+    expanded
+  }))
+
+  ggplot(plot_data, aes(x = position, y = depth)) +
+    geom_area(fill = "#3498db", alpha = 0.4) +
+    geom_line(color = "#2c3e50", linewidth = 0.3) +
+    geom_hline(yintercept = 1, linetype = "dashed", color = "#27ae60", linewidth = 0.3) +
+    geom_hline(yintercept = 5, linetype = "dashed", color = "#f39c12", linewidth = 0.3) +
+    facet_wrap(~reference_id, scales = "free", ncol = 3) +
+    labs(x = "Position", y = "Probe Depth",
+         title = "Probe Depth Across Targets",
+         subtitle = overview_subtitle) +
+    theme(strip.text = element_text(size = 8),
+          axis.text = element_text(size = 6))
+}
+```
+
+```{r cov-depth-detail, results='asis', fig.width=8, fig.height=3, eval=show_detail}
+if (nrow(depth_intervals) > 0 && nrow(cov_summary_df) > 0) {
+  ordered <- cov_summary_df %>% arrange(pct_covered_1x)
+  if (n_targets > n_detail) {
+    cat(sprintf('\n\n*Showing detail for the %d worst-covered targets (of %d total).*\n\n',
+                n_detail, n_targets))
+  }
+  for (i in seq_len(n_detail)) {
+    ref_id <- ordered$reference_id[i]
+    ref_intervals_i <- depth_intervals %>% filter(reference_id == ref_id)
+    ref_data <- expand_intervals(ref_intervals_i)
+    if (nrow(ref_data) == 0) next
+    s <- ordered[i, ]
+    cat(sprintf('\n\n<details><summary><strong>%s</strong> &mdash; %.1f%% covered, %.1fX mean, %s bp, %d gaps (max %s bp)</summary>\n\n',
+                ref_id, s$pct_covered_1x, s$mean_depth,
+                format(s$ref_length, big.mark = ","),
+                s$num_gaps, format(s$max_gap_length, big.mark = ",")))
+    zero_intervals <- ref_intervals_i %>% filter(depth == 0)
+    p <- ggplot(ref_data, aes(x = position, y = depth)) +
+      geom_area(fill = "#3498db", alpha = 0.3) +
+      geom_line(color = "#2c3e50", linewidth = 0.4) +
+      geom_hline(yintercept = 1, linetype = "dashed", color = "#27ae60", linewidth = 0.5) +
+      geom_hline(yintercept = 5, linetype = "dashed", color = "#f39c12", linewidth = 0.5)
+    if (nrow(zero_intervals) > 0) {
+      p <- p + geom_segment(data = zero_intervals,
+                            aes(x = start, xend = end, y = 0, yend = 0),
+                            color = "darkgreen", linewidth = 2, alpha = 0.5,
+                            inherit.aes = FALSE)
+    }
+    p <- p +
+      labs(x = "Genome Position", y = "Probe Depth",
+           title = sprintf("Probe Depth: %s", ref_id),
+           subtitle = sprintf("%.1f%% covered | %.1fX mean | %.1f median | %s bp",
+                              s$pct_covered_1x, s$mean_depth, s$median_depth,
+                              format(s$ref_length, big.mark = ",")),
+           caption = if (nrow(zero_intervals) > 0) "Green bars: uncovered regions" else NULL) +
+      theme_minimal(base_size = 12)
+    print(p)
+    cat('\n\n</details>\n\n')
+  }
+}
+```
+
+```{r cov-depth-large-notice, results='asis', eval=!show_detail}
+cat(sprintf('\n\n*Individual depth plots are omitted for large panels (%d targets). See the faceted overview and pangenome plot above.*\n\n', n_targets))
+```
+
+## Proximity Coverage
+
+Pull-down zone: `r proximity_bp` bp around each probe.
+
+```{r cov-proximity, fig.height=if (is_small) max(3, n_targets * 0.4) else if (is_medium) 6 else 5}
+prox_subtitle_small <- sprintf("Blue: directly covered | Purple: within %d bp pull-down zone", proximity_bp)
+
+if (is_small) {
+  ggplot(cov_summary_df, aes(x = reorder(reference_id, pct_near_probe), y = pct_near_probe)) +
+    geom_col(fill = "#8e44ad", width = 0.7, alpha = 0.8) +
+    geom_col(aes(y = pct_covered_1x), fill = "#3498db", width = 0.7, alpha = 0.5) +
+    coord_flip() +
+    labs(x = NULL, y = "% Target Bases",
+         title = "Direct Coverage vs Proximity Coverage",
+         subtitle = prox_subtitle_small) +
+    theme(legend.position = "bottom")
+} else if (is_medium) {
+  ggplot(cov_summary_df, aes(x = reorder(reference_id, pct_near_probe), y = pct_near_probe)) +
+    geom_col(fill = "#8e44ad", width = 0.9, alpha = 0.8) +
+    geom_col(aes(y = pct_covered_1x), fill = "#3498db", width = 0.9, alpha = 0.5) +
+    coord_flip() +
+    labs(x = NULL, y = "% Target Bases",
+         title = "Direct Coverage vs Proximity Coverage",
+         subtitle = prox_subtitle_small) +
+    theme(legend.position = "bottom",
+          axis.text.y = element_text(size = 5))
+} else {
+  ggplot(cov_summary_df, aes(x = pct_covered_1x, y = pct_near_probe)) +
+    geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey50") +
+    geom_point(alpha = 0.5, color = "#8e44ad", size = 1.5) +
+    labs(x = "% Directly Covered (>=1X)",
+         y = sprintf("%% Within %d bp Pull-Down Zone", proximity_bp),
+         title = "Direct Coverage vs Proximity Coverage",
+         subtitle = sprintf("%d targets | Diagonal: perfect agreement", n_targets)) +
+    coord_fixed(xlim = c(0, 100), ylim = c(0, 100))
+}
+```
+
+## Multi-Mapping Probes
+
+`r nrow(multi_df)` probes map to more than one target sequence.
+
+```{r cov-multi-mapping, eval=(nrow(multi_df) > 0)}
+if (nrow(multi_df) <= 20) {
+  multi_df %>%
+    arrange(desc(num_targets)) %>%
+    knitr::kable(
+      col.names = c("Probe ID", "# Targets", "Targets"),
+      align = "lrl"
+    )
+} else {
+  multi_df %>%
+    arrange(desc(num_targets)) %>%
+    datatable(
+      colnames = c("Probe ID", "# Targets", "Targets"),
+      options = list(pageLength = 15, order = list(list(1, "desc"))),
+      rownames = FALSE,
+      filter = "top"
+    )
+}
+```
+
+---
+
+# Cross-Reactivity
+
+```{r xreact-summary-table, results='asis'}
+info <- data.frame(
+  Parameter = c("Homology threshold", "Total probes"),
+  Value = c(paste0(threshold, "%"), n_probes_xreact),
+  stringsAsFactors = FALSE
+)
+
+if (has_self) {
+  n_self_flagged <- sum(summary_self$num_hits_above_threshold > 0)
+  info <- rbind(info, data.frame(
+    Parameter = c("Probes with self-homology hits", "Self-mode hits"),
+    Value = c(paste0(n_self_flagged, " / ", n_probes_xreact,
+                     " (", round(100 * n_self_flagged / max(n_probes_xreact, 1), 1), "%)"),
+              nrow(hits_self))
+  ))
+}
+
+if (has_against) {
+  n_against_flagged <- sum(summary_against$num_hits_above_threshold > 0)
+  info <- rbind(info, data.frame(
+    Parameter = c("Probes with cross-reactive genome hits",
+                  "Genomes with hits", "Against-mode hits"),
+    Value = c(paste0(n_against_flagged, " / ", n_probes_xreact,
+                     " (", round(100 * n_against_flagged / max(n_probes_xreact, 1), 1), "%)"),
+              n_genomes_against,
+              nrow(hits_against))
+  ))
+}
+
+knitr::kable(info, col.names = c("Parameter", "Value"), align = "lr")
+```
+
+```{r self-section-header, eval=has_self, results='asis'}
+cat("\n## Self-Homology (Probe vs Probe)\n")
+```
+
+```{r self-heatmap, eval=has_self && n_probes_xreact < 1000, out.width="100%"}
+all_probe_ids <- sort(unique(xreact_summary_df$probe_id))
+n <- length(all_probe_ids)
+
+mat <- matrix(NA_real_, nrow = n, ncol = n,
+              dimnames = list(all_probe_ids, all_probe_ids))
+hover_mat <- matrix("", nrow = n, ncol = n,
+                    dimnames = list(all_probe_ids, all_probe_ids))
+
+if (nrow(hits_self) > 0) {
+  for (i in seq_len(nrow(hits_self))) {
+    row <- hits_self[i, ]
+    ri <- match(row$target_id, all_probe_ids)
+    ci <- match(row$probe_id, all_probe_ids)
+    if (!is.na(ri) && !is.na(ci)) {
+      if (is.na(mat[ri, ci]) || row$homology_pct > mat[ri, ci]) {
+        mat[ri, ci] <- row$homology_pct
+        hover_mat[ri, ci] <- paste0(
+          "Probe: ", row$probe_id, "<br>",
+          "Target: ", row$target_id, "<br>",
+          "Homology: ", round(row$homology_pct, 1), "%<br>",
+          "Identity: ", round(row$identity_pct, 1), "%<br>",
+          "Query coverage: ", round(row$query_coverage_pct, 1), "%"
+        )
+      }
+    }
+  }
+}
+
+show_labels <- n <= 20
+
+plot_ly(
+  z = mat,
+  x = colnames(mat),
+  y = rownames(mat),
+  type = "heatmap",
+  colorscale = list(c(0, "steelblue"), c(0.5, "orange"), c(1, "firebrick")),
+  zmin = threshold,
+  zmax = 100,
+  hoverinfo = "text",
+  text = hover_mat,
+  showscale = TRUE,
+  colorbar = list(title = "Homology %"),
+  height = 800,
+  width = 1000
+) %>%
+  layout(
+    title = "Self-Homology Matrix",
+    xaxis = list(
+      title = "Probe",
+      showticklabels = show_labels,
+      tickangle = if (show_labels) -45 else 0,
+      showgrid = FALSE
+    ),
+    yaxis = list(
+      title = "Target probe",
+      showticklabels = show_labels,
+      autorange = "reversed",
+      showgrid = FALSE
+    ),
+    plot_bgcolor = "white",
+    height = NULL,
+    xgap = 0.5, ygap = 0.5
+  )
+```
+
+```{r self-heatmap-skip, eval=has_self && n_probes_xreact >= 1000, results='asis'}
+cat(paste0("\n*Heatmap omitted: ", n_probes_xreact,
+           " probes exceeds the 1,000 probe limit for interactive display.*\n"))
+```
+
+```{r self-density-header, eval=has_self && nrow(hits_self) > 0, results='asis'}
+cat("\n### Homology Distribution\n")
+```
+
+```{r self-density, eval=has_self && nrow(hits_self) > 0, fig.height=4}
+ggplot(summary_self, aes(x = max_homology_pct)) +
+  geom_density(fill = "steelblue", alpha = 0.5, color = "steelblue", adjust = 1/4) +
+  geom_vline(xintercept = threshold, linetype = "dashed", color = "firebrick", linewidth = 0.8) +
+  annotate("text", x = threshold, y = Inf, label = paste0("Threshold: ", threshold, "%"),
+           hjust = -0.1, vjust = 1.5, color = "firebrick", size = 3.5) +
+  labs(x = "Homology (%)", y = "Density", title = "Maximum Homology for All Probes") +
+  theme_minimal(base_size = 14)
+
+ggplot(hits_self, aes(x = homology_pct)) +
+  geom_density(fill = "steelblue", alpha = 0.5, color = "steelblue", adjust = 1/2) +
+  geom_vline(xintercept = threshold, linetype = "dashed", color = "firebrick", linewidth = 0.8) +
+  annotate("text", x = threshold, y = Inf, label = paste0("Threshold: ", threshold, "%"),
+           hjust = -0.1, vjust = 1.5, color = "firebrick", size = 3.5) +
+  scale_x_continuous(limits = c(max(threshold - 10, 0), 100)) +
+  labs(x = "Homology (%)", y = "Density", title = "Self-Homology Distribution for Hits Above Threshold") +
+  theme_minimal(base_size = 14)
+```
+
+```{r self-table-header, eval=has_self, results='asis'}
+cat("\n### All Self-Homology Hits\n")
+```
+
+```{r self-table, eval=has_self}
+display_self <- hits_self %>%
+  select(probe_id, target_id, homology_pct, identity_pct,
+         query_coverage_pct, matching_bases, probe_length) %>%
+  arrange(desc(homology_pct))
+
+datatable(
+  display_self,
+  colnames = c("Probe", "Target Probe", "Homology %", "Identity %",
+               "Query Cov %", "Matching Bases", "Probe Length"),
+  options = list(pageLength = 25, scrollX = TRUE,
+                 order = list(list(2, "desc"))),
+  rownames = FALSE,
+  filter = if (nrow(display_self) > 50) "top" else "none"
+) %>%
+  formatRound(c("homology_pct", "identity_pct", "query_coverage_pct"), 1)
+```
+
+```{r against-section-header, eval=has_against, results='asis'}
+cat("\n## Cross-Reactivity (Probe vs Genome)\n")
+```
+
+```{r against-heatmap, eval=has_against && n_probes_xreact < 1000, fig.height=8}
+probes_with_hits <- sort(unique(hits_against$probe_id))
+genomes <- sort(unique(hits_against$target_id))
+n_probes_hit <- length(probes_with_hits)
+n_genomes_hit <- length(genomes)
+
+if (n_probes_hit > 0 && n_genomes_hit > 0) {
+  mat_ag <- matrix(NA_real_, nrow = n_genomes_hit, ncol = n_probes_hit,
+                   dimnames = list(genomes, probes_with_hits))
+  hover_ag <- matrix("", nrow = n_genomes_hit, ncol = n_probes_hit,
+                     dimnames = list(genomes, probes_with_hits))
+
+  for (i in seq_len(nrow(hits_against))) {
+    row <- hits_against[i, ]
+    ri <- match(row$target_id, genomes)
+    ci <- match(row$probe_id, probes_with_hits)
+    if (!is.na(ri) && !is.na(ci)) {
+      if (is.na(mat_ag[ri, ci]) || row$homology_pct > mat_ag[ri, ci]) {
+        mat_ag[ri, ci] <- row$homology_pct
+        hover_ag[ri, ci] <- paste0(
+          "Probe: ", row$probe_id, "<br>",
+          "Genome: ", row$target_id, "<br>",
+          "Homology: ", round(row$homology_pct, 1), "%<br>",
+          "Identity: ", round(row$identity_pct, 1), "%<br>",
+          "Query coverage: ", round(row$query_coverage_pct, 1), "%"
+        )
+      }
+    }
+  }
+
+  show_x <- n_probes_hit <= 20
+  show_y <- n_genomes_hit <= 20
+  plot_height <- max(400, n_genomes_hit * 20 + 150)
+
+  plot_ly(
+    z = mat_ag,
+    x = colnames(mat_ag),
+    y = rownames(mat_ag),
+    type = "heatmap",
+    colorscale = list(c(0, "steelblue"), c(0.5, "orange"), c(1, "firebrick")),
+    zmin = threshold,
+    zmax = 100,
+    hoverinfo = "text",
+    text = hover_ag,
+    showscale = TRUE,
+    colorbar = list(title = "Homology %"),
+    height = plot_height
+  ) %>%
+    layout(
+      title = paste0("Cross-Reactivity Matrix (",
+                     n_probes_hit, " probes x ", n_genomes_hit, " genomes)"),
+      xaxis = list(
+        title = "Probe",
+        showticklabels = show_x,
+        tickangle = if (show_x) -45 else 0,
+        showgrid = FALSE
+      ),
+      yaxis = list(
+        title = "Genome",
+        showticklabels = show_y,
+        autorange = "reversed",
+        showgrid = FALSE
+      ),
+      plot_bgcolor = "white"
+    )
+}
+```
+
+```{r against-heatmap-skip, eval=has_against && n_probes_xreact >= 1000, results='asis'}
+cat(paste0("\n*Heatmap omitted: ", n_probes_xreact,
+           " probes exceeds the 1,000 probe limit for interactive display.*\n"))
+```
+
+```{r against-genome-bar-header, eval=has_against && nrow(hits_against) > 0, results='asis'}
+cat("\n### Probes per Genome\n")
+```
+
+```{r against-genome-bar, eval=has_against && nrow(hits_against) > 0 && n_genomes_against <= 100, fig.height=max(4, n_genomes_against * 0.3 + 1)}
+genome_counts <- hits_against %>%
+  group_by(target_id) %>%
+  summarise(n_probes = n_distinct(probe_id), .groups = "drop") %>%
+  arrange(n_probes) %>%
+  mutate(target_id = factor(target_id, levels = target_id))
+
+ggplot(genome_counts, aes(x = n_probes, y = target_id)) +
+  geom_col(fill = "steelblue", alpha = 0.8) +
+  labs(x = "Number of cross-reactive probes", y = NULL,
+       title = "Cross-Reactive Probes per Genome") +
+  theme_minimal(base_size = if (n_genomes_against <= 20) 14 else 8)
+```
+
+```{r against-genome-bar-large, eval=has_against && nrow(hits_against) > 0 && n_genomes_against > 100, fig.height=5}
+genome_counts <- hits_against %>%
+  group_by(target_id) %>%
+  summarise(n_probes = n_distinct(probe_id), .groups = "drop")
+
+ggplot(genome_counts, aes(x = n_probes)) +
+  geom_histogram(fill = "steelblue", alpha = 0.8, color = "white",
+                 binwidth = max(1, ceiling(max(genome_counts$n_probes) / 30))) +
+  labs(x = "Number of cross-reactive probes per genome", y = "Number of genomes",
+       title = paste0("Distribution of Cross-Reactive Probes (",
+                      n_genomes_against, " genomes)")) +
+  theme_minimal(base_size = 14)
+```
+
+```{r against-density-header, eval=has_against && nrow(hits_against) > 0, results='asis'}
+cat("\n### Homology Distribution\n")
+```
+
+```{r against-density, eval=has_against && nrow(hits_against) > 0, fig.height=4}
+ggplot(hits_against, aes(x = homology_pct)) +
+  geom_density(fill = "steelblue", alpha = 0.5, color = "steelblue") +
+  geom_vline(xintercept = threshold, linetype = "dashed", color = "firebrick", linewidth = 0.8) +
+  annotate("text", x = threshold, y = Inf, label = paste0("Threshold: ", threshold, "%"),
+           hjust = -0.1, vjust = 1.5, color = "firebrick", size = 3.5) +
+  scale_x_continuous(limits = c(max(threshold - 10, 0), 100)) +
+  labs(x = "Homology (%)", y = "Density", title = "Cross-Reactivity Homology Distribution") +
+  theme_minimal(base_size = 14)
+```
+
+```{r against-table-header, eval=has_against, results='asis'}
+cat("\n### All Cross-Reactivity Hits\n")
+```
+
+```{r against-table, eval=has_against}
+display_against <- hits_against %>%
+  select(probe_id, target_id, homology_pct, identity_pct,
+         query_coverage_pct, matching_bases, probe_length) %>%
+  arrange(desc(homology_pct))
+
+datatable(
+  display_against,
+  colnames = c("Probe", "Genome", "Homology %", "Identity %",
+               "Query Cov %", "Matching Bases", "Probe Length"),
+  options = list(pageLength = 25, scrollX = TRUE,
+                 order = list(list(2, "desc"))),
+  rownames = FALSE,
+  filter = if (nrow(display_against) > 50) "top" else "none"
+) %>%
+  formatRound(c("homology_pct", "identity_pct", "query_coverage_pct"), 1)
+```
+
+---
+
+```{r params-fold, eval=has_params, results='asis'}
+cat('<details><summary>Parameters</summary>\n\n')
+```
+
+```{r params-table, eval=has_params}
+display_params <- params_df %>% select(parameter, value)
+knitr::kable(display_params, col.names = c("Parameter", "Value"), align = "ll")
+```
+
+```{r params-command, eval=has_params, results='asis'}
+cmd_parts <- c("baitbench assess-probes")
+for (i in seq_len(nrow(params_df))) {
+  flag <- params_df$flag[i]
+  value <- params_df$value[i]
+  if (value == "none" || value == "false") next
+  if (value == "true") {
+    cmd_parts <- c(cmd_parts, sprintf("  %s", flag))
+  } else {
+    cmd_parts <- c(cmd_parts, sprintf("  %s %s", flag, value))
+  }
+}
+cat("```bash\n")
+cat(paste(cmd_parts, collapse = " \\\n"), "\n")
+cat("```\n")
+```
+
+```{r params-fold-end, eval=has_params, results='asis'}
+cat('</details>\n\n')
+```
+
+```{r build-params-fold, eval=has_build_params, results='asis'}
+cat('<details><summary>Build Probes Parameters</summary>\n\n')
+```
+
+```{r build-params-table, eval=has_build_params}
+display_bp <- build_params_df %>% select(parameter, value)
+knitr::kable(display_bp, col.names = c("Parameter", "Value"), align = "ll")
+```
+
+```{r build-params-command, eval=has_build_params, results='asis'}
+cmd_parts <- c("baitbench build-probes")
+for (i in seq_len(nrow(build_params_df))) {
+  flag <- build_params_df$flag[i]
+  val <- build_params_df$value[i]
+  if (!is.na(val) && val != "" && val != "none" && val != "false") {
+    if (val == "true") {
+      cmd_parts <- c(cmd_parts, flag)
+    } else {
+      cmd_parts <- c(cmd_parts, paste(flag, val))
+    }
+  }
+}
+cat("\n**Command:**\n```\n", paste(cmd_parts, collapse = " \\\n  "), "\n```\n")
+```
+
+```{r build-params-fold-end, eval=has_build_params, results='asis'}
+cat('</details>\n\n')
+```
+
+---
+
+*Generated by [BaitBench](https://github.com/CrossLab/BaitBench) assess-probes*

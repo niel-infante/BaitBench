@@ -650,6 +650,7 @@ pub enum Commands {
     },
 
     /// Build a probe set from target sequences (collapse, tile, filter, deduplicate)
+    /// and optionally assess probe quality (coverage + cross-reactivity)
     BuildProbes {
         /// Target sequences FASTA
         #[arg(short, long)]
@@ -708,8 +709,71 @@ pub enum Commands {
         #[arg(long, default_value = "5")]
         threads: usize,
 
+        /// Genome FASTA(s) for cross-reactivity checking during assessment (can be specified multiple times)
+        #[arg(short, long, num_args = 1..)]
+        genomes: Option<Vec<PathBuf>>,
+
+        /// Minimum homology percentage for cross-reactivity detection during assessment
+        #[arg(long, default_value = "80.0")]
+        threshold: f64,
+
+        /// Minimap2 alignment preset for assessment steps
+        #[arg(long, default_value = "sr")]
+        minimap_preset: String,
+
+        /// Proximity distance (bp) for pull-down zone metric in coverage assessment
+        #[arg(long, default_value = "50")]
+        proximity: usize,
+
+        /// Skip the probe assessment step (coverage + cross-reactivity analysis)
+        #[arg(long)]
+        skip_assess: bool,
+
         /// Output directory
         #[arg(short, long, default_value = "./build_probes_results")]
+        outdir: PathBuf,
+
+        /// String to prepend to every output filename
+        #[arg(long, default_value = "")]
+        output_prefix: String,
+
+        /// Report output mode: full (HTML report), none (skip), rmd (editable RMarkdown file)
+        #[arg(long, default_value = "full")]
+        report: ReportMode,
+
+        /// Delete intermediate files after completion
+        #[arg(long)]
+        cleanup: bool,
+    },
+
+    /// Assess probe quality: coverage analysis + cross-reactivity (self + optional genome)
+    AssessProbes {
+        /// Target sequences FASTA
+        #[arg(short, long)]
+        targets: PathBuf,
+
+        /// Probe sequences FASTA
+        #[arg(short, long)]
+        probes: PathBuf,
+
+        /// Genome FASTA(s) for cross-reactivity checking (can be specified multiple times)
+        #[arg(short, long, num_args = 1..)]
+        genomes: Option<Vec<PathBuf>>,
+
+        /// Minimum homology percentage for cross-reactivity detection
+        #[arg(long, default_value = "80.0")]
+        threshold: f64,
+
+        /// Minimap2 alignment preset
+        #[arg(long, default_value = "sr")]
+        minimap_preset: String,
+
+        /// Proximity distance (bp) for pull-down zone metric in coverage analysis
+        #[arg(long, default_value = "50")]
+        proximity: usize,
+
+        /// Output directory
+        #[arg(short, long, default_value = "./assess_probes_results")]
         outdir: PathBuf,
 
         /// String to prepend to every output filename

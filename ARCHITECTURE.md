@@ -66,7 +66,8 @@ src/
 │   ├── panel_qc.rs      # Standalone target panel discriminability QC (target-vs-target similarity, species discrimination)
 │   ├── identify.rs      # Species-level calling from multi-target detection patterns (standalone or pipeline step)
 │   ├── coverage_curve.rs # Coverage curve: pipeline at multiple param combos → depth curves
-│   └── build_probes.rs  # Standalone probe building: N filter → collapse → tile → GC filter → complexity filter (sDUST) → deduplicate
+│   ├── build_probes.rs  # Standalone probe building: N filter → collapse → tile → GC filter → complexity filter (sDUST) → deduplicate
+│   └── assess_probes.rs # Combined probe assessment: probe coverage + cross-reactivity (self + optional genomes), orchestrates sub-commands
 ├── sdust.rs             # sDUST low-complexity detection: sdust(), masked_fraction() (Morgulis et al. 2006)
 ├── external/
 │   ├── minimap2.rs      # minimap2 wrapper: capture_align (PAF), map_reads (SAM), host_align, probe_align
@@ -92,14 +93,16 @@ R/
 ├── panel_qc.R           # CLI wrapper for panel QC report
 ├── panel_qc.Rmd         # RMarkdown template: discriminability charts, confusion heatmaps, target tables
 ├── build_probes.R       # CLI wrapper for build probes report
-└── build_probes.Rmd     # RMarkdown template: pipeline stats table, sequence/base count bar charts
+├── build_probes.Rmd     # RMarkdown template: pipeline stats table, sequence/base count bar charts
+├── assess_probes.R      # CLI wrapper for combined probe assessment report
+└── assess_probes.Rmd    # RMarkdown template: build stats (optional) + probe coverage + cross-reactivity
 ```
 
 ## Key Data Types
 
 ### CLI (`cli.rs`)
 
-- **`Commands`** enum — one variant per subcommand (Run, Prepare, Simulate, Capture, Enrich, Sequence, Filter, Map, List, Metrics, ProbeCoverage, Xreact, PanelQc, Identify, Report, CoverageCurve, BuildProbes), each with its own fields
+- **`Commands`** enum — one variant per subcommand (Run, Prepare, Simulate, Capture, Enrich, Sequence, Filter, Map, List, Metrics, ProbeCoverage, Xreact, PanelQc, Identify, Report, CoverageCurve, BuildProbes, AssessProbes), each with its own fields
 - **`CaptureMethodArg`** — ValueEnum: Minimap2 | Blast
 - **`ProbeMethod`** — ValueEnum: Tile (future: additional probe construction methods)
 - **`ReportMode`** — ValueEnum: Full | None | Rmd — controls report output (HTML, skip, or editable RMarkdown)
@@ -129,7 +132,8 @@ Every command module exports an `Args` struct and an `execute(&Args) -> Result<(
 | `identify` | `IdentifyArgs` | detected_detail, sample_target_map, target_similarity (or targets for on-the-fly), identity_threshold, min_unique_targets | species_calls.tsv, species_calls.json |
 | `run` | `RunArgs` | all pipeline inputs + ct, ct_baseline, ct_baseline_fraction, num_sequences, genomes, sample_target_map, identify, identity_threshold, min_unique_targets | all of the above |
 | `coverage_curve` | `CoverageCurveArgs` | targets, distractors, probes, sample (required), ct/fe/ns values (sweep or fixed), all pipeline params, genomes, sample_target_map | coverage_curve_depth_curves.tsv, coverage_curve_report.html, combo subdirs |
-| `build_probes` | `BuildProbesArgs` | targets, method, probe_length, max_n_frac, min/max_gc, dust_threshold/dust_window/max_masked_frac, collapse/dedup thresholds, threads | probes_final.fa, build_probes_stats.tsv, build_probes_report.html |
+| `build_probes` | `BuildProbesArgs` | targets, method, probe_length, max_n_frac, min/max_gc, dust_threshold/dust_window/max_masked_frac, collapse/dedup thresholds, threads, genomes, threshold, skip_assess | probes_final.fa, build_probes_stats.tsv; auto-chains to assess_probes unless --skip-assess |
+| `assess_probes` | `AssessProbesArgs` | targets, probes, genomes (optional), threshold, minimap_preset, proximity, build_stats_file (optional), build_params_file (optional) | cov_probe_coverage_summary.tsv, cov_probe_depth.tsv, xreact_hits.tsv, xreact_summary.tsv, assess_run_params.tsv, assess_probes_report.html |
 
 ### Metrics (`metrics.rs`)
 
@@ -389,6 +393,43 @@ Report logic: detects swept params from data, builds combo labels. <10 combos: s
 | `probes_final.fa` | FASTA | build_probes (cd-hit-est dedup) | user (final output) |
 | `build_probes_stats.tsv` | TSV (step, sequences, bases) | build_probes | build_probes report |
 | `build_probes_report.html` | HTML | build_probes (via R) | — |
+
+### Assess Probes (standalone, or chained from build-probes)
+
+| File | Format | Written by | Read by |
+|------|--------|------------|---------|
+| `cov_probe_coverage_summary.tsv` | TSV | assess_probes (via probe_coverage) | assess_probes report |
+| `cov_probe_depth.tsv` | TSV intervals | assess_probes (via probe_coverage) | assess_probes report |
+| `cov_multi_mapping_probes.tsv` | TSV | assess_probes (via probe_coverage) | assess_probes report |
+| `xreact_hits.tsv` | TSV | assess_probes (via xreact) | assess_probes report |
+| `xreact_summary.tsv` | TSV | assess_probes (via xreact) | assess_probes report |
+| `assess_run_params.tsv` | TSV (parameter, flag, value) | assess_probes | assess_probes report |
+| `assess_probes_report.html` | HTML | assess_probes (via R) | — |
+
+### Assess Probes Report (`R/assess_probes.Rmd`)
+
+`assess_probes.R` accepts CLI args and calls `rmarkdown::render()` on `assess_probes.Rmd`.
+
+| Param | Source |
+|-------|--------|
+| `build_stats_file` | build_probes_stats.tsv (optional, from build-probes chain) |
+| `build_params_file` | run_params.tsv (optional, from build-probes chain) |
+| `xreact_hits_file` | xreact_hits.tsv |
+| `xreact_summary_file` | xreact_summary.tsv |
+| `xreact_threshold` | `--threshold` CLI value (float, default 80.0) |
+| `coverage_summary_file` | cov_probe_coverage_summary.tsv |
+| `coverage_depth_file` | cov_probe_depth.tsv |
+| `coverage_multi_mapping_file` | cov_multi_mapping_probes.tsv (optional) |
+| `coverage_proximity` | `--proximity` CLI value (integer, default 50) |
+| `params_file` | assess_run_params.tsv |
+
+Report sections (conditionally rendered):
+1. **Build Pipeline** (if build_stats_file provided) — stats table, sequences/bases bar charts
+2. **Probe Coverage** (always) — summary table, coverage breadth, tiered coverage, gap analysis, depth profiles, proximity, multi-mapping probes
+3. **Cross-Reactivity Summary** (always) — summary table
+4. **Self-Homology** (if self-mode hits present) — heatmap (≤1000 probes), density plots, hits table
+5. **Cross-Reactivity vs Genomes** (if against-mode hits present) — heatmap, per-genome bar chart, density plots, hits table
+6. **Parameters** (under `<details>` fold) — assess params + optional build params
 
 ### Build Probes Report (`R/build_probes.Rmd`)
 

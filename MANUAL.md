@@ -36,6 +36,7 @@ Complete reference for BaitBench, an in-silico probe capture simulation tool.
   - [panel-qc](#panel-qc)
   - [identify](#identify)
   - [build-probes](#build-probes)
+  - [assess-probes](#assess-probes)
 - [Parameter Reference](#parameter-reference)
   - [Input Files](#input-files)
   - [Fragment Generation](#fragment-generation)
@@ -70,6 +71,7 @@ Complete reference for BaitBench, an in-silico probe capture simulation tool.
   - [Cross-Reactivity Analysis](#cross-reactivity-analysis)
   - [Target Panel QC](#target-panel-qc)
   - [Species Identification](#species-identification)
+  - [Probe Assessment](#probe-assessment)
   - [Running Individual Steps](#running-individual-steps)
   - [Reproducible Runs](#reproducible-runs)
   - [Batch Comparisons](#batch-comparisons)
@@ -79,6 +81,7 @@ Complete reference for BaitBench, an in-silico probe capture simulation tool.
   - [Probe Coverage Report](#probe-coverage-report)
   - [Panel QC Report](#panel-qc-report)
   - [Species Identification in Main Report](#species-identification-in-main-report)
+  - [Probe Assessment Report](#probe-assessment-report)
 - [Metrics Definitions](#metrics-definitions)
   - [Genome-Level Metrics](#genome-level-metrics)
   - [Read-Level Metrics](#read-level-metrics)
@@ -914,7 +917,7 @@ When `--identify` is passed to `baitbench run` (genome mode with `--sample-targe
 
 ### build-probes
 
-Build a probe set from target sequences. Runs a multi-step pipeline: collapse redundant targets, construct probes, filter by GC content and sequence complexity, and deduplicate.
+Build a probe set from target sequences. Runs a multi-step pipeline: collapse redundant targets, construct probes, filter by GC content and sequence complexity, and deduplicate. After building, automatically chains into probe assessment (probe coverage + cross-reactivity analysis) unless `--skip-assess` is specified.
 
 ```bash
 baitbench build-probes \
@@ -931,6 +934,11 @@ baitbench build-probes \
   [--collapse-threshold 0.95] \
   [--dedup-threshold 0.95] \
   [--threads 5] \
+  [--genomes genome1.fa genome2.fa ...] \
+  [--threshold 80.0] \
+  [--minimap-preset sr] \
+  [--proximity 50] \
+  [--skip-assess] \
   [--outdir build_probes_results] \
   [--report full|none|rmd]
 ```
@@ -969,9 +977,18 @@ Probes are named `{target_id}|tile_{n}`. A final probe is always placed at the s
 | `--collapse-threshold` | 0.95 | cd-hit-est identity threshold for initial collapse |
 | `--dedup-threshold` | 0.95 | cd-hit-est identity threshold for final dedup |
 | `--threads` | 5 | Threads for cd-hit-est |
+| `--genomes` | none | Genome FASTA(s) to check cross-reactivity against (assessment step) |
+| `--threshold` | 80.0 | Homology threshold for cross-reactivity (assessment step) |
+| `--minimap-preset` | sr | Minimap2 alignment preset (assessment step) |
+| `--proximity` | 50 | Pull-down zone distance in bp (assessment step) |
+| `--skip-assess` | false | Skip automatic probe assessment after building |
 | `--outdir` | ./build_probes_results | Output directory |
 | `--report` | full | Report mode (full, none, rmd) |
 | `--cleanup` | false | Delete intermediate files |
+
+**Auto-assessment:**
+
+After building probes, `build-probes` automatically chains into `assess-probes` which runs probe coverage analysis and self-homology cross-reactivity. If `--genomes` is specified, cross-reactivity is also checked against those genomes. The combined report includes both build pipeline statistics and assessment results. Use `--skip-assess` to produce only the build pipeline output.
 
 **Complexity filtering (sDUST):**
 
@@ -983,7 +1000,62 @@ Low-complexity sequences (homopolymer runs, dinucleotide repeats, etc.) make poo
 
 - `probes_final.fa` -- final deduplicated probe set
 - `build_probes_stats.tsv` -- sequence/base counts at each pipeline step
-- `build_probes_report.html` -- HTML report with pipeline summary
+- `assess_probes_report.html` -- combined HTML report with build stats + assessment (unless `--skip-assess`)
+- `cov_probe_coverage_summary.tsv` -- per-target coverage statistics (from assessment)
+- `cov_probe_depth.tsv` -- probe depth intervals (from assessment)
+- `xreact_hits.tsv` -- cross-reactivity hits (from assessment)
+- `xreact_summary.tsv` -- cross-reactivity summary (from assessment)
+
+With `--skip-assess`, only produces `probes_final.fa`, `build_probes_stats.tsv`, and optionally `build_probes_report.html`.
+
+### assess-probes
+
+Standalone combined probe assessment. Runs probe coverage analysis and cross-reactivity analysis (self-homology always; against genomes if `--genomes` provided), producing a single combined HTML report.
+
+```bash
+baitbench assess-probes \
+  --targets targets.fa \
+  --probes probes.fa \
+  [--genomes genome1.fa genome2.fa ...] \
+  [--threshold 80.0] \
+  [--minimap-preset sr] \
+  [--proximity 50] \
+  [--outdir assess_probes_results] \
+  [--output-prefix ""] \
+  [--report full|none|rmd] \
+  [--cleanup]
+```
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `--targets` | required | Target sequences FASTA |
+| `--probes` | required | Probe sequences FASTA |
+| `--genomes` | none | Genome FASTA(s) to check cross-reactivity against (repeatable) |
+| `--threshold` | 80.0 | Minimum homology % to report cross-reactive hits |
+| `--minimap-preset` | sr | Minimap2 alignment preset |
+| `--proximity` | 50 | Pull-down zone distance in bp |
+| `--outdir` | ./assess_probes_results | Output directory |
+| `--output-prefix` | (empty) | String prepended to every output filename |
+| `--report` | full | Report mode: `full` (HTML), `none` (skip), `rmd` (editable RMarkdown) |
+| `--cleanup` | false | Delete intermediate files (SAM, logs) after completion |
+
+**Output files:**
+
+- `cov_probe_coverage_summary.tsv` -- per-target coverage statistics
+- `cov_probe_depth.tsv` -- run-length encoded probe depth intervals
+- `cov_multi_mapping_probes.tsv` -- probes mapping to multiple targets
+- `xreact_hits.tsv` -- cross-reactivity hits above threshold
+- `xreact_summary.tsv` -- per-probe cross-reactivity summary
+- `assess_run_params.tsv` -- run parameters
+- `assess_probes_report.html` -- combined HTML report (`--report full`)
+- `assess_probes_report.Rmd` -- editable RMarkdown file (`--report rmd`)
+
+**Report sections:**
+
+1. **Probe Coverage** -- summary table, coverage breadth bar charts, tiered coverage, gap analysis, depth profiles, proximity coverage, multi-mapping probes
+2. **Self-Homology** -- heatmap (≤1000 probes), density plots, hits table
+3. **Cross-Reactivity vs Genomes** (if `--genomes` provided) -- heatmap, per-genome bar chart, density plots, hits table
+4. **Parameters** -- run configuration under a collapsible fold
 
 ---
 
@@ -1659,6 +1731,54 @@ baitbench run \
 
 When `--identify` is used with `baitbench run`, the species calls are compared against the ground-truth `--sample` manifest and included in the HTML report.
 
+### Probe Assessment
+
+Run combined probe coverage + cross-reactivity analysis on an existing probe set:
+
+```bash
+# Basic assessment (probe coverage + self-homology)
+baitbench assess-probes \
+  --targets targets.fa \
+  --probes probes.fa \
+  --outdir assess_results
+
+# With cross-reactivity against genomes
+baitbench assess-probes \
+  --targets targets.fa \
+  --probes probes.fa \
+  --genomes human_genome.fa other_genomes.fa \
+  --threshold 80 \
+  --outdir assess_results
+
+# Skip HTML report (produce only TSV outputs)
+baitbench assess-probes \
+  --targets targets.fa \
+  --probes probes.fa \
+  --report none \
+  --outdir assess_results
+```
+
+Build probes and automatically assess them:
+
+```bash
+# Build + assess (default behavior)
+baitbench build-probes \
+  --targets targets.fa \
+  --outdir probes_output
+
+# Build + assess with cross-reactivity against genomes
+baitbench build-probes \
+  --targets targets.fa \
+  --genomes human_genome.fa \
+  --outdir probes_output
+
+# Build only, skip assessment
+baitbench build-probes \
+  --targets targets.fa \
+  --skip-assess \
+  --outdir probes_output
+```
+
 ### Running Individual Steps
 
 Run pipeline steps independently for custom workflows:
@@ -1846,6 +1966,16 @@ When species calls are available (from `--identify` or standalone `baitbench ide
 - **Summary table** -- Species-level sensitivity and specificity (when ground truth is available via `--sample`)
 - **Species call chart** -- Bar chart of PRESENT/ABSENT/AMBIGUOUS calls per species
 - **Evidence detail table** -- Full breakdown with unique/shared detected counts, reads, and explanation
+
+### Probe Assessment Report
+
+The probe assessment report (`assess_probes_report.html`) combines coverage and cross-reactivity analysis into a single document:
+
+- **Build Pipeline** (conditional, when chained from build-probes) -- Pipeline stats table, sequence/base count bar charts
+- **Probe Coverage** -- Summary table, coverage breadth bar charts, tiered coverage, gap analysis, pangenome depth, per-target depth profiles, proximity coverage, multi-mapping probes
+- **Self-Homology** -- Plotly heatmap (≤1000 probes), density plots, hits table
+- **Cross-Reactivity vs Genomes** (conditional, when `--genomes` provided) -- Plotly heatmap, per-genome bar chart, density plots, hits table
+- **Parameters** -- Run configuration under a collapsible fold
 
 ---
 

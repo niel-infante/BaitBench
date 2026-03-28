@@ -15,7 +15,8 @@ Key capabilities:
 - **Probe QC** -- evaluate probe tiling coverage across targets independently of the simulation
 - **Species identification** -- call species present/absent from multi-target detection patterns, accounting for cross-reactive targets
 - **Panel QC** -- assess whether a target panel can discriminate between species before running simulations
-- **Probe building** -- construct a probe set from target sequences (collapse, tile, GC filter, complexity filter, deduplicate)
+- **Probe building** -- construct a probe set from target sequences (collapse, tile, GC filter, complexity filter, deduplicate) with automatic quality assessment
+- **Probe assessment** -- combined probe coverage + cross-reactivity analysis in a single report
 
 ## Installation
 
@@ -182,7 +183,7 @@ baitbench identify \
 
 ### Build probes from targets
 
-Construct a filtered, deduplicated probe set from target sequences:
+Construct a filtered, deduplicated probe set from target sequences (automatically runs probe assessment):
 
 ```bash
 baitbench build-probes \
@@ -191,6 +192,18 @@ baitbench build-probes \
   --min-gc 0.20 \
   --max-gc 0.80 \
   --outdir probes_output
+```
+
+### Assess existing probes
+
+Run combined probe coverage + cross-reactivity analysis:
+
+```bash
+baitbench assess-probes \
+  --targets targets.fa \
+  --probes probes.fa \
+  --genomes human_genome.fa \
+  --outdir assess_results
 ```
 
 ## Key Parameters

@@ -14,4 +14,5 @@ pub mod coverage_curve;
 pub mod xreact;
 pub mod panel_qc;
 pub mod identify;
+pub mod assess_probes;
 pub mod build_probes;

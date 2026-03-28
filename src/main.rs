@@ -13,7 +13,7 @@ use anyhow::{bail, Result};
 use clap::Parser;
 
 use cli::{Cli, Commands};
-use commands::{build_probes, capture, coverage_curve, enrich, filter, generate_list, identify, map_reads, metrics, panel_qc, prepare, probe_coverage, report, run, sequence, simulate, xreact};
+use commands::{assess_probes, build_probes, capture, coverage_curve, enrich, filter, generate_list, identify, map_reads, metrics, panel_qc, prepare, probe_coverage, report, run, sequence, simulate, xreact};
 use io_utils::resolve_sample_arg;
 
 /// Default distractor fraction when neither --distractor-fraction nor --ct is specified.
@@ -490,6 +490,11 @@ fn main() -> Result<()> {
             collapse_threshold,
             dedup_threshold,
             threads,
+            genomes,
+            threshold,
+            minimap_preset,
+            proximity,
+            skip_assess,
             outdir,
             output_prefix,
             report,
@@ -509,10 +514,43 @@ fn main() -> Result<()> {
                 collapse_threshold,
                 dedup_threshold,
                 threads,
+                genomes: &genomes.unwrap_or_default(),
+                threshold,
+                minimap_preset: &minimap_preset,
+                proximity,
+                skip_assess,
                 outdir: &outdir,
                 output_prefix: &output_prefix,
                 report,
                 cleanup,
+            })?;
+        }
+
+        Commands::AssessProbes {
+            targets,
+            probes,
+            genomes,
+            threshold,
+            minimap_preset,
+            proximity,
+            outdir,
+            output_prefix,
+            report,
+            cleanup,
+        } => {
+            assess_probes::execute(&assess_probes::AssessProbesArgs {
+                targets: &targets,
+                probes: &probes,
+                genomes: &genomes.unwrap_or_default(),
+                threshold,
+                minimap_preset: &minimap_preset,
+                proximity,
+                outdir: &outdir,
+                output_prefix: &output_prefix,
+                report,
+                cleanup,
+                build_stats_file: None,
+                build_params_file: None,
             })?;
         }
 
