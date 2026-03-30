@@ -666,9 +666,15 @@ pub enum Commands {
 
         /// Step from the end of each probe before starting the next one.
         /// Negative = overlap (default -60 gives 60bp overlap), 0 = perfectly tiled,
-        /// positive = gap between probes.
+        /// positive = gap between probes. Only used with --method tile.
         #[arg(long, default_value = "-60", allow_hyphen_values = true)]
         step: i64,
+
+        /// Additional arguments passed to CATCH's design.py (only used with --method catch).
+        /// Default provides: probe stride 60, 5 mismatches, no cover extension,
+        /// and LSH minhash deduplication at 0.6.
+        #[arg(long, default_value = "-ps 60 -m 5 -e 0 --filter-with-lsh-minhash 0.6", allow_hyphen_values = true)]
+        catch_args: String,
 
         /// Minimum GC fraction to keep a probe (0-1)
         #[arg(long, default_value = "0.20")]
@@ -929,8 +935,10 @@ pub enum Commands {
 
 #[derive(Clone, Copy, ValueEnum, Debug, PartialEq, Eq)]
 pub enum ProbeMethod {
-    /// Tile: take the first N bp of each target sequence
+    /// Tile: sliding window probes with configurable overlap
     Tile,
+    /// CATCH: optimization-based probe design from the Broad Institute
+    Catch,
 }
 
 #[derive(Clone, Copy, ValueEnum, Debug, PartialEq, Eq)]

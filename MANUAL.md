@@ -919,12 +919,15 @@ When `--identify` is passed to `baitbench run` (genome mode with `--sample-targe
 
 Build a probe set from target sequences. Runs a multi-step pipeline: collapse redundant targets, construct probes, filter by GC content and sequence complexity, and deduplicate. After building, automatically chains into probe assessment (probe coverage + cross-reactivity analysis) unless `--skip-assess` is specified.
 
+Two probe construction methods are available: `tile` (sliding window, default) and `catch` (optimization-based design from the Broad Institute).
+
 ```bash
 baitbench build-probes \
   --targets targets.fa \
-  [--method tile] \
+  [--method tile|catch] \
   [--probe-length 120] \
   [--step -60] \
+  [--catch-args "-ps 60 -m 5 -e 0 --filter-with-lsh-minhash 0.6"] \
   [--min-gc 0.20] \
   [--max-gc 0.80] \
   [--max-n-frac 0.05] \
@@ -947,7 +950,7 @@ baitbench build-probes \
 
 1. **N filter**: Remove target sequences with more than `--max-n-frac` fraction of ambiguous (non-ACGT) bases. Sequences with excessive N content are poor probe sources and would generate uninformative probes.
 2. **Collapse**: cd-hit-est clusters targets at `--collapse-threshold` identity to remove near-duplicates
-3. **Build**: Construct probes from collapsed sequences. Method `tile` generates sliding-window probes of `--probe-length` bp across each sequence with `--step` controlling overlap/gap. A final probe is anchored to the end of each sequence to ensure full coverage.
+3. **Build**: Construct probes from collapsed sequences. Method `tile` generates sliding-window probes of `--probe-length` bp across each sequence with `--step` controlling overlap/gap. A final probe is anchored to the end of each sequence to ensure full coverage. Method `catch` invokes CATCH's `design.py` for optimization-based probe design that accounts for sequence diversity; pass-through arguments are configured via `--catch-args`.
 4. **GC filter**: Remove probes with GC content outside `--min-gc` to `--max-gc` range
 5. **Complexity filter**: Remove low-complexity probes using the sDUST algorithm (Morgulis et al. 2006). Probes where more than `--max-masked-frac` of bases are identified as low-complexity (e.g., homopolymers, dinucleotide repeats) are removed. Set `--max-masked-frac 1.0` to disable.
 6. **Deduplicate**: cd-hit-est clusters probes at `--dedup-threshold` identity to remove redundant probes
@@ -960,14 +963,36 @@ The stride between consecutive probes is `probe_length + step`. The step is meas
 - `--step 0`: stride = 120, probes are perfectly tiled (no overlap, no gap)
 - `--step 10`: stride = 130, 10bp gap between probes
 
-Probes are named `{target_id}|tile_{n}`. A final probe is always placed at the sequence end regardless of overlap.
+Probes are named `probe_{target_id}|tile_{n}`. A final probe is always placed at the sequence end regardless of overlap.
+
+**CATCH method (`--method catch`):**
+
+[CATCH](https://github.com/broadinstitute/catch) (Compact Aggregation of Targets for Comprehensive Hybridization) is an optimization-based probe designer from the Broad Institute. Unlike tiling, CATCH accounts for sequence diversity across all input targets and minimizes probe count while guaranteeing coverage. Key CATCH parameters (passed via `--catch-args`):
+
+- `-ps <stride>`: Probe stride (spacing between candidate probes, default 60)
+- `-m <mismatches>`: Number of mismatches tolerated for coverage (default 5)
+- `-e <extension>`: Flanking capture region beyond probe boundaries in bp (default 0)
+- `--filter-with-lsh-minhash <threshold>`: Near-duplicate filtering using locality-sensitive hashing (default 0.6)
+- `-c <coverage>`: Genome fraction to cover, 0.0–1.0 (CATCH default 1.0)
+
+Example with custom CATCH parameters:
+
+```bash
+baitbench build-probes \
+  --targets targets.fa \
+  --method catch \
+  --probe-length 120 \
+  --catch-args "-ps 30 -m 3 -e 10 -c 0.95" \
+  --outdir probes_output
+```
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | `--targets` | required | Input target sequences FASTA |
-| `--method` | tile | Probe construction method |
-| `--probe-length` | 120 | Probe length in bp |
-| `--step` | -60 | Step from end of previous probe. Negative = overlap, 0 = tiled, positive = gap |
+| `--method` | tile | Probe construction method: `tile` (sliding window) or `catch` (CATCH optimization-based design) |
+| `--probe-length` | 120 | Probe length in bp (used by both tile and catch) |
+| `--step` | -60 | Step from end of previous probe. Negative = overlap, 0 = tiled, positive = gap. Only used with `--method tile`. |
+| `--catch-args` | "-ps 60 -m 5 -e 0 --filter-with-lsh-minhash 0.6" | Pass-through arguments for CATCH's `design.py`. Only used with `--method catch`. |
 | `--min-gc` | 0.20 | Minimum GC fraction (0–1) |
 | `--max-gc` | 0.80 | Maximum GC fraction (0–1) |
 | `--max-n-frac` | 0.05 | Maximum fraction of ambiguous (non-ACGT) bases in a target sequence (0–1). Targets exceeding this are removed before collapse. |
@@ -1776,6 +1801,20 @@ baitbench build-probes \
 baitbench build-probes \
   --targets targets.fa \
   --skip-assess \
+  --outdir probes_output
+
+# Build using CATCH method
+baitbench build-probes \
+  --targets targets.fa \
+  --method catch \
+  --probe-length 120 \
+  --outdir probes_output
+
+# Build using CATCH with custom parameters
+baitbench build-probes \
+  --targets targets.fa \
+  --method catch \
+  --catch-args "-ps 30 -m 3 -e 10" \
   --outdir probes_output
 ```
 

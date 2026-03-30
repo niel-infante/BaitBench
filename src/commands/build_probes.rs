@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 use crate::cli::{ProbeMethod, ReportMode};
 use crate::commands::assess_probes;
-use crate::external::{cdhit, rscript};
+use crate::external::{catch, cdhit, rscript};
 use crate::io_utils::prefixed_join;
 use crate::sdust;
 
@@ -14,6 +14,7 @@ pub struct BuildProbesArgs<'a> {
     pub method: ProbeMethod,
     pub probe_length: usize,
     pub step: i64,
+    pub catch_args: &'a str,
     pub min_gc: f64,
     pub max_gc: f64,
     pub dust_threshold: f64,
@@ -133,6 +134,21 @@ pub fn execute(args: &BuildProbesArgs) -> Result<()> {
                 args.probe_length, args.step, stride
             );
             tile_probes(&collapsed_path, &probes_raw_path, args.probe_length, args.step)?;
+        }
+        ProbeMethod::Catch => {
+            log::info!(
+                "Step 3: Building probes (CATCH, length={}, args: {})...",
+                args.probe_length, args.catch_args
+            );
+            catch::check_available()?;
+            let catch_log = prefixed_join(args.outdir, args.output_prefix, "catch.log");
+            catch::design(
+                &collapsed_path,
+                &probes_raw_path,
+                args.probe_length,
+                args.catch_args,
+                &catch_log,
+            )?;
         }
     }
     let (tiled_seqs, tiled_bases) = count_fasta_stats(&probes_raw_path)?;
@@ -307,6 +323,7 @@ pub fn execute(args: &BuildProbesArgs) -> Result<()> {
             "probes_final.fa.clstr",
             "cdhit_collapse.log",
             "cdhit_dedup.log",
+            "catch.log",
         ];
         for name in &intermediates {
             let path = prefixed_join(args.outdir, args.output_prefix, name);
@@ -382,7 +399,7 @@ fn tile_probes(input: &Path, output: &Path, probe_length: usize, step: i64) -> R
 
             if seq_len <= probe_length {
                 // Sequence shorter than or equal to probe length: emit as single probe
-                writeln!(writer, ">{}|tile_1", id)?;
+                writeln!(writer, ">probe_{}|tile_1", id)?;
                 writeln!(writer, "{}", seq)?;
                 return Ok(());
             }
@@ -393,7 +410,7 @@ fn tile_probes(input: &Path, output: &Path, probe_length: usize, step: i64) -> R
             // Generate probes at regular stride intervals
             while start + probe_length <= seq_len {
                 tile_num += 1;
-                writeln!(writer, ">{}|tile_{}", id, tile_num)?;
+                writeln!(writer, ">probe_{}|tile_{}", id, tile_num)?;
                 writeln!(writer, "{}", &seq[start..start + probe_length])?;
                 start += stride;
             }
@@ -404,7 +421,7 @@ fn tile_probes(input: &Path, output: &Path, probe_length: usize, step: i64) -> R
             let last_emitted_start = start - stride; // start of the last probe we wrote
             if final_start != last_emitted_start {
                 tile_num += 1;
-                writeln!(writer, ">{}|tile_{}", id, tile_num)?;
+                writeln!(writer, ">probe_{}|tile_{}", id, tile_num)?;
                 writeln!(writer, "{}", &seq[final_start..seq_len])?;
             }
 
@@ -622,6 +639,7 @@ fn write_run_params(path: &Path, args: &BuildProbesArgs) -> Result<()> {
     writeln!(w, "method\t--method\t{:?}", args.method)?;
     writeln!(w, "probe_length\t--probe-length\t{}", args.probe_length)?;
     writeln!(w, "step\t--step\t{}", args.step)?;
+    writeln!(w, "catch_args\t--catch-args\t{}", args.catch_args)?;
     writeln!(w, "min_gc\t--min-gc\t{:.2}", args.min_gc)?;
     writeln!(w, "max_gc\t--max-gc\t{:.2}", args.max_gc)?;
     writeln!(w, "max_n_frac\t--max-n-frac\t{:.2}", args.max_n_frac)?;

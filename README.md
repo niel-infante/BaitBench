@@ -186,11 +186,19 @@ baitbench identify \
 Construct a filtered, deduplicated probe set from target sequences (automatically runs probe assessment):
 
 ```bash
+# Tiling method (default)
 baitbench build-probes \
   --targets targets.fa \
   --probe-length 120 \
   --min-gc 0.20 \
   --max-gc 0.80 \
+  --outdir probes_output
+
+# CATCH method (optimization-based, from the Broad Institute)
+baitbench build-probes \
+  --targets targets.fa \
+  --method catch \
+  --probe-length 120 \
   --outdir probes_output
 ```
 
@@ -250,6 +258,7 @@ See [MANUAL.md](MANUAL.md) for complete documentation including:
 - [minimap2](https://github.com/lh3/minimap2) -- alignment
 - [BLAST+](https://blast.ncbi.nlm.nih.gov/) -- alternative capture method
 - [cd-hit](https://github.com/weizhongli/cdhit) -- sequence clustering (used by build-probes)
+- [CATCH](https://github.com/broadinstitute/catch) -- optimization-based probe design (used by build-probes --method catch)
 - [R](https://www.r-project.org/) with ggplot2, rmarkdown -- report generation (optional)
 
 All installable via `conda env create -f environment.yml`.
