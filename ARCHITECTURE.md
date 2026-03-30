@@ -231,8 +231,8 @@ All wrappers follow the pattern: `check_available() → bool/Result`, then speci
 
 1. **Run parameters** — curated table from run_params.tsv
 2. **Command** — reconstructed from run_params.tsv (auto-adapts to new params)
-3. **Capture Summary** — captured vs not-captured pie chart, captured by source pie chart
-4. **Pipeline Flow** — custom ggplot2 flow diagram (sigmoid-curved bands) showing: [source bars] → generated → captured/not-captured → [sequenced] → [filtered] → correctly/incorrectly mapped. Features a zoom expansion effect where the small captured flow widens to ~85% of generated height for downstream detail. Defined inline via `pipeline_flow_diagram()` function.
+3. **Pipeline Flow — Capture** — interactive plotly Sankey diagram showing: [source nodes] → generated → captured/not-captured → captured breakdown by source type (sample, distractor, non-sample, untargeted)
+4. **Pipeline Flow — Read Processing** — interactive plotly Sankey diagram showing: sequences → [sequenced/sampling loss] → [filtered/host removed] → correctly/incorrectly mapped/unmapped. Displayed at full size since it is separate from the capture diagram.
 5. **Detection Performance** — sensitivity/specificity/precision/F1 bar chart
 6. **Read Mapping Accuracy** — correct vs incorrect mapped reads
 7. **Confusion Matrix** — TP/FN/FP/TN heatmap (distractor row hidden when no distractors present)
