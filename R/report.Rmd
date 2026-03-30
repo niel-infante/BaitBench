@@ -577,81 +577,6 @@ cat("```\n")
 
 ---
 
-## Capture Summary
-
-```{r capture-summary, fig.height=4}
-not_captured <- summary_df$fragments_generated - summary_df$fragments_captured
-
-capture_data <- data.frame(
-  category = factor(c("Captured", "Not Captured"), levels = c("Captured", "Not Captured")),
-  fragments = c(summary_df$fragments_captured, not_captured)
-)
-
-capture_data <- capture_data %>% filter(fragments > 0)
-
-capture_data <- capture_data %>%
-  mutate(
-    pct = fragments / sum(fragments) * 100,
-    label = sprintf("%s\n%s (%.1f%%)", category, format(fragments, big.mark = ","), pct)
-  )
-
-ggplot(capture_data, aes(x = "", y = fragments, fill = category)) +
-  geom_col(width = 1) +
-  coord_polar(theta = "y") +
-  geom_text(aes(label = label),
-            position = position_stack(vjust = 0.5), size = 4) +
-  scale_fill_manual(values = c("Captured" = "#2ecc71", "Not Captured" = "#e74c3c")) +
-  labs(fill = NULL,
-       subtitle = sprintf("Capture rate: %.1f%%  |  %s of %s fragments",
-                          summary_df$capture_rate * 100,
-                          format(summary_df$fragments_captured, big.mark = ","),
-                          format(summary_df$fragments_generated, big.mark = ","))) +
-  theme_void(base_size = 14) +
-  theme(legend.position = "bottom")
-```
-
-### Captured Fragments by Source
-
-```{r capture-source, fig.height=4}
-source_levels <- c("Sample", "Non-sample Target", "Distractor")
-source_values <- c(summary_df$sample_captured,
-                   summary_df$nonsample_target_captured,
-                   summary_df$distractor_captured)
-source_colors <- c("Sample" = "#27ae60", "Non-sample Target" = "#e67e22",
-                    "Distractor" = "#e74c3c")
-
-# Include Untargeted if present and > 0
-if ("untargeted_captured" %in% names(summary_df) && summary_df$untargeted_captured > 0) {
-  source_levels <- c(source_levels, "Untargeted")
-  source_values <- c(source_values, summary_df$untargeted_captured)
-  source_colors <- c(source_colors, "Untargeted" = "#95a5a6")
-}
-
-source_data <- data.frame(
-  source = factor(source_levels, levels = source_levels),
-  fragments = source_values
-)
-
-source_data <- source_data %>% filter(fragments > 0)
-
-total_captured <- sum(source_data$fragments)
-source_data <- source_data %>%
-  mutate(
-    pct = fragments / total_captured * 100,
-    label = sprintf("%s\n%s (%.1f%%)", source, format(fragments, big.mark = ","), pct)
-  )
-
-ggplot(source_data, aes(x = "", y = fragments, fill = source)) +
-  geom_col(width = 1) +
-  coord_polar(theta = "y") +
-  geom_text(aes(label = label),
-            position = position_stack(vjust = 0.5), size = 3.5) +
-  scale_fill_manual(values = source_colors) +
-  labs(fill = NULL,
-       subtitle = sprintf("Total captured: %s", format(total_captured, big.mark = ","))) +
-  theme_void(base_size = 14) +
-  theme(legend.position = "bottom")
-```
 
 ## Pipeline Flow
 
@@ -690,49 +615,6 @@ pipeline_flow_diagram(
 )
 ```
 
-## Detection Performance
-
-```{r metrics-barplot}
-metrics_data <- data.frame(
-  metric = factor(
-    c("Sensitivity", "Specificity", "Precision", "F1 Score"),
-    levels = c("Sensitivity", "Specificity", "Precision", "F1 Score")
-  ),
-  value = c(summary_df$sensitivity, summary_df$specificity,
-            summary_df$precision, summary_df$f1_score)
-)
-
-metric_colors <- ifelse(metrics_data$value >= 0.9, "#27ae60",
-                 ifelse(metrics_data$value >= 0.7, "#f39c12", "#e74c3c"))
-
-ggplot(metrics_data, aes(x = metric, y = value, fill = metric)) +
-  geom_col(width = 0.6, fill = metric_colors) +
-  geom_text(aes(label = sprintf("%.1f%%", value * 100)), vjust = -0.5, size = 5) +
-  scale_y_continuous(limits = c(0, 1.15), labels = scales::percent) +
-  labs(x = NULL, y = NULL) +
-  theme(legend.position = "none")
-```
-
-### Read Mapping Accuracy
-
-```{r mapping-accuracy, fig.height=3}
-mapping_data <- data.frame(
-  result = factor(c("Correct", "Incorrect"), levels = c("Correct", "Incorrect")),
-  reads = c(summary_df$reads_correctly_mapped, summary_df$reads_incorrectly_mapped)
-)
-
-total_mapped <- sum(mapping_data$reads)
-accuracy_pct <- if (total_mapped > 0) summary_df$reads_correctly_mapped / total_mapped * 100 else 0
-
-ggplot(mapping_data, aes(x = result, y = reads, fill = result)) +
-  geom_col(width = 0.6) +
-  geom_text(aes(label = format(reads, big.mark = ",")), vjust = -0.5, size = 5) +
-  scale_fill_manual(values = c("Correct" = "#27ae60", "Incorrect" = "#e74c3c")) +
-  labs(x = NULL, y = "Mapped Reads",
-       subtitle = sprintf("Mapping accuracy: %.1f%%", accuracy_pct)) +
-  theme(legend.position = "none") +
-  expand_limits(y = max(mapping_data$reads) * 1.15)
-```
 
 ## Confusion Matrix
 
@@ -769,6 +651,32 @@ ggplot(cm_data, aes(x = predicted, y = actual, fill = count)) +
   labs(x = "Predicted", y = "Actual") +
   theme(panel.grid = element_blank())
 ```
+
+
+## Detection Performance
+
+```{r metrics-barplot}
+metrics_data <- data.frame(
+  metric = factor(
+    c("Sensitivity", "Specificity", "Precision", "F1 Score"),
+    levels = c("Sensitivity", "Specificity", "Precision", "F1 Score")
+  ),
+  value = c(summary_df$sensitivity, summary_df$specificity,
+            summary_df$precision, summary_df$f1_score)
+)
+
+metric_colors <- ifelse(metrics_data$value >= 0.9, "#27ae60",
+                 ifelse(metrics_data$value >= 0.7, "#f39c12", "#e74c3c"))
+
+ggplot(metrics_data, aes(x = metric, y = value, fill = metric)) +
+  geom_col(width = 0.6, fill = metric_colors) +
+  geom_text(aes(label = sprintf("%.1f%%", value * 100)), vjust = -0.5, size = 5) +
+  scale_y_continuous(limits = c(0, 1.15), labels = scales::percent) +
+  labs(x = NULL, y = NULL) +
+  theme(legend.position = "none")
+```
+
+
 
 ## Detection Detail
 
