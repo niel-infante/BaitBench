@@ -118,7 +118,28 @@ pub fn execute(args: &BuildProbesArgs) -> Result<()> {
         bases: collapsed_bases,
     });
 
-    // --- Step 3: Build probes ---
+    // --- Step 3: Filter short sequences (< probe length) ---
+    log::info!(
+        "Step 3: Filtering sequences shorter than probe length ({} bp)...",
+        args.probe_length
+    );
+    let length_filtered_path =
+        prefixed_join(args.outdir, args.output_prefix, "length_filtered.fa");
+    filter_short_sequences(&collapsed_path, &length_filtered_path, args.probe_length)?;
+    let (length_filtered_seqs, length_filtered_bases) = count_fasta_stats(&length_filtered_path)?;
+    log::info!(
+        "  After length filter: {} sequences, {} bases (removed {})",
+        length_filtered_seqs,
+        length_filtered_bases,
+        collapsed_seqs - length_filtered_seqs
+    );
+    stats.push(StepStats {
+        step: "length_filtered".to_string(),
+        sequences: length_filtered_seqs,
+        bases: length_filtered_bases,
+    });
+
+    // --- Step 4: Build probes ---
     let probes_raw_path = prefixed_join(args.outdir, args.output_prefix, "probes_raw.fa");
     match args.method {
         ProbeMethod::Tile => {
@@ -130,20 +151,20 @@ pub fn execute(args: &BuildProbesArgs) -> Result<()> {
                 );
             }
             log::info!(
-                "Step 3: Building probes (tile, length={}, step={}, stride={})...",
+                "Step 4: Building probes (tile, length={}, step={}, stride={})...",
                 args.probe_length, args.step, stride
             );
-            tile_probes(&collapsed_path, &probes_raw_path, args.probe_length, args.step)?;
+            tile_probes(&length_filtered_path, &probes_raw_path, args.probe_length, args.step)?;
         }
         ProbeMethod::Catch => {
             log::info!(
-                "Step 3: Building probes (CATCH, length={}, args: {})...",
+                "Step 4: Building probes (CATCH, length={}, args: {})...",
                 args.probe_length, args.catch_args
             );
             catch::check_available()?;
             let catch_log = prefixed_join(args.outdir, args.output_prefix, "catch.log");
             catch::design(
-                &collapsed_path,
+                &length_filtered_path,
                 &probes_raw_path,
                 args.probe_length,
                 args.catch_args,
@@ -159,9 +180,9 @@ pub fn execute(args: &BuildProbesArgs) -> Result<()> {
         bases: tiled_bases,
     });
 
-    // --- Step 4: Filter probes by GC content ---
+    // --- Step 5: Filter probes by GC content ---
     log::info!(
-        "Step 4: Filtering probes by GC content ({:.0}%-{:.0}%)...",
+        "Step 5: Filtering probes by GC content ({:.0}%-{:.0}%)...",
         args.min_gc * 100.0,
         args.max_gc * 100.0
     );
@@ -186,16 +207,16 @@ pub fn execute(args: &BuildProbesArgs) -> Result<()> {
         bases: gc_bases,
     });
 
-    // --- Step 5: Filter probes by complexity (sDUST) ---
+    // --- Step 6: Filter probes by complexity (sDUST) ---
     let (complexity_input, complexity_seqs, complexity_bases);
     if args.max_masked_frac >= 1.0 {
-        log::info!("Step 5: Skipping complexity filter (--max-masked-frac >= 1.0)");
+        log::info!("Step 6: Skipping complexity filter (--max-masked-frac >= 1.0)");
         complexity_input = probes_gc_path.clone();
         complexity_seqs = gc_seqs;
         complexity_bases = gc_bases;
     } else {
         log::info!(
-            "Step 5: Filtering probes by complexity (sDUST, T={}, W={}, max masked={:.0}%)...",
+            "Step 6: Filtering probes by complexity (sDUST, T={}, W={}, max masked={:.0}%)...",
             args.dust_threshold,
             args.dust_window,
             args.max_masked_frac * 100.0
@@ -226,9 +247,9 @@ pub fn execute(args: &BuildProbesArgs) -> Result<()> {
         bases: complexity_bases,
     });
 
-    // --- Step 6: Deduplicate probes with cd-hit-est ---
+    // --- Step 7: Deduplicate probes with cd-hit-est ---
     log::info!(
-        "Step 6: Deduplicating probes (cd-hit-est, threshold={:.2})...",
+        "Step 7: Deduplicating probes (cd-hit-est, threshold={:.2})...",
         args.dedup_threshold
     );
     let probes_final_path = prefixed_join(args.outdir, args.output_prefix, "probes_final.fa");
@@ -317,6 +338,7 @@ pub fn execute(args: &BuildProbesArgs) -> Result<()> {
             "targets_clean.fa",
             "collapsed.fa",
             "collapsed.fa.clstr",
+            "length_filtered.fa",
             "probes_raw.fa",
             "probes_gc.fa",
             "probes_complexity.fa",
@@ -498,6 +520,47 @@ fn filter_n_content(input: &Path, output: &Path, max_n_frac: f64) -> Result<()> 
     if let Some(ref id) = current_id {
         let frac = compute_n_frac(&current_seq);
         if frac <= max_n_frac {
+            writeln!(writer, ">{}", id)?;
+            writeln!(writer, "{}", current_seq)?;
+        }
+    }
+
+    writer.flush()?;
+    Ok(())
+}
+
+/// Filter FASTA sequences shorter than `min_length` (streaming).
+fn filter_short_sequences(input: &Path, output: &Path, min_length: usize) -> Result<()> {
+    let file =
+        File::open(input).with_context(|| format!("Cannot open FASTA: {}", input.display()))?;
+    let reader = BufReader::new(file);
+
+    let out_file =
+        File::create(output).with_context(|| format!("Cannot create: {}", output.display()))?;
+    let mut writer = BufWriter::new(out_file);
+
+    let mut current_id: Option<String> = None;
+    let mut current_seq = String::new();
+
+    for line in reader.lines() {
+        let line = line?;
+        let trimmed = line.trim_end();
+        if trimmed.starts_with('>') {
+            if let Some(ref id) = current_id {
+                if current_seq.len() >= min_length {
+                    writeln!(writer, ">{}", id)?;
+                    writeln!(writer, "{}", current_seq)?;
+                }
+            }
+            current_id = Some(trimmed[1..].to_string());
+            current_seq.clear();
+        } else if !trimmed.is_empty() {
+            current_seq.push_str(&trimmed.to_uppercase());
+        }
+    }
+
+    if let Some(ref id) = current_id {
+        if current_seq.len() >= min_length {
             writeln!(writer, ">{}", id)?;
             writeln!(writer, "{}", current_seq)?;
         }
