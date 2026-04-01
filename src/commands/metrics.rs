@@ -36,6 +36,14 @@ pub struct MetricsArgs<'a> {
 
 /// Read-level metrics derived from capture and mapping.
 struct ReadLevelMetrics {
+    /// Generated fragments originating from sample target sequences
+    sample_generated: usize,
+    /// Generated fragments originating from non-sample target sequences
+    nonsample_target_generated: usize,
+    /// Generated fragments originating from distractor sequences
+    distractor_generated: usize,
+    /// Generated fragments from untargeted sample genomes (genomes mode only)
+    untargeted_generated: usize,
     /// Captured fragments originating from sample target sequences
     sample_captured: usize,
     /// Captured fragments originating from non-sample target sequences
@@ -198,9 +206,11 @@ pub fn execute(args: &MetricsArgs) -> Result<()> {
     };
 
     // Read-level metrics
-    log::info!("Analyzing captured fragments by source...");
+    log::info!("Analyzing fragments by source...");
+    let fragment_ids = fasta::parse_fasta_ids(args.fragments)?;
     let captured_ids = fasta::parse_fasta_ids(args.captured)?;
     let read_level = compute_read_level_metrics(
+        &fragment_ids,
         &captured_ids,
         effective_sample,
         &targets,
@@ -209,10 +219,14 @@ pub fn execute(args: &MetricsArgs) -> Result<()> {
         args.sam,
     )?;
 
+    log::info!("  Sample fragments generated: {}", read_level.sample_generated);
     log::info!("  Sample fragments captured: {}", read_level.sample_captured);
+    log::info!("  Non-sample target fragments generated: {}", read_level.nonsample_target_generated);
     log::info!("  Non-sample target fragments captured: {}", read_level.nonsample_target_captured);
+    log::info!("  Distractor fragments generated: {}", read_level.distractor_generated);
     log::info!("  Distractor fragments captured: {}", read_level.distractor_captured);
-    if read_level.untargeted_captured > 0 {
+    if read_level.untargeted_generated > 0 || read_level.untargeted_captured > 0 {
+        log::info!("  Untargeted fragments generated: {}", read_level.untargeted_generated);
         log::info!("  Untargeted fragments captured: {}", read_level.untargeted_captured);
     }
     log::info!("  Reads correctly mapped: {}", read_level.reads_correctly_mapped);
@@ -325,7 +339,50 @@ pub fn execute(args: &MetricsArgs) -> Result<()> {
     Ok(())
 }
 
+fn classify_fragment_source(
+    source: &str,
+    effective_sample: &HashSet<String>,
+    targets: &HashSet<String>,
+    distractors: &HashSet<String>,
+    genome_ctx: Option<&GenomeContext>,
+) -> FragmentCategory {
+    if let Some(ctx) = genome_ctx {
+        if ctx.sample_genome_ids.contains(source) {
+            if ctx.genome_to_targets.contains_key(source) {
+                FragmentCategory::Sample
+            } else {
+                FragmentCategory::Untargeted
+            }
+        } else if ctx.genome_ids.contains(source) {
+            FragmentCategory::NonsampleTarget
+        } else if distractors.contains(source) {
+            FragmentCategory::Distractor
+        } else {
+            FragmentCategory::Unknown
+        }
+    } else {
+        if effective_sample.contains(source) {
+            FragmentCategory::Sample
+        } else if targets.contains(source) {
+            FragmentCategory::NonsampleTarget
+        } else if distractors.contains(source) {
+            FragmentCategory::Distractor
+        } else {
+            FragmentCategory::Unknown
+        }
+    }
+}
+
+enum FragmentCategory {
+    Sample,
+    NonsampleTarget,
+    Distractor,
+    Untargeted,
+    Unknown,
+}
+
 fn compute_read_level_metrics(
+    fragment_names: &[String],
     captured_read_names: &[String],
     effective_sample: &HashSet<String>,
     targets: &HashSet<String>,
@@ -333,6 +390,23 @@ fn compute_read_level_metrics(
     genome_ctx: Option<&GenomeContext>,
     sam_path: &Path,
 ) -> Result<ReadLevelMetrics> {
+    let mut sample_generated = 0usize;
+    let mut nonsample_target_generated = 0usize;
+    let mut distractor_generated = 0usize;
+    let mut untargeted_generated = 0usize;
+
+    for name in fragment_names {
+        if let Some(source) = io_utils::extract_source_id(name) {
+            match classify_fragment_source(source, effective_sample, targets, distractors, genome_ctx) {
+                FragmentCategory::Sample => sample_generated += 1,
+                FragmentCategory::NonsampleTarget => nonsample_target_generated += 1,
+                FragmentCategory::Distractor => distractor_generated += 1,
+                FragmentCategory::Untargeted => untargeted_generated += 1,
+                FragmentCategory::Unknown => {}
+            }
+        }
+    }
+
     let mut sample_captured = 0usize;
     let mut nonsample_target_captured = 0usize;
     let mut distractor_captured = 0usize;
@@ -340,28 +414,12 @@ fn compute_read_level_metrics(
 
     for name in captured_read_names {
         if let Some(source) = io_utils::extract_source_id(name) {
-            if let Some(ctx) = genome_ctx {
-                // Genome-aware mode: source is a genome ID
-                if ctx.sample_genome_ids.contains(source) {
-                    if ctx.genome_to_targets.contains_key(source) {
-                        sample_captured += 1;
-                    } else {
-                        untargeted_captured += 1;
-                    }
-                } else if ctx.genome_ids.contains(source) {
-                    nonsample_target_captured += 1;
-                } else if distractors.contains(source) {
-                    distractor_captured += 1;
-                }
-            } else {
-                // Standard mode: source is a target ID
-                if effective_sample.contains(source) {
-                    sample_captured += 1;
-                } else if targets.contains(source) {
-                    nonsample_target_captured += 1;
-                } else if distractors.contains(source) {
-                    distractor_captured += 1;
-                }
+            match classify_fragment_source(source, effective_sample, targets, distractors, genome_ctx) {
+                FragmentCategory::Sample => sample_captured += 1,
+                FragmentCategory::NonsampleTarget => nonsample_target_captured += 1,
+                FragmentCategory::Distractor => distractor_captured += 1,
+                FragmentCategory::Untargeted => untargeted_captured += 1,
+                FragmentCategory::Unknown => {}
             }
         }
     }
@@ -398,6 +456,10 @@ fn compute_read_level_metrics(
     }
 
     Ok(ReadLevelMetrics {
+        sample_generated,
+        nonsample_target_generated,
+        distractor_generated,
+        untargeted_generated,
         sample_captured,
         nonsample_target_captured,
         distractor_captured,
@@ -580,6 +642,8 @@ fn write_summary_tsv(
     let headers = [
         "run_name", "timestamp", "num_fragments", "seed",
         "fragments_generated", "fragments_captured", "capture_rate",
+        "sample_generated", "nonsample_target_generated", "distractor_generated",
+        "untargeted_generated",
         "sample_captured", "nonsample_target_captured", "distractor_captured",
         "untargeted_captured",
         "reads_correctly_mapped", "reads_incorrectly_mapped",
@@ -597,9 +661,11 @@ fn write_summary_tsv(
     let distractors_total = metrics.fp_distractor_count + metrics.tn_distractor_count;
 
     let values = format!(
-        "{}\t{}\t{}\t{}\t{}\t{}\t{:.4}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{:.4}\t{:.4}\t{:.4}\t{:.4}\t{}\t{}\t{}\t{}",
+        "{}\t{}\t{}\t{}\t{}\t{}\t{:.4}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{:.4}\t{:.4}\t{:.4}\t{:.4}\t{}\t{}\t{}\t{}",
         run_name, timestamp, num_fragments, seed,
         fragments_generated, fragments_captured, capture_rate,
+        read_level.sample_generated, read_level.nonsample_target_generated, read_level.distractor_generated,
+        read_level.untargeted_generated,
         read_level.sample_captured, read_level.nonsample_target_captured, read_level.distractor_captured,
         read_level.untargeted_captured,
         read_level.reads_correctly_mapped, read_level.reads_incorrectly_mapped,
@@ -676,6 +742,10 @@ struct CaptureStats {
     fragments_generated: usize,
     fragments_captured: usize,
     capture_rate: f64,
+    sample_generated: usize,
+    nonsample_target_generated: usize,
+    distractor_generated: usize,
+    untargeted_generated: usize,
     sample_captured: usize,
     nonsample_target_captured: usize,
     distractor_captured: usize,
@@ -874,6 +944,10 @@ fn write_json(
             fragments_generated,
             fragments_captured,
             capture_rate,
+            sample_generated: read_level.sample_generated,
+            nonsample_target_generated: read_level.nonsample_target_generated,
+            distractor_generated: read_level.distractor_generated,
+            untargeted_generated: read_level.untargeted_generated,
             sample_captured: read_level.sample_captured,
             nonsample_target_captured: read_level.nonsample_target_captured,
             distractor_captured: read_level.distractor_captured,
