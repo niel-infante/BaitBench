@@ -174,10 +174,20 @@ fragments_generated <- summary_df$fragments_generated
 fragments_captured  <- summary_df$fragments_captured
 not_captured        <- fragments_generated - fragments_captured
 
+sample_generated            <- if ("sample_generated" %in% names(summary_df)) summary_df$sample_generated else 0
+nonsample_target_generated  <- if ("nonsample_target_generated" %in% names(summary_df)) summary_df$nonsample_target_generated else 0
+distractor_generated        <- if ("distractor_generated" %in% names(summary_df)) summary_df$distractor_generated else 0
+untargeted_generated        <- if ("untargeted_generated" %in% names(summary_df)) summary_df$untargeted_generated else 0
+
 sample_captured           <- summary_df$sample_captured
 nonsample_target_captured <- summary_df$nonsample_target_captured
 distractor_captured       <- summary_df$distractor_captured
 untargeted_captured       <- if ("untargeted_captured" %in% names(summary_df)) summary_df$untargeted_captured else 0
+
+sample_uncaptured            <- sample_generated - sample_captured
+nonsample_target_uncaptured  <- nonsample_target_generated - nonsample_target_captured
+distractor_uncaptured        <- distractor_generated - distractor_captured
+untargeted_uncaptured        <- untargeted_generated - untargeted_captured
 
 reads_sequenced    <- if ("reads_sequenced" %in% names(summary_df) && summary_df$reads_sequenced > 0) summary_df$reads_sequenced else 0
 reads_after_filter <- if ("reads_after_filter" %in% names(summary_df) && summary_df$reads_after_filter > 0) summary_df$reads_after_filter else 0
@@ -189,14 +199,9 @@ reads_incorrectly_mapped <- summary_df$reads_incorrectly_mapped
 dist_frac <- as.numeric(get_param("distractor_fraction"))
 
 # Conditional flags
-has_sources        <- !is.na(dist_frac) && dist_frac > 0
+has_sources        <- (sample_generated + distractor_generated + nonsample_target_generated + untargeted_generated) > 0
 sequencing_changed <- (reads_sequenced > 0) && (reads_sequenced != fragments_captured)
 filtering_applied  <- (reads_after_filter > 0)
-
-if (has_sources) {
-  sample_gen     <- round(fragments_generated * (1 - dist_frac))
-  distractor_gen <- fragments_generated - sample_gen
-}
 
 sampling_loss <- if (sequencing_changed) fragments_captured - reads_sequenced else 0
 
@@ -263,12 +268,12 @@ add_link <- function(sk, src, tgt, val, color, label = "") {
 render_sankey <- function(sk, height = 400) {
   plot_ly(
     type = "sankey", orientation = "h",
-    arrangement = "snap",
+    arrangement = "freeform",
     valueformat = ",d",
     node = list(
       label = sk$labels, color = sk$colors,
-      pad = 20, thickness = 25,
-      line = list(color = "white", width = 1)
+      pad = 30, thickness = 25,
+      line = list(color = "black", width = 1)
     ),
     link = list(
       source = sk$source, target = sk$target,
@@ -290,10 +295,22 @@ sk <- new_sankey()
 
 # Source nodes (conditional)
 if (has_sources) {
-  res <- add_node(sk, sprintf("Sample Sources\n%s", fmt(sample_gen)), col_sample)
-  sk <- res$sk; idx_sample_src <- res$idx
-  res <- add_node(sk, sprintf("Distractor Sources\n%s", fmt(distractor_gen)), col_distractor)
-  sk <- res$sk; idx_distractor_src <- res$idx
+  if (sample_generated > 0) {
+    res <- add_node(sk, sprintf("Sample Sources\n%s", fmt(sample_generated)), col_sample)
+    sk <- res$sk; idx_sample_src <- res$idx
+  }
+  if (nonsample_target_generated > 0) {
+    res <- add_node(sk, sprintf("Non-sample Sources\n%s", fmt(nonsample_target_generated)), col_nonsample)
+    sk <- res$sk; idx_nonsample_src <- res$idx
+  }
+  if (distractor_generated > 0) {
+    res <- add_node(sk, sprintf("Distractor Sources\n%s", fmt(distractor_generated)), col_distractor)
+    sk <- res$sk; idx_distractor_src <- res$idx
+  }
+  if (untargeted_generated > 0) {
+    res <- add_node(sk, sprintf("Untargeted Sources\n%s", fmt(untargeted_generated)), col_untargeted)
+    sk <- res$sk; idx_untargeted_src <- res$idx
+  }
 }
 
 # Generated node
@@ -310,7 +327,7 @@ sk <- res$sk; idx_not_captured <- res$idx
 res <- add_node(sk, sprintf("Sample Captured\n%s", fmt(sample_captured)), col_sample)
 sk <- res$sk; idx_sample_cap <- res$idx
 if (nonsample_target_captured > 0) {
-  res <- add_node(sk, sprintf("Non-sample Target\n%s", fmt(nonsample_target_captured)), col_nonsample)
+  res <- add_node(sk, sprintf("Non-sample Target\nCaptured %s", fmt(nonsample_target_captured)), col_nonsample)
   sk <- res$sk; idx_nonsample_cap <- res$idx
 }
 if (distractor_captured > 0) {
@@ -322,12 +339,42 @@ if (untargeted_captured > 0) {
   sk <- res$sk; idx_untargeted_cap <- res$idx
 }
 
+# Uncaptured breakdown nodes
+if (sample_uncaptured > 0) {
+  res <- add_node(sk, sprintf("Sample Uncaptured\n%s", fmt(sample_uncaptured)), col_sample)
+  sk <- res$sk; idx_sample_uncap <- res$idx
+}
+if (nonsample_target_uncaptured > 0) {
+  res <- add_node(sk, sprintf("Non-sample Target\nUncaptured %s", fmt(nonsample_target_uncaptured)), col_nonsample)
+  sk <- res$sk; idx_nonsample_uncap <- res$idx
+}
+if (distractor_uncaptured > 0) {
+  res <- add_node(sk, sprintf("Distractor Uncaptured\n%s", fmt(distractor_uncaptured)), col_distractor)
+  sk <- res$sk; idx_distractor_uncap <- res$idx
+}
+if (untargeted_uncaptured > 0) {
+  res <- add_node(sk, sprintf("Untargeted Uncaptured\n%s", fmt(untargeted_uncaptured)), col_untargeted)
+  sk <- res$sk; idx_untargeted_uncap <- res$idx
+}
+
 # Links: Sources -> Generated
 if (has_sources) {
-  sk <- add_link(sk, idx_sample_src, idx_generated, sample_gen, col_sample,
-                 sprintf("Sample: %s", fmt(sample_gen)))
-  sk <- add_link(sk, idx_distractor_src, idx_generated, distractor_gen, col_distractor,
-                 sprintf("Distractor: %s", fmt(distractor_gen)))
+  if (sample_generated > 0) {
+    sk <- add_link(sk, idx_sample_src, idx_generated, sample_generated, col_sample,
+                   sprintf("Sample: %s", fmt(sample_generated)))
+  }
+  if (nonsample_target_generated > 0) {
+    sk <- add_link(sk, idx_nonsample_src, idx_generated, nonsample_target_generated, col_nonsample,
+                   sprintf("Non-sample target: %s", fmt(nonsample_target_generated)))
+  }
+  if (distractor_generated > 0) {
+    sk <- add_link(sk, idx_distractor_src, idx_generated, distractor_generated, col_distractor,
+                   sprintf("Distractor: %s", fmt(distractor_generated)))
+  }
+  if (untargeted_generated > 0) {
+    sk <- add_link(sk, idx_untargeted_src, idx_generated, untargeted_generated, col_untargeted,
+                   sprintf("Untargeted: %s", fmt(untargeted_generated)))
+  }
 }
 
 # Links: Generated -> Capture outcome
@@ -352,15 +399,33 @@ if (untargeted_captured > 0) {
                  sprintf("Untargeted: %s", fmt(untargeted_captured)))
 }
 
+# Links: Not Captured -> Breakdown
+if (sample_uncaptured > 0) {
+  sk <- add_link(sk, idx_not_captured, idx_sample_uncap, sample_uncaptured, col_sample,
+                 sprintf("Sample: %s", fmt(sample_uncaptured)))
+}
+if (nonsample_target_uncaptured > 0) {
+  sk <- add_link(sk, idx_not_captured, idx_nonsample_uncap, nonsample_target_uncaptured, col_nonsample,
+                 sprintf("Non-sample target: %s", fmt(nonsample_target_uncaptured)))
+}
+if (distractor_uncaptured > 0) {
+  sk <- add_link(sk, idx_not_captured, idx_distractor_uncap, distractor_uncaptured, col_distractor,
+                 sprintf("Distractor: %s", fmt(distractor_uncaptured)))
+}
+if (untargeted_uncaptured > 0) {
+  sk <- add_link(sk, idx_not_captured, idx_untargeted_uncap, untargeted_uncaptured, col_untargeted,
+                 sprintf("Untargeted: %s", fmt(untargeted_uncaptured)))
+}
+
 render_sankey(sk, height = 380)
 ```
-
+<!--
 <div style="text-align: center; margin: -5px 0 -5px 0; font-size: 20px; color: #95a5a6;">&#9661; &#9661; &#9661;</div>
 <p style="text-align: center; color: #95a5a6; font-style: italic; margin: 0 0 5px 0; font-size: 0.9em;">Expanding captured sequences for downstream processing</p>
 
 ### Read Processing
-
-```{r mapping-sankey, results='asis'}
+-->
+```{r mapping-sankey, results='asis', eval=FALSE}
 if (fragments_captured == 0) {
   cat("*No fragments were captured. Downstream processing diagram omitted.*\n")
 } else {
