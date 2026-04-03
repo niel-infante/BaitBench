@@ -1048,7 +1048,9 @@ baitbench assess-probes \
   [--outdir assess_probes_results] \
   [--output-prefix ""] \
   [--report full|none|rmd] \
-  [--cleanup]
+  [--cleanup] \
+  [--refine-iterations N | --refine-until-stable] \
+  [--refine-threshold 80.0]
 ```
 
 | Parameter | Default | Description |
@@ -1063,6 +1065,9 @@ baitbench assess-probes \
 | `--output-prefix` | (empty) | String prepended to every output filename |
 | `--report` | full | Report mode: `full` (HTML), `none` (skip), `rmd` (editable RMarkdown) |
 | `--cleanup` | false | Delete intermediate files (SAM, logs) after completion |
+| `--refine-iterations` | none | Number of refinement iterations (mutually exclusive with `--refine-until-stable`) |
+| `--refine-until-stable` | false | Repeat refinement until no targets remain below the threshold or the set stops changing (mutually exclusive with `--refine-iterations`) |
+| `--refine-threshold` | 80.0 | 1X coverage threshold (%) used to identify low-coverage targets for refinement |
 
 **Output files:**
 
@@ -1074,6 +1079,9 @@ baitbench assess-probes \
 - `assess_run_params.tsv` -- run parameters
 - `assess_probes_report.html` -- combined HTML report (`--report full`)
 - `assess_probes_report.Rmd` -- editable RMarkdown file (`--report rmd`)
+- `refine_N_targets.fa` -- filtered targets for refinement iteration N (when `--refine-iterations` or `--refine-until-stable`)
+- `refine_N_cov_probe_coverage_summary.tsv` -- coverage statistics for refinement iteration N
+- `refine_N_probe_coverage_report.html` -- probe coverage report for refinement iteration N
 
 **Report sections:**
 
@@ -1081,6 +1089,16 @@ baitbench assess-probes \
 2. **Self-Homology** -- heatmap (≤1000 probes), density plots, hits table
 3. **Cross-Reactivity vs Genomes** (if `--genomes` provided) -- heatmap, per-genome bar chart, density plots, hits table
 4. **Parameters** -- run configuration under a collapsible fold
+
+**Refinement iterations:**
+
+Many target panels contain highly similar sequences (e.g. closely related viruses or gene variants) that are unlikely to occur together in the same sample. When all targets are assessed together, probe coverage for any one target may appear low because the probes covering it also tile many similar targets — but those similar targets would not be present in real samples. Refinement iterations address this by re-running probe coverage on only the targets that showed poor coverage (below `--refine-threshold`), so you can assess how well the probes cover each subset in isolation.
+
+- **`--refine-iterations N`** runs exactly N additional probe-coverage-only analyses after the initial full assessment. Each iteration filters to targets with `pct_covered_1x < --refine-threshold` from the previous iteration's summary, runs probe coverage on that subset, and produces a separate `refine_N_probe_coverage_report.html`. Stops early if no targets remain below the threshold.
+- **`--refine-until-stable`** repeats automatically until no targets fall below the threshold, or until the set of low-coverage targets stops changing between iterations (indicating no further improvement is possible).
+- **`--refine-threshold`** (default 80.0) sets the 1X coverage percentage below which a target is considered poorly covered and included in the next refinement iteration. Applies to both modes.
+
+The refinement reports are probe-coverage-only (no cross-reactivity re-analysis, since that does not depend on the target subset).
 
 ---
 
@@ -1780,6 +1798,22 @@ baitbench assess-probes \
   --targets targets.fa \
   --probes probes.fa \
   --report none \
+  --outdir assess_results
+
+# Refinement: re-run coverage on low-coverage targets 3 times
+baitbench assess-probes \
+  --targets targets.fa \
+  --probes probes.fa \
+  --refine-iterations 3 \
+  --refine-threshold 80 \
+  --outdir assess_results
+
+# Refinement: repeat until no targets remain below 80% 1X coverage
+baitbench assess-probes \
+  --targets targets.fa \
+  --probes probes.fa \
+  --refine-until-stable \
+  --refine-threshold 80 \
   --outdir assess_results
 ```
 

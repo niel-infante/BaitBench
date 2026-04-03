@@ -793,6 +793,18 @@ pub enum Commands {
         /// Delete intermediate files after completion
         #[arg(long)]
         cleanup: bool,
+
+        /// 1X coverage threshold (%) below which targets are re-analyzed in refinement iterations
+        #[arg(long, default_value = "80.0")]
+        refine_threshold: f64,
+
+        /// Number of refinement iterations: re-run probe coverage on low-coverage targets N times
+        #[arg(long, conflicts_with = "refine_until_stable")]
+        refine_iterations: Option<usize>,
+
+        /// Repeat refinement until no targets remain below --refine-threshold (or set stabilizes)
+        #[arg(long, conflicts_with = "refine_iterations")]
+        refine_until_stable: bool,
     },
 
     /// Generate coverage depth curves, optionally sweeping CT, fold-enrichment, and/or num-sequences

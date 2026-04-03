@@ -539,6 +539,9 @@ fn main() -> Result<()> {
             output_prefix,
             report,
             cleanup,
+            refine_threshold,
+            refine_iterations,
+            refine_until_stable,
         } => {
             assess_probes::execute(&assess_probes::AssessProbesArgs {
                 targets: &targets,
@@ -553,6 +556,9 @@ fn main() -> Result<()> {
                 cleanup,
                 build_stats_file: None,
                 build_params_file: None,
+                refine_threshold,
+                refine_iterations,
+                refine_until_stable,
             })?;
         }
 

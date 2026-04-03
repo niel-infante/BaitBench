@@ -772,7 +772,11 @@ datatable(
 cat("\n## Cross-Reactivity (Probe vs Genome)\n")
 ```
 
-```{r against-heatmap, eval=has_against && n_probes_xreact < 1000, fig.height=8}
+```{r against-no-hits, eval=has_against && nrow(hits_against) == 0, results='asis'}
+cat("\n<p style='font-size:1.6em; font-weight:bold; text-align:center; padding:2em 0; color:#2c7bb6;'>No Significant Cross Reactivity Found</p>\n")
+```
+
+```{r against-heatmap, eval=has_against && nrow(hits_against) > 0 && n_probes_xreact < 1000, fig.height=8}
 probes_with_hits <- sort(unique(hits_against$probe_id))
 genomes <- sort(unique(hits_against$target_id))
 n_probes_hit <- length(probes_with_hits)
@@ -840,7 +844,7 @@ if (n_probes_hit > 0 && n_genomes_hit > 0) {
 }
 ```
 
-```{r against-heatmap-skip, eval=has_against && n_probes_xreact >= 1000, results='asis'}
+```{r against-heatmap-skip, eval=has_against && nrow(hits_against) > 0 && n_probes_xreact >= 1000, results='asis'}
 cat(paste0("\n*Heatmap omitted: ", n_probes_xreact,
            " probes exceeds the 1,000 probe limit for interactive display.*\n"))
 ```
@@ -892,11 +896,11 @@ ggplot(hits_against, aes(x = homology_pct)) +
   theme_minimal(base_size = 14)
 ```
 
-```{r against-table-header, eval=has_against, results='asis'}
+```{r against-table-header, eval=has_against && nrow(hits_against) > 0, results='asis'}
 cat("\n### All Cross-Reactivity Hits\n")
 ```
 
-```{r against-table, eval=has_against}
+```{r against-table, eval=has_against && nrow(hits_against) > 0}
 display_against <- hits_against %>%
   select(probe_id, target_id, homology_pct, identity_pct,
          query_coverage_pct, matching_bases, probe_length) %>%

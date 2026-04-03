@@ -300,6 +300,9 @@ pub fn execute(args: &BuildProbesArgs) -> Result<()> {
             cleanup: args.cleanup,
             build_stats_file: Some(&stats_path),
             build_params_file: Some(&params_path),
+            refine_threshold: 80.0,
+            refine_iterations: None,
+            refine_until_stable: false,
         })?;
     } else {
         // Original build-probes-only report when assessment is skipped

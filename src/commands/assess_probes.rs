@@ -1,6 +1,7 @@
 use anyhow::{bail, Context, Result};
+use std::collections::HashSet;
 use std::fs::{self, File};
-use std::io::{BufWriter, Write};
+use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::{Path, PathBuf};
 
 use crate::cleanup;
@@ -8,6 +9,7 @@ use crate::cli::ReportMode;
 use crate::commands::report::{rmd_output_path, substitute_rmd_params};
 use crate::commands::{probe_coverage, xreact};
 use crate::external::{minimap2, rscript};
+use crate::fasta;
 use crate::io_utils::prefixed_join;
 
 pub struct AssessProbesArgs<'a> {
@@ -23,6 +25,9 @@ pub struct AssessProbesArgs<'a> {
     pub cleanup: bool,
     pub build_stats_file: Option<&'a Path>,
     pub build_params_file: Option<&'a Path>,
+    pub refine_threshold: f64,
+    pub refine_iterations: Option<usize>,
+    pub refine_until_stable: bool,
 }
 
 pub fn execute(args: &AssessProbesArgs) -> Result<()> {
@@ -155,7 +160,12 @@ pub fn execute(args: &AssessProbesArgs) -> Result<()> {
         }
     }
 
-    // --- Step 6: Cleanup ---
+    // --- Step 6: Refinement iterations ---
+    if args.refine_iterations.is_some() || args.refine_until_stable {
+        run_refinement(args, &cov_summary)?;
+    }
+
+    // --- Step 7: Cleanup ---
     if args.cleanup {
         log::info!("Cleaning up intermediate files...");
         let cov_intermediates: Vec<String> =
@@ -355,5 +365,172 @@ fn write_assess_rmd(
         "Edit and render with: Rscript -e 'rmarkdown::render(\"{}\")'",
         rmd_path.display()
     );
+    Ok(())
+}
+
+/// Parse a probe_coverage_summary.tsv and return IDs where pct_covered_1x < threshold.
+fn read_low_coverage_targets(summary_path: &Path, threshold: f64) -> Result<HashSet<String>> {
+    let file = File::open(summary_path)
+        .with_context(|| format!("Cannot open coverage summary: {}", summary_path.display()))?;
+    let reader = BufReader::new(file);
+    let mut low: HashSet<String> = HashSet::new();
+
+    for (i, line) in reader.lines().enumerate() {
+        let line = line?;
+        if i == 0 {
+            continue; // skip header
+        }
+        let fields: Vec<&str> = line.split('\t').collect();
+        if fields.len() < 4 {
+            continue;
+        }
+        let pct: f64 = fields[3].parse().unwrap_or(100.0);
+        if pct < threshold {
+            low.insert(fields[0].to_string());
+        }
+    }
+
+    Ok(low)
+}
+
+/// Run one or more probe-coverage-only iterations on low-coverage targets.
+fn run_refinement(args: &AssessProbesArgs, initial_summary: &Path) -> Result<()> {
+    let pfx = args.output_prefix;
+    let max_iterations = args.refine_iterations.unwrap_or(usize::MAX);
+
+    let mut current_summary = initial_summary.to_path_buf();
+    let mut prev_ids: HashSet<String> = HashSet::new();
+
+    for iteration in 1..=max_iterations {
+        let low_ids = read_low_coverage_targets(&current_summary, args.refine_threshold)?;
+
+        if low_ids.is_empty() {
+            log::info!(
+                "Refinement: no targets below {:.1}% 1X coverage — stopping.",
+                args.refine_threshold
+            );
+            break;
+        }
+
+        // Stable-check: stop if the low-coverage set hasn't changed since last iteration
+        if args.refine_until_stable && low_ids == prev_ids {
+            log::info!(
+                "Refinement: target set unchanged after iteration {} — stopping.",
+                iteration - 1
+            );
+            break;
+        }
+
+        log::info!(
+            "Refinement iteration {}: {} targets below {:.1}% 1X coverage",
+            iteration,
+            low_ids.len(),
+            args.refine_threshold
+        );
+
+        // Write filtered targets FASTA
+        let filtered_targets_path =
+            prefixed_join(args.outdir, pfx, &format!("refine_{}_targets.fa", iteration));
+        let n_extracted = fasta::extract_by_ids(args.targets, &low_ids, &filtered_targets_path)?;
+        log::info!(
+            "Refinement iteration {}: wrote {} targets to {}",
+            iteration,
+            n_extracted,
+            filtered_targets_path.display()
+        );
+
+        // Run probe coverage on filtered targets
+        let cov_prefix = format!("{}refine_{}_cov_", pfx, iteration);
+        probe_coverage::execute(&probe_coverage::ProbeCoverageArgs {
+            targets: &filtered_targets_path,
+            probes: args.probes,
+            outdir: args.outdir,
+            output_prefix: &cov_prefix,
+            minimap_preset: args.minimap_preset,
+            proximity: args.proximity,
+            report: ReportMode::None,
+            cleanup: false,
+        })?;
+
+        let iter_summary = prefixed_join(args.outdir, &cov_prefix, "probe_coverage_summary.tsv");
+        let iter_depth = prefixed_join(args.outdir, &cov_prefix, "probe_depth.tsv");
+        let iter_multi = prefixed_join(args.outdir, &cov_prefix, "multi_mapping_probes.tsv");
+        let iter_params = prefixed_join(args.outdir, &cov_prefix, "run_params.tsv");
+
+        // Generate probe-coverage report for this iteration
+        let report_path = prefixed_join(
+            args.outdir,
+            pfx,
+            &format!("refine_{}_probe_coverage_report.html", iteration),
+        );
+        match args.report {
+            ReportMode::None => {
+                log::info!("Skipping refinement report (--report none)");
+            }
+            ReportMode::Full => {
+                if rscript::check_available() {
+                    match probe_coverage::generate_probe_report(
+                        &iter_summary,
+                        &iter_depth,
+                        &iter_multi,
+                        &iter_params,
+                        &report_path,
+                        args.proximity,
+                    ) {
+                        Ok(()) => log::info!(
+                            "Refinement iteration {} report: {}",
+                            iteration,
+                            report_path.display()
+                        ),
+                        Err(e) => log::warn!(
+                            "Refinement iteration {} report failed (non-fatal): {}",
+                            iteration,
+                            e
+                        ),
+                    }
+                } else {
+                    log::warn!("Rscript not found -- skipping refinement report.");
+                }
+            }
+            ReportMode::Rmd => {
+                match probe_coverage::write_probe_coverage_rmd(
+                    &iter_summary,
+                    &iter_depth,
+                    &iter_multi,
+                    &iter_params,
+                    &report_path,
+                    args.proximity,
+                ) {
+                    Ok(()) => {}
+                    Err(e) => log::warn!(
+                        "Refinement iteration {} RMarkdown failed (non-fatal): {}",
+                        iteration,
+                        e
+                    ),
+                }
+            }
+        }
+
+        // Cleanup SAM/log intermediates for this iteration if requested
+        if args.cleanup {
+            let intermediates: Vec<String> = ["probe_alignment.sam", "probe_alignment.log"]
+                .iter()
+                .map(|f| format!("{}{}", cov_prefix, f))
+                .collect();
+            let refs: Vec<&str> = intermediates.iter().map(|s| s.as_str()).collect();
+            cleanup::cleanup_files(args.outdir, &refs);
+            // Also remove the filtered targets FASTA
+            if let Err(e) = std::fs::remove_file(&filtered_targets_path) {
+                log::warn!("Could not remove {}: {}", filtered_targets_path.display(), e);
+            }
+        }
+
+        prev_ids = low_ids;
+        current_summary = iter_summary;
+
+        // For --refine-until-stable, the loop runs until break conditions above
+        // For --refine-iterations, the for-loop bound handles stopping
+    }
+
     Ok(())
 }

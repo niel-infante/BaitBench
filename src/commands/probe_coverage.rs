@@ -290,7 +290,7 @@ fn write_run_params(path: &Path, args: &ProbeCoverageArgs) -> Result<()> {
     Ok(())
 }
 
-fn write_probe_coverage_rmd(
+pub fn write_probe_coverage_rmd(
     summary_path: &Path,
     depth_path: &Path,
     multi_mapping_path: &Path,
@@ -337,7 +337,7 @@ fn write_probe_coverage_rmd(
     Ok(())
 }
 
-fn generate_probe_report(
+pub fn generate_probe_report(
     summary_path: &Path,
     depth_path: &Path,
     multi_mapping_path: &Path,
