@@ -8,6 +8,7 @@ use crate::commands::assess_probes;
 use crate::external::{catch, cdhit, rscript};
 use crate::io_utils::prefixed_join;
 use crate::sdust;
+use crate::syotti;
 
 pub struct BuildProbesArgs<'a> {
     pub targets: &'a Path,
@@ -33,6 +34,11 @@ pub struct BuildProbesArgs<'a> {
     pub output_prefix: &'a str,
     pub report: ReportMode,
     pub cleanup: bool,
+    pub refine_threshold: f64,
+    pub refine_iterations: Option<usize>,
+    pub refine_until_stable: bool,
+    pub syotti_mismatches: usize,
+    pub syotti_seed_len: usize,
 }
 
 /// Statistics for a single pipeline step.
@@ -171,6 +177,19 @@ pub fn execute(args: &BuildProbesArgs) -> Result<()> {
                 &catch_log,
             )?;
         }
+        ProbeMethod::Syotti => {
+            log::info!(
+                "Step 4: Building probes (Syotti, length={}, mismatches={}, seed_len={})...",
+                args.probe_length, args.syotti_mismatches, args.syotti_seed_len
+            );
+            syotti::design_probes(
+                &length_filtered_path,
+                &probes_raw_path,
+                args.probe_length,
+                args.syotti_mismatches,
+                args.syotti_seed_len,
+            )?;
+        }
     }
     let (tiled_seqs, tiled_bases) = count_fasta_stats(&probes_raw_path)?;
     log::info!("  Built: {} probes, {} bases", tiled_seqs, tiled_bases);
@@ -300,9 +319,9 @@ pub fn execute(args: &BuildProbesArgs) -> Result<()> {
             cleanup: args.cleanup,
             build_stats_file: Some(&stats_path),
             build_params_file: Some(&params_path),
-            refine_threshold: 80.0,
-            refine_iterations: None,
-            refine_until_stable: false,
+            refine_threshold: args.refine_threshold,
+            refine_iterations: args.refine_iterations,
+            refine_until_stable: args.refine_until_stable,
         })?;
     } else {
         // Original build-probes-only report when assessment is skipped

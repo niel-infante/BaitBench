@@ -66,9 +66,10 @@ src/
 │   ├── panel_qc.rs      # Standalone target panel discriminability QC (target-vs-target similarity, species discrimination)
 │   ├── identify.rs      # Species-level calling from multi-target detection patterns (standalone or pipeline step)
 │   ├── coverage_curve.rs # Coverage curve: pipeline at multiple param combos → depth curves
-│   ├── build_probes.rs  # Standalone probe building: N filter → collapse → length filter → tile/CATCH → GC filter → complexity filter (sDUST) → deduplicate
+│   ├── build_probes.rs  # Standalone probe building: N filter → collapse → length filter → tile/CATCH/Syotti → GC filter → complexity filter (sDUST) → deduplicate
 │   └── assess_probes.rs # Combined probe assessment: probe coverage + cross-reactivity (self + optional genomes), orchestrates sub-commands
 ├── sdust.rs             # sDUST low-complexity detection: sdust(), masked_fraction() (Morgulis et al. 2006)
+├── syotti.rs            # Syotti greedy bait design: design_probes() — k-mer hash index, seed-and-extend, greedy set-cover (Alanko et al. 2022)
 ├── external/
 │   ├── minimap2.rs      # minimap2 wrapper: capture_align (PAF), map_reads (SAM), host_align, probe_align
 │   ├── blastn.rs        # BLAST+ wrapper: capture_align, filter_blast_results
@@ -133,7 +134,8 @@ Every command module exports an `Args` struct and an `execute(&Args) -> Result<(
 | `identify` | `IdentifyArgs` | detected_detail, sample_target_map, target_similarity (or targets for on-the-fly), identity_threshold, min_unique_targets | species_calls.tsv, species_calls.json |
 | `run` | `RunArgs` | all pipeline inputs + ct, ct_baseline, ct_baseline_fraction, num_sequences, genomes, sample_target_map, identify, identity_threshold, min_unique_targets | all of the above |
 | `coverage_curve` | `CoverageCurveArgs` | targets, distractors, probes, sample (required), ct/fe/ns values (sweep or fixed), all pipeline params, genomes, sample_target_map | coverage_curve_depth_curves.tsv, coverage_curve_report.html, combo subdirs |
-| `build_probes` | `BuildProbesArgs` | targets, method (tile/catch), probe_length, step, catch_args, max_n_frac, min/max_gc, dust_threshold/dust_window/max_masked_frac, collapse/dedup thresholds, threads, genomes, threshold, skip_assess | probes_final.fa, build_probes_stats.tsv; filters sequences shorter than probe_length after collapse; auto-chains to assess_probes unless --skip-assess |
+| `build_probes` | `BuildProbesArgs` | targets, method (tile/catch/syotti), probe_length, step, catch_args, syotti_mismatches, syotti_seed_len, max_n_frac, min/max_gc, dust_threshold/dust_window/max_masked_frac, collapse/dedup thresholds, threads, genomes, threshold, skip_assess | probes_final.fa, build_probes_stats.tsv; filters sequences shorter than probe_length after collapse; auto-chains to assess_probes unless --skip-assess |
+| `syotti` | — (standalone) | targets, output, probe_length, mismatches, seed_len | output FASTA of probes; direct access to Syotti algorithm without the build-probes pipeline |
 | `assess_probes` | `AssessProbesArgs` | targets, probes, genomes (optional), threshold, minimap_preset, proximity, build_stats_file (optional), build_params_file (optional) | cov_probe_coverage_summary.tsv, cov_probe_depth.tsv, xreact_hits.tsv, xreact_summary.tsv, assess_run_params.tsv, assess_probes_report.html |
 
 ### Metrics (`metrics.rs`)
@@ -390,7 +392,7 @@ Report logic: detects swept params from data, builds combo labels. <10 combos: s
 | `targets_clean.fa` | FASTA | build_probes (N filter) | build_probes (cd-hit-est collapse) |
 | `collapsed.fa` | FASTA | build_probes (cd-hit-est) | build_probes (length filter) |
 | `length_filtered.fa` | FASTA | build_probes (length filter) | build_probes (tile or CATCH) |
-| `probes_raw.fa` | FASTA | build_probes (tile or CATCH) | build_probes (GC filter) |
+| `probes_raw.fa` | FASTA | build_probes (tile, CATCH, or Syotti) | build_probes (GC filter) |
 | `probes_gc.fa` | FASTA | build_probes (GC filter) | build_probes (complexity filter) |
 | `probes_complexity.fa` | FASTA | build_probes (sDUST filter) | build_probes (cd-hit-est dedup) |
 | `probes_final.fa` | FASTA | build_probes (cd-hit-est dedup) | user (final output) |

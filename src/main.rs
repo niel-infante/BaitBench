@@ -7,6 +7,7 @@ mod fasta;
 mod io_utils;
 mod sampling;
 mod sdust;
+mod syotti;
 mod target_similarity;
 
 use anyhow::{bail, Result};
@@ -500,6 +501,11 @@ fn main() -> Result<()> {
             output_prefix,
             report,
             cleanup,
+            refine_threshold,
+            refine_iterations,
+            refine_until_stable,
+            syotti_mismatches,
+            syotti_seed_len,
         } => {
             build_probes::execute(&build_probes::BuildProbesArgs {
                 targets: &targets,
@@ -525,7 +531,22 @@ fn main() -> Result<()> {
                 output_prefix: &output_prefix,
                 report,
                 cleanup,
+                refine_threshold,
+                refine_iterations,
+                refine_until_stable,
+                syotti_mismatches,
+                syotti_seed_len,
             })?;
+        }
+
+        Commands::Syotti {
+            targets,
+            output,
+            probe_length,
+            mismatches,
+            seed_len,
+        } => {
+            syotti::design_probes(&targets, &output, probe_length, mismatches, seed_len)?;
         }
 
         Commands::AssessProbes {

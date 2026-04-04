@@ -36,6 +36,7 @@ Complete reference for BaitBench, an in-silico probe capture simulation tool.
   - [panel-qc](#panel-qc)
   - [identify](#identify)
   - [build-probes](#build-probes)
+  - [syotti](#syotti)
   - [assess-probes](#assess-probes)
 - [Parameter Reference](#parameter-reference)
   - [Input Files](#input-files)
@@ -919,15 +920,17 @@ When `--identify` is passed to `baitbench run` (genome mode with `--sample-targe
 
 Build a probe set from target sequences. Runs a multi-step pipeline: collapse redundant targets, construct probes, filter by GC content and sequence complexity, and deduplicate. After building, automatically chains into probe assessment (probe coverage + cross-reactivity analysis) unless `--skip-assess` is specified.
 
-Two probe construction methods are available: `tile` (sliding window, default) and `catch` (optimization-based design from the Broad Institute).
+Three probe construction methods are available: `tile` (sliding window, default), `catch` (optimization-based design from the Broad Institute), and `syotti` (greedy set-cover design, native Rust implementation).
 
 ```bash
 baitbench build-probes \
   --targets targets.fa \
-  [--method tile|catch] \
+  [--method tile|catch|syotti] \
   [--probe-length 120] \
   [--step -60] \
   [--catch-args "-ps 60 -m 5 -e 0 --filter-with-lsh-minhash 0.6"] \
+  [--syotti-mismatches 40] \
+  [--syotti-seed-len 20] \
   [--min-gc 0.20] \
   [--max-gc 0.80] \
   [--max-n-frac 0.05] \
@@ -943,14 +946,16 @@ baitbench build-probes \
   [--proximity 50] \
   [--skip-assess] \
   [--outdir build_probes_results] \
-  [--report full|none|rmd]
+  [--report full|none|rmd] \
+  [--refine-iterations N | --refine-until-stable] \
+  [--refine-threshold 80.0]
 ```
 
 **Pipeline steps:**
 
 1. **N filter**: Remove target sequences with more than `--max-n-frac` fraction of ambiguous (non-ACGT) bases. Sequences with excessive N content are poor probe sources and would generate uninformative probes.
 2. **Collapse**: cd-hit-est clusters targets at `--collapse-threshold` identity to remove near-duplicates
-3. **Build**: Construct probes from collapsed sequences. Method `tile` generates sliding-window probes of `--probe-length` bp across each sequence with `--step` controlling overlap/gap. A final probe is anchored to the end of each sequence to ensure full coverage. Method `catch` invokes CATCH's `design.py` for optimization-based probe design that accounts for sequence diversity; pass-through arguments are configured via `--catch-args`.
+3. **Build**: Construct probes from collapsed sequences. Method `tile` generates sliding-window probes of `--probe-length` bp across each sequence with `--step` controlling overlap/gap. A final probe is anchored to the end of each sequence to ensure full coverage. Method `catch` invokes CATCH's `design.py` for optimization-based probe design that accounts for sequence diversity; pass-through arguments are configured via `--catch-args`. Method `syotti` uses the greedy set-cover algorithm (see below).
 4. **GC filter**: Remove probes with GC content outside `--min-gc` to `--max-gc` range
 5. **Complexity filter**: Remove low-complexity probes using the sDUST algorithm (Morgulis et al. 2006). Probes where more than `--max-masked-frac` of bases are identified as low-complexity (e.g., homopolymers, dinucleotide repeats) are removed. Set `--max-masked-frac 1.0` to disable.
 6. **Deduplicate**: cd-hit-est clusters probes at `--dedup-threshold` identity to remove redundant probes
@@ -986,13 +991,47 @@ baitbench build-probes \
   --outdir probes_output
 ```
 
+**Syotti method (`--method syotti`):**
+
+[Syotti](https://github.com/jnalanko/syotti) (Alanko et al. 2022) is a greedy set-cover bait designer. It scans the input sequences; at every uncovered position, it extracts a bait of `--probe-length` bp and marks all reference windows within `--syotti-mismatches` Hamming distance as covered (checking both strands). This is more targeted than tiling — probes are only generated where coverage is not already achieved by an earlier probe, yielding a smaller set while guaranteeing full coverage. Probes are named `probe_{target_id}|syotti_{n}`.
+
+The BaitBench implementation replaces the original FM-index (SDSL/Divsufsort C++ libraries) with a k-mer hash index, which is well-suited to the MB-scale inputs typical in BaitBench and requires no additional dependencies.
+
+Key design decisions:
+
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| Index type | k-mer HashMap | No external dependencies; correct and fast for MB-scale inputs |
+| N handling | N always mismatches (not even N≡N) | Matches Syotti paper semantics |
+| RC matching | Query RC of bait against forward index | Equivalent to bidirectional index; simpler |
+| Seed guarantee | All overlapping seeds checked | Correct for mismatches ≤ probe_length − seed_len; robust beyond that |
+| Output format | `probe_{id}\|syotti_{n}` | Consistent with tile format; compatible with downstream pipeline |
+
+Example:
+
+```bash
+baitbench build-probes \
+  --targets targets.fa \
+  --method syotti \
+  --probe-length 120 \
+  --syotti-mismatches 40 \
+  --syotti-seed-len 20 \
+  --outdir probes_output
+```
+
+Memory note: the k-mer index stores one entry per seed position per input base. For a 10 MB input with seed_len=20, expect ~500 MB peak memory. For very large inputs, reduce `--syotti-seed-len` (shorter seeds use more memory) or pre-filter with collapse.
+
+> Alanko JN, Slizovskiy IB, Lokshtanov D, Gagie T, Noyes NR, Boucher C. "Syotti: scalable bait design for DNA enrichment." *Bioinformatics.* 2022;38(Supplement_1):i177–i184. doi:10.1093/bioinformatics/btac226
+
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | `--targets` | required | Input target sequences FASTA |
-| `--method` | tile | Probe construction method: `tile` (sliding window) or `catch` (CATCH optimization-based design) |
-| `--probe-length` | 120 | Probe length in bp (used by both tile and catch) |
+| `--method` | tile | Probe construction method: `tile`, `catch`, or `syotti` |
+| `--probe-length` | 120 | Probe length in bp |
 | `--step` | -60 | Step from end of previous probe. Negative = overlap, 0 = tiled, positive = gap. Only used with `--method tile`. |
 | `--catch-args` | "-ps 60 -m 5 -e 0 --filter-with-lsh-minhash 0.6" | Pass-through arguments for CATCH's `design.py`. Only used with `--method catch`. |
+| `--syotti-mismatches` | 40 | Maximum Hamming distance for a bait to cover a reference window. Only used with `--method syotti`. |
+| `--syotti-seed-len` | 20 | K-mer seed length for Syotti approximate matching. Only used with `--method syotti`. |
 | `--min-gc` | 0.20 | Minimum GC fraction (0–1) |
 | `--max-gc` | 0.80 | Maximum GC fraction (0–1) |
 | `--max-n-frac` | 0.05 | Maximum fraction of ambiguous (non-ACGT) bases in a target sequence (0–1). Targets exceeding this are removed before collapse. |
@@ -1010,6 +1049,9 @@ baitbench build-probes \
 | `--outdir` | ./build_probes_results | Output directory |
 | `--report` | full | Report mode (full, none, rmd) |
 | `--cleanup` | false | Delete intermediate files |
+| `--refine-iterations` | none | Number of refinement iterations on low-coverage targets (assessment step; mutually exclusive with `--refine-until-stable`) |
+| `--refine-until-stable` | false | Repeat refinement until no targets remain below the threshold or set stabilizes (assessment step; mutually exclusive with `--refine-iterations`) |
+| `--refine-threshold` | 80.0 | 1X coverage threshold (%) for refinement iterations (assessment step) |
 
 **Auto-assessment:**
 
@@ -1032,6 +1074,27 @@ Low-complexity sequences (homopolymer runs, dinucleotide repeats, etc.) make poo
 - `xreact_summary.tsv` -- cross-reactivity summary (from assessment)
 
 With `--skip-assess`, only produces `probes_final.fa`, `build_probes_stats.tsv`, and optionally `build_probes_report.html`.
+
+### syotti
+
+Run the Syotti greedy bait design algorithm directly, without the `build-probes` pipeline (no collapse, GC filter, complexity filter, or deduplication). Useful for testing Syotti parameters in isolation or when you want to bypass the pipeline.
+
+```bash
+baitbench syotti \
+  --targets targets.fa \
+  --output probes.fa \
+  [--probe-length 120] \
+  [--mismatches 40] \
+  [--seed-len 20]
+```
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `--targets` | required | Input target sequences FASTA |
+| `--output` | required | Output probe sequences FASTA |
+| `--probe-length` | 120 | Probe (bait) length in bp |
+| `--mismatches` | 40 | Maximum Hamming distance for a bait to cover a reference window. N never matches. |
+| `--seed-len` | 20 | K-mer seed length for approximate matching. Matching is guaranteed correct when mismatches ≤ probe_length − seed_len. |
 
 ### assess-probes
 

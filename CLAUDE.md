@@ -76,7 +76,9 @@ genomes.fa + targets.fa + distractors.fa [+ sample.tsv] [+ mapping.tsv]
 
 `baitbench identify` calls species PRESENT/ABSENT/AMBIGUOUS from multi-target detection patterns, using cross-reactivity knowledge to explain away false positives (standalone or as pipeline step via `--identify`).
 
-`baitbench build-probes` builds a probeset from target sequences: filter high-N targets, collapse redundant targets (cd-hit-est), filter sequences shorter than probe length, construct probes (`--method tile`: sliding window with configurable overlap via `--step`; `--method catch`: optimization-based design via CATCH from the Broad Institute with pass-through args via `--catch-args`), filter by GC content, filter by sequence complexity (sDUST; Morgulis et al. 2006), deduplicate (cd-hit-est). Auto-chains into `assess-probes` unless `--skip-assess` is specified. Standalone, not part of the simulation pipeline.
+`baitbench build-probes` builds a probeset from target sequences: filter high-N targets, collapse redundant targets (cd-hit-est), filter sequences shorter than probe length, construct probes (`--method tile`: sliding window with configurable overlap via `--step`; `--method catch`: optimization-based design via CATCH from the Broad Institute with pass-through args via `--catch-args`; `--method syotti`: greedy set-cover design via the native Syotti algorithm (Alanko et al. 2022) with `--syotti-mismatches` and `--syotti-seed-len`), filter by GC content, filter by sequence complexity (sDUST; Morgulis et al. 2006), deduplicate (cd-hit-est). Auto-chains into `assess-probes` unless `--skip-assess` is specified. Standalone, not part of the simulation pipeline.
+
+`baitbench syotti` runs the Syotti greedy bait design algorithm directly (no pipeline steps): takes `--targets` FASTA, writes `--output` FASTA. Useful for testing Syotti in isolation. Standalone, not part of the simulation pipeline.
 
 `baitbench assess-probes` runs combined probe assessment: probe coverage analysis + cross-reactivity (self-homology always, against genomes if `--genomes` provided), producing a single combined HTML report. Can include build pipeline stats when chained from `build-probes`. Standalone, not part of the simulation pipeline.
 
@@ -102,9 +104,10 @@ genomes.fa + targets.fa + distractors.fa [+ sample.tsv] [+ mapping.tsv]
 | `src/commands/identify.rs` | Species-level calling from multi-target detection patterns |
 | `src/target_similarity.rs` | Shared library: target similarity computation, discriminability scoring, confusion matrices |
 | `src/commands/ct_sweep.rs` | CT sweep: pipeline at multiple CT values → depth curves |
-| `src/commands/build_probes.rs` | Build probes: N filter → collapse → tile/CATCH → GC filter → complexity filter (sDUST) → deduplicate; auto-chains to assess-probes |
+| `src/commands/build_probes.rs` | Build probes: N filter → collapse → tile/CATCH/Syotti → GC filter → complexity filter (sDUST) → deduplicate; auto-chains to assess-probes |
 | `src/commands/assess_probes.rs` | Combined probe assessment: orchestrates probe_coverage + xreact, generates combined report |
 | `src/sdust.rs` | sDUST low-complexity sequence detection (Morgulis et al. 2006) |
+| `src/syotti.rs` | Syotti greedy bait design: design_probes() — k-mer hash index, seed-and-extend, greedy set-cover (Alanko et al. 2022) |
 | `src/external/catch.rs` | CATCH wrapper: check_available, design (optimization-based probe design) |
 | `src/external/cdhit.rs` | cd-hit-est wrapper: check_available, cluster |
 | `src/fasta/` | FASTA parsing, writing, extract-by-ID (replaces seqtk) |

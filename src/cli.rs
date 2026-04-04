@@ -750,6 +750,53 @@ pub enum Commands {
         /// Delete intermediate files after completion
         #[arg(long)]
         cleanup: bool,
+
+        /// 1X coverage threshold (%) below which targets are re-analyzed in refinement iterations (assessment step)
+        #[arg(long, default_value = "80.0")]
+        refine_threshold: f64,
+
+        /// Number of refinement iterations: re-run probe coverage on low-coverage targets N times (assessment step)
+        #[arg(long, conflicts_with = "refine_until_stable")]
+        refine_iterations: Option<usize>,
+
+        /// Repeat refinement until no targets remain below --refine-threshold or set stabilizes (assessment step)
+        #[arg(long, conflicts_with = "refine_iterations")]
+        refine_until_stable: bool,
+
+        /// Maximum Hamming distance for a bait to cover a reference window (only used with --method syotti)
+        #[arg(long, default_value = "40")]
+        syotti_mismatches: usize,
+
+        /// Seed length (k-mer size) for the syotti approximate search (only used with --method syotti)
+        #[arg(long, default_value = "20")]
+        syotti_seed_len: usize,
+    },
+
+    /// Design probes using the Syotti greedy set-cover algorithm (standalone).
+    /// Scans input sequences; at every uncovered position, extracts a bait and marks
+    /// all reference windows within --mismatches Hamming distance as covered.
+    Syotti {
+        /// Input target sequences FASTA
+        #[arg(short, long)]
+        targets: PathBuf,
+
+        /// Output probe sequences FASTA
+        #[arg(short, long)]
+        output: PathBuf,
+
+        /// Probe (bait) length in bp
+        #[arg(long, default_value = "120")]
+        probe_length: usize,
+
+        /// Maximum Hamming distance for a bait to cover a reference window.
+        /// N characters never match (not even other Ns).
+        #[arg(long, default_value = "40")]
+        mismatches: usize,
+
+        /// Seed length (k-mer size) for approximate matching.
+        /// Matching is guaranteed correct when mismatches ≤ probe_length − seed_len.
+        #[arg(long, default_value = "20")]
+        seed_len: usize,
     },
 
     /// Assess probe quality: coverage analysis + cross-reactivity (self + optional genome)
@@ -951,6 +998,9 @@ pub enum ProbeMethod {
     Tile,
     /// CATCH: optimization-based probe design from the Broad Institute
     Catch,
+    /// Syotti: greedy set-cover bait design with k-mer seed-and-extend matching
+    /// (Alanko et al. 2022, doi:10.1093/bioinformatics/btac226)
+    Syotti,
 }
 
 #[derive(Clone, Copy, ValueEnum, Debug, PartialEq, Eq)]
