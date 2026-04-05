@@ -76,7 +76,7 @@ genomes.fa + targets.fa + distractors.fa [+ sample.tsv] [+ mapping.tsv]
 
 `baitbench identify` calls species PRESENT/ABSENT/AMBIGUOUS from multi-target detection patterns, using cross-reactivity knowledge to explain away false positives (standalone or as pipeline step via `--identify`).
 
-`baitbench build-probes` builds a probeset from target sequences: filter high-N targets, collapse redundant targets (cd-hit-est), filter sequences shorter than probe length, construct probes (`--method tile`: sliding window with configurable overlap via `--step`; `--method catch`: optimization-based design via CATCH from the Broad Institute with pass-through args via `--catch-args`; `--method syotti`: greedy set-cover design via the native Syotti algorithm (Alanko et al. 2022) with `--syotti-mismatches` and `--syotti-seed-len`), filter by GC content, filter by sequence complexity (sDUST; Morgulis et al. 2006), deduplicate (cd-hit-est). Auto-chains into `assess-probes` unless `--skip-assess` is specified. Standalone, not part of the simulation pipeline.
+`baitbench build-probes` builds a probeset from target sequences: filter high-N targets, collapse redundant targets (cd-hit-est), filter sequences shorter than probe length, construct probes (`--method tile`: sliding window with configurable overlap via `--step`; `--method catch`: native optimization-based probe design (reimplementation of Metsky et al. 2019) with `--catch-stride`, `--catch-mismatches`, `--catch-extension`, `--catch-coverage`, `--catch-minhash-threshold`; `--method syotti`: greedy set-cover design via the native Syotti algorithm (Alanko et al. 2022) with `--syotti-mismatches` and `--syotti-seed-len`), filter by GC content, filter by sequence complexity (sDUST; Morgulis et al. 2006), deduplicate (cd-hit-est). Auto-chains into `assess-probes` unless `--skip-assess` is specified. Standalone, not part of the simulation pipeline.
 
 `baitbench syotti` runs the Syotti greedy bait design algorithm directly (no pipeline steps): takes `--targets` FASTA, writes `--output` FASTA. Useful for testing Syotti in isolation. Standalone, not part of the simulation pipeline.
 
@@ -108,7 +108,7 @@ genomes.fa + targets.fa + distractors.fa [+ sample.tsv] [+ mapping.tsv]
 | `src/commands/assess_probes.rs` | Combined probe assessment: orchestrates probe_coverage + xreact, generates combined report |
 | `src/sdust.rs` | sDUST low-complexity sequence detection (Morgulis et al. 2006) |
 | `src/syotti.rs` | Syotti greedy bait design: design_probes() — k-mer hash index, seed-and-extend, greedy set-cover (Alanko et al. 2022) |
-| `src/external/catch.rs` | CATCH wrapper: check_available, design (optimization-based probe design) |
+| `src/catch.rs` | Native CATCH probe design: design_probes() — tiling → MinHash dedup → greedy set cover (reimplementation of Metsky et al. 2019) |
 | `src/external/cdhit.rs` | cd-hit-est wrapper: check_available, cluster |
 | `src/fasta/` | FASTA parsing, writing, extract-by-ID (replaces seqtk) |
 | `src/alignment/paf.rs` | PAF format parser for minimap2 output |
@@ -309,7 +309,6 @@ cat test_results_genomes/*/detected_detail.tsv
 - minimap2 (alignment)
 - blastn (alternative capture)
 - cd-hit (sequence clustering, used by build-probes)
-- catch (optimization-based probe design, used by build-probes --method catch)
 - R + ggplot2 + rmarkdown (report generation, optional)
 
 ### Rust (managed by Cargo)

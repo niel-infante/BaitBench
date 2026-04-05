@@ -928,7 +928,11 @@ baitbench build-probes \
   [--method tile|catch|syotti] \
   [--probe-length 120] \
   [--step -60] \
-  [--catch-args "-ps 60 -m 5 -e 0 --filter-with-lsh-minhash 0.6"] \
+  [--catch-stride 60] \
+  [--catch-mismatches 5] \
+  [--catch-extension 0] \
+  [--catch-coverage 1.0] \
+  [--catch-minhash-threshold 0.6] \
   [--syotti-mismatches 40] \
   [--syotti-seed-len 20] \
   [--min-gc 0.20] \
@@ -972,24 +976,49 @@ Probes are named `probe_{target_id}|tile_{n}`. A final probe is always placed at
 
 **CATCH method (`--method catch`):**
 
-[CATCH](https://github.com/broadinstitute/catch) (Compact Aggregation of Targets for Comprehensive Hybridization) is an optimization-based probe designer from the Broad Institute. Unlike tiling, CATCH accounts for sequence diversity across all input targets and minimizes probe count while guaranteeing coverage. Key CATCH parameters (passed via `--catch-args`):
+BaitBench includes a native Rust reimplementation of the CATCH algorithm (Metsky et al. 2019, Nature Biotechnology). Unlike tiling, CATCH minimizes the number of probes needed while guaranteeing a configurable fraction of each target sequence is covered. The algorithm tiles candidate probes at a configurable stride, removes near-duplicates via MinHash LSH, then runs a greedy set-cover to select the minimum probe set that covers all targets to the required depth.
 
-- `-ps <stride>`: Probe stride (spacing between candidate probes, default 60)
-- `-m <mismatches>`: Number of mismatches tolerated for coverage (default 5)
-- `-e <extension>`: Flanking capture region beyond probe boundaries in bp (default 0)
-- `--filter-with-lsh-minhash <threshold>`: Near-duplicate filtering using locality-sensitive hashing (default 0.6)
-- `-c <coverage>`: Genome fraction to cover, 0.0–1.0 (CATCH default 1.0)
+Parameters:
 
-Example with custom CATCH parameters:
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--catch-stride` | 60 | Step between candidate probes (bp) |
+| `--catch-mismatches` | 5 | Mismatches tolerated for a probe to cover a target window |
+| `--catch-extension` | 0 | Flanking bp beyond probe boundaries counted as covered |
+| `--catch-coverage` | 1.0 | Fraction of each target that must be covered (0.0–1.0) |
+| `--catch-minhash-threshold` | 0.6 | Jaccard similarity threshold for near-deduplication; set to 0.0 to disable |
+
+Probes are named `probe_{source_id}|catch_{n}`.
+
+Example with custom parameters:
 
 ```bash
 baitbench build-probes \
   --targets targets.fa \
   --method catch \
   --probe-length 120 \
-  --catch-args "-ps 30 -m 3 -e 10 -c 0.95" \
+  --catch-stride 30 \
+  --catch-mismatches 3 \
+  --catch-extension 10 \
+  --catch-coverage 0.95 \
   --outdir probes_output
 ```
+
+#### Differences from Python CATCH
+
+| Aspect | Python CATCH | BaitBench native |
+|--------|-------------|-----------------|
+| Coverage model | LCF-k (full algorithm) | Hamming distance (= LCF-k at default threshold); LCF-k planned |
+| Greedy tie-breaking | Python dict order | Rust iteration order (different, equally valid) |
+| MinHash hash functions | Python random | Fixed-seed RNG (deterministic) |
+| Multi-taxa optimization | Supported | Not implemented (not needed by BaitBench) |
+| Blacklisting | Supported | Planned extension |
+| Probe output | Equivalent coverage | Equivalent coverage; specific probes may differ |
+
+#### Planned extensions
+
+- **LCF-k coverage model** (`--catch-lcf-threshold`): A value less than `--probe-length` activates the LCF-k (Longest Common Factor with k mismatches) hybridization model, which accepts partial probe alignments of at least that length. When `--catch-lcf-threshold` equals `--probe-length` (the default), the result is identical to Hamming distance. LCF-k improves recall for highly divergent targets.
+- **Blacklist filtering** (`--catch-blacklist <file.fa>`): Discard candidate probes that match any sequence in the provided FASTA (e.g., host genome). Probes that hit the blacklist at the configured mismatch tolerance are removed before the set cover step.
 
 **Syotti method (`--method syotti`):**
 
@@ -1029,7 +1058,11 @@ Memory note: the k-mer index stores one entry per seed position per input base. 
 | `--method` | tile | Probe construction method: `tile`, `catch`, or `syotti` |
 | `--probe-length` | 120 | Probe length in bp |
 | `--step` | -60 | Step from end of previous probe. Negative = overlap, 0 = tiled, positive = gap. Only used with `--method tile`. |
-| `--catch-args` | "-ps 60 -m 5 -e 0 --filter-with-lsh-minhash 0.6" | Pass-through arguments for CATCH's `design.py`. Only used with `--method catch`. |
+| `--catch-stride` | 60 | Step between candidate probes (bp). Only used with `--method catch`. |
+| `--catch-mismatches` | 5 | Mismatches tolerated for a probe to cover a target window. Only used with `--method catch`. |
+| `--catch-extension` | 0 | Flanking bp beyond probe boundaries counted as covered. Only used with `--method catch`. |
+| `--catch-coverage` | 1.0 | Fraction of each target that must be covered (0.0–1.0). Only used with `--method catch`. |
+| `--catch-minhash-threshold` | 0.6 | Jaccard similarity threshold for near-deduplication; 0.0 disables. Only used with `--method catch`. |
 | `--syotti-mismatches` | 40 | Maximum Hamming distance for a bait to cover a reference window. Only used with `--method syotti`. |
 | `--syotti-seed-len` | 20 | K-mer seed length for Syotti approximate matching. Only used with `--method syotti`. |
 | `--min-gc` | 0.20 | Minimum GC fraction (0–1) |
@@ -1911,7 +1944,9 @@ baitbench build-probes \
 baitbench build-probes \
   --targets targets.fa \
   --method catch \
-  --catch-args "-ps 30 -m 3 -e 10" \
+  --catch-stride 30 \
+  --catch-mismatches 3 \
+  --catch-extension 10 \
   --outdir probes_output
 ```
 
