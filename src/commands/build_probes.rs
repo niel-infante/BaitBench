@@ -5,17 +5,22 @@ use std::path::{Path, PathBuf};
 
 use crate::cli::{ProbeMethod, ReportMode};
 use crate::commands::assess_probes;
-use crate::external::{catch, cdhit, rscript};
+use crate::external::{cdhit, rscript};
 use crate::io_utils::prefixed_join;
 use crate::sdust;
 use crate::syotti;
+use crate::catch;
 
 pub struct BuildProbesArgs<'a> {
     pub targets: &'a Path,
     pub method: ProbeMethod,
     pub probe_length: usize,
     pub step: i64,
-    pub catch_args: &'a str,
+    pub catch_stride: usize,
+    pub catch_mismatches: usize,
+    pub catch_extension: usize,
+    pub catch_coverage: f64,
+    pub catch_minhash_threshold: f64,
     pub min_gc: f64,
     pub max_gc: f64,
     pub dust_threshold: f64,
@@ -164,17 +169,24 @@ pub fn execute(args: &BuildProbesArgs) -> Result<()> {
         }
         ProbeMethod::Catch => {
             log::info!(
-                "Step 4: Building probes (CATCH, length={}, args: {})...",
-                args.probe_length, args.catch_args
+                "Step 4: Building probes (native CATCH, length={}, stride={}, mismatches={}, \
+                 extension={}, coverage={:.2}, minhash={:.2})...",
+                args.probe_length,
+                args.catch_stride,
+                args.catch_mismatches,
+                args.catch_extension,
+                args.catch_coverage,
+                args.catch_minhash_threshold,
             );
-            catch::check_available()?;
-            let catch_log = prefixed_join(args.outdir, args.output_prefix, "catch.log");
-            catch::design(
+            catch::design_probes(
                 &length_filtered_path,
                 &probes_raw_path,
                 args.probe_length,
-                args.catch_args,
-                &catch_log,
+                args.catch_stride,
+                args.catch_mismatches,
+                args.catch_extension,
+                args.catch_coverage,
+                args.catch_minhash_threshold,
             )?;
         }
         ProbeMethod::Syotti => {
@@ -367,7 +379,6 @@ pub fn execute(args: &BuildProbesArgs) -> Result<()> {
             "probes_final.fa.clstr",
             "cdhit_collapse.log",
             "cdhit_dedup.log",
-            "catch.log",
         ];
         for name in &intermediates {
             let path = prefixed_join(args.outdir, args.output_prefix, name);
@@ -724,7 +735,11 @@ fn write_run_params(path: &Path, args: &BuildProbesArgs) -> Result<()> {
     writeln!(w, "method\t--method\t{:?}", args.method)?;
     writeln!(w, "probe_length\t--probe-length\t{}", args.probe_length)?;
     writeln!(w, "step\t--step\t{}", args.step)?;
-    writeln!(w, "catch_args\t--catch-args\t{}", args.catch_args)?;
+    writeln!(w, "catch_stride\t--catch-stride\t{}", args.catch_stride)?;
+    writeln!(w, "catch_mismatches\t--catch-mismatches\t{}", args.catch_mismatches)?;
+    writeln!(w, "catch_extension\t--catch-extension\t{}", args.catch_extension)?;
+    writeln!(w, "catch_coverage\t--catch-coverage\t{:.2}", args.catch_coverage)?;
+    writeln!(w, "catch_minhash_threshold\t--catch-minhash-threshold\t{:.2}", args.catch_minhash_threshold)?;
     writeln!(w, "min_gc\t--min-gc\t{:.2}", args.min_gc)?;
     writeln!(w, "max_gc\t--max-gc\t{:.2}", args.max_gc)?;
     writeln!(w, "max_n_frac\t--max-n-frac\t{:.2}", args.max_n_frac)?;

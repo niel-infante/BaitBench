@@ -1,4 +1,5 @@
 mod alignment;
+mod catch;
 mod cleanup;
 mod cli;
 mod commands;
@@ -482,7 +483,11 @@ fn main() -> Result<()> {
             method,
             probe_length,
             step,
-            catch_args,
+            catch_stride,
+            catch_mismatches,
+            catch_extension,
+            catch_coverage,
+            catch_minhash_threshold,
             min_gc,
             max_gc,
             max_n_frac,
@@ -512,7 +517,11 @@ fn main() -> Result<()> {
                 method,
                 probe_length,
                 step,
-                catch_args: &catch_args,
+                catch_stride,
+                catch_mismatches,
+                catch_extension,
+                catch_coverage,
+                catch_minhash_threshold,
                 min_gc,
                 max_gc,
                 max_n_frac,

@@ -670,11 +670,30 @@ pub enum Commands {
         #[arg(long, default_value = "-60", allow_hyphen_values = true)]
         step: i64,
 
-        /// Additional arguments passed to CATCH's design.py (only used with --method catch).
-        /// Default provides: probe stride 60, 5 mismatches, no cover extension,
-        /// and LSH minhash deduplication at 0.6.
-        #[arg(long, default_value = "-ps 60 -m 5 -e 0 --filter-with-lsh-minhash 0.6", allow_hyphen_values = true)]
-        catch_args: String,
+        /// Step (stride) between candidate probes during tiling (only used with --method catch).
+        /// Smaller values generate more candidates and typically fewer final probes.
+        #[arg(long, default_value = "60")]
+        catch_stride: usize,
+
+        /// Maximum Hamming-distance mismatches allowed for a probe to cover a target window
+        /// (only used with --method catch).
+        #[arg(long, default_value = "5")]
+        catch_mismatches: usize,
+
+        /// Extend the covered interval by this many bp on each side of a probe match
+        /// (only used with --method catch).
+        #[arg(long, default_value = "0")]
+        catch_extension: usize,
+
+        /// Minimum fraction of each target sequence that must be covered
+        /// (only used with --method catch).
+        #[arg(long, default_value = "1.0")]
+        catch_coverage: f64,
+
+        /// Jaccard similarity threshold for MinHash near-duplicate removal of candidate probes;
+        /// 0.0 disables deduplication (only used with --method catch).
+        #[arg(long, default_value = "0.6")]
+        catch_minhash_threshold: f64,
 
         /// Minimum GC fraction to keep a probe (0-1)
         #[arg(long, default_value = "0.20")]
