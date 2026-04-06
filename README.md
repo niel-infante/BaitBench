@@ -11,7 +11,8 @@ Key capabilities:
 - **Sample discrimination** -- test whether probes can distinguish between organisms within the target panel by specifying a subset of targets as "present" in the sample
 - **Genome mode** -- model bacteria and other large pathogens where the probe target region is a small part of the full genome
 - **CT-based simulation** -- set target abundance using qPCR CT scores instead of abstract fractions
-- **Coverage curves** -- sweep parameters (CT, fold enrichment, sequencing depth) and visualize how coverage changes across conditions
+- **Thermodynamic simulation** -- probe binding sites scored by nearest-neighbor free energy (SantaLucia 1998); fragments biased toward high-affinity sites via multinomial sampling
+- **Coverage curves** -- sweep parameters (CT, capture fraction, sequencing depth) and visualize how coverage changes across conditions
 - **Probe QC** -- evaluate probe tiling coverage across targets independently of the simulation
 - **Species identification** -- call species present/absent from multi-target detection patterns, accounting for cross-reactive targets
 - **Panel QC** -- assess whether a target panel can discriminate between species before running simulations
@@ -225,7 +226,9 @@ baitbench assess-probes \
 | `--num-fragments` | 10000 | Number of fragments to simulate |
 | `--ct` | -- | CT score (alternative to `--distractor-fraction`) |
 | `--distractor-fraction` | 0.9 | Fraction of fragments from distractors |
-| `--fold-enrichment` | -- | Post-capture enrichment factor |
+| `--simulate-mode` | thermodynamic | `thermodynamic` (TNN Boltzmann weighting) or `simple` (uniform probe-site weights) |
+| `--hybridization-temperature` | 70.0 | Hybridization temperature in °C (thermodynamic mode only) |
+| `--capture-fraction` | 0.5 | Fraction of fragments from probe binding sites (vs. background) |
 | `--seed` | random | Random seed for reproducibility |
 | `--outdir` | ./results | Output directory |
 | `--output-prefix` | (empty) | String prepended to every auto-generated output filename |

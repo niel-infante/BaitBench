@@ -5,11 +5,12 @@ use std::path::{Path, PathBuf};
 
 use crate::cleanup;
 use crate::cli::ReportMode;
-use crate::commands::{capture, enrich, filter, generate_list, identify, map_reads, metrics, prepare, report, sequence, simulate};
+use crate::commands::{filter, generate_list, identify, map_reads, metrics, prepare, report, sequence, simulate};
 use crate::external::rscript;
 use crate::fasta;
 use crate::io_utils;
 use crate::io_utils::prefixed_join;
+use crate::sampling::thermo_sim::SimulateMode;
 
 pub struct RunArgs<'a> {
     pub targets: &'a Path,
@@ -26,10 +27,9 @@ pub struct RunArgs<'a> {
     pub ct_baseline: f64,
     pub ct_baseline_fraction: f64,
     pub seed: Option<u64>,
-    pub capture_method: capture::CaptureMethod,
-    pub max_mismatches: u32,
-    pub min_match_bases: u32,
-    pub blast_db: Option<String>,
+    pub simulate_mode: SimulateMode,
+    pub hybridization_temperature: f64,
+    pub capture_fraction: f64,
     pub minimap_preset: String,
     pub host_minimap_preset: String,
     pub fragment_length_mean: f64,
@@ -39,7 +39,6 @@ pub struct RunArgs<'a> {
     pub num_sequences: Option<usize>,
     pub outdir: PathBuf,
     pub threads: usize,
-    pub fold_enrichment: Option<f64>,
     pub identify: bool,
     pub identity_threshold: f64,
     pub min_unique_targets: usize,
@@ -53,6 +52,11 @@ pub fn execute(args: &RunArgs) -> Result<()> {
     fs::create_dir_all(outdir)?;
 
     let has_genomes = args.genomes.is_some();
+
+    let sim_mode_str = match args.simulate_mode {
+        SimulateMode::Thermodynamic => "thermodynamic",
+        SimulateMode::Simple => "simple",
+    };
 
     log::info!("=============================================");
     log::info!("BaitBench - Probe Capture Testing");
@@ -72,10 +76,11 @@ pub fn execute(args: &RunArgs) -> Result<()> {
             .map(|s| io_utils::format_sample_display(s))
             .unwrap_or_else(|| "none (all targets)".to_string())
     );
-    log::info!(
-        "Capture method      : {}",
-        if args.capture_method == capture::CaptureMethod::Blast { "blast" } else { "minimap2" }
-    );
+    log::info!("Simulate mode       : {}", sim_mode_str);
+    if matches!(args.simulate_mode, SimulateMode::Thermodynamic) {
+        log::info!("Hybridization temp  : {}°C", args.hybridization_temperature);
+    }
+    log::info!("Capture fraction    : {}", args.capture_fraction);
     log::info!(
         "Host FASTA          : {}",
         args.host_fasta
@@ -94,12 +99,6 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         log::info!("CT score            : {}", ct);
         log::info!("CT baseline         : {} (fraction {})", args.ct_baseline, args.ct_baseline_fraction);
     }
-    log::info!("Max mismatches      : {}", args.max_mismatches);
-    log::info!("Min match bases     : {}", args.min_match_bases);
-    log::info!(
-        "Fold enrichment     : {}",
-        args.fold_enrichment.map(|f| format!("{:.1}x", f)).unwrap_or_else(|| "none (binary capture)".to_string())
-    );
     log::info!(
         "Seed                : {}",
         args.seed.map(|s| s.to_string()).unwrap_or_else(|| "none".to_string())
@@ -130,11 +129,9 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         writeln!(f, "ct\t--ct\t{}", args.ct.map(|v| v.to_string()).unwrap_or_else(|| "none".to_string()))?;
         writeln!(f, "ct_baseline\t--ct-baseline\t{}", args.ct_baseline)?;
         writeln!(f, "ct_baseline_fraction\t--ct-baseline-fraction\t{}", args.ct_baseline_fraction)?;
-        writeln!(f, "capture_method\t--capture-method\t{}", if args.capture_method == capture::CaptureMethod::Blast { "blast" } else { "minimap2" })?;
-        writeln!(f, "max_mismatches\t--max-mismatches\t{}", args.max_mismatches)?;
-        writeln!(f, "min_match_bases\t--min-match-bases\t{}", args.min_match_bases)?;
-        writeln!(f, "fold_enrichment\t--fold-enrichment\t{}", args.fold_enrichment.map(|f| f.to_string()).unwrap_or_else(|| "none".to_string()))?;
-        writeln!(f, "blast_db\t--blast-db\t{}", args.blast_db.as_deref().unwrap_or("none"))?;
+        writeln!(f, "simulate_mode\t--simulate-mode\t{}", sim_mode_str)?;
+        writeln!(f, "hybridization_temperature\t--hybridization-temperature\t{}", args.hybridization_temperature)?;
+        writeln!(f, "capture_fraction\t--capture-fraction\t{}", args.capture_fraction)?;
         writeln!(f, "minimap_preset\t--minimap-preset\t{}", args.minimap_preset)?;
         writeln!(f, "host_minimap_preset\t--host-minimap-preset\t{}", args.host_minimap_preset)?;
         writeln!(f, "fragment_length_mean\t--fragment-length-mean\t{}", args.fragment_length_mean)?;
@@ -149,7 +146,7 @@ pub fn execute(args: &RunArgs) -> Result<()> {
     }
 
     // Step 1: Prepare reference
-    log::info!("Step 1/8: Preparing reference...");
+    log::info!("Step 1/7: Preparing reference...");
     prepare::execute(&prepare::PrepareArgs {
         targets: args.targets,
         genomes: args.genomes,
@@ -161,61 +158,29 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         output_prefix: pfx,
     })?;
 
-    // Step 2: Simulate fragments
-    log::info!("Step 2/8: Simulating fragments...");
+    // Step 2: Simulate fragments (probe-biased + background)
+    log::info!("Step 2/7: Simulating fragments (mode={}, capture_fraction={:.2})...",
+        sim_mode_str, args.capture_fraction);
     simulate::execute(&simulate::SimulateArgs {
         reference: &prefixed_join(outdir, pfx, "combined_reference.fa"),
         weights: &prefixed_join(outdir, pfx, "weights.txt"),
+        probes: args.probes,
         num_fragments: args.num_fragments,
+        capture_fraction: args.capture_fraction,
+        simulate_mode: args.simulate_mode,
+        hybridization_temperature: args.hybridization_temperature,
         seed: args.seed,
         output: &prefixed_join(outdir, pfx, "fragments.fa"),
         fragment_length_mean: args.fragment_length_mean,
         fragment_length_min: args.fragment_length_min,
         fragment_length_max: args.fragment_length_max,
-    })?;
-
-    // Step 3: Capture
-    log::info!("Step 3/8: Simulating capture...");
-    capture::execute(&capture::CaptureArgs {
-        method: args.capture_method,
-        probes: args.probes,
-        fragments: &prefixed_join(outdir, pfx, "fragments.fa"),
-        max_mismatches: args.max_mismatches,
-        min_match_bases: args.min_match_bases,
-        blast_db: args.blast_db.as_deref(),
-        output: &prefixed_join(outdir, pfx, "captured.fa"),
-        log_file: &prefixed_join(outdir, pfx, "capture.log"),
         threads: args.threads,
     })?;
 
-    // Step 3b: Optional fold enrichment adjustment
-    // In genomes mode, enrich classifies by genome IDs (genomes.txt), not target IDs
-    let enrich_targets_file = if has_genomes {
-        prefixed_join(outdir, pfx, "genomes.txt")
-    } else {
-        prefixed_join(outdir, pfx, "targets.txt")
-    };
-
-    let capture_output = if let Some(fe) = args.fold_enrichment {
-        log::info!("Step 3b: Applying {:.1}x fold enrichment...", fe);
-        enrich::execute(&enrich::EnrichArgs {
-            captured: &prefixed_join(outdir, pfx, "captured.fa"),
-            fragments: &prefixed_join(outdir, pfx, "fragments.fa"),
-            targets: &enrich_targets_file,
-            distractors: &prefixed_join(outdir, pfx, "distractors.txt"),
-            fold_enrichment: fe,
-            seed: args.seed,
-            output: &prefixed_join(outdir, pfx, "enriched.fa"),
-        })?;
-        prefixed_join(outdir, pfx, "enriched.fa")
-    } else {
-        prefixed_join(outdir, pfx, "captured.fa")
-    };
-
-    // Step 4: Sequence captured fragments into reads
-    log::info!("Step 4/8: Sequencing captured fragments...");
+    // Step 3: Sequence fragments into reads
+    log::info!("Step 3/7: Sequencing fragments...");
     sequence::execute(&sequence::SequenceArgs {
-        input: &capture_output,
+        input: &prefixed_join(outdir, pfx, "fragments.fa"),
         output: &prefixed_join(outdir, pfx, "reads.fa"),
         read_length: args.read_length,
         num_sequences: args.num_sequences,
@@ -224,9 +189,9 @@ pub fn execute(args: &RunArgs) -> Result<()> {
     let reads_sequenced = fasta::count_sequences(&prefixed_join(outdir, pfx, "reads.fa"))?;
     log::info!("  Reads after sequencing: {}", reads_sequenced);
 
-    // Step 5: Optional host filtering
+    // Step 4: Optional host filtering
     let (reads_for_mapping, reads_after_filter) = if let Some(host) = args.host_fasta {
-        log::info!("Step 5/8: Filtering host reads...");
+        log::info!("Step 4/7: Filtering host reads...");
         filter::execute(&filter::FilterArgs {
             host,
             reads: &prefixed_join(outdir, pfx, "reads.fa"),
@@ -238,11 +203,11 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         log::info!("  Reads after host filtering: {}", count);
         (prefixed_join(outdir, pfx, "filtered.fa"), Some(count))
     } else {
-        log::info!("Step 5/8: Skipping host filtering (no host genome provided)");
+        log::info!("Step 4/7: Skipping host filtering (no host genome provided)");
         (prefixed_join(outdir, pfx, "reads.fa"), None)
     };
 
-    // Step 6: Map reads
+    // Step 5: Map reads
     // In genomes mode, map to mapping_reference.fa (targets + distractors)
     // In standard mode, map to combined_reference.fa (targets + distractors, same thing)
     let mapping_reference = if has_genomes {
@@ -251,7 +216,7 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         prefixed_join(outdir, pfx, "combined_reference.fa")
     };
 
-    log::info!("Step 6/8: Mapping reads to reference...");
+    log::info!("Step 5/7: Mapping reads to reference...");
     map_reads::execute(&map_reads::MapArgs {
         reference: &mapping_reference,
         reads: &reads_for_mapping,
@@ -260,15 +225,15 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         log_file: &prefixed_join(outdir, pfx, "mapping.log"),
     })?;
 
-    // Step 7: Generate detection list
-    log::info!("Step 7/8: Generating detection list...");
+    // Step 6: Generate detection list
+    log::info!("Step 6/7: Generating detection list...");
     generate_list::execute(&generate_list::ListArgs {
         sam: &prefixed_join(outdir, pfx, "mapped.sam"),
         output: &prefixed_join(outdir, pfx, "detected.list"),
     })?;
 
-    // Step 8: Calculate metrics and coverage
-    log::info!("Step 8/8: Calculating metrics and coverage...");
+    // Step 7: Calculate metrics and coverage
+    log::info!("Step 7/7: Calculating metrics and coverage...");
     let seed_str = args
         .seed
         .map(|s| s.to_string())
@@ -280,14 +245,16 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         None
     };
 
+    let fragments_path = prefixed_join(outdir, pfx, "fragments.fa");
+
     metrics::execute(&metrics::MetricsArgs {
         targets: &prefixed_join(outdir, pfx, "targets.txt"),
         distractors: &prefixed_join(outdir, pfx, "distractors.txt"),
         sample: &prefixed_join(outdir, pfx, "sample.txt"),
         sample_target_map: sample_target_map_path.as_deref(),
         detected: &prefixed_join(outdir, pfx, "detected.list"),
-        fragments: &prefixed_join(outdir, pfx, "fragments.fa"),
-        captured: &capture_output,
+        fragments: &fragments_path,
+        captured: &fragments_path, // fragments IS the post-capture pool in the new pipeline
         sam: &prefixed_join(outdir, pfx, "mapped.sam"),
         run_name: &args.run_name,
         num_fragments: args.num_fragments,
@@ -307,7 +274,7 @@ pub fn execute(args: &RunArgs) -> Result<()> {
                 "--identify requires genome mode (--genomes) and --sample-target-map. Skipping species identification."
             );
         } else {
-            log::info!("Step 9: Species identification...");
+            log::info!("Step 8: Species identification...");
             match identify::execute(&identify::IdentifyArgs {
                 detected_detail: &prefixed_join(outdir, pfx, "detected_detail.tsv"),
                 sample_target_map: &prefixed_join(outdir, pfx, "sample_target_map.txt"),
@@ -391,13 +358,10 @@ pub fn execute(args: &RunArgs) -> Result<()> {
             "genomes.txt",
             "sample_target_map.txt",
             "fragments.fa",
-            "captured.fa",
-            "enriched.fa",
             "reads.fa",
             "filtered.fa",
             "mapped.sam",
             "detected.list",
-            "capture.log",
             "mapping.log",
             "host_filter.log",
         ]

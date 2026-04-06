@@ -10,12 +10,14 @@ mod sampling;
 mod sdust;
 mod syotti;
 mod target_similarity;
+mod thermodynamics;
 
 use anyhow::{bail, Result};
 use clap::Parser;
 
 use cli::{Cli, Commands};
-use commands::{assess_probes, build_probes, capture, coverage_curve, enrich, filter, generate_list, identify, map_reads, metrics, panel_qc, prepare, probe_coverage, report, run, sequence, simulate, xreact};
+use commands::{assess_probes, build_probes, coverage_curve, filter, generate_list, identify, map_reads, metrics, panel_qc, prepare, probe_coverage, report, run, sequence, simulate, xreact};
+use sampling::thermo_sim::SimulateMode as ThSimMode;
 use io_utils::resolve_sample_arg;
 
 /// Default distractor fraction when neither --distractor-fraction nor --ct is specified.
@@ -88,10 +90,9 @@ fn main() -> Result<()> {
             ct_baseline,
             ct_baseline_fraction,
             seed,
-            capture_method,
-            max_mismatches,
-            min_match_bases,
-            blast_db,
+            simulate_mode,
+            hybridization_temperature,
+            capture_fraction,
             minimap_preset,
             host_minimap_preset,
             fragment_length_mean,
@@ -102,7 +103,6 @@ fn main() -> Result<()> {
             outdir,
             output_prefix,
             threads,
-            fold_enrichment,
             identify,
             identity_threshold,
             min_unique_targets,
@@ -128,6 +128,11 @@ fn main() -> Result<()> {
             });
             let full_outdir = outdir.join(&run_name);
 
+            let sim_mode = match simulate_mode {
+                cli::SimulateMode::Thermodynamic => ThSimMode::Thermodynamic,
+                cli::SimulateMode::Simple => ThSimMode::Simple,
+            };
+
             run::execute(&run::RunArgs {
                 targets: &targets,
                 genomes: genomes.as_deref(),
@@ -143,10 +148,9 @@ fn main() -> Result<()> {
                 ct_baseline,
                 ct_baseline_fraction,
                 seed,
-                capture_method: capture_method.into(),
-                max_mismatches,
-                min_match_bases,
-                blast_db,
+                simulate_mode: sim_mode,
+                hybridization_temperature,
+                capture_fraction,
                 minimap_preset,
                 host_minimap_preset,
                 fragment_length_mean,
@@ -156,7 +160,6 @@ fn main() -> Result<()> {
                 num_sequences,
                 outdir: full_outdir,
                 threads,
-                fold_enrichment,
                 identify,
                 identity_threshold,
                 min_unique_targets,
@@ -208,66 +211,36 @@ fn main() -> Result<()> {
         Commands::Simulate {
             reference,
             weights,
+            probes,
             num_fragments,
+            capture_fraction,
+            simulate_mode,
+            hybridization_temperature,
             seed,
             output,
             fragment_length_mean,
             fragment_length_min,
             fragment_length_max,
+            threads,
         } => {
+            let sim_mode = match simulate_mode {
+                cli::SimulateMode::Thermodynamic => ThSimMode::Thermodynamic,
+                cli::SimulateMode::Simple => ThSimMode::Simple,
+            };
             simulate::execute(&simulate::SimulateArgs {
                 reference: &reference,
                 weights: &weights,
+                probes: &probes,
                 num_fragments,
+                capture_fraction,
+                simulate_mode: sim_mode,
+                hybridization_temperature,
                 seed,
                 output: &output,
                 fragment_length_mean,
                 fragment_length_min,
                 fragment_length_max,
-            })?;
-        }
-
-        Commands::Capture {
-            probes,
-            fragments,
-            method,
-            max_mismatches,
-            min_match_bases,
-            blast_db,
-            output,
-            log_file,
-            threads,
-        } => {
-            capture::execute(&capture::CaptureArgs {
-                method: method.into(),
-                probes: &probes,
-                fragments: &fragments,
-                max_mismatches,
-                min_match_bases,
-                blast_db: blast_db.as_deref(),
-                output: &output,
-                log_file: &log_file,
                 threads,
-            })?;
-        }
-
-        Commands::Enrich {
-            captured,
-            fragments,
-            targets,
-            distractors,
-            fold_enrichment,
-            seed,
-            output,
-        } => {
-            enrich::execute(&enrich::EnrichArgs {
-                captured: &captured,
-                fragments: &fragments,
-                targets: &targets,
-                distractors: &distractors,
-                fold_enrichment,
-                seed,
-                output: &output,
             })?;
         }
 
@@ -604,8 +577,10 @@ fn main() -> Result<()> {
             distractor_fraction,
             ct_baseline,
             ct_baseline_fraction,
-            fold_enrichment_values,
-            fold_enrichment,
+            capture_fraction_values,
+            capture_fraction,
+            simulate_mode,
+            hybridization_temperature,
             num_sequences_values,
             num_sequences,
             num_fragments,
@@ -614,10 +589,6 @@ fn main() -> Result<()> {
             fragment_length_mean,
             fragment_length_min,
             fragment_length_max,
-            capture_method,
-            max_mismatches,
-            min_match_bases,
-            blast_db,
             host_fasta,
             minimap_preset,
             host_minimap_preset,
@@ -653,12 +624,12 @@ fn main() -> Result<()> {
                     (vec![df], vec![df])
                 };
 
-            // Resolve FE dimension: --fold-enrichment-values (sweep) or --fold-enrichment (fixed)
-            let resolved_fe_values: Vec<Option<f64>> = if let Some(fe_vals) = fold_enrichment_values {
-                swept_params.push("fold_enrichment".to_string());
-                fe_vals.into_iter().map(Some).collect()
+            // Resolve capture-fraction dimension: --capture-fraction-values (sweep) or --capture-fraction (fixed)
+            let resolved_cf_values: Vec<f64> = if let Some(cf_vals) = capture_fraction_values {
+                swept_params.push("capture_fraction".to_string());
+                cf_vals
             } else {
-                vec![fold_enrichment]
+                vec![capture_fraction]
             };
 
             // Resolve NS dimension: --num-sequences-values (sweep) or --num-sequences (fixed)
@@ -667,6 +638,11 @@ fn main() -> Result<()> {
                 ns_vals.into_iter().map(Some).collect()
             } else {
                 vec![num_sequences]
+            };
+
+            let sim_mode = match simulate_mode {
+                cli::SimulateMode::Thermodynamic => ThSimMode::Thermodynamic,
+                cli::SimulateMode::Simple => ThSimMode::Simple,
             };
 
             coverage_curve::execute(&coverage_curve::CoverageCurveArgs {
@@ -678,19 +654,17 @@ fn main() -> Result<()> {
                 sample_target_map: resolved_stm.as_ref(),
                 ct_display_values,
                 ct_distractor_fractions,
-                fe_values: resolved_fe_values,
+                cf_values: resolved_cf_values,
                 ns_values: resolved_ns_values,
                 swept_params,
+                simulate_mode: sim_mode,
+                hybridization_temperature,
                 num_fragments,
                 read_length,
                 seed,
                 fragment_length_mean,
                 fragment_length_min,
                 fragment_length_max,
-                capture_method: capture_method.into(),
-                max_mismatches,
-                min_match_bases,
-                blast_db: blast_db.as_deref(),
                 host_fasta: host_fasta.as_deref(),
                 minimap_preset: &minimap_preset,
                 host_minimap_preset: &host_minimap_preset,

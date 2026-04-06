@@ -12,7 +12,7 @@ Complete reference for BaitBench, an in-silico probe capture simulation tool.
   - [Sample Manifest](#sample-manifest)
   - [3-Way Classification](#3-way-classification)
   - [CT Scores](#ct-scores)
-  - [Fold Enrichment](#fold-enrichment)
+  - [Capture Fraction and Thermodynamic Simulation](#capture-fraction-and-thermodynamic-simulation)
   - [Weight Calculation](#weight-calculation)
   - [Sequence ID Conventions](#sequence-id-conventions)
 - [Pipeline Flowcharts](#pipeline-flowcharts)
@@ -22,8 +22,6 @@ Complete reference for BaitBench, an in-silico probe capture simulation tool.
   - [run](#run)
   - [prepare](#prepare)
   - [simulate](#simulate)
-  - [capture](#capture)
-  - [enrich](#enrich)
   - [sequence](#sequence)
   - [filter](#filter)
   - [map](#map)
@@ -43,7 +41,7 @@ Complete reference for BaitBench, an in-silico probe capture simulation tool.
   - [Fragment Generation](#fragment-generation)
   - [Target Abundance](#target-abundance)
   - [CT Score Parameters](#ct-score-parameters)
-  - [Capture Parameters](#capture-parameters)
+  - [Simulation Parameters](#simulation-parameters)
   - [Sequencing Parameters](#sequencing-parameters)
   - [Execution Parameters](#execution-parameters)
 - [CT Score Calculation](#ct-score-calculation)
@@ -64,7 +62,7 @@ Complete reference for BaitBench, an in-silico probe capture simulation tool.
   - [Genome Mode for Bacteria](#genome-mode-for-bacteria)
   - [Mixed Panels (Virus + Bacteria)](#mixed-panels-virus--bacteria)
   - [Multiple Distractor Sources](#multiple-distractor-sources)
-  - [Fold Enrichment Modeling](#fold-enrichment-modeling)
+  - [Capture Fraction Sweep](#capture-fraction-sweep)
   - [Sequencing Depth Control](#sequencing-depth-control)
   - [Host Filtering](#host-filtering)
   - [Coverage Curve Analysis](#coverage-curve-analysis)
@@ -104,7 +102,7 @@ BaitBench simulates a probe capture and sequencing workflow to evaluate how well
 - How does performance change at different target abundances (CT values)?
 - What sequencing depth is needed for adequate genome coverage?
 
-The tool generates weighted random fragments from target and distractor sequences, simulates probe capture using minimap2 or BLAST, maps the resulting reads back to references, and computes detection and coverage metrics.
+The tool aligns probes to reference sequences, scores each binding site using thermodynamic nearest-neighbor free energy (SantaLucia 1998), and generates fragments biased toward high-affinity binding sites. Background fragments fill the remainder. Reads are then mapped back to references and detection metrics are computed.
 
 ## Installation
 
@@ -135,8 +133,8 @@ Installed via `environment.yml`:
 
 | Tool | Version | Purpose |
 |------|---------|---------|
-| minimap2 | >= 2.24 | Sequence alignment (capture, mapping, filtering) |
-| BLAST+ | >= 2.12 | Alternative capture method |
+| minimap2 | >= 2.24 | Sequence alignment (simulate, mapping, filtering) |
+| BLAST+ | >= 2.12 | Cross-reactivity analysis (xreact) |
 | R | >= 4.2 | Report generation (optional) |
 | r-ggplot2 | >= 3.4 | Figures |
 | r-rmarkdown | >= 2.20 | HTML report rendering |
@@ -159,15 +157,13 @@ R and its packages are only required for full HTML report generation (`--report 
 BaitBench runs a multi-step simulation pipeline:
 
 1. **Prepare** -- Combine target and distractor sequences; generate sampling weights
-2. **Simulate** -- Generate random DNA fragments proportional to weights
-3. **Capture** -- Align fragments against probes; keep those that hybridize
-4. **Enrich** (optional) -- Adjust target:distractor ratio to model fold enrichment
-5. **Sequence** -- Trim fragments to read length; optionally sample to model sequencing depth
-6. **Filter** (optional) -- Remove reads mapping to a host genome
-7. **Map** -- Align reads back to reference sequences
-8. **List** -- Count reads per reference
-9. **Metrics** -- Classify each reference as TP/FP/FN/TN; compute summary statistics
-10. **Report** (optional) -- Generate HTML report with figures
+2. **Simulate** -- Align probes to reference; score binding sites by TNN thermodynamics; generate probe-biased fragments + background (controlled by `--capture-fraction`)
+3. **Sequence** -- Trim fragments to read length; optionally sample to model sequencing depth
+4. **Filter** (optional) -- Remove reads mapping to a host genome
+5. **Map** -- Align reads back to reference sequences
+6. **List** -- Count reads per reference
+7. **Metrics** -- Classify each reference as TP/FP/FN/TN; compute summary statistics
+8. **Report** (optional) -- Generate HTML report with figures
 
 The `baitbench run` command chains all steps automatically. Each step is also available as a standalone subcommand for custom workflows.
 
@@ -211,13 +207,13 @@ CT (cycle threshold) scores from qPCR provide a natural way to express target ab
 
 See [CT Score Calculation](#ct-score-calculation) for the formula, default calibration, and how to customize it.
 
-### Fold Enrichment
+### Capture Fraction and Thermodynamic Simulation
 
-Post-capture enrichment adjusts the ratio of target to distractor fragments after the capture step. A fold enrichment of 100 means the target:distractor ratio is 100x higher after enrichment than before capture.
+`--capture-fraction` (default 0.5) controls what fraction of simulated fragments come from probe binding sites. The remaining fraction are background fragments drawn uniformly by sequence weight × length.
 
-When `--fold-enrichment` is specified, BaitBench adjusts the captured fragment pool by either subsampling captured distractors or adding back uncaptured distractors to achieve the requested enrichment ratio.
+Probe binding sites are scored using the SantaLucia (1998) nearest-neighbor thermodynamic model: ΔG is computed from consecutive Watson-Crick stacking interactions along each probe-reference alignment, and the Boltzmann factor `exp(-ΔG / RT)` weights sampling toward high-affinity sites. Use `--simulate-mode simple` to skip TNN scoring and use uniform weights instead (no temperature required).
 
-When omitted, the capture step operates as binary (captured or not) with no ratio adjustment.
+Target enrichment is emergent from TNN affinity × sequence weights rather than being imposed post-hoc — sequences with weight 0.0 (non-sample targets) never generate probe-biased fragments. Fold enrichment is no longer a parameter.
 
 ### Weight Calculation
 
@@ -268,42 +264,21 @@ sample (optional) ───┤         │                            weights.tx
                                │
                                ▼
 combined_reference.fa ──┐
-                        ├─ 2. SIMULATE ────────────────── fragments.fa
-weights.txt ────────────┤      │
---num-fragments ────────┤      │
+probes.fa ──────────────┤
+weights.txt ────────────┤ 2. SIMULATE ────────────────── fragments.fa
+--num-fragments ────────┤      │      (probe-biased + background)
+--capture-fraction ─────┤      │
+--simulate-mode ────────┤      │
+--hybridization-temp ───┤      │
 --fragment-length-* ────┤      │
 --seed ─────────────────┘      │
                                │
                                ▼
 fragments.fa ───────────┐
-                        ├─ 3. CAPTURE ─────────────────── captured.fa
-probes.fa ──────────────┤      │
---capture-method ───────┤      │
---min-match-bases ──────┤      │
---max-mismatches ───────┘      │
-                               │
-                      ┌────────┴────────┐
-                      │ --fold-enrichment│
-                      │   specified?     │
-                      └──┬───────────┬───┘
-                     yes │           │ no
-                         ▼           │
-captured.fa ─────┐                   │
-fragments.fa ────┤                   │
-targets.txt ─────┤ 3b. ENRICH       │
-distractors.txt ─┤    │             │
---fold-enrichment┤    │             │
---seed ──────────┘    │             │
-                      ▼             │
-               enriched.fa          │
-                      │             │
-                      ▼             ▼
-                 (enriched or captured).fa
-                      │
-                      ├─ 4. SEQUENCE ──────────────────── reads.fa
---read-length ────────┤      │
---num-sequences ──────┤      │
---seed ───────────────┘      │
+                        ├─ 3. SEQUENCE ──────────────────── reads.fa
+--read-length ──────────┤      │
+--num-sequences ────────┤      │
+--seed ─────────────────┘      │
                              │
                     ┌────────┴────────┐
                     │  --host-fasta   │
@@ -312,7 +287,7 @@ distractors.txt ─┤    │             │
                    yes │          │ no
                        ▼          │
 reads.fa ───────┐                 │
-host.fa ────────┤ 5. FILTER       │
+host.fa ────────┤ 4. FILTER       │
 --host-minimap- ┤    │            │
   preset ───────┘    │            │
                      ▼            │
@@ -321,25 +296,25 @@ host.fa ────────┤ 5. FILTER       │
                      ▼            ▼
               (filtered or reads).fa
                      │
-combined_            ├─ 6. MAP ────────────────────────── mapped.sam
+combined_            ├─ 5. MAP ────────────────────────── mapped.sam
   reference.fa ──────┤      │
 --minimap-preset ────┘      │
                             │
                             ▼
-mapped.sam ──────────── 7. LIST ───────────────────────── detected.list
+mapped.sam ──────────── 6. LIST ───────────────────────── detected.list
                             │
                             ▼
 targets.txt ─────────┐
 distractors.txt ─────┤
 sample.txt ──────────┤
-detected.list ───────┤ 8. METRICS ────────────────────── results.tsv
+detected.list ───────┤ 7. METRICS ────────────────────── results.tsv
 fragments.fa ────────┤                                    detected_detail.tsv
-captured.fa ─────────┤                                    results.json
+fragments.fa ────────┤                                    results.json
 mapped.sam ──────────┘                                    coverage.tsv
                             │
                             ▼
 results.tsv ─────────┐
-detected_detail.tsv ─┤ 9. REPORT (optional) ──────────── report.html
+detected_detail.tsv ─┤ 8. REPORT (optional) ──────────── report.html
 run_params.tsv ──────┤
 coverage.tsv ────────┘
 ```
@@ -368,32 +343,31 @@ sample-target-map ───┤                                        (targets +
                                                             sample.txt
                                                             sample_target_map.txt
 
-    Steps 2-5 are identical to standard mode, except:
-      - Simulate uses combined_reference.fa (genomes + distractors)
-      - Enrich uses genomes.txt to classify fragment sources
+    Steps 2-4 are identical to standard mode:
+      - Simulate uses combined_reference.fa (genomes + distractors); probes align to genomes
 
-                     ... (steps 2-5) ...
+                     ... (steps 2-4) ...
 
               (filtered or reads).fa
                      │
-mapping_             ├─ 6. MAP ────────────────────────── mapped.sam
+mapping_             ├─ 5. MAP ────────────────────────── mapped.sam
   reference.fa ──────┤       (targets + distractors)
                      │
                             │
                             ▼
-                     ... (step 7 same) ...
+                     ... (step 6 same) ...
                             │
                             ▼
 targets.txt ─────────┐
 distractors.txt ─────┤
 sample.txt ──────────┤
-sample_target_map ───┤ 8. METRICS ────────────────────── results.tsv
+sample_target_map ───┤ 7. METRICS ────────────────────── results.tsv
 detected.list ───────┤   (genome-aware classification)    detected_detail.tsv
 fragments.fa ────────┤                                    results.json
-captured.fa ─────────┤                                    coverage.tsv
+fragments.fa ────────┤                                    coverage.tsv
 mapped.sam ──────────┘
 
-                     ... (step 9 same) ...
+                     ... (step 8 same) ...
 ```
 
 Key differences in genome mode:
@@ -466,56 +440,13 @@ Fragment lengths follow a truncated normal distribution clamped to [min, max]. F
 **Output files:**
 - `fragments.fa` -- simulated DNA fragments
 
-### capture
-
-Aligns fragments against probes to simulate hybridization capture.
-
-```bash
-baitbench capture \
-  --probes probes.fa \
-  --fragments fragments.fa \
-  --output captured.fa \
-  [--method minimap2|blast] \
-  [--min-match-bases 60] \
-  [--max-mismatches 10] \
-  [--blast-db path] \
-  [--threads 1]
-```
-
-minimap2 mode: Aligns fragments to probes using minimap2, then filters the PAF output by matching bases, mismatches, and indels.
-
-BLAST mode: Runs blastn, then filters by identity and gaps. Requires `--blast-db` pointing to a pre-built BLAST database.
-
-**Output files:**
-- `captured.fa` -- fragments that pass the capture filter
-
-### enrich
-
-Adjusts the post-capture fragment pool to achieve a target fold enrichment.
-
-```bash
-baitbench enrich \
-  --captured captured.fa \
-  --fragments fragments.fa \
-  --targets targets.txt \
-  --distractors distractors.txt \
-  --fold-enrichment 100 \
-  --output enriched.fa \
-  [--seed 42]
-```
-
-Fold enrichment is the ratio of target:distractor proportions post-enrichment vs pre-capture. A value of 100 means the target:distractor ratio improves 100-fold after enrichment.
-
-**Output files:**
-- `enriched.fa` -- enriched fragment pool
-
 ### sequence
 
 Simulates sequencing by trimming fragments to read length.
 
 ```bash
 baitbench sequence \
-  --input captured.fa \
+  --input fragments.fa \
   --output reads.fa \
   [--read-length 120] \
   [--num-sequences 5000] \
@@ -585,7 +516,7 @@ baitbench metrics \
   --sample sample.txt \
   --detected detected.list \
   --fragments fragments.fa \
-  --captured captured.fa \
+  --captured fragments.fa \
   --sam mapped.sam \
   --run-name "my_run" \
   --num-fragments 10000 \
@@ -740,7 +671,7 @@ baitbench coverage-curve \
   --probes probes.fa \
   --sample dengue_1 zika_virus \
   [--ct-values 20 25 30 | --ct 25] \
-  [--fold-enrichment-values 10 100 | --fold-enrichment 100] \
+  [--capture-fraction-values 0.3 0.5 0.8 | --capture-fraction 0.5] \
   [--num-sequences-values 100 500 | --num-sequences 500] \
   [--outdir coverage_curve_results] \
   [--cleanup] \
@@ -752,18 +683,18 @@ Three parameters can be swept (each has a singular fixed form and a plural sweep
 | Sweep flag | Fixed flag | Description |
 |-----------|------------|-------------|
 | `--ct-values 20 25 30` | `--ct 25` | CT values |
-| `--fold-enrichment-values 10 100` | `--fold-enrichment 100` | Fold enrichment values |
+| `--capture-fraction-values 0.3 0.5 0.8` | `--capture-fraction 0.5` | Capture fraction (probe-biased fragment proportion) |
 | `--num-sequences-values 100 500` | `--num-sequences 500` | Number of sequences to sample |
 
 Sweep and fixed forms of the same parameter are mutually exclusive. `--ct-values` and `--distractor-fraction` are also mutually exclusive.
 
 `--sample` is **required** for coverage-curve (must specify which targets to track).
 
-The pipeline shares intermediate files across combinations for efficiency: prepare/simulate/capture are shared per CT value; enrich is shared per CT x fold-enrichment combination.
+The pipeline shares intermediate files across combinations for efficiency: prepare is shared per CT value; simulate is shared per CT x capture-fraction combination.
 
 **Output files:**
-- Combo subdirectories named by swept params (e.g., `ct_20/`, `ct_20_fe_100/`, `ct_20_fe_100_ns_500/`)
-- `coverage_curve_depth_curves.tsv` -- aggregated depth data
+- Combo subdirectories named by swept params (e.g., `ct_20/`, `ct_20_cf_0.50/`, `ct_20_cf_0.50_ns_500/`)
+- `coverage_curve_depth_curves.tsv` -- aggregated depth data (columns: ct, capture_fraction, num_sequences, ...)
 - `coverage_curve_report.html` -- HTML report with depth curves (`--report full`)
 - `coverage_curve_report.Rmd` -- editable RMarkdown file (`--report rmd`)
 
@@ -1241,15 +1172,13 @@ These parameters calibrate the CT-to-fraction conversion. Only relevant when usi
 
 See [CT Score Calculation](#ct-score-calculation) for details.
 
-### Capture Parameters
+### Simulation Parameters
 
 | Parameter | Flag | Default | Description |
 |-----------|------|---------|-------------|
-| Capture method | `--capture-method` | minimap2 | Alignment tool for capture: `minimap2` or `blast` |
-| Min match bases | `--min-match-bases` | 60 | Minimum number of matching bases for a fragment to be considered captured |
-| Max mismatches | `--max-mismatches` | 10 | Maximum mismatches allowed (minimap2 only) |
-| BLAST database | `--blast-db` | none | Path to pre-built BLAST database (required if `--capture-method blast`) |
-| Fold enrichment | `--fold-enrichment` | none | Post-capture enrichment factor (>= 1.0). Omit for binary capture |
+| Simulate mode | `--simulate-mode` | thermodynamic | `thermodynamic` (TNN Boltzmann weighting) or `simple` (uniform probe-site weights) |
+| Hybridization temperature | `--hybridization-temperature` | 70.0 | Hybridization temperature in °C; only used in thermodynamic mode |
+| Capture fraction | `--capture-fraction` | 0.5 | Fraction of fragments from probe binding sites (0.0–1.0); remainder are background |
 
 ### Sequencing Parameters
 
@@ -1376,9 +1305,7 @@ results/run_20250101_120000/
 ├── sample.txt                  # Sample sequence IDs
 ├── genomes.txt                 # Genome IDs (genome mode only)
 ├── sample_target_map.txt       # Genome-to-target mapping (genome mode only)
-├── fragments.fa                # Simulated DNA fragments
-├── captured.fa                 # Fragments passing capture filter
-├── enriched.fa                 # Post-enrichment fragments (if --fold-enrichment)
+├── fragments.fa                # Simulated DNA fragments (probe-biased + background)
 ├── reads.fa                    # Sequencing reads (trimmed to read length)
 ├── filtered.fa                 # Host-filtered reads (if --host-fasta)
 ├── mapped.sam                  # Read alignments to reference
@@ -1644,27 +1571,39 @@ baitbench run \
 
 All distractor sequences are concatenated and share the same per-sequence weight.
 
-### Fold Enrichment Modeling
+### Capture Fraction Sweep
 
-Model post-capture enrichment:
+Control what fraction of simulated fragments come from probe binding sites. With thermodynamic mode (default), high-affinity probe-reference alignments receive higher weight.
 
 ```bash
-# Binary capture (no enrichment adjustment)
+# Default: 50% probe-biased, 50% background (thermodynamic mode)
 baitbench run \
   --targets targets.fa \
   --distractors distractors.fa \
   --probes probes.fa \
   --num-fragments 10000 \
-  --outdir results_binary
+  --capture-fraction 0.5 \
+  --outdir results_thermo
 
-# 100x fold enrichment
+# High capture fraction with simple (uniform) weighting
 baitbench run \
   --targets targets.fa \
   --distractors distractors.fa \
   --probes probes.fa \
-  --fold-enrichment 100 \
+  --simulate-mode simple \
+  --capture-fraction 0.8 \
   --num-fragments 10000 \
-  --outdir results_enriched
+  --outdir results_simple
+
+# Sweep capture fractions with coverage-curve
+baitbench coverage-curve \
+  --targets targets.fa \
+  --distractors distractors.fa \
+  --probes probes.fa \
+  --sample target_1 target_2 \
+  --capture-fraction-values 0.2 0.4 0.6 0.8 \
+  --ct 25 \
+  --outdir cf_sweep
 ```
 
 ### Sequencing Depth Control
@@ -1713,16 +1652,16 @@ baitbench coverage-curve \
   --seed 42 \
   --outdir coverage_ct
 
-# Sweep CT and fold enrichment (combinatorial)
+# Sweep CT and capture fraction (combinatorial)
 baitbench coverage-curve \
   --targets targets.fa \
   --distractors distractors.fa \
   --probes probes.fa \
   --sample dengue_1 \
   --ct-values 20 25 30 \
-  --fold-enrichment-values 10 100 \
+  --capture-fraction-values 0.3 0.5 0.7 \
   --num-fragments 10000 \
-  --outdir coverage_ct_fe
+  --outdir coverage_ct_cf
 
 # Sweep all three parameters
 baitbench coverage-curve \
@@ -1731,21 +1670,21 @@ baitbench coverage-curve \
   --probes probes.fa \
   --sample dengue_1 \
   --ct-values 20 25 30 \
-  --fold-enrichment-values 10 100 \
+  --capture-fraction-values 0.3 0.5 0.7 \
   --num-sequences-values 500 1000 5000 \
   --num-fragments 10000 \
   --outdir coverage_full
 
-# Fixed CT with fold enrichment sweep
+# Fixed CT with capture fraction sweep
 baitbench coverage-curve \
   --targets targets.fa \
   --distractors distractors.fa \
   --probes probes.fa \
   --sample dengue_1 \
   --ct 25 \
-  --fold-enrichment-values 1 10 100 1000 \
+  --capture-fraction-values 0.1 0.3 0.5 0.7 0.9 \
   --num-fragments 10000 \
-  --outdir coverage_fe
+  --outdir coverage_cf
 ```
 
 ### Probe Design QC
@@ -1962,46 +1901,41 @@ baitbench prepare \
   --distractor-fraction 0.95 \
   --outdir prep
 
-# 2. Simulate
+# 2. Simulate (probe alignment + TNN scoring + multinomial sampling)
 baitbench simulate \
   --reference prep/combined_reference.fa \
   --weights prep/weights.txt \
+  --probes probes.fa \
   --num-fragments 50000 \
+  --capture-fraction 0.5 \
   --seed 42 \
   --output prep/fragments.fa
 
-# 3. Capture
-baitbench capture \
-  --probes probes.fa \
-  --fragments prep/fragments.fa \
-  --min-match-bases 80 \
-  --output prep/captured.fa
-
-# 4. Sequence
+# 3. Sequence
 baitbench sequence \
-  --input prep/captured.fa \
+  --input prep/fragments.fa \
   --read-length 150 \
   --output prep/reads.fa
 
-# 5. Map
+# 4. Map
 baitbench map \
   --reference prep/combined_reference.fa \
   --reads prep/reads.fa \
   --output prep/mapped.sam
 
-# 6. List
+# 5. List
 baitbench list \
   --sam prep/mapped.sam \
   --output prep/detected.list
 
-# 7. Metrics
+# 6. Metrics
 baitbench metrics \
   --targets prep/targets.txt \
   --distractors prep/distractors.txt \
   --sample prep/sample.txt \
   --detected prep/detected.list \
   --fragments prep/fragments.fa \
-  --captured prep/captured.fa \
+  --captured prep/fragments.fa \
   --sam prep/mapped.sam \
   --run-name custom_run \
   --num-fragments 50000 \
@@ -2317,8 +2251,8 @@ Explicit mappings take precedence over auto-linking for the same genome ID.
 
 | Tool | Purpose | Required? |
 |------|---------|-----------|
-| minimap2 | Alignment (capture, mapping, filtering) | Yes (for default capture method) |
-| BLAST+ | Alternative capture method | Only if `--capture-method blast` |
+| minimap2 | Alignment (simulate, mapping, filtering) | Yes |
+| BLAST+ | Cross-reactivity analysis (xreact) | Only if `baitbench xreact` is used |
 | R + packages | HTML report generation | Only if reports are enabled |
 
 Install all via:

@@ -85,21 +85,18 @@ pub enum Commands {
         #[arg(short, long)]
         seed: Option<u64>,
 
-        /// Capture method
-        #[arg(long, default_value = "minimap2")]
-        capture_method: CaptureMethodArg,
+        /// Simulation mode: thermodynamic (TNN Boltzmann weighting) or simple (uniform probe-site weights)
+        #[arg(long, default_value = "thermodynamic")]
+        simulate_mode: SimulateMode,
 
-        /// Max mismatches for minimap2 capture
-        #[arg(long, default_value = "10")]
-        max_mismatches: u32,
+        /// Hybridization temperature in °C (only used with --simulate-mode thermodynamic)
+        #[arg(long, default_value = "70.0")]
+        hybridization_temperature: f64,
 
-        /// Min matching bases required
-        #[arg(long, default_value = "60")]
-        min_match_bases: u32,
-
-        /// BLAST database path (required if capture-method=blast)
-        #[arg(long)]
-        blast_db: Option<String>,
+        /// Fraction of fragments derived from probe binding sites (0.0–1.0).
+        /// The remaining fraction are background fragments sampled uniformly by sequence weight.
+        #[arg(long, default_value = "0.5")]
+        capture_fraction: f64,
 
         /// Minimap2 preset for read mapping
         #[arg(long, default_value = "sr")]
@@ -140,10 +137,6 @@ pub enum Commands {
         /// Number of threads for external tools
         #[arg(long, default_value = "1")]
         threads: usize,
-
-        /// Fold enrichment for capture (e.g. 100 = 100x more target relative to distractor post-capture vs pre-capture). Omit for binary capture (default behavior).
-        #[arg(long)]
-        fold_enrichment: Option<f64>,
 
         /// Enable species-level identification after metrics (genome mode only, requires --sample-target-map).
         /// Calls species PRESENT/ABSENT/AMBIGUOUS based on multi-target detection patterns.
@@ -217,7 +210,9 @@ pub enum Commands {
         output_prefix: String,
     },
 
-    /// Generate weighted random fragments from FASTA
+    /// Simulate probe-biased fragments using thermodynamic or simple weighting.
+    /// Aligns probes to the reference, scores each binding site, and generates
+    /// fragments via multinomial sampling. Background fragments fill the remainder.
     Simulate {
         /// Combined reference FASTA
         #[arg(short, long)]
@@ -227,9 +222,25 @@ pub enum Commands {
         #[arg(short, long)]
         weights: PathBuf,
 
+        /// Probe sequences FASTA
+        #[arg(short, long)]
+        probes: PathBuf,
+
         /// Number of fragments to generate
         #[arg(short, long)]
         num_fragments: usize,
+
+        /// Fraction of fragments derived from probe binding sites (0.0–1.0)
+        #[arg(long, default_value = "0.5")]
+        capture_fraction: f64,
+
+        /// Simulation mode: thermodynamic (TNN Boltzmann weighting) or simple (uniform probe-site weights)
+        #[arg(long, default_value = "thermodynamic")]
+        simulate_mode: SimulateMode,
+
+        /// Hybridization temperature in °C (only used with --simulate-mode thermodynamic)
+        #[arg(long, default_value = "70.0")]
+        hybridization_temperature: f64,
 
         /// Random seed
         #[arg(short, long)]
@@ -250,76 +261,10 @@ pub enum Commands {
         /// Maximum fragment length
         #[arg(long, default_value = "200")]
         fragment_length_max: usize,
-    },
 
-    /// Simulate probe capture using minimap2 or BLAST
-    Capture {
-        /// Probe sequences FASTA
-        #[arg(short, long)]
-        probes: PathBuf,
-
-        /// Fragments FASTA to capture
-        #[arg(short, long)]
-        fragments: PathBuf,
-
-        /// Capture method
-        #[arg(long, default_value = "minimap2")]
-        method: CaptureMethodArg,
-
-        /// Max mismatches (minimap2)
-        #[arg(long, default_value = "10")]
-        max_mismatches: u32,
-
-        /// Min matching bases
-        #[arg(long, default_value = "60")]
-        min_match_bases: u32,
-
-        /// BLAST database path
-        #[arg(long)]
-        blast_db: Option<String>,
-
-        /// Output captured fragments FASTA
-        #[arg(short, long)]
-        output: PathBuf,
-
-        /// Log file
-        #[arg(long, default_value = "capture.log")]
-        log_file: PathBuf,
-
-        /// Number of threads
+        /// Number of threads for minimap2 probe alignment
         #[arg(long, default_value = "1")]
         threads: usize,
-    },
-
-    /// Adjust captured fragment pool to a target fold enrichment
-    Enrich {
-        /// Captured fragments FASTA (from capture step)
-        #[arg(short, long)]
-        captured: PathBuf,
-
-        /// All fragments FASTA (from simulate step)
-        #[arg(short, long)]
-        fragments: PathBuf,
-
-        /// Targets ID file
-        #[arg(short, long)]
-        targets: PathBuf,
-
-        /// Distractors ID file
-        #[arg(short, long)]
-        distractors: PathBuf,
-
-        /// Fold enrichment (>= 1.0; 1.0 = no enrichment)
-        #[arg(long)]
-        fold_enrichment: f64,
-
-        /// Random seed
-        #[arg(short, long)]
-        seed: Option<u64>,
-
-        /// Output enriched fragments FASTA
-        #[arg(short, long)]
-        output: PathBuf,
     },
 
     /// Simulate sequencing of captured fragments (trim to read length)
@@ -873,7 +818,7 @@ pub enum Commands {
         refine_until_stable: bool,
     },
 
-    /// Generate coverage depth curves, optionally sweeping CT, fold-enrichment, and/or num-sequences
+    /// Generate coverage depth curves, optionally sweeping CT, capture-fraction, and/or num-sequences
     CoverageCurve {
         /// Target sequences FASTA
         #[arg(short, long)]
@@ -921,13 +866,21 @@ pub enum Commands {
         #[arg(long, default_value = "0.01")]
         ct_baseline_fraction: f64,
 
-        /// Fold-enrichment values to sweep (space-separated). Conflicts with --fold-enrichment.
-        #[arg(long, num_args = 1.., conflicts_with = "fold_enrichment")]
-        fold_enrichment_values: Option<Vec<f64>>,
+        /// Capture-fraction values to sweep (space-separated). Conflicts with --capture-fraction.
+        #[arg(long, num_args = 1.., conflicts_with = "capture_fraction")]
+        capture_fraction_values: Option<Vec<f64>>,
 
-        /// Fixed fold enrichment (when not sweeping). Conflicts with --fold-enrichment-values.
-        #[arg(long, conflicts_with = "fold_enrichment_values")]
-        fold_enrichment: Option<f64>,
+        /// Fixed capture fraction (when not sweeping). Conflicts with --capture-fraction-values.
+        #[arg(long, default_value = "0.5", conflicts_with = "capture_fraction_values")]
+        capture_fraction: f64,
+
+        /// Simulation mode: thermodynamic or simple
+        #[arg(long, default_value = "thermodynamic")]
+        simulate_mode: SimulateMode,
+
+        /// Hybridization temperature in °C (thermodynamic mode only)
+        #[arg(long, default_value = "70.0")]
+        hybridization_temperature: f64,
 
         /// Num-sequences values to sweep (space-separated). Conflicts with --num-sequences.
         #[arg(long, num_args = 1.., conflicts_with = "num_sequences")]
@@ -960,22 +913,6 @@ pub enum Commands {
         /// Maximum fragment length
         #[arg(long, default_value = "200")]
         fragment_length_max: usize,
-
-        /// Capture method
-        #[arg(long, default_value = "minimap2")]
-        capture_method: CaptureMethodArg,
-
-        /// Max mismatches for minimap2 capture
-        #[arg(long, default_value = "10")]
-        max_mismatches: u32,
-
-        /// Min matching bases required
-        #[arg(long, default_value = "60")]
-        min_match_bases: u32,
-
-        /// BLAST database path
-        #[arg(long)]
-        blast_db: Option<String>,
 
         /// Host genome FASTA for filtering
         #[arg(long)]
@@ -1032,17 +969,10 @@ pub enum ReportMode {
     Rmd,
 }
 
-#[derive(Clone, Copy, ValueEnum)]
-pub enum CaptureMethodArg {
-    Minimap2,
-    Blast,
-}
-
-impl From<CaptureMethodArg> for crate::commands::capture::CaptureMethod {
-    fn from(arg: CaptureMethodArg) -> Self {
-        match arg {
-            CaptureMethodArg::Minimap2 => crate::commands::capture::CaptureMethod::Minimap2,
-            CaptureMethodArg::Blast => crate::commands::capture::CaptureMethod::Blast,
-        }
-    }
+#[derive(Clone, Copy, ValueEnum, Debug, PartialEq, Eq)]
+pub enum SimulateMode {
+    /// Thermodynamic TNN Boltzmann weighting (default)
+    Thermodynamic,
+    /// Uniform probe-site weights — no temperature dependency
+    Simple,
 }

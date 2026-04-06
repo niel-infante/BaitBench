@@ -7,14 +7,12 @@ Quick reference for the codebase structure, module responsibilities, and key dat
 ### Standard Mode
 ```
 Step 1: prepare    → combined_reference.fa, weights.txt, targets.txt, distractors.txt, sample.txt
-Step 2: simulate   → fragments.fa
-Step 3: capture    → captured.fa
-Step 3b: enrich    → enriched.fa (optional, if --fold-enrichment)
-Step 4: sequence   → reads.fa
-Step 5: filter     → filtered.fa (optional, if --host-fasta)
-Step 6: map_reads  → mapped.sam  (against combined_reference.fa)
-Step 7: list       → detected.list
-Step 8: metrics    → results.tsv, detected_detail.tsv, results.json, coverage.tsv
+Step 2: simulate   → fragments.fa  (probe-biased via TNN thermodynamics + background, controlled by --capture-fraction)
+Step 3: sequence   → reads.fa
+Step 4: filter     → filtered.fa (optional, if --host-fasta)
+Step 5: map_reads  → mapped.sam  (against combined_reference.fa)
+Step 6: list       → detected.list
+Step 7: metrics    → results.tsv, detected_detail.tsv, results.json, coverage.tsv
 Report: report     → report.html (optional, requires R)
 ```
 
@@ -22,17 +20,22 @@ Report: report     → report.html (optional, requires R)
 ```
 Step 1: prepare    → combined_reference.fa (genomes+distractors), mapping_reference.fa (targets+distractors),
                      weights.txt, targets.txt, distractors.txt, genomes.txt, sample.txt, sample_target_map.txt
-Step 2: simulate   → fragments.fa  (from combined_reference.fa — genomes+distractors)
-Step 3: capture    → captured.fa
-Step 3b: enrich    → enriched.fa  (uses genomes.txt to classify fragment sources)
-Step 4: sequence   → reads.fa
-Step 5: filter     → filtered.fa
-Step 6: map_reads  → mapped.sam  (against mapping_reference.fa — targets+distractors)
-Step 7: list       → detected.list
-Step 8: metrics    → results.tsv, detected_detail.tsv, results.json, coverage.tsv  (genome-aware classification)
-Step 9: identify   → species_calls.tsv, species_calls.json  (optional, if --identify)
+Step 2: simulate   → fragments.fa  (probe-biased fragments from combined_reference.fa — genomes+distractors)
+Step 3: sequence   → reads.fa
+Step 4: filter     → filtered.fa (optional, if --host-fasta)
+Step 5: map_reads  → mapped.sam  (against mapping_reference.fa — targets+distractors)
+Step 6: list       → detected.list
+Step 7: metrics    → results.tsv, detected_detail.tsv, results.json, coverage.tsv  (genome-aware classification)
+Step 8: identify   → species_calls.tsv, species_calls.json  (optional, if --identify)
 Report: report     → report.html  (includes Species Identification section if species_calls.tsv exists)
 ```
+
+The `simulate` step replaces the old separate simulate → capture → enrich pipeline.
+It aligns probes to `combined_reference.fa` internally, scores each binding site using
+the SantaLucia (1998) thermodynamic nearest-neighbor model, and generates two pools of
+fragments: probe-site-biased (fraction = `--capture-fraction`) and background (remainder).
+Fold enrichment is no longer a pipeline parameter — target enrichment is emergent from
+probe TNN affinity × sequence weights.
 
 `run.rs` orchestrates all steps. Each step is also available as a standalone subcommand.
 
@@ -49,12 +52,11 @@ src/
 │   ├── coverage.rs      # CIGAR-based per-position coverage from SAM
 │   ├── paf.rs           # PAF record filtering (mismatch/indel criteria) + structured PafRecord parsing
 │   └── sam.rs           # SAM parsing: read counts, mappings, mapped IDs
+├── thermodynamics.rs    # SantaLucia (1998) nearest-neighbor TNN model: delta_g(), boltzmann_score()
 ├── commands/
-│   ├── run.rs           # Full pipeline orchestrator (steps 1-8 + report)
+│   ├── run.rs           # Full pipeline orchestrator (steps 1-7 + report)
 │   ├── prepare.rs       # Combine FASTAs, generate weights, write ID lists
-│   ├── simulate.rs      # Generate weighted random fragments
-│   ├── capture.rs       # Probe capture via minimap2 or BLAST
-│   ├── enrich.rs        # Fold enrichment adjustment (post-capture ratio tuning)
+│   ├── simulate.rs      # Thermodynamic/simple probe-biased fragment simulation (replaces simulate+capture+enrich)
 │   ├── sequence.rs      # Trim fragments to read length
 │   ├── filter.rs        # Remove host-mapping reads
 │   ├── map_reads.rs     # Map reads to reference (minimap2)
@@ -81,6 +83,7 @@ src/
 │   └── writer.rs        # write_fasta_record, extract_by_ids (streaming), concatenate_fastas
 └── sampling/
     ├── fragment.rs      # generate_fragments: weighted sampling, normal-dist length
+    ├── thermo_sim.rs    # Thermodynamic simulation: load_probe_hits (SAM→ProbeHit), sample_capture_fragments, sample_background_fragments, write_fragments; SimulateMode enum
     └── weights.rs       # parse_weights, generate_weights (sample/distractor fraction)
 
 R/
@@ -104,11 +107,12 @@ R/
 
 ### CLI (`cli.rs`)
 
-- **`Commands`** enum — one variant per subcommand (Run, Prepare, Simulate, Capture, Enrich, Sequence, Filter, Map, List, Metrics, ProbeCoverage, Xreact, PanelQc, Identify, Report, CoverageCurve, BuildProbes, AssessProbes), each with its own fields
-- **`CaptureMethodArg`** — ValueEnum: Minimap2 | Blast
-- **`ProbeMethod`** — ValueEnum: Tile | Catch (CATCH from Broad Institute)
+- **`Commands`** enum — one variant per subcommand (Run, Prepare, Simulate, Sequence, Filter, Map, List, Metrics, ProbeCoverage, Xreact, PanelQc, Identify, Report, CoverageCurve, BuildProbes, AssessProbes, Syotti), each with its own fields
+- **`SimulateMode`** — ValueEnum: Thermodynamic | Simple — controls probe-site weighting in simulate
+- **`ProbeMethod`** — ValueEnum: Tile | Catch | Syotti
 - **`ReportMode`** — ValueEnum: Full | None | Rmd — controls report output (HTML, skip, or editable RMarkdown)
 - **CT score flags** — `--ct`, `--ct-baseline`, `--ct-baseline-fraction` on Run and Prepare; `--ct` conflicts with `--distractor-fraction`
+- **Simulate flags** — `--probes` (probe FASTA), `--simulate-mode` (thermodynamic/simple), `--hybridization-temperature` (°C, default 70), `--capture-fraction` (0–1, default 0.5) on Run and Simulate
 - **Genome mode flags** — `--genomes` (optional genome FASTA for fragment generation), `--sample-target-map` (optional genome-to-target mapping TSV) on Run, Prepare, and CoverageCurve
 - **`--output-prefix`** — string prepended to every auto-generated output filename; available on Run, Prepare, ProbeCoverage, CoverageCurve, Xreact, PanelQc, Identify (default: empty string)
 
@@ -119,9 +123,7 @@ Every command module exports an `Args` struct and an `execute(&Args) -> Result<(
 | Command | Args struct | Key inputs | Key outputs |
 |---------|-------------|------------|-------------|
 | `prepare` | `PrepareArgs` | targets, distractors, sample, distractor_fraction, genomes, sample_target_map | combined_reference.fa, weights.txt, ID lists; genome mode also: mapping_reference.fa, genomes.txt, sample_target_map.txt |
-| `simulate` | `SimulateArgs` | reference, weights, num_fragments, seed, fragment_length_* | fragments.fa |
-| `capture` | `CaptureArgs` | method, probes, fragments, max_mismatches, min_match_bases | captured.fa |
-| `enrich` | `EnrichArgs` | captured, fragments, targets, distractors, fold_enrichment, seed | enriched.fa |
+| `simulate` | `SimulateArgs` | reference, weights, probes, num_fragments, capture_fraction, simulate_mode, hybridization_temperature, seed, fragment_length_*, threads | fragments.fa (probe-biased + background) |
 | `sequence` | `SequenceArgs` | input, read_length, num_sequences, seed | reads.fa (trimmed, optionally sampled) |
 | `filter` | `FilterArgs` | host, reads, minimap_preset | filtered.fa |
 | `map_reads` | `MapArgs` | reference, reads, minimap_preset | mapped.sam |
@@ -132,8 +134,8 @@ Every command module exports an `Args` struct and an `execute(&Args) -> Result<(
 | `xreact` | `XreactArgs` | probes, against (genome FASTAs), self_mode, threshold, minimap_preset, report (ReportMode) | hits.tsv, summary.tsv, xreact_report.html |
 | `panel_qc` | `PanelQcArgs` | targets, sample_target_map, identity_threshold, minimap_preset, report (ReportMode) | target_similarity.tsv, species_discriminability.tsv, species_confusion_matrix.tsv, panel_qc_report.html |
 | `identify` | `IdentifyArgs` | detected_detail, sample_target_map, target_similarity (or targets for on-the-fly), identity_threshold, min_unique_targets | species_calls.tsv, species_calls.json |
-| `run` | `RunArgs` | all pipeline inputs + ct, ct_baseline, ct_baseline_fraction, num_sequences, genomes, sample_target_map, identify, identity_threshold, min_unique_targets | all of the above |
-| `coverage_curve` | `CoverageCurveArgs` | targets, distractors, probes, sample (required), ct/fe/ns values (sweep or fixed), all pipeline params, genomes, sample_target_map | coverage_curve_depth_curves.tsv, coverage_curve_report.html, combo subdirs |
+| `run` | `RunArgs` | all pipeline inputs + ct, ct_baseline, ct_baseline_fraction, simulate_mode, hybridization_temperature, capture_fraction, num_sequences, genomes, sample_target_map, identify, identity_threshold, min_unique_targets | all of the above |
+| `coverage_curve` | `CoverageCurveArgs` | targets, distractors, probes, sample (required), ct/cf/ns values (sweep or fixed), simulate_mode, hybridization_temperature, all pipeline params, genomes, sample_target_map | coverage_curve_depth_curves.tsv, coverage_curve_report.html, combo subdirs |
 | `build_probes` | `BuildProbesArgs` | targets, method (tile/catch/syotti), probe_length, step, catch_stride/mismatches/extension/coverage/minhash_threshold, syotti_mismatches, syotti_seed_len, max_n_frac, min/max_gc, dust_threshold/dust_window/max_masked_frac, collapse/dedup thresholds, threads, genomes, threshold, skip_assess | probes_final.fa, build_probes_stats.tsv; filters sequences shorter than probe_length after collapse; auto-chains to assess_probes unless --skip-assess |
 | `syotti` | — (standalone) | targets, output, probe_length, mismatches, seed_len | output FASTA of probes; direct access to Syotti algorithm without the build-probes pipeline |
 | `assess_probes` | `AssessProbesArgs` | targets, probes, genomes (optional), threshold, minimap_preset, proximity, build_stats_file (optional), build_params_file (optional) | cov_probe_coverage_summary.tsv, cov_probe_depth.tsv, xreact_hits.tsv, xreact_summary.tsv, assess_run_params.tsv, assess_probes_report.html |
@@ -168,11 +170,27 @@ Every command module exports an `Args` struct and an `execute(&Args) -> Result<(
 - `extract_by_ids(fasta, ids, output) → usize` (streaming extraction)
 - `concatenate_fastas(inputs, output)` (streaming concatenation)
 
+### Thermodynamics (`thermodynamics.rs`)
+
+- `delta_g(aligned_pairs: &[(u8,u8)], temp_c: f64) -> f64` — SantaLucia (1998) nearest-neighbor free energy in kcal/mol; SkipStacking strategy (mismatches break stacking chain)
+- `boltzmann_score(dg: f64, temp_c: f64) -> f64` — `exp(-ΔG / (R × T_K))` where R = 1.987e-3 kcal/(mol·K)
+
 ### Sampling (`sampling/`)
 
 - `generate_fragments(sequences, weights, num, output, seed, length_params) → usize`
 - Fragment naming: `{seq_id}_fragment_{n} start={pos} length={len}`
 - `generate_weights(target_ids, distractor_ids, sample_weights, distractor_fraction, output)`
+
+**`thermo_sim.rs`:**
+- `SimulateMode` — enum: `Thermodynamic` | `Simple`
+- `ProbeHit` — struct: probe_name, seq_id, start (0-based), end (exclusive), score
+- `load_probe_hits(sam_path, weights, mode, temp_c) → HashMap<String, Vec<ProbeHit>>`
+  - Parses SAM; scores each hit as `boltzmann_score(delta_g(...)) × seq_weight` (thermodynamic) or `seq_weight` (simple)
+  - Skips unmapped, secondary-flag-dropped, and weight-0 sequences
+- `sample_capture_fragments(hits_by_probe, sequences, n, length_params, seed, counter) → Vec<(header, seq)>`
+  - Two-level multinomial: probe (uniform) → hit (weighted by score) → fragment center (probe_center ± frag_len/4 jitter) → length (Normal)
+- `sample_background_fragments(sequences, weights, n, length_params, seed, counter) → Vec<(header, seq)>`
+- `write_fragments(fragments, output_path)`
 
 ### Target Similarity (`target_similarity.rs`)
 

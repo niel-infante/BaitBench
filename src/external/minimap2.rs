@@ -93,6 +93,7 @@ pub fn probe_align(
     probes: &Path,
     output_sam: &Path,
     log_file: &Path,
+    threads: usize,
 ) -> Result<()> {
     let out = File::create(output_sam)
         .with_context(|| format!("Cannot create SAM: {}", output_sam.display()))?;
@@ -103,6 +104,7 @@ pub fn probe_align(
         .args(["-ax", preset])
         .arg("--secondary=yes")
         .args(["-N", "1000"])
+        .args(["-t", &threads.to_string()])
         .arg(targets)
         .arg(probes)
         .stdout(out)
