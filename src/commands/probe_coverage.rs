@@ -61,6 +61,7 @@ pub fn execute(args: &ProbeCoverageArgs) -> Result<()> {
         args.probes,
         &sam_path,
         &log_path,
+        1,
     )?;
 
     // Step 2: Compute per-position probe depth (includes secondary alignments)

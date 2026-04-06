@@ -14,15 +14,11 @@ BaitBench is a Rust CLI binary with R/ggplot2 for visualization.
 
 ### Pipeline Flow (Standard Mode)
 ```
-targets.fa + distractors.fa [+ sample.tsv]
+targets.fa + distractors.fa + probes.fa [+ sample.tsv]
          ↓
    baitbench prepare   (combine, generate weights, write sample.txt)
          ↓
-   baitbench simulate  (weighted random fragments → fragments.fa)
-         ↓
-   baitbench capture   (minimap2 or BLAST → captured.fa)
-         ↓
-   baitbench enrich    (optional fold enrichment → enriched.fa)
+   baitbench simulate  (probes→ref align + TNN scoring + multinomial sampling → fragments.fa)
          ↓
    baitbench sequence  (optional sampling + trim to read length → reads.fa)
          ↓
@@ -45,11 +41,7 @@ genomes.fa + targets.fa + distractors.fa [+ sample.tsv] [+ mapping.tsv]
                          mapping_reference.fa [targets+distractors],
                          genomes.txt, sample_target_map.txt, weights)
          ↓
-   baitbench simulate  (fragments from combined_reference.fa)
-         ↓
-   baitbench capture   (minimap2 or BLAST → captured.fa)
-         ↓
-   baitbench enrich    (uses genomes.txt to classify fragment sources)
+   baitbench simulate  (probe-biased fragments from combined_reference.fa, TNN-scored)
          ↓
    baitbench sequence  (optional sampling + trim to read length → reads.fa)
          ↓
@@ -90,9 +82,9 @@ genomes.fa + targets.fa + distractors.fa [+ sample.tsv] [+ mapping.tsv]
 | `src/cli.rs` | Subcommand and argument definitions |
 | `src/commands/run.rs` | Full pipeline orchestrator |
 | `src/commands/prepare.rs` | Combines references, generates weights, writes ID lists; genome mode: two references + sample-target-map |
-| `src/commands/simulate.rs` | Weighted random fragment generation |
-| `src/commands/capture.rs` | minimap2 or BLAST probe capture |
-| `src/commands/enrich.rs` | Fold enrichment adjustment (post-capture target:distractor ratio tuning) |
+| `src/thermodynamics.rs` | SantaLucia (1998) nearest-neighbor TNN model: delta_g(), boltzmann_score() |
+| `src/commands/simulate.rs` | Thermodynamic/simple probe-biased fragment simulation (replaces simulate+capture+enrich) |
+| `src/sampling/thermo_sim.rs` | ProbeHit, SimulateMode, load_probe_hits, sample_capture_fragments, sample_background_fragments, write_fragments |
 | `src/commands/sequence.rs` | Simulate sequencing (trim fragments to read length) |
 | `src/commands/filter.rs` | Optional host read filtering |
 | `src/commands/map_reads.rs` | Map reads back to reference |
@@ -246,15 +238,27 @@ When adding or modifying any RMarkdown report (`R/*.Rmd`):
 # Build
 cargo build --release
 
-# Run with minimal example (all targets in sample)
+# Run with minimal example — thermodynamic mode (default)
 ./target/release/baitbench run \
   --targets examples/minimal/targets.fa \
   --distractors examples/minimal/distractors.fa \
   --probes examples/minimal/probes.fa \
   --num-fragments 1000 \
+  --capture-fraction 0.5 \
   --seed 42 \
   --report none \
   --outdir test_results
+
+# Run with simple mode (no TNN scoring)
+./target/release/baitbench run \
+  --targets examples/minimal/targets.fa \
+  --distractors examples/minimal/distractors.fa \
+  --probes examples/minimal/probes.fa \
+  --num-fragments 1000 \
+  --simulate-mode simple \
+  --seed 42 \
+  --report none \
+  --outdir test_results_simple
 
 # Run with sample manifest (subset of targets)
 echo "target_virus_1" > /tmp/sample.tsv
@@ -279,6 +283,8 @@ echo "target_virus_1" > /tmp/sample.tsv
   --sample genome_id_1 genome_id_2 \
   --probes probes.fa \
   --num-fragments 1000 \
+  --capture-fraction 0.6 \
+  --hybridization-temperature 70 \
   --seed 42 \
   --report none \
   --outdir test_results_genomes

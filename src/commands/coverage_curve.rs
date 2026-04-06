@@ -7,11 +7,12 @@ use std::path::{Path, PathBuf};
 use crate::alignment::coverage;
 use crate::cleanup;
 use crate::cli::ReportMode;
-use crate::commands::{capture, enrich, filter, map_reads, prepare, sequence, simulate};
+use crate::commands::{filter, map_reads, prepare, sequence, simulate};
 use crate::commands::report::{substitute_rmd_params, rmd_output_path};
 use crate::external::{minimap2, rscript};
 use crate::io_utils;
 use crate::io_utils::prefixed_join;
+use crate::sampling::thermo_sim::SimulateMode;
 
 pub struct CoverageCurveArgs<'a> {
     pub targets: &'a Path,
@@ -21,11 +22,14 @@ pub struct CoverageCurveArgs<'a> {
     pub sample: &'a HashMap<String, f64>,
     pub sample_target_map: Option<&'a HashMap<String, Vec<String>>>,
     // Sweep dimensions — each has 1+ values
-    pub ct_display_values: Vec<f64>,     // original CT values as entered by the user (for display/TSV/dirs)
+    pub ct_display_values: Vec<f64>,       // original CT values as entered (for display/dirs)
     pub ct_distractor_fractions: Vec<f64>, // resolved distractor fractions (for pipeline use)
-    pub fe_values: Vec<Option<f64>>,     // None = no enrichment
-    pub ns_values: Vec<Option<usize>>,   // None = all sequences
-    pub swept_params: Vec<String>,       // which params are swept (for dir naming + report)
+    pub cf_values: Vec<f64>,               // capture fraction values (0.0–1.0)
+    pub ns_values: Vec<Option<usize>>,     // None = all sequences
+    pub swept_params: Vec<String>,         // which params are swept (for dir naming + report)
+    // Simulate params
+    pub simulate_mode: SimulateMode,
+    pub hybridization_temperature: f64,
     // Pipeline params
     pub num_fragments: usize,
     pub read_length: usize,
@@ -33,10 +37,6 @@ pub struct CoverageCurveArgs<'a> {
     pub fragment_length_mean: f64,
     pub fragment_length_min: usize,
     pub fragment_length_max: usize,
-    pub capture_method: capture::CaptureMethod,
-    pub max_mismatches: u32,
-    pub min_match_bases: u32,
-    pub blast_db: Option<&'a str>,
     pub host_fasta: Option<&'a Path>,
     pub minimap_preset: &'a str,
     pub host_minimap_preset: &'a str,
@@ -49,7 +49,7 @@ pub struct CoverageCurveArgs<'a> {
 
 struct DepthCurveRow {
     ct: f64,
-    fold_enrichment: f64, // 0.0 = no enrichment
+    capture_fraction: f64,
     num_sequences: usize, // 0 = all
     reference_id: String,
     depth_threshold: usize,
@@ -59,7 +59,7 @@ struct DepthCurveRow {
 /// Build a directory name for a parameter combo, using only swept params.
 fn combo_dir_name(
     ct: f64,
-    fe: Option<f64>,
+    cf: f64,
     ns: Option<usize>,
     swept: &[String],
 ) -> String {
@@ -70,11 +70,8 @@ fn combo_dir_name(
     if swept.contains(&"ct".to_string()) {
         parts.push(format!("ct_{}", ct));
     }
-    if swept.contains(&"fold_enrichment".to_string()) {
-        parts.push(format!(
-            "fe_{}",
-            fe.map(|v| format!("{}", v)).unwrap_or_else(|| "none".into())
-        ));
+    if swept.contains(&"capture_fraction".to_string()) {
+        parts.push(format!("cf_{:.2}", cf));
     }
     if swept.contains(&"num_sequences".to_string()) {
         parts.push(format!(
@@ -104,7 +101,12 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
 
     let sample_ids: HashSet<String> = args.sample.keys().cloned().collect();
 
-    let total_combos = args.ct_display_values.len() * args.fe_values.len() * args.ns_values.len();
+    let total_combos = args.ct_display_values.len() * args.cf_values.len() * args.ns_values.len();
+
+    let sim_mode_str = match args.simulate_mode {
+        SimulateMode::Thermodynamic => "thermodynamic",
+        SimulateMode::Simple => "simple",
+    };
 
     log::info!("=============================================");
     log::info!("BaitBench - Coverage Curve Analysis");
@@ -127,6 +129,10 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
             ids.join(", ")
         }
     );
+    log::info!("Simulate mode  : {}", sim_mode_str);
+    if matches!(args.simulate_mode, SimulateMode::Thermodynamic) {
+        log::info!("Hybridization temp : {}°C", args.hybridization_temperature);
+    }
     if args.swept_params.is_empty() {
         log::info!("Mode           : single run (no parameters swept)");
     } else {
@@ -138,8 +144,8 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
     if args.swept_params.contains(&"ct".to_string()) {
         log::info!("CT values      : {:?}", args.ct_display_values);
     }
-    if args.swept_params.contains(&"fold_enrichment".to_string()) {
-        log::info!("FE values      : {:?}", args.fe_values);
+    if args.swept_params.contains(&"capture_fraction".to_string()) {
+        log::info!("CF values      : {:?}", args.cf_values);
     }
     if args.swept_params.contains(&"num_sequences".to_string()) {
         log::info!("NS values      : {:?}", args.ns_values);
@@ -158,7 +164,7 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
     // not sample genome IDs. Resolved after first prepare step.
     let mut curve_target_ids: Option<HashSet<String>> = None;
 
-    // Outer loop: CT values (affects prepare/simulate/capture)
+    // Outer loop: CT values (affects prepare)
     for (ct_idx, (&ct_display, &distractor_fraction)) in args
         .ct_display_values
         .iter()
@@ -173,7 +179,7 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
             "--- Preparing reference (ct={}, distractor_fraction={:.6}) ---",
             ct_display, distractor_fraction
         );
-        run_prepare_simulate_capture(&prep_dir, distractor_fraction, args)?;
+        run_prepare(&prep_dir, distractor_fraction, args)?;
 
         // Resolve curve target IDs on first iteration
         if curve_target_ids.is_none() {
@@ -211,41 +217,20 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
             prefixed_join(&prep_dir, pfx, "combined_reference.fa")
         };
 
-        // Middle loop: fold-enrichment values (affects enrich step)
-        for fe_val in &args.fe_values {
-            // In genomes mode, enrich classifies by genome IDs
-            let enrich_targets_file = if has_genomes {
-                prefixed_join(&prep_dir, pfx, "genomes.txt")
-            } else {
-                prefixed_join(&prep_dir, pfx, "targets.txt")
-            };
+        // Middle loop: capture-fraction values (affects simulate)
+        for &cf in &args.cf_values {
+            let sim_dir = prep_dir.join(format!("_sim_cf_{:.2}", cf));
+            fs::create_dir_all(&sim_dir)?;
 
-            let capture_output = if let Some(fe) = fe_val {
-                let enrich_dir = prep_dir.join(format!("_enrich_fe_{}", fe));
-                fs::create_dir_all(&enrich_dir)?;
-                let enriched_path = prefixed_join(&enrich_dir, pfx, "enriched.fa");
-                if !enriched_path.exists() {
-                    log::info!("  Applying {:.1}x fold enrichment...", fe);
-                    enrich::execute(&enrich::EnrichArgs {
-                        captured: &prefixed_join(&prep_dir, pfx, "captured.fa"),
-                        fragments: &prefixed_join(&prep_dir, pfx, "fragments.fa"),
-                        targets: &enrich_targets_file,
-                        distractors: &prefixed_join(&prep_dir, pfx, "distractors.txt"),
-                        fold_enrichment: *fe,
-                        seed: args.seed,
-                        output: &enriched_path,
-                    })?;
-                }
-                enriched_path
-            } else {
-                prefixed_join(&prep_dir, pfx, "captured.fa")
-            };
+            run_simulate(&sim_dir, &prep_dir, cf, args)?;
+
+            let fragments_path = prefixed_join(&sim_dir, pfx, "fragments.fa");
 
             // Inner loop: num-sequences values (affects sequence step)
             for ns_val in &args.ns_values {
                 combo_idx += 1;
                 let dir_name =
-                    combo_dir_name(ct_display, *fe_val, *ns_val, &args.swept_params);
+                    combo_dir_name(ct_display, cf, *ns_val, &args.swept_params);
                 let combo_dir = args.outdir.join(&dir_name);
                 fs::create_dir_all(&combo_dir)?;
 
@@ -259,7 +244,7 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
                 // Sequence
                 log::info!("  Sequencing...");
                 sequence::execute(&sequence::SequenceArgs {
-                    input: &capture_output,
+                    input: &fragments_path,
                     output: &prefixed_join(&combo_dir, pfx, "reads.fa"),
                     read_length: args.read_length,
                     num_sequences: *ns_val,
@@ -281,7 +266,7 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
                     prefixed_join(&combo_dir, pfx, "reads.fa")
                 };
 
-                // Map reads — use correct reference
+                // Map reads
                 log::info!("  Mapping reads...");
                 map_reads::execute(&map_reads::MapArgs {
                     reference: &mapping_reference,
@@ -295,8 +280,6 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
                 let sam_path = prefixed_join(&combo_dir, pfx, "mapped.sam");
                 let coverage_result = coverage::compute_coverage(&sam_path)?;
 
-                // Extract depth curves for tracked target IDs
-                let fe_tsv = fe_val.unwrap_or(0.0);
                 let ns_tsv = ns_val.unwrap_or(0);
 
                 for target_id in tracking_ids {
@@ -322,7 +305,7 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
                     for (threshold, pct) in curves {
                         all_curves.push(DepthCurveRow {
                             ct: ct_display,
-                            fold_enrichment: fe_tsv,
+                            capture_fraction: cf,
                             num_sequences: ns_tsv,
                             reference_id: target_id.clone(),
                             depth_threshold: threshold,
@@ -377,8 +360,6 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
     // Cleanup intermediate directories if requested
     if args.cleanup {
         log::info!("Cleaning up intermediate files...");
-        // Remove all subdirectories (prep dirs and combo run dirs)
-        // Final outputs are files at the root level (TSVs, reports)
         cleanup::cleanup_all_subdirs(&args.outdir);
     }
 
@@ -390,21 +371,20 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
     Ok(())
 }
 
-/// Run prepare + simulate + capture into a shared prep directory.
-fn run_prepare_simulate_capture(
+/// Run prepare into a shared prep directory for this CT value.
+fn run_prepare(
     outdir: &Path,
     distractor_fraction: f64,
     args: &CoverageCurveArgs,
 ) -> Result<()> {
     let pfx = &args.output_prefix;
 
-    // Skip if already done (idempotent for nested loops)
-    if prefixed_join(outdir, pfx, "captured.fa").exists() {
-        log::info!("  Reusing cached prepare/simulate/capture from {}", outdir.display());
+    // Skip if already done (idempotent)
+    if prefixed_join(outdir, pfx, "weights.txt").exists() {
+        log::info!("  Reusing cached prepare from {}", outdir.display());
         return Ok(());
     }
 
-    // Step 1: Prepare
     log::info!("  Preparing reference...");
     prepare::execute(&prepare::PrepareArgs {
         targets: args.targets,
@@ -417,30 +397,39 @@ fn run_prepare_simulate_capture(
         output_prefix: pfx,
     })?;
 
-    // Step 2: Simulate
-    log::info!("  Simulating fragments...");
+    Ok(())
+}
+
+/// Run simulate (probe-biased + background) for a specific capture fraction.
+/// Reads from the prep dir's reference + weights.
+fn run_simulate(
+    sim_dir: &Path,
+    prep_dir: &Path,
+    capture_fraction: f64,
+    args: &CoverageCurveArgs,
+) -> Result<()> {
+    let pfx = &args.output_prefix;
+
+    // Skip if already done (idempotent)
+    if prefixed_join(sim_dir, pfx, "fragments.fa").exists() {
+        log::info!("  Reusing cached simulate from {}", sim_dir.display());
+        return Ok(());
+    }
+
+    log::info!("  Simulating fragments (capture_fraction={:.2})...", capture_fraction);
     simulate::execute(&simulate::SimulateArgs {
-        reference: &prefixed_join(outdir, pfx, "combined_reference.fa"),
-        weights: &prefixed_join(outdir, pfx, "weights.txt"),
+        reference: &prefixed_join(prep_dir, pfx, "combined_reference.fa"),
+        weights: &prefixed_join(prep_dir, pfx, "weights.txt"),
+        probes: args.probes,
         num_fragments: args.num_fragments,
+        capture_fraction,
+        simulate_mode: args.simulate_mode,
+        hybridization_temperature: args.hybridization_temperature,
         seed: args.seed,
-        output: &prefixed_join(outdir, pfx, "fragments.fa"),
+        output: &prefixed_join(sim_dir, pfx, "fragments.fa"),
         fragment_length_mean: args.fragment_length_mean,
         fragment_length_min: args.fragment_length_min,
         fragment_length_max: args.fragment_length_max,
-    })?;
-
-    // Step 3: Capture
-    log::info!("  Simulating capture...");
-    capture::execute(&capture::CaptureArgs {
-        method: args.capture_method,
-        probes: args.probes,
-        fragments: &prefixed_join(outdir, pfx, "fragments.fa"),
-        max_mismatches: args.max_mismatches,
-        min_match_bases: args.min_match_bases,
-        blast_db: args.blast_db,
-        output: &prefixed_join(outdir, pfx, "captured.fa"),
-        log_file: &prefixed_join(outdir, pfx, "capture.log"),
         threads: args.threads,
     })?;
 
@@ -458,12 +447,10 @@ fn compute_depth_curve(depths: &[u32], ref_length: usize) -> Vec<(usize, f64)> {
         return vec![(1, 0.0)];
     }
 
-    // Build histogram: hist[d] = count of positions with depth exactly d
     let mut hist = vec![0usize; max_depth + 1];
     for &d in depths {
         hist[d as usize] += 1;
     }
-    // Account for positions beyond the depth vector (0-depth)
     let zero_depth_extra = if ref_length > depths.len() {
         ref_length - depths.len()
     } else {
@@ -471,13 +458,11 @@ fn compute_depth_curve(depths: &[u32], ref_length: usize) -> Vec<(usize, f64)> {
     };
     hist[0] += zero_depth_extra;
 
-    // Reverse cumulative sum: cumsum[t] = number of positions with depth >= t
     let mut cumsum = vec![0usize; max_depth + 2];
     for t in (0..=max_depth).rev() {
         cumsum[t] = cumsum[t + 1] + hist[t];
     }
 
-    // Build curve for thresholds 1..max_depth
     let mut curve = Vec::with_capacity(max_depth);
     for t in 1..=max_depth {
         let pct = cumsum[t] as f64 / ref_length as f64 * 100.0;
@@ -494,13 +479,13 @@ fn write_depth_curves_tsv(path: &Path, rows: &[DepthCurveRow]) -> Result<()> {
 
     writeln!(
         w,
-        "ct\tfold_enrichment\tnum_sequences\treference_id\tdepth_threshold\tpct_covered"
+        "ct\tcapture_fraction\tnum_sequences\treference_id\tdepth_threshold\tpct_covered"
     )?;
     for row in rows {
         writeln!(
             w,
-            "{}\t{}\t{}\t{}\t{}\t{:.2}",
-            row.ct, row.fold_enrichment, row.num_sequences, row.reference_id,
+            "{}\t{:.4}\t{}\t{}\t{}\t{:.2}",
+            row.ct, row.capture_fraction, row.num_sequences, row.reference_id,
             row.depth_threshold, row.pct_covered
         )?;
     }
@@ -510,6 +495,11 @@ fn write_depth_curves_tsv(path: &Path, rows: &[DepthCurveRow]) -> Result<()> {
 }
 
 fn write_run_params(path: &Path, args: &CoverageCurveArgs) -> Result<()> {
+    let sim_mode_str = match args.simulate_mode {
+        SimulateMode::Thermodynamic => "thermodynamic",
+        SimulateMode::Simple => "simple",
+    };
+
     let file = File::create(path)
         .with_context(|| format!("Cannot create params file: {}", path.display()))?;
     let mut w = BufWriter::new(file);
@@ -526,9 +516,8 @@ fn write_run_params(path: &Path, args: &CoverageCurveArgs) -> Result<()> {
     writeln!(w, "sample\t--sample\t{}", io_utils::format_sample_display(args.sample))?;
     writeln!(w, "num_fragments\t--num-fragments\t{}", args.num_fragments)?;
     writeln!(w, "read_length\t--read-length\t{}", args.read_length)?;
-    writeln!(w, "capture_method\t--capture-method\t{}", if args.capture_method == capture::CaptureMethod::Blast { "blast" } else { "minimap2" })?;
-    writeln!(w, "max_mismatches\t--max-mismatches\t{}", args.max_mismatches)?;
-    writeln!(w, "min_match_bases\t--min-match-bases\t{}", args.min_match_bases)?;
+    writeln!(w, "simulate_mode\t--simulate-mode\t{}", sim_mode_str)?;
+    writeln!(w, "hybridization_temperature\t--hybridization-temperature\t{}", args.hybridization_temperature)?;
     writeln!(w, "minimap_preset\t--minimap-preset\t{}", args.minimap_preset)?;
     writeln!(w, "fragment_length_mean\t--fragment-length-mean\t{}", args.fragment_length_mean)?;
     writeln!(w, "fragment_length_min\t--fragment-length-min\t{}", args.fragment_length_min)?;
