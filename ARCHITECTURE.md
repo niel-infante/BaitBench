@@ -69,7 +69,8 @@ src/
 │   ├── identify.rs      # Species-level calling from multi-target detection patterns (standalone or pipeline step)
 │   ├── coverage_curve.rs # Coverage curve: pipeline at multiple param combos → depth curves
 │   ├── build_probes.rs  # Standalone probe building: N filter → collapse → length filter → tile/CATCH/Syotti → GC filter → complexity filter (sDUST) → deduplicate
-│   └── assess_probes.rs # Combined probe assessment: probe coverage + cross-reactivity (self + optional genomes), orchestrates sub-commands
+│   ├── assess_probes.rs # Combined probe assessment: probe coverage + cross-reactivity (self + optional genomes), orchestrates sub-commands
+│   └── tool_dustview.rs # `baitbench tool dustview` handler: execute() — sDUST masking visualization on FASTA sequences
 ├── sdust.rs             # sDUST low-complexity detection: sdust(), masked_fraction() (Morgulis et al. 2006)
 ├── syotti.rs            # Syotti greedy bait design: design_probes() — k-mer hash index, seed-and-extend, greedy set-cover (Alanko et al. 2022)
 ├── catch.rs             # Native CATCH probe design: design_probes() — tiling → MinHash dedup → greedy set cover (reimplementation of Metsky et al. 2019)
@@ -137,7 +138,11 @@ Every command module exports an `Args` struct and an `execute(&Args) -> Result<(
 | `run` | `RunArgs` | all pipeline inputs + ct, ct_baseline, ct_baseline_fraction, simulate_mode, hybridization_temperature, capture_fraction, num_sequences, genomes, sample_target_map, identify, identity_threshold, min_unique_targets | all of the above |
 | `coverage_curve` | `CoverageCurveArgs` | targets, distractors, probes, sample (required), ct/cf/ns values (sweep or fixed), simulate_mode, hybridization_temperature, all pipeline params, genomes, sample_target_map | coverage_curve_depth_curves.tsv, coverage_curve_report.html, combo subdirs |
 | `build_probes` | `BuildProbesArgs` | targets, method (tile/catch/syotti), probe_length, step, catch_stride/mismatches/extension/coverage/minhash_threshold, syotti_mismatches, syotti_seed_len, max_n_frac, min/max_gc, dust_threshold/dust_window/max_masked_frac, collapse/dedup thresholds, threads, genomes, threshold, skip_assess | probes_final.fa, build_probes_stats.tsv; filters sequences shorter than probe_length after collapse; auto-chains to assess_probes unless --skip-assess |
-| `syotti` | — (standalone) | targets, output, probe_length, mismatches, seed_len | output FASTA of probes; direct access to Syotti algorithm without the build-probes pipeline |
+| `syotti` | — (deprecated alias, hidden) | same as `tool syotti` | hidden from --help; use `tool syotti` instead |
+| `tool syotti` | — (standalone) | targets, output, probe_length, mismatches, seed_len | output FASTA of probes; direct access to Syotti algorithm |
+| `tool catch` | — (standalone) | targets, output, probe_length, stride, mismatches, extension, coverage, minhash_threshold | output FASTA of probes; direct access to CATCH algorithm |
+| `tool dustview` | — (standalone) | input (optional, defaults stdin), dust_threshold, dust_window | stdout: per-sequence masked view + score stats |
+| `tool collapse` | — (standalone) | input, output, threshold, threads, log_file | output FASTA of cd-hit-est cluster representatives |
 | `assess_probes` | `AssessProbesArgs` | targets, probes, genomes (optional), threshold, minimap_preset, proximity, build_stats_file (optional), build_params_file (optional) | cov_probe_coverage_summary.tsv, cov_probe_depth.tsv, xreact_hits.tsv, xreact_summary.tsv, assess_run_params.tsv, assess_probes_report.html |
 
 ### Metrics (`metrics.rs`)

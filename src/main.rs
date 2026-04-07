@@ -15,7 +15,7 @@ mod thermodynamics;
 use anyhow::{bail, Result};
 use clap::Parser;
 
-use cli::{Cli, Commands};
+use cli::{Cli, Commands, ToolCommands};
 use commands::{assess_probes, build_probes, coverage_curve, filter, generate_list, identify, map_reads, metrics, panel_qc, prepare, probe_coverage, report, run, sequence, simulate, xreact};
 use sampling::thermo_sim::SimulateMode as ThSimMode;
 use io_utils::resolve_sample_arg;
@@ -675,6 +675,59 @@ fn main() -> Result<()> {
                 cleanup,
             })?;
         }
+
+        Commands::Tool { command } => match command {
+            ToolCommands::Syotti {
+                targets,
+                output,
+                probe_length,
+                mismatches,
+                seed_len,
+            } => {
+                syotti::design_probes(&targets, &output, probe_length, mismatches, seed_len)?;
+            }
+
+            ToolCommands::Catch {
+                targets,
+                output,
+                probe_length,
+                stride,
+                mismatches,
+                extension,
+                coverage,
+                minhash_threshold,
+            } => {
+                catch::design_probes(
+                    &targets,
+                    &output,
+                    probe_length,
+                    stride,
+                    mismatches,
+                    extension,
+                    coverage,
+                    minhash_threshold,
+                )?;
+            }
+
+            ToolCommands::Dustview {
+                input,
+                dust_threshold,
+                dust_window,
+            } => {
+                commands::tool_dustview::execute(input.as_deref(), dust_threshold, dust_window)?;
+            }
+
+            ToolCommands::Collapse {
+                input,
+                output,
+                threshold,
+                threads,
+                log_file,
+            } => {
+                external::cdhit::check_available()?;
+                external::cdhit::cluster(&input, &output, threshold, threads, &log_file)?;
+            }
+        },
     }
 
     Ok(())

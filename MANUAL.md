@@ -34,7 +34,7 @@ Complete reference for BaitBench, an in-silico probe capture simulation tool.
   - [panel-qc](#panel-qc)
   - [identify](#identify)
   - [build-probes](#build-probes)
-  - [syotti](#syotti)
+  - [tool](#tool)
   - [assess-probes](#assess-probes)
 - [Parameter Reference](#parameter-reference)
   - [Input Files](#input-files)
@@ -1039,12 +1039,20 @@ Low-complexity sequences (homopolymer runs, dinucleotide repeats, etc.) make poo
 
 With `--skip-assess`, only produces `probes_final.fa`, `build_probes_stats.tsv`, and optionally `build_probes_report.html`.
 
-### syotti
+### tool
+
+Standalone utility tools grouped under a single subcommand. Run `baitbench tool --help` to list available tools.
+
+```bash
+baitbench tool <TOOL> [OPTIONS]
+```
+
+#### tool syotti
 
 Run the Syotti greedy bait design algorithm directly, without the `build-probes` pipeline (no collapse, GC filter, complexity filter, or deduplication). Useful for testing Syotti parameters in isolation or when you want to bypass the pipeline.
 
 ```bash
-baitbench syotti \
+baitbench tool syotti \
   --targets targets.fa \
   --output probes.fa \
   [--probe-length 120] \
@@ -1059,6 +1067,72 @@ baitbench syotti \
 | `--probe-length` | 120 | Probe (bait) length in bp |
 | `--mismatches` | 40 | Maximum Hamming distance for a bait to cover a reference window. N never matches. |
 | `--seed-len` | 20 | K-mer seed length for approximate matching. Matching is guaranteed correct when mismatches ≤ probe_length − seed_len. |
+
+#### tool catch
+
+Run the CATCH optimization probe design algorithm directly, without the `build-probes` pipeline.
+
+```bash
+baitbench tool catch \
+  --targets targets.fa \
+  --output probes.fa \
+  [--probe-length 120] \
+  [--stride 60] \
+  [--mismatches 5] \
+  [--extension 0] \
+  [--coverage 1.0] \
+  [--minhash-threshold 0.6]
+```
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `--targets` | required | Input target sequences FASTA |
+| `--output` | required | Output probe sequences FASTA |
+| `--probe-length` | 120 | Probe (bait) length in bp |
+| `--stride` | 60 | Tiling step in bp |
+| `--mismatches` | 5 | Maximum mismatches for a probe to cover a window |
+| `--extension` | 0 | Extension length on each side of candidate probes |
+| `--coverage` | 1.0 | Fraction of each target that must be covered |
+| `--minhash-threshold` | 0.6 | MinHash Jaccard similarity threshold for deduplication |
+
+#### tool dustview
+
+Visualize sDUST low-complexity masking on FASTA sequences. Outputs to stdout: original sequence, masked sequence (X marks low-complexity regions), and per-sequence statistics.
+
+```bash
+baitbench tool dustview [input.fa] [--dust-threshold 2.0] [--dust-window 64]
+# or from stdin:
+cat sequences.fa | baitbench tool dustview
+```
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `input` | stdin | Input FASTA file (positional, optional) |
+| `--dust-threshold` | 2.0 | DUST score threshold — positions above this are masked |
+| `--dust-window` | 64 | DUST sliding window size in bases |
+
+#### tool collapse
+
+Cluster near-duplicate sequences using cd-hit-est and write cluster representatives to a FASTA file.
+
+```bash
+baitbench tool collapse \
+  --input sequences.fa \
+  --output collapsed.fa \
+  [--threshold 0.95] \
+  [--threads 1] \
+  [--log-file cdhit.log]
+```
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `--input` | required | Input FASTA file |
+| `--output` | required | Output FASTA file (cluster representatives) |
+| `--threshold` | 0.95 | Sequence identity threshold for clustering |
+| `--threads` | 1 | Number of threads for cd-hit-est |
+| `--log-file` | cdhit.log | Path to write cd-hit-est log output |
+
+> **Note:** `baitbench syotti` still works as a hidden alias for backward compatibility but is deprecated. Use `baitbench tool syotti` instead.
 
 ### assess-probes
 

@@ -14,3 +14,4 @@ pub mod panel_qc;
 pub mod identify;
 pub mod assess_probes;
 pub mod build_probes;
+pub mod tool_dustview;

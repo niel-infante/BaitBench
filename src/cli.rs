@@ -736,9 +736,15 @@ pub enum Commands {
         syotti_seed_len: usize,
     },
 
-    /// Design probes using the Syotti greedy set-cover algorithm (standalone).
-    /// Scans input sequences; at every uncovered position, extracts a bait and marks
-    /// all reference windows within --mismatches Hamming distance as covered.
+    /// Standalone utility tools (probe design algorithms, sequence analysis).
+    /// Run `baitbench tool --help` to see available tools.
+    Tool {
+        #[command(subcommand)]
+        command: ToolCommands,
+    },
+
+    /// [Deprecated: use `baitbench tool syotti` instead]
+    #[command(hide = true)]
     Syotti {
         /// Input target sequences FASTA
         #[arg(short, long)]
@@ -945,6 +951,104 @@ pub enum Commands {
         /// Delete intermediate files after completion, keeping only report inputs and final outputs
         #[arg(long)]
         cleanup: bool,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum ToolCommands {
+    /// Design probes using the Syotti greedy set-cover algorithm
+    Syotti {
+        /// Input target sequences FASTA
+        #[arg(short, long)]
+        targets: PathBuf,
+
+        /// Output probe sequences FASTA
+        #[arg(short, long)]
+        output: PathBuf,
+
+        /// Probe (bait) length in bp
+        #[arg(long, default_value = "120")]
+        probe_length: usize,
+
+        /// Maximum Hamming distance for a bait to cover a reference window
+        #[arg(long, default_value = "40")]
+        mismatches: usize,
+
+        /// Seed length (k-mer size) for approximate matching
+        #[arg(long, default_value = "20")]
+        seed_len: usize,
+    },
+
+    /// Design probes using the CATCH optimization algorithm
+    Catch {
+        /// Input target sequences FASTA
+        #[arg(short, long)]
+        targets: PathBuf,
+
+        /// Output probe sequences FASTA
+        #[arg(short, long)]
+        output: PathBuf,
+
+        /// Probe (bait) length in bp
+        #[arg(long, default_value = "120")]
+        probe_length: usize,
+
+        /// Stride (tiling step) in bp
+        #[arg(long, default_value = "60")]
+        stride: usize,
+
+        /// Maximum mismatches allowed for a probe to cover a window
+        #[arg(long, default_value = "5")]
+        mismatches: usize,
+
+        /// Extension length on each side of candidate probes
+        #[arg(long, default_value = "0")]
+        extension: usize,
+
+        /// Fraction of each target that must be covered
+        #[arg(long, default_value = "1.0")]
+        coverage: f64,
+
+        /// MinHash Jaccard similarity threshold for deduplication
+        #[arg(long, default_value = "0.6")]
+        minhash_threshold: f64,
+    },
+
+    /// Visualize sDUST low-complexity masking on FASTA sequences
+    Dustview {
+        /// Input FASTA file (reads from stdin if omitted)
+        input: Option<PathBuf>,
+
+        /// DUST score threshold — positions above this are masked
+        #[arg(long, default_value = "2.0")]
+        dust_threshold: f64,
+
+        /// DUST sliding window size in bases
+        #[arg(long, default_value = "64")]
+        dust_window: usize,
+    },
+
+    /// Collapse near-duplicate sequences using cd-hit-est
+    Collapse {
+        /// Input FASTA file
+        #[arg(short, long)]
+        input: PathBuf,
+
+        /// Output FASTA file (clustered representatives)
+        #[arg(short, long)]
+        output: PathBuf,
+
+        /// Sequence identity threshold for clustering
+        #[arg(long, default_value = "0.95")]
+        threshold: f64,
+
+        /// Number of threads for cd-hit-est
+        #[arg(long, default_value = "1")]
+        threads: usize,
+
+        /// Path to write cd-hit-est log output
+        #[arg(long, default_value = "cdhit.log")]
+        log_file: PathBuf,
     },
 }
 
