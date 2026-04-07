@@ -743,32 +743,6 @@ pub enum Commands {
         command: ToolCommands,
     },
 
-    /// [Deprecated: use `baitbench tool syotti` instead]
-    #[command(hide = true)]
-    Syotti {
-        /// Input target sequences FASTA
-        #[arg(short, long)]
-        targets: PathBuf,
-
-        /// Output probe sequences FASTA
-        #[arg(short, long)]
-        output: PathBuf,
-
-        /// Probe (bait) length in bp
-        #[arg(long, default_value = "120")]
-        probe_length: usize,
-
-        /// Maximum Hamming distance for a bait to cover a reference window.
-        /// N characters never match (not even other Ns).
-        #[arg(long, default_value = "40")]
-        mismatches: usize,
-
-        /// Seed length (k-mer size) for approximate matching.
-        /// Matching is guaranteed correct when mismatches ≤ probe_length − seed_len.
-        #[arg(long, default_value = "20")]
-        seed_len: usize,
-    },
-
     /// Assess probe quality: coverage analysis + cross-reactivity (self + optional genome)
     AssessProbes {
         /// Target sequences FASTA

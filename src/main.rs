@@ -521,16 +521,6 @@ fn main() -> Result<()> {
             })?;
         }
 
-        Commands::Syotti {
-            targets,
-            output,
-            probe_length,
-            mismatches,
-            seed_len,
-        } => {
-            syotti::design_probes(&targets, &output, probe_length, mismatches, seed_len)?;
-        }
-
         Commands::AssessProbes {
             targets,
             probes,

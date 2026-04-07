@@ -72,7 +72,6 @@ genomes.fa + targets.fa + distractors.fa [+ sample.tsv] [+ mapping.tsv]
 
 `baitbench tool <TOOL>` groups standalone utility tools under a single subcommand to keep the main help clean. Run `baitbench tool --help` to list available tools. Current tools: `syotti` (greedy set-cover probe design), `catch` (CATCH optimization probe design), `dustview` (sDUST masking visualization), `collapse` (cd-hit-est sequence clustering). More tools may be added here without cluttering top-level help.
 
-`baitbench syotti` (deprecated alias, hidden from help): use `baitbench tool syotti` instead.
 
 `baitbench assess-probes` runs combined probe assessment: probe coverage analysis + cross-reactivity (self-homology always, against genomes if `--genomes` provided), producing a single combined HTML report. Can include build pipeline stats when chained from `build-probes`. Standalone, not part of the simulation pipeline.
 

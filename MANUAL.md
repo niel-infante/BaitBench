@@ -1132,7 +1132,6 @@ baitbench tool collapse \
 | `--threads` | 1 | Number of threads for cd-hit-est |
 | `--log-file` | cdhit.log | Path to write cd-hit-est log output |
 
-> **Note:** `baitbench syotti` still works as a hidden alias for backward compatibility but is deprecated. Use `baitbench tool syotti` instead.
 
 ### assess-probes
 
