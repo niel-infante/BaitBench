@@ -1,0 +1,28 @@
+site_name: BaitBench
+site_description: In-silico probe capture simulation and evaluation
+site_url: https://niel-infante.github.io/BaitBench/
+repo_url: https://github.com/niel-infante/BaitBench
+repo_name: niel-infante/BaitBench
+
+theme:
+  name: cinder
+
+nav:
+  - Home: index.md
+  - Documentation:
+    - Concepts: concepts.md
+    - Commands: commands.md
+    - Parameters: parameters.md
+    - Output Files: output.md
+    - Examples: examples.md
+    - Reports: reports.md
+    - Reference: reference.md
+
+markdown_extensions:
+  - admonition
+  - tables
+  - toc:
+      permalink: true
+
+plugins:
+  - search
