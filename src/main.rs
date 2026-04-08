@@ -1,5 +1,6 @@
 mod alignment;
 mod catch;
+mod cdhit_est;
 mod cleanup;
 mod cli;
 mod commands;
@@ -714,7 +715,6 @@ fn main() -> Result<()> {
                 threads,
                 log_file,
             } => {
-                external::cdhit::check_available()?;
                 external::cdhit::cluster(&input, &output, threshold, threads, &log_file)?;
             }
         },

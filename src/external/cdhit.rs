@@ -1,55 +1,22 @@
-use anyhow::{Context, Result, bail};
-use std::fs::File;
+use anyhow::Result;
 use std::path::Path;
-use std::process::Command;
 
-/// Check that cd-hit-est is available on PATH.
+/// No-op: cd-hit-est is now implemented natively; no external binary required.
 pub fn check_available() -> Result<()> {
-    let status = Command::new("cd-hit-est")
-        .arg("-h")
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status();
-
-    match status {
-        Ok(_) => Ok(()),
-        _ => bail!("cd-hit-est not found on PATH. Please install cd-hit."),
-    }
+    Ok(())
 }
 
-/// Run cd-hit-est to cluster sequences by identity.
+/// Cluster nucleotide sequences by identity.
 ///
-/// `cd-hit-est -i <input> -o <output> -c <threshold> -T <threads>`
+/// Delegates to the native Rust cd-hit-est implementation in `crate::cdhit_est`.
+/// The `threads` argument is accepted for API compatibility but ignored
+/// (the native implementation is single-threaded).
 pub fn cluster(
     input: &Path,
     output: &Path,
     threshold: f64,
-    threads: usize,
+    _threads: usize,
     log_file: &Path,
 ) -> Result<()> {
-    let log = File::create(log_file)
-        .with_context(|| format!("Cannot create log: {}", log_file.display()))?;
-
-    let status = Command::new("cd-hit-est")
-        .arg("-i")
-        .arg(input)
-        .arg("-o")
-        .arg(output)
-        .arg("-c")
-        .arg(format!("{:.2}", threshold))
-        .arg("-T")
-        .arg(threads.to_string())
-        .stdout(log.try_clone()?)
-        .stderr(log)
-        .status()
-        .context("Failed to execute cd-hit-est")?;
-
-    if !status.success() {
-        bail!(
-            "cd-hit-est failed (exit code {:?})",
-            status.code()
-        );
-    }
-
-    Ok(())
+    crate::cdhit_est::cluster(input, output, threshold, log_file)
 }

@@ -63,9 +63,6 @@ pub fn execute(args: &BuildProbesArgs) -> Result<()> {
         anyhow::bail!("Targets file not found: {}", args.targets.display());
     }
 
-    // Check external tools
-    cdhit::check_available()?;
-
     // Create output directory
     fs::create_dir_all(args.outdir)?;
 
