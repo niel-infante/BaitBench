@@ -446,7 +446,7 @@ baitbench build-probes \
 baitbench build-probes \
   --targets targets.fa \
   --method catch-lite \
-  --catch-stride 30 \
+  --catch-probe-stride 30 \
   --catch-mismatches 3 \
   --catch-extension 10 \
   --outdir probes_output

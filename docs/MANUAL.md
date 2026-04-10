@@ -859,7 +859,7 @@ baitbench build-probes \
   [--method tile|catch-lite|syotti-lite|catch] \
   [--probe-length 120] \
   [--step -60] \
-  [--catch-stride 60] \
+  [--catch-probe-stride 60] \
   [--catch-mismatches 5] \
   [--catch-extension 0] \
   [--catch-coverage 1.0] \
@@ -913,7 +913,7 @@ Parameters:
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--catch-stride` | 60 | Step between candidate probes (bp) |
+| `--catch-probe-stride` | 60 | Step between candidate probes (bp) |
 | `--catch-mismatches` | 5 | Mismatches tolerated for a probe to cover a target window |
 | `--catch-extension` | 0 | Flanking bp beyond probe boundaries counted as covered |
 | `--catch-coverage` | 1.0 | Fraction of each target that must be covered (0.0–1.0) |
@@ -928,7 +928,7 @@ baitbench build-probes \
   --targets targets.fa \
   --method catch-lite \
   --probe-length 120 \
-  --catch-stride 30 \
+  --catch-probe-stride 30 \
   --catch-mismatches 3 \
   --catch-extension 10 \
   --catch-coverage 0.95 \
@@ -948,7 +948,7 @@ baitbench build-probes \
 
 **catch method (`--method catch`):**
 
-Calls the external CATCH tool (`design_probes.py`) from the Broad Institute. Requires the `catch` conda package (`conda install -c bioconda catch`). Uses `--catch-stride` and `--catch-mismatches`; other `--catch-*` flags (`--catch-extension`, `--catch-coverage`, `--catch-minhash-threshold`) are specific to `catch-lite` and are ignored.
+Calls the external CATCH tool (`design.py`) from the Broad Institute. Requires the `catch` conda package (`conda install -c bioconda catch`). All `--catch-*` flags apply.
 
 Example:
 
@@ -957,7 +957,7 @@ baitbench build-probes \
   --targets targets.fa \
   --method catch \
   --probe-length 120 \
-  --catch-stride 30 \
+  --catch-probe-stride 30 \
   --catch-mismatches 3 \
   --outdir probes_output
 ```
@@ -1000,11 +1000,11 @@ Memory note: the k-mer index stores one entry per seed position per input base. 
 | `--method` | tile | Probe construction method: `tile`, `catch-lite`, `syotti-lite`, or `catch` |
 | `--probe-length` | 120 | Probe length in bp |
 | `--step` | -60 | Step from end of previous probe. Negative = overlap, 0 = tiled, positive = gap. Only used with `--method tile`. |
-| `--catch-stride` | 60 | Step between candidate probes (bp). Used with `--method catch-lite` and `--method catch`. |
+| `--catch-probe-stride` | 60 | Step between candidate probes (bp). Used with `--method catch-lite` and `--method catch`. |
 | `--catch-mismatches` | 5 | Mismatches tolerated for a probe to cover a target window. Used with `--method catch-lite` and `--method catch`. |
-| `--catch-extension` | 0 | Flanking bp beyond probe boundaries counted as covered. Only used with `--method catch-lite`. |
-| `--catch-coverage` | 1.0 | Fraction of each target that must be covered (0.0–1.0). Only used with `--method catch-lite`. |
-| `--catch-minhash-threshold` | 0.6 | Jaccard similarity threshold for near-deduplication; 0.0 disables. Only used with `--method catch-lite`. |
+| `--catch-extension` | 0 | Flanking bp beyond probe boundaries counted as covered. Used with `--method catch-lite` and `--method catch`. |
+| `--catch-coverage` | 1.0 | Fraction of each target that must be covered (0.0–1.0). Used with `--method catch-lite` and `--method catch`. |
+| `--catch-minhash-threshold` | 0.6 | Jaccard similarity threshold for near-deduplication; 0.0 disables. Used with `--method catch-lite` and `--method catch`. |
 | `--syotti-mismatches` | 40 | Maximum Hamming distance for a bait to cover a reference window. Only used with `--method syotti-lite`. |
 | `--syotti-seed-len` | 20 | K-mer seed length for Syotti approximate matching. Only used with `--method syotti-lite`. |
 | `--min-gc` | 0.20 | Minimum GC fraction (0–1) |
@@ -1967,7 +1967,7 @@ baitbench build-probes \
 baitbench build-probes \
   --targets targets.fa \
   --method catch-lite \
-  --catch-stride 30 \
+  --catch-probe-stride 30 \
   --catch-mismatches 3 \
   --catch-extension 10 \
   --outdir probes_output

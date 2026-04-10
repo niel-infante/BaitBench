@@ -618,25 +618,25 @@ pub enum Commands {
         /// Step (stride) between candidate probes during tiling. Used with --method catch-lite
         /// and --method catch. Smaller values generate more candidates and typically fewer final probes.
         #[arg(long, default_value = "60")]
-        catch_stride: usize,
+        catch_probe_stride: usize,
 
         /// Maximum Hamming-distance mismatches allowed for a probe to cover a target window.
         /// Used with --method catch-lite and --method catch.
         #[arg(long, default_value = "5")]
         catch_mismatches: usize,
 
-        /// Extend the covered interval by this many bp on each side of a probe match
-        /// (only used with --method catch-lite).
+        /// Extend the covered interval by this many bp on each side of a probe match.
+        /// Used with --method catch-lite and --method catch.
         #[arg(long, default_value = "0")]
         catch_extension: usize,
 
-        /// Minimum fraction of each target sequence that must be covered
-        /// (only used with --method catch-lite).
+        /// Minimum fraction of each target sequence that must be covered.
+        /// Used with --method catch-lite and --method catch.
         #[arg(long, default_value = "1.0")]
         catch_coverage: f64,
 
         /// Jaccard similarity threshold for MinHash near-duplicate removal of candidate probes;
-        /// 0.0 disables deduplication (only used with --method catch-lite).
+        /// 0.0 disables. Used with --method catch-lite and --method catch.
         #[arg(long, default_value = "0.6")]
         catch_minhash_threshold: f64,
 
@@ -1039,7 +1039,7 @@ pub enum ProbeMethod {
     #[value(name = "syotti-lite")]
     SyottiLite,
     /// catch: external CATCH tool (requires catch conda package)
-    /// Uses --catch-stride and --catch-mismatches; other --catch-* flags are ignored
+    /// All --catch-* flags apply
     Catch,
 }
 

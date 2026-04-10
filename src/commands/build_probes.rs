@@ -17,7 +17,7 @@ pub struct BuildProbesArgs<'a> {
     pub method: ProbeMethod,
     pub probe_length: usize,
     pub step: i64,
-    pub catch_stride: usize,
+    pub catch_probe_stride: usize,
     pub catch_mismatches: usize,
     pub catch_extension: usize,
     pub catch_coverage: f64,
@@ -173,7 +173,7 @@ pub fn execute(args: &BuildProbesArgs) -> Result<()> {
                 "Step 4: Building probes (catch-lite, length={}, stride={}, mismatches={}, \
                  extension={}, coverage={:.2}, minhash={:.2})...",
                 args.probe_length,
-                args.catch_stride,
+                args.catch_probe_stride,
                 args.catch_mismatches,
                 args.catch_extension,
                 args.catch_coverage,
@@ -183,7 +183,7 @@ pub fn execute(args: &BuildProbesArgs) -> Result<()> {
                 &length_filtered_path,
                 &probes_raw_path,
                 args.probe_length,
-                args.catch_stride,
+                args.catch_probe_stride,
                 args.catch_mismatches,
                 args.catch_extension,
                 args.catch_coverage,
@@ -205,16 +205,25 @@ pub fn execute(args: &BuildProbesArgs) -> Result<()> {
         }
         ProbeMethod::Catch => {
             log::info!(
-                "Step 4: Building probes (external CATCH, length={}, stride={}, mismatches={})...",
-                args.probe_length, args.catch_stride, args.catch_mismatches,
+                "Step 4: Building probes (external CATCH, length={}, stride={}, mismatches={}, \
+                 extension={}, coverage={:.2}, minhash={:.2})...",
+                args.probe_length,
+                args.catch_probe_stride,
+                args.catch_mismatches,
+                args.catch_extension,
+                args.catch_coverage,
+                args.catch_minhash_threshold,
             );
             external_catch::check_available()?;
             external_catch::design_probes(
                 &length_filtered_path,
                 &probes_raw_path,
                 args.probe_length,
-                args.catch_stride,
+                args.catch_probe_stride,
                 args.catch_mismatches,
+                args.catch_extension,
+                args.catch_coverage,
+                args.catch_minhash_threshold,
             )?;
         }
     }
@@ -750,7 +759,7 @@ fn write_run_params(path: &Path, args: &BuildProbesArgs) -> Result<()> {
     writeln!(w, "method\t--method\t{:?}", args.method)?;
     writeln!(w, "probe_length\t--probe-length\t{}", args.probe_length)?;
     writeln!(w, "step\t--step\t{}", args.step)?;
-    writeln!(w, "catch_stride\t--catch-stride\t{}", args.catch_stride)?;
+    writeln!(w, "catch_probe_stride\t--catch-stride\t{}", args.catch_probe_stride)?;
     writeln!(w, "catch_mismatches\t--catch-mismatches\t{}", args.catch_mismatches)?;
     writeln!(w, "catch_extension\t--catch-extension\t{}", args.catch_extension)?;
     writeln!(w, "catch_coverage\t--catch-coverage\t{:.2}", args.catch_coverage)?;
