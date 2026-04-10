@@ -471,12 +471,12 @@ When `--identify` is passed to `baitbench run` (genome mode with `--sample-targe
 
 Build a probe set from target sequences. Runs a multi-step pipeline: collapse redundant targets, construct probes, filter by GC content and sequence complexity, and deduplicate. After building, automatically chains into probe assessment (probe coverage + cross-reactivity analysis) unless `--skip-assess` is specified.
 
-Three probe construction methods are available: `tile` (sliding window, default), `catch` (optimization-based design from the Broad Institute), and `syotti` (greedy set-cover design, native Rust implementation).
+Four probe construction methods are available: `tile` (sliding window, default), `catch-lite` (native Rust reimplementation of CATCH optimization-based design), `catch` (external CATCH tool from the Broad Institute; requires the `catch` conda package), and `syotti-lite` (native Rust reimplementation of Syotti greedy set-cover design).
 
 ```bash
 baitbench build-probes \
   --targets targets.fa \
-  [--method tile|catch|syotti] \
+  [--method tile|catch-lite|syotti-lite|catch] \
   [--probe-length 120] \
   [--step -60] \
   [--catch-stride 60] \
@@ -510,7 +510,7 @@ baitbench build-probes \
 
 1. **N filter**: Remove target sequences with more than `--max-n-frac` fraction of ambiguous (non-ACGT) bases.
 2. **Collapse**: cd-hit-est clusters targets at `--collapse-threshold` identity to remove near-duplicates
-3. **Build**: Construct probes from collapsed sequences. Method `tile` generates sliding-window probes of `--probe-length` bp across each sequence with `--step` controlling overlap/gap. A final probe is anchored to the end of each sequence to ensure full coverage. Method `catch` uses native CATCH optimization-based probe design. Method `syotti` uses the greedy set-cover algorithm.
+3. **Build**: Construct probes from collapsed sequences. Method `tile` generates sliding-window probes of `--probe-length` bp across each sequence with `--step` controlling overlap/gap. A final probe is anchored to the end of each sequence to ensure full coverage. Method `catch-lite` uses BaitBench's native Rust reimplementation of CATCH. Method `catch` calls the external CATCH tool (`design_probes.py`). Method `syotti-lite` uses BaitBench's native Rust reimplementation of the Syotti greedy set-cover algorithm.
 4. **GC filter**: Remove probes with GC content outside `--min-gc` to `--max-gc` range
 5. **Complexity filter**: Remove low-complexity probes using the sDUST algorithm (Morgulis et al. 2006). Probes where more than `--max-masked-frac` of bases are identified as low-complexity are removed. Set `--max-masked-frac 1.0` to disable.
 6. **Deduplicate**: cd-hit-est clusters probes at `--dedup-threshold` identity to remove redundant probes
@@ -525,7 +525,7 @@ The stride between consecutive probes is `probe_length + step`. The step is meas
 
 Probes are named `probe_{target_id}|tile_{n}`. A final probe is always placed at the sequence end regardless of overlap.
 
-**CATCH method (`--method catch`):**
+**catch-lite method (`--method catch-lite`):**
 
 BaitBench includes a native Rust reimplementation of the CATCH algorithm (Metsky et al. 2019, Nature Biotechnology). Unlike tiling, CATCH minimizes the number of probes needed while guaranteeing a configurable fraction of each target sequence is covered. The algorithm tiles candidate probes at a configurable stride, removes near-duplicates via MinHash LSH, then runs a greedy set-cover to select the minimum probe set that covers all targets to the required depth.
 
@@ -539,7 +539,11 @@ BaitBench includes a native Rust reimplementation of the CATCH algorithm (Metsky
 
 Probes are named `probe_{source_id}|catch_{n}`.
 
-**Syotti method (`--method syotti`):**
+**catch method (`--method catch`):**
+
+Calls the external CATCH tool (`design_probes.py`) from the Broad Institute. Requires the `catch` conda package (`conda install -c bioconda catch`). Uses `--catch-stride` and `--catch-mismatches`; `--catch-extension`, `--catch-coverage`, and `--catch-minhash-threshold` are specific to `catch-lite` and are ignored.
+
+**syotti-lite method (`--method syotti-lite`):**
 
 [Syotti](https://github.com/jnalanko/syotti) (Alanko et al. 2022) is a greedy set-cover bait designer. It scans the input sequences; at every uncovered position, it extracts a bait of `--probe-length` bp and marks all reference windows within `--syotti-mismatches` Hamming distance as covered (checking both strands). This is more targeted than tiling — probes are only generated where coverage is not already achieved by an earlier probe, yielding a smaller set while guaranteeing full coverage.
 
@@ -548,16 +552,16 @@ The BaitBench implementation uses a k-mer hash index (no external dependencies r
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | `--targets` | required | Input target sequences FASTA |
-| `--method` | tile | Probe construction method: `tile`, `catch`, or `syotti` |
+| `--method` | tile | Probe construction method: `tile`, `catch-lite`, `syotti-lite`, or `catch` |
 | `--probe-length` | 120 | Probe length in bp |
 | `--step` | -60 | Step from end of previous probe. Negative = overlap, 0 = tiled, positive = gap. Only used with `--method tile`. |
-| `--catch-stride` | 60 | Step between candidate probes (bp). Only used with `--method catch`. |
-| `--catch-mismatches` | 5 | Mismatches tolerated for a probe to cover a target window. Only used with `--method catch`. |
-| `--catch-extension` | 0 | Flanking bp beyond probe boundaries counted as covered. Only used with `--method catch`. |
-| `--catch-coverage` | 1.0 | Fraction of each target that must be covered (0.0–1.0). Only used with `--method catch`. |
-| `--catch-minhash-threshold` | 0.6 | Jaccard similarity threshold for near-deduplication; 0.0 disables. Only used with `--method catch`. |
-| `--syotti-mismatches` | 40 | Maximum Hamming distance for a bait to cover a reference window. Only used with `--method syotti`. |
-| `--syotti-seed-len` | 20 | K-mer seed length for Syotti approximate matching. Only used with `--method syotti`. |
+| `--catch-stride` | 60 | Step between candidate probes (bp). Used with `--method catch-lite` and `--method catch`. |
+| `--catch-mismatches` | 5 | Mismatches tolerated for a probe to cover a target window. Used with `--method catch-lite` and `--method catch`. |
+| `--catch-extension` | 0 | Flanking bp beyond probe boundaries counted as covered. Only used with `--method catch-lite`. |
+| `--catch-coverage` | 1.0 | Fraction of each target that must be covered (0.0–1.0). Only used with `--method catch-lite`. |
+| `--catch-minhash-threshold` | 0.6 | Jaccard similarity threshold for near-deduplication; 0.0 disables. Only used with `--method catch-lite`. |
+| `--syotti-mismatches` | 40 | Maximum Hamming distance for a bait to cover a reference window. Only used with `--method syotti-lite`. |
+| `--syotti-seed-len` | 20 | K-mer seed length for Syotti approximate matching. Only used with `--method syotti-lite`. |
 | `--min-gc` | 0.20 | Minimum GC fraction (0–1) |
 | `--max-gc` | 0.80 | Maximum GC fraction (0–1) |
 | `--max-n-frac` | 0.05 | Maximum fraction of ambiguous (non-ACGT) bases in a target sequence (0–1) |

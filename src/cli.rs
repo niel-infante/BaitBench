@@ -615,28 +615,28 @@ pub enum Commands {
         #[arg(long, default_value = "-60", allow_hyphen_values = true)]
         step: i64,
 
-        /// Step (stride) between candidate probes during tiling (only used with --method catch).
-        /// Smaller values generate more candidates and typically fewer final probes.
+        /// Step (stride) between candidate probes during tiling. Used with --method catch-lite
+        /// and --method catch. Smaller values generate more candidates and typically fewer final probes.
         #[arg(long, default_value = "60")]
         catch_stride: usize,
 
-        /// Maximum Hamming-distance mismatches allowed for a probe to cover a target window
-        /// (only used with --method catch).
+        /// Maximum Hamming-distance mismatches allowed for a probe to cover a target window.
+        /// Used with --method catch-lite and --method catch.
         #[arg(long, default_value = "5")]
         catch_mismatches: usize,
 
         /// Extend the covered interval by this many bp on each side of a probe match
-        /// (only used with --method catch).
+        /// (only used with --method catch-lite).
         #[arg(long, default_value = "0")]
         catch_extension: usize,
 
         /// Minimum fraction of each target sequence that must be covered
-        /// (only used with --method catch).
+        /// (only used with --method catch-lite).
         #[arg(long, default_value = "1.0")]
         catch_coverage: f64,
 
         /// Jaccard similarity threshold for MinHash near-duplicate removal of candidate probes;
-        /// 0.0 disables deduplication (only used with --method catch).
+        /// 0.0 disables deduplication (only used with --method catch-lite).
         #[arg(long, default_value = "0.6")]
         catch_minhash_threshold: f64,
 
@@ -727,11 +727,11 @@ pub enum Commands {
         #[arg(long, conflicts_with = "refine_iterations")]
         refine_until_stable: bool,
 
-        /// Maximum Hamming distance for a bait to cover a reference window (only used with --method syotti)
+        /// Maximum Hamming distance for a bait to cover a reference window (only used with --method syotti-lite)
         #[arg(long, default_value = "40")]
         syotti_mismatches: usize,
 
-        /// Seed length (k-mer size) for the syotti approximate search (only used with --method syotti)
+        /// Seed length (k-mer size) for the syotti approximate search (only used with --method syotti-lite)
         #[arg(long, default_value = "20")]
         syotti_seed_len: usize,
     },
@@ -1030,11 +1030,17 @@ pub enum ToolCommands {
 pub enum ProbeMethod {
     /// Tile: sliding window probes with configurable overlap
     Tile,
-    /// CATCH: optimization-based probe design from the Broad Institute
-    Catch,
-    /// Syotti: greedy set-cover bait design with k-mer seed-and-extend matching
+    /// catch-lite: native Rust reimplementation of CATCH optimization-based probe design
+    /// (Metsky et al. 2019, doi:10.1038/s41587-018-0006-x)
+    #[value(name = "catch-lite")]
+    CatchLite,
+    /// syotti-lite: native Rust reimplementation of Syotti greedy set-cover bait design
     /// (Alanko et al. 2022, doi:10.1093/bioinformatics/btac226)
-    Syotti,
+    #[value(name = "syotti-lite")]
+    SyottiLite,
+    /// catch: external CATCH tool (requires catch conda package)
+    /// Uses --catch-stride and --catch-mismatches; other --catch-* flags are ignored
+    Catch,
 }
 
 #[derive(Clone, Copy, ValueEnum, Debug, PartialEq, Eq)]

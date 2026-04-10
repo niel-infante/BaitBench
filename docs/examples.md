@@ -435,17 +435,17 @@ baitbench build-probes \
   --skip-assess \
   --outdir probes_output
 
-# Build using CATCH method
+# Build using external CATCH tool (requires catch conda package)
 baitbench build-probes \
   --targets targets.fa \
   --method catch \
   --probe-length 120 \
   --outdir probes_output
 
-# Build using CATCH with custom parameters
+# Build using catch-lite (native) with custom parameters
 baitbench build-probes \
   --targets targets.fa \
-  --method catch \
+  --method catch-lite \
   --catch-stride 30 \
   --catch-mismatches 3 \
   --catch-extension 10 \

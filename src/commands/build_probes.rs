@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use crate::cli::{ProbeMethod, ReportMode};
 use crate::commands::assess_probes;
 use crate::external::{cdhit, rscript};
+use crate::external::catch as external_catch;
 use crate::io_utils::prefixed_join;
 use crate::sdust;
 use crate::syotti;
@@ -167,9 +168,9 @@ pub fn execute(args: &BuildProbesArgs) -> Result<()> {
             );
             tile_probes(&length_filtered_path, &probes_raw_path, args.probe_length, args.step)?;
         }
-        ProbeMethod::Catch => {
+        ProbeMethod::CatchLite => {
             log::info!(
-                "Step 4: Building probes (native CATCH, length={}, stride={}, mismatches={}, \
+                "Step 4: Building probes (catch-lite, length={}, stride={}, mismatches={}, \
                  extension={}, coverage={:.2}, minhash={:.2})...",
                 args.probe_length,
                 args.catch_stride,
@@ -189,9 +190,9 @@ pub fn execute(args: &BuildProbesArgs) -> Result<()> {
                 args.catch_minhash_threshold,
             )?;
         }
-        ProbeMethod::Syotti => {
+        ProbeMethod::SyottiLite => {
             log::info!(
-                "Step 4: Building probes (Syotti, length={}, mismatches={}, seed_len={})...",
+                "Step 4: Building probes (syotti-lite, length={}, mismatches={}, seed_len={})...",
                 args.probe_length, args.syotti_mismatches, args.syotti_seed_len
             );
             syotti::design_probes(
@@ -200,6 +201,20 @@ pub fn execute(args: &BuildProbesArgs) -> Result<()> {
                 args.probe_length,
                 args.syotti_mismatches,
                 args.syotti_seed_len,
+            )?;
+        }
+        ProbeMethod::Catch => {
+            log::info!(
+                "Step 4: Building probes (external CATCH, length={}, stride={}, mismatches={})...",
+                args.probe_length, args.catch_stride, args.catch_mismatches,
+            );
+            external_catch::check_available()?;
+            external_catch::design_probes(
+                &length_filtered_path,
+                &probes_raw_path,
+                args.probe_length,
+                args.catch_stride,
+                args.catch_mismatches,
             )?;
         }
     }

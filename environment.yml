@@ -9,6 +9,8 @@ dependencies:
   - blast>=2.12
   # Clustering
   - cd-hit>=4.8
+  # Probe design (optional: required for --method catch)
+  - catch>=1.8
   # R and visualization
   - r-base>=4.2
   - r-ggplot2>=3.4

@@ -195,7 +195,14 @@ baitbench build-probes \
   --max-gc 0.80 \
   --outdir probes_output
 
-# CATCH method (optimization-based, from the Broad Institute)
+# catch-lite method (native Rust reimplementation of CATCH)
+baitbench build-probes \
+  --targets targets.fa \
+  --method catch-lite \
+  --probe-length 120 \
+  --outdir probes_output
+
+# catch method (external CATCH tool; requires catch conda package)
 baitbench build-probes \
   --targets targets.fa \
   --method catch \
@@ -261,7 +268,7 @@ See [MANUAL.md](MANUAL.md) for complete documentation including:
 - [minimap2](https://github.com/lh3/minimap2) -- alignment
 - [BLAST+](https://blast.ncbi.nlm.nih.gov/) -- alternative capture method
 - [cd-hit](https://github.com/weizhongli/cdhit) -- sequence clustering (used by build-probes)
-- [CATCH](https://github.com/broadinstitute/catch) -- optimization-based probe design (used by build-probes --method catch)
+- [CATCH](https://github.com/broadinstitute/catch) -- optimization-based probe design (optional; required for `build-probes --method catch`)
 - [R](https://www.r-project.org/) with ggplot2, rmarkdown -- report generation (optional)
 
 All installable via `conda env create -f environment.yml`.
