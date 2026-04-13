@@ -358,6 +358,7 @@ pub fn execute(args: &BuildProbesArgs) -> Result<()> {
             refine_threshold: args.refine_threshold,
             refine_iterations: args.refine_iterations,
             refine_until_stable: args.refine_until_stable,
+            all_individual_targets: false,
         })?;
     } else {
         // Original build-probes-only report when assessment is skipped

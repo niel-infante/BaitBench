@@ -796,6 +796,13 @@ pub enum Commands {
         /// Repeat refinement until no targets remain below --refine-threshold (or set stabilizes)
         #[arg(long, conflicts_with = "refine_iterations")]
         refine_until_stable: bool,
+
+        /// Compute probe coverage for each target individually (eliminates probe competition).
+        /// Useful when targets are highly similar (e.g., hundreds of strain variants).
+        /// Runs minimap2 once per target against that target alone, so probe competition
+        /// from other similar targets is entirely eliminated.
+        #[arg(long)]
+        all_individual_targets: bool,
     },
 
     /// Generate coverage depth curves, optionally sweeping CT, capture-fraction, and/or num-sequences

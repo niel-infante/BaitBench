@@ -73,7 +73,7 @@ genomes.fa + targets.fa + distractors.fa [+ sample.tsv] [+ mapping.tsv]
 `baitbench tool <TOOL>` groups standalone utility tools under a single subcommand to keep the main help clean. Run `baitbench tool --help` to list available tools. Current tools: `syotti` (greedy set-cover probe design), `catch` (CATCH optimization probe design), `dustview` (sDUST masking visualization), `collapse` (cd-hit-est sequence clustering). More tools may be added here without cluttering top-level help.
 
 
-`baitbench assess-probes` runs combined probe assessment: probe coverage analysis + cross-reactivity (self-homology always, against genomes if `--genomes` provided), producing a single combined HTML report. Can include build pipeline stats when chained from `build-probes`. Standalone, not part of the simulation pipeline.
+`baitbench assess-probes` runs combined probe assessment: probe coverage analysis + cross-reactivity (self-homology always, against genomes if `--genomes` provided), producing a single combined HTML report. Can include build pipeline stats when chained from `build-probes`. Standalone, not part of the simulation pipeline. `--all-individual-targets` reruns coverage once per target in isolation (minimap2 called separately for each target) and adds an **Individual Target Coverage** section to the report, useful when the panel contains many similar strain variants.
 
 ### Key Files
 
@@ -98,7 +98,7 @@ genomes.fa + targets.fa + distractors.fa [+ sample.tsv] [+ mapping.tsv]
 | `src/target_similarity.rs` | Shared library: target similarity computation, discriminability scoring, confusion matrices |
 | `src/commands/ct_sweep.rs` | CT sweep: pipeline at multiple CT values → depth curves |
 | `src/commands/build_probes.rs` | Build probes: N filter → collapse → tile/CATCH/Syotti → GC filter → complexity filter (sDUST) → deduplicate; auto-chains to assess-probes |
-| `src/commands/assess_probes.rs` | Combined probe assessment: orchestrates probe_coverage + xreact, generates combined report |
+| `src/commands/assess_probes.rs` | Combined probe assessment: orchestrates probe_coverage + xreact + optional individual-target coverage, generates combined report |
 | `src/sdust.rs` | sDUST low-complexity sequence detection (Morgulis et al. 2006) |
 | `src/syotti.rs` | Syotti greedy bait design: design_probes() — k-mer hash index, seed-and-extend, greedy set-cover (Alanko et al. 2022) |
 | `src/catch.rs` | Native CATCH probe design: design_probes() — tiling → MinHash dedup → greedy set cover (reimplementation of Metsky et al. 2019) |
@@ -119,7 +119,7 @@ genomes.fa + targets.fa + distractors.fa [+ sample.tsv] [+ mapping.tsv]
 | `R/build_probes.R` | R script entry point for build probes report |
 | `R/build_probes.Rmd` | RMarkdown template for probe building pipeline stats |
 | `R/assess_probes.R` | R script entry point for combined probe assessment report |
-| `R/assess_probes.Rmd` | RMarkdown template: build stats (optional) + probe coverage + cross-reactivity |
+| `R/assess_probes.Rmd` | RMarkdown template: build stats (optional) + probe coverage (incl. individual target coverage section) + cross-reactivity |
 | `environment.yml` | Conda environment (minimap2, blast, cd-hit, R packages) |
 
 ### Metrics Definitions

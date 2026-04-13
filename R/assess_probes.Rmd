@@ -17,6 +17,7 @@ params:
   coverage_multi_mapping_file: ""
   coverage_proximity: 50
   params_file: ""
+  individual_coverage_file: ""
 ---
 
 <style>
@@ -136,6 +137,14 @@ proximity_bp <- params$coverage_proximity
 has_params <- nchar(params$params_file) > 0 && file.exists(params$params_file)
 if (has_params) {
   params_df <- read.delim(params$params_file, stringsAsFactors = FALSE)
+}
+
+# --- Load individual target coverage data (optional) ---
+has_individual_cov <- nchar(params$individual_coverage_file) > 0 &&
+  file.exists(params$individual_coverage_file)
+if (has_individual_cov) {
+  indiv_cov_df <- read.delim(params$individual_coverage_file,
+                              stringsAsFactors = FALSE)
 }
 ```
 
@@ -331,6 +340,102 @@ datatable(worst,
   formatCurrency(columns = c("ref_length", "max_gap_length"), currency = "", digits = 0)
 ```
 
+## Individual Target Coverage
+
+```{r indiv-cov-section, eval=has_individual_cov, results='asis'}
+cat(paste0(
+  "> Coverage computed for each target in isolation (minimap2 run once per target ",
+  "against that target alone). Probe competition from similar targets is entirely ",
+  "eliminated, giving the theoretical maximum coverage achievable for each target ",
+  "if it were the only sequence in the panel.\n\n"
+))
+```
+
+```{r indiv-cov-absent, eval=!has_individual_cov, results='asis'}
+cat("*Individual target coverage not computed. Re-run with `--all-individual-targets` to enable.*\n")
+```
+
+```{r indiv-cov-breadth, eval=has_individual_cov, fig.height=if (is_small) max(3, n_targets * 0.4) else if (is_medium) 6 else 5, fig.width=if (is_large) 10 else 8}
+indiv_n <- nrow(indiv_cov_df)
+indiv_small  <- indiv_n <= 20
+indiv_medium <- indiv_n > 20 & indiv_n <= 100
+indiv_large  <- indiv_n > 100
+
+indiv_cov_df <- indiv_cov_df %>%
+  mutate(
+    coverage_class = case_when(
+      pct_covered_1x >= 95 ~ "Excellent (>=95%)",
+      pct_covered_1x >= 80 ~ "Good (>=80%)",
+      TRUE ~ "Poor (<80%)"
+    ),
+    coverage_class = factor(coverage_class,
+                            levels = c("Excellent (>=95%)", "Good (>=80%)", "Poor (<80%)"))
+  )
+
+quality_colors_indiv <- c("Excellent (>=95%)" = "#27ae60",
+                           "Good (>=80%)"      = "#f39c12",
+                           "Poor (<80%)"       = "#e74c3c")
+
+if (indiv_small) {
+  ggplot(indiv_cov_df, aes(x = reorder(reference_id, pct_covered_1x),
+                            y = pct_covered_1x, fill = coverage_class)) +
+    geom_col(width = 0.7) +
+    geom_hline(yintercept = c(80, 95), linetype = "dashed",
+               color = "grey40", linewidth = 0.3) +
+    coord_flip() +
+    scale_fill_manual(values = quality_colors_indiv) +
+    labs(x = NULL, y = "% Bases Covered (>= 1X)", fill = "Quality",
+         title = "Individual Probe Tiling Breadth per Target",
+         subtitle = "Each target evaluated in isolation (no probe competition)") +
+    theme(legend.position = "bottom")
+} else if (indiv_medium) {
+  ggplot(indiv_cov_df, aes(x = reorder(reference_id, pct_covered_1x),
+                            y = pct_covered_1x, fill = coverage_class)) +
+    geom_col(width = 0.9) +
+    geom_hline(yintercept = c(80, 95), linetype = "dashed",
+               color = "grey40", linewidth = 0.3) +
+    coord_flip() +
+    scale_fill_manual(values = quality_colors_indiv) +
+    labs(x = NULL, y = "% Bases Covered (>= 1X)", fill = "Quality",
+         title = "Individual Probe Tiling Breadth per Target",
+         subtitle = "Each target evaluated in isolation (no probe competition)") +
+    theme(legend.position = "bottom",
+          axis.text.y = element_text(size = 5))
+} else {
+  ggplot(indiv_cov_df, aes(x = pct_covered_1x, fill = coverage_class)) +
+    geom_histogram(binwidth = 2, boundary = 0, color = "white", linewidth = 0.2) +
+    scale_fill_manual(values = quality_colors_indiv) +
+    geom_vline(xintercept = c(80, 95), linetype = "dashed",
+               color = "grey40", linewidth = 0.5) +
+    labs(x = "% Bases Covered (>= 1X)", y = "Number of Targets", fill = "Quality",
+         title = "Distribution of Individual Probe Tiling Breadth",
+         subtitle = sprintf("%d targets | Each evaluated in isolation | Dashed lines: 80%% and 95%%",
+                            indiv_n)) +
+    theme(legend.position = "bottom")
+}
+```
+
+```{r indiv-cov-comparison, eval=has_individual_cov && nrow(indiv_cov_df) == n_targets, fig.height=5, fig.width=7}
+compare_df <- cov_summary_df %>%
+  select(reference_id, pangenome = pct_covered_1x) %>%
+  inner_join(indiv_cov_df %>% select(reference_id, individual = pct_covered_1x),
+             by = "reference_id") %>%
+  mutate(gain = individual - pangenome)
+
+ggplot(compare_df, aes(x = pangenome, y = individual)) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed",
+              color = "grey60", linewidth = 0.5) +
+  geom_point(aes(color = gain), alpha = 0.7, size = 2) +
+  scale_color_gradient2(low = "#2c3e50", mid = "#f39c12", high = "#e74c3c",
+                        midpoint = 10,
+                        name = "Gain (pp)") +
+  labs(x = "Pangenome coverage (%\u22651X)",
+       y = "Individual coverage (%\u22651X)",
+       title = "Probe Competition Effect",
+       subtitle = "Points above the diagonal benefit from individual evaluation") +
+  coord_fixed(xlim = c(0, 100), ylim = c(0, 100))
+```
+
 ## Tiered Coverage
 
 ```{r cov-tiered, fig.height=if (is_small) max(3, n_targets * 0.5) else if (is_medium) 6 else 5}
@@ -445,6 +550,9 @@ if (nrow(depth_intervals) > 0) {
     mutate(boundary = offset + ref_length) %>%
     filter(row_number() < n())
 
+  pct_pangenome_1x <- 100 * sum(cov_summary_df$covered_bases) /
+    sum(cov_summary_df$ref_length)
+
   ggplot(pan_df, aes(x = pan_position, y = depth)) +
     geom_area(fill = "#3498db", alpha = 0.4) +
     geom_line(color = "#2c3e50", linewidth = 0.2) +
@@ -455,8 +563,8 @@ if (nrow(depth_intervals) > 0) {
                    color = "grey50", linetype = "solid", linewidth = 0.3) } +
     labs(x = "Pangenome Position", y = "Probe Depth",
          title = "Probe Depth Across Concatenated Targets",
-         subtitle = sprintf("%d targets | Dashed lines: 1X (green), 5X (orange)",
-                            nrow(target_order))) +
+         subtitle = sprintf("%d targets | %.1f%% pangenome \u22651X | Dashed lines: 1X (green), 5X (orange)",
+                            nrow(target_order), pct_pangenome_1x)) +
     theme(axis.text.x = element_text(size = 7))
 }
 ```

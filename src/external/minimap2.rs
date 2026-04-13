@@ -83,10 +83,14 @@ pub fn map_reads(
 
 /// Run minimap2 for probe-to-target mapping (SAM output with secondary alignments).
 ///
-/// `minimap2 -ax <preset> --secondary=yes -N 1000 <targets> <probes> > <output>`
+/// `minimap2 -ax <preset> --secondary=yes -N <max_secondary> <targets> <probes> > <output>`
 ///
 /// Secondary alignments are kept because a single probe can legitimately
 /// tile conserved regions across multiple target sequences.
+///
+/// `max_secondary`: maximum secondary alignments per query. Use 1000 for normal
+/// pangenome coverage; use a larger value (e.g. 10 000) when computing per-target
+/// coverage without competition (--all-individual-targets).
 pub fn probe_align(
     preset: &str,
     targets: &Path,
@@ -94,6 +98,7 @@ pub fn probe_align(
     output_sam: &Path,
     log_file: &Path,
     threads: usize,
+    max_secondary: usize,
 ) -> Result<()> {
     let out = File::create(output_sam)
         .with_context(|| format!("Cannot create SAM: {}", output_sam.display()))?;
@@ -103,7 +108,7 @@ pub fn probe_align(
     let status = Command::new("minimap2")
         .args(["-ax", preset])
         .arg("--secondary=yes")
-        .args(["-N", "1000"])
+        .args(["-N", &max_secondary.to_string()])
         .args(["-t", &threads.to_string()])
         .arg(targets)
         .arg(probes)

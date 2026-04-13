@@ -28,6 +28,7 @@ pub struct AssessProbesArgs<'a> {
     pub refine_threshold: f64,
     pub refine_iterations: Option<usize>,
     pub refine_until_stable: bool,
+    pub all_individual_targets: bool,
 }
 
 pub fn execute(args: &AssessProbesArgs) -> Result<()> {
@@ -81,6 +82,22 @@ pub fn execute(args: &AssessProbesArgs) -> Result<()> {
         cleanup: false,
     })?;
 
+    // --- Step 1b: Individual target coverage (eliminates probe competition) ---
+    let indiv_summary: Option<PathBuf> = if args.all_individual_targets {
+        log::info!("Computing individual target coverage (per-target alignment)...");
+        let path = compute_individual_coverage(
+            args.targets,
+            args.probes,
+            args.outdir,
+            pfx,
+            args.minimap_preset,
+            args.proximity,
+        )?;
+        Some(path)
+    } else {
+        None
+    };
+
     // --- Step 2: Run cross-reactivity analysis ---
     let xreact_prefix = format!("{}xreact_", pfx);
     log::info!("Running cross-reactivity analysis...");
@@ -128,6 +145,7 @@ pub fn execute(args: &AssessProbesArgs) -> Result<()> {
                     &cov_multi,
                     args.proximity,
                     &params_path,
+                    indiv_summary.as_deref(),
                     &report_path,
                 ) {
                     Ok(()) => log::info!("Report generated: {}", report_path.display()),
@@ -152,6 +170,7 @@ pub fn execute(args: &AssessProbesArgs) -> Result<()> {
                 &cov_multi,
                 args.proximity,
                 &params_path,
+                indiv_summary.as_deref(),
                 &report_path,
             ) {
                 Ok(()) => {}
@@ -247,6 +266,7 @@ fn generate_assess_report(
     cov_multi: &Path,
     proximity: usize,
     params_path: &Path,
+    indiv_summary: Option<&Path>,
     output_path: &Path,
 ) -> Result<()> {
     let r_dir = rscript::find_r_dir()
@@ -289,6 +309,11 @@ fn generate_assess_report(
     if cov_multi.exists() {
         r_args.extend(["--cov-multi-mapping".into(), abs_path_str(cov_multi)?]);
     }
+    if let Some(p) = indiv_summary {
+        if p.exists() {
+            r_args.extend(["--indiv-cov-summary".into(), abs_path_str(p)?]);
+        }
+    }
 
     let arg_refs: Vec<&str> = r_args.iter().map(|s| s.as_str()).collect();
     rscript::run_rscript(&script, &arg_refs)
@@ -305,6 +330,7 @@ fn write_assess_rmd(
     cov_multi: &Path,
     proximity: usize,
     params_path: &Path,
+    indiv_summary: Option<&Path>,
     output_path: &Path,
 ) -> Result<()> {
     let r_dir = rscript::find_r_dir()
@@ -332,6 +358,9 @@ fn write_assess_rmd(
     } else {
         String::new()
     };
+    let indiv_summary_str = indiv_summary
+        .and_then(|p| if p.exists() { abs_path_str(p).ok() } else { None })
+        .unwrap_or_default();
     let xreact_hits_str = abs_path_str(xreact_hits)?;
     let xreact_summary_str = abs_path_str(xreact_summary)?;
     let cov_summary_str = abs_path_str(cov_summary)?;
@@ -349,6 +378,7 @@ fn write_assess_rmd(
         ("coverage_multi_mapping_file", cov_multi_str.as_str()),
         ("coverage_proximity", &proximity_str),
         ("params_file", params_path_str.as_str()),
+        ("individual_coverage_file", indiv_summary_str.as_str()),
     ];
 
     let template_content = std::fs::read_to_string(&rmd_template)
@@ -366,6 +396,104 @@ fn write_assess_rmd(
         rmd_path.display()
     );
     Ok(())
+}
+
+/// Compute per-target probe coverage by running minimap2 individually for each target.
+///
+/// Each target is evaluated in complete isolation: only that one sequence is present
+/// in the reference during alignment, so probe competition from similar targets is
+/// entirely eliminated. This gives the theoretical maximum coverage achievable for
+/// each target if it were the only sequence in the panel.
+fn compute_individual_coverage(
+    targets: &Path,
+    probes: &Path,
+    outdir: &Path,
+    output_prefix: &str,
+    minimap_preset: &str,
+    proximity: usize,
+) -> Result<PathBuf> {
+    use crate::alignment::coverage;
+
+    // Load target IDs in file order for deterministic output
+    let target_ids = fasta::parse_fasta_ids(targets)?;
+    let n = target_ids.len();
+    log::info!("Computing individual coverage for {} targets...", n);
+
+    // Temp directory for per-target FASTAs and SAMs
+    let tmp_dir = prefixed_join(outdir, output_prefix, "indiv_tmp");
+    fs::create_dir_all(&tmp_dir)?;
+
+    let mut stats: Vec<(String, coverage::ProbeCoverageStats)> = Vec::new();
+
+    for (i, target_id) in target_ids.iter().enumerate() {
+        log::debug!("Individual coverage [{}/{}]: {}", i + 1, n, target_id);
+
+        // Extract this single target to a temp FASTA
+        let target_fa = tmp_dir.join(format!("{}.fa", i));
+        let mut id_set = HashSet::new();
+        id_set.insert(target_id.clone());
+        let extracted = fasta::extract_by_ids(targets, &id_set, &target_fa)?;
+        if extracted == 0 {
+            log::warn!("Target '{}' not found in FASTA — skipping", target_id);
+            continue;
+        }
+
+        // Align all probes against this single target
+        let sam_path = tmp_dir.join(format!("{}.sam", i));
+        let log_path = tmp_dir.join(format!("{}.log", i));
+        minimap2::probe_align(
+            minimap_preset,
+            &target_fa,
+            probes,
+            &sam_path,
+            &log_path,
+            1,
+            1000,
+        )?;
+
+        // Compute coverage for this target
+        let cov_result = coverage::compute_probe_coverage(&sam_path)?;
+        if let Some(depths) = cov_result.coverage.get(target_id) {
+            let ref_len = cov_result
+                .ref_lengths
+                .get(target_id)
+                .copied()
+                .unwrap_or(depths.len());
+            let s = coverage::calculate_probe_stats(depths, ref_len, proximity);
+            stats.push((target_id.clone(), s));
+        } else {
+            // No alignments at all — zero coverage
+            let ref_len = cov_result
+                .ref_lengths
+                .values()
+                .next()
+                .copied()
+                .unwrap_or(0);
+            let zero = vec![0u32; ref_len];
+            let s = coverage::calculate_probe_stats(&zero, ref_len, proximity);
+            stats.push((target_id.clone(), s));
+        }
+
+        // Clean up temp files for this target immediately
+        let _ = fs::remove_file(&target_fa);
+        let _ = fs::remove_file(&sam_path);
+        let _ = fs::remove_file(&log_path);
+    }
+
+    // Remove the (now empty) temp directory
+    let _ = fs::remove_dir(&tmp_dir);
+
+    stats.sort_by(|a, b| a.0.cmp(&b.0));
+
+    let summary_path =
+        prefixed_join(outdir, output_prefix, "individual_target_coverage_summary.tsv");
+    probe_coverage::write_probe_summary(&summary_path, &stats)?;
+    log::info!(
+        "Individual target coverage summary written to {}",
+        summary_path.display()
+    );
+
+    Ok(summary_path)
 }
 
 /// Parse a probe_coverage_summary.tsv and return IDs where pct_covered_1x < threshold.

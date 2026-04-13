@@ -1160,6 +1160,7 @@ baitbench assess-probes \
   [--output-prefix ""] \
   [--report full|none|rmd] \
   [--cleanup] \
+  [--all-individual-targets] \
   [--refine-iterations N | --refine-until-stable] \
   [--refine-threshold 80.0]
 ```
@@ -1176,18 +1177,20 @@ baitbench assess-probes \
 | `--output-prefix` | (empty) | String prepended to every output filename |
 | `--report` | full | Report mode: `full` (HTML), `none` (skip), `rmd` (editable RMarkdown) |
 | `--cleanup` | false | Delete intermediate files (SAM, logs) after completion |
+| `--all-individual-targets` | false | Also compute probe coverage for each target individually. Runs minimap2 once per target against that target alone, eliminating all probe competition from similar targets. Produces `individual_target_coverage_summary.tsv` and adds an **Individual Target Coverage** section to the report. |
 | `--refine-iterations` | none | Number of refinement iterations (mutually exclusive with `--refine-until-stable`) |
 | `--refine-until-stable` | false | Repeat refinement until no targets remain below the threshold or the set stops changing (mutually exclusive with `--refine-iterations`) |
 | `--refine-threshold` | 80.0 | 1X coverage threshold (%) used to identify low-coverage targets for refinement |
 
 **Output files:**
 
-- `cov_probe_coverage_summary.tsv` -- per-target coverage statistics
+- `cov_probe_coverage_summary.tsv` -- per-target coverage statistics (pangenome alignment)
 - `cov_probe_depth.tsv` -- run-length encoded probe depth intervals
 - `cov_multi_mapping_probes.tsv` -- probes mapping to multiple targets
 - `xreact_hits.tsv` -- cross-reactivity hits above threshold
 - `xreact_summary.tsv` -- per-probe cross-reactivity summary
 - `assess_run_params.tsv` -- run parameters
+- `individual_target_coverage_summary.tsv` -- per-target coverage without probe competition (only with `--all-individual-targets`)
 - `assess_probes_report.html` -- combined HTML report (`--report full`)
 - `assess_probes_report.Rmd` -- editable RMarkdown file (`--report rmd`)
 - `refine_N_targets.fa` -- filtered targets for refinement iteration N (when `--refine-iterations` or `--refine-until-stable`)
@@ -1196,7 +1199,7 @@ baitbench assess-probes \
 
 **Report sections:**
 
-1. **Probe Coverage** -- summary table, coverage breadth bar charts, tiered coverage, gap analysis, depth profiles, proximity coverage, multi-mapping probes
+1. **Probe Coverage** -- summary table, coverage breadth bar charts, individual target coverage (if `--all-individual-targets`), tiered coverage, gap analysis, pangenome depth (subtitle shows % pangenome ≥1X), depth profiles, proximity coverage, multi-mapping probes
 2. **Self-Homology** -- heatmap (≤1000 probes), density plots, hits table
 3. **Cross-Reactivity vs Genomes** (if `--genomes` provided) -- heatmap, per-genome bar chart, density plots, hits table
 4. **Parameters** -- run configuration under a collapsible fold
@@ -2161,7 +2164,7 @@ When species calls are available (from `--identify` or standalone `baitbench ide
 The probe assessment report (`assess_probes_report.html`) combines coverage and cross-reactivity analysis into a single document:
 
 - **Build Pipeline** (conditional, when chained from build-probes) -- Pipeline stats table, sequence/base count bar charts
-- **Probe Coverage** -- Summary table, coverage breadth bar charts, tiered coverage, gap analysis, pangenome depth, per-target depth profiles, proximity coverage, multi-mapping probes
+- **Probe Coverage** -- Summary table, coverage breadth bar charts, individual target coverage (conditional, when `--all-individual-targets` was used), tiered coverage, gap analysis, pangenome depth (subtitle includes % pangenome ≥1X), per-target depth profiles, proximity coverage, multi-mapping probes
 - **Self-Homology** -- Plotly heatmap (≤1000 probes), density plots, hits table
 - **Cross-Reactivity vs Genomes** (conditional, when `--genomes` provided) -- Plotly heatmap, per-genome bar chart, density plots, hits table
 - **Parameters** -- Run configuration under a collapsible fold

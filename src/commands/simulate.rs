@@ -48,6 +48,7 @@ pub fn execute(args: &SimulateArgs) -> Result<()> {
         &temp_sam,
         &temp_log,
         args.threads,
+        1000,
     )?;
 
     // --- Step 2: Load and score probe hits ---

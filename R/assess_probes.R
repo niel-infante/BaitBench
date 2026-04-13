@@ -28,6 +28,9 @@ option_list <- list(
               help = "Pull-down zone distance [default %default]"),
   make_option("--params", type = "character", default = NULL,
               help = "Overall run parameters TSV"),
+  make_option("--indiv-cov-summary", type = "character", default = NULL,
+              help = paste("Individual target coverage summary TSV",
+                           "(optional, from --all-individual-targets)")),
   make_option("--output", type = "character",
               help = "Output HTML file")
 )
@@ -64,7 +67,9 @@ rmarkdown::render(
     coverage_multi_mapping_file = if (!is.null(opt$`cov-multi-mapping`))
       normalizePath(opt$`cov-multi-mapping`) else "",
     coverage_proximity = opt$proximity,
-    params_file = if (!is.null(opt$params)) normalizePath(opt$params) else ""
+    params_file = if (!is.null(opt$params)) normalizePath(opt$params) else "",
+    individual_coverage_file = if (!is.null(opt$`indiv-cov-summary`))
+      normalizePath(opt$`indiv-cov-summary`) else ""
   ),
   quiet = TRUE
 )

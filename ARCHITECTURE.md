@@ -75,7 +75,7 @@ src/
 ├── syotti.rs            # Syotti greedy bait design: design_probes() — k-mer hash index, seed-and-extend, greedy set-cover (Alanko et al. 2022)
 ├── catch.rs             # Native CATCH probe design: design_probes() — tiling → MinHash dedup → greedy set cover (reimplementation of Metsky et al. 2019)
 ├── external/
-│   ├── minimap2.rs      # minimap2 wrapper: capture_align (PAF), map_reads (SAM), host_align, probe_align
+│   ├── minimap2.rs      # minimap2 wrapper: capture_align (PAF), map_reads (SAM), host_align, probe_align(max_secondary)
 │   ├── blastn.rs        # BLAST+ wrapper: capture_align, filter_blast_results
 │   ├── cdhit.rs         # cd-hit-est wrapper: check_available, cluster (sequence clustering by identity)
 │   └── rscript.rs       # Rscript discovery (BAITBENCH_R_DIR, binary walk, ./R/) and execution
@@ -142,7 +142,7 @@ Every command module exports an `Args` struct and an `execute(&Args) -> Result<(
 | `tool catch` | — (standalone) | targets, output, probe_length, stride, mismatches, extension, coverage, minhash_threshold | output FASTA of probes; direct access to CATCH algorithm |
 | `tool dustview` | — (standalone) | input (optional, defaults stdin), dust_threshold, dust_window | stdout: per-sequence masked view + score stats |
 | `tool collapse` | — (standalone) | input, output, threshold, threads, log_file | output FASTA of cd-hit-est cluster representatives |
-| `assess_probes` | `AssessProbesArgs` | targets, probes, genomes (optional), threshold, minimap_preset, proximity, build_stats_file (optional), build_params_file (optional) | cov_probe_coverage_summary.tsv, cov_probe_depth.tsv, xreact_hits.tsv, xreact_summary.tsv, assess_run_params.tsv, assess_probes_report.html |
+| `assess_probes` | `AssessProbesArgs` | targets, probes, genomes (optional), threshold, minimap_preset, proximity, build_stats_file (optional), build_params_file (optional), all_individual_targets | cov_probe_coverage_summary.tsv, cov_probe_depth.tsv, xreact_hits.tsv, xreact_summary.tsv, assess_run_params.tsv, individual_target_coverage_summary.tsv (optional), assess_probes_report.html |
 
 ### Metrics (`metrics.rs`)
 
@@ -158,7 +158,7 @@ Every command module exports an `Args` struct and an `execute(&Args) -> Result<(
 - **`CoverageStats`** — ref_length, avg_coverage, pct_covered_5x, pct_covered_20x (used by pipeline read coverage)
 - **`ProbeCoverageStats`** — ref_length, covered_bases, pct_covered_1x, mean_depth, median_depth, pct_covered_2x/5x/10x, max_gap_length, num_gaps, pct_near_probe (used by probe-coverage QC)
 - `compute_coverage(sam)` — pipeline read coverage (skips secondary alignments)
-- `compute_probe_coverage(sam)` — probe tiling depth (includes secondary alignments)
+- `compute_probe_coverage(sam)` — probe tiling depth (includes secondary alignments; used for pangenome coverage and for each per-target SAM in individual-target mode)
 - `write_coverage_intervals(path, coverage)` — run-length encode Vec<u32> depth vectors into interval TSV (reference_id, start, end, depth; 1-based inclusive)
 
 ### PAF (`alignment/paf.rs`)
@@ -430,6 +430,7 @@ Report logic: detects swept params from data, builds combo labels. <10 combos: s
 | `xreact_hits.tsv` | TSV | assess_probes (via xreact) | assess_probes report |
 | `xreact_summary.tsv` | TSV | assess_probes (via xreact) | assess_probes report |
 | `assess_run_params.tsv` | TSV (parameter, flag, value) | assess_probes | assess_probes report |
+| `individual_target_coverage_summary.tsv` | TSV (same columns as cov_probe_coverage_summary.tsv) | assess_probes (`--all-individual-targets` only) | assess_probes report |
 | `assess_probes_report.html` | HTML | assess_probes (via R) | — |
 
 ### Assess Probes Report (`R/assess_probes.Rmd`)
@@ -448,10 +449,11 @@ Report logic: detects swept params from data, builds combo labels. <10 combos: s
 | `coverage_multi_mapping_file` | cov_multi_mapping_probes.tsv (optional) |
 | `coverage_proximity` | `--proximity` CLI value (integer, default 50) |
 | `params_file` | assess_run_params.tsv |
+| `individual_coverage_file` | individual_target_coverage_summary.tsv (optional, from `--all-individual-targets`) |
 
 Report sections (conditionally rendered):
 1. **Build Pipeline** (if build_stats_file provided) — stats table, sequences/bases bar charts
-2. **Probe Coverage** (always) — summary table, coverage breadth, tiered coverage, gap analysis, depth profiles, proximity, multi-mapping probes
+2. **Probe Coverage** (always) — summary table, coverage breadth, individual target coverage (if `individual_coverage_file` provided), tiered coverage, gap analysis, pangenome depth (subtitle shows % pangenome ≥1X), depth profiles, proximity, multi-mapping probes
 3. **Cross-Reactivity Summary** (always) — summary table
 4. **Self-Homology** (if self-mode hits present) — heatmap (≤1000 probes), density plots, hits table
 5. **Cross-Reactivity vs Genomes** (if against-mode hits present) — heatmap, per-genome bar chart, density plots, hits table

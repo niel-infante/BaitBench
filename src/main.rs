@@ -535,6 +535,7 @@ fn main() -> Result<()> {
             refine_threshold,
             refine_iterations,
             refine_until_stable,
+            all_individual_targets,
         } => {
             assess_probes::execute(&assess_probes::AssessProbesArgs {
                 targets: &targets,
@@ -552,6 +553,7 @@ fn main() -> Result<()> {
                 refine_threshold,
                 refine_iterations,
                 refine_until_stable,
+                all_individual_targets,
             })?;
         }
 
