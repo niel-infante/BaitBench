@@ -425,7 +425,16 @@ fn compute_individual_coverage(
 
     let mut stats: Vec<(String, coverage::ProbeCoverageStats)> = Vec::new();
 
+    let report_interval = (n / 10).max(1);
+
     for (i, target_id) in target_ids.iter().enumerate() {
+        if i > 0 && i % report_interval == 0 {
+            log::info!(
+                "Individual coverage: {}/{} targets ({:.0}%)",
+                i, n,
+                100.0 * i as f64 / n as f64
+            );
+        }
         log::debug!("Individual coverage [{}/{}]: {}", i + 1, n, target_id);
 
         // Extract this single target to a temp FASTA
