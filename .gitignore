@@ -30,6 +30,6 @@ test_results/
 blast_db/
 
 # Other
-paper.md
+#paper.md
 
 docs/diagrams/*

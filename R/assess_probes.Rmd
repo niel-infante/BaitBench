@@ -344,7 +344,7 @@ datatable(worst,
 
 ```{r indiv-cov-section, eval=has_individual_cov, results='asis'}
 cat(paste0(
-  "> Coverage computed for each target in isolation (minimap2 run once per target ",
+  "Coverage computed for each target in isolation (minimap2 run once per target ",
   "against that target alone). Probe competition from similar targets is entirely ",
   "eliminated, giving the theoretical maximum coverage achievable for each target ",
   "if it were the only sequence in the panel.\n\n"
@@ -413,6 +413,28 @@ if (indiv_small) {
                             indiv_n)) +
     theme(legend.position = "bottom")
 }
+```
+
+```{r indiv-cov-poor-msg, eval=has_individual_cov, results='asis'}
+poor_df <- indiv_cov_df %>%
+  filter(pct_covered_1x < 80) %>%
+  arrange(pct_covered_1x) %>%
+  select(Name = reference_id, `Length (bp)` = ref_length,
+         `% >= 1X` = pct_covered_1x, `Mean Depth` = mean_depth)
+
+if (nrow(poor_df) > 0) {
+  cat(sprintf("\n**%d target%s below 80%% 1X coverage:**\n\n",
+              nrow(poor_df), if (nrow(poor_df) == 1) "" else "s"))
+} else {
+  cat("\n*All targets meet the 80% 1X coverage threshold.*\n")
+}
+```
+
+```{r indiv-cov-poor-table, eval=has_individual_cov && nrow(poor_df) > 0}
+DT::datatable(poor_df, rownames = FALSE, options = list(
+  pageLength = 25, scrollX = TRUE, dom = "tip"
+)) %>%
+  DT::formatRound(columns = c("% >= 1X", "Mean Depth"), digits = 1)
 ```
 
 ```{r indiv-cov-comparison, eval=has_individual_cov && nrow(indiv_cov_df) == n_targets, fig.height=5, fig.width=7}
