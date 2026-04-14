@@ -26,13 +26,13 @@ Conda?
 
 ### Building Probes
 
-By default, BB build pipeline will do 
-
-
-
-
+By default, BB build pipeline will do QC and simplifications steps of cd-hit concatenation of sequences, removing sequences of more than 5% Ns, and removing short sequences. The actual probe building is done with either catch (ref), a built-in tiling algorithm, or built in versions of catch or syotti(ref). After building, probes are filtered for complexity (internal sDust(ref)) and GC content. Assess-probes is automatically run, and in addition to the information that provides (see next section), it ...
 
 ### Assessing Probes
+
+Assess-probes is automatically run after building probes, but it can also be run on probes built with other tools, or rerun on probesets using different parameters. BaitBench first aligns all probes to all targets using minimap2 (ref). This gives a wealth of information, presented in the report first with a small summary of target coverage coverage and multimapping probes. Then a full searchable table of all targets is giving listing 
+
+
 ### Coverage Report
 ### Coverage Curve
 
