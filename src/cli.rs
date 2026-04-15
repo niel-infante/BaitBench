@@ -51,6 +51,18 @@ pub enum Commands {
         #[arg(long)]
         sample_target_map: Option<PathBuf>,
 
+        /// Target groups TSV (optional). Maps target sequence IDs to group names for
+        /// group-level metrics. Format: seq_id<tab>group_name.
+        /// When absent, each target sequence is its own group (standard behavior).
+        #[arg(long)]
+        groups: Option<PathBuf>,
+
+        /// Distractor groups TSV (optional). Maps distractor contig IDs to group names.
+        /// When absent, contigs from each --distractors FASTA file form one group
+        /// named after the file stem (default behavior).
+        #[arg(long)]
+        distractor_groups: Option<PathBuf>,
+
         /// Host genome FASTA for filtering (optional)
         #[arg(long)]
         host_fasta: Option<PathBuf>,
@@ -183,6 +195,17 @@ pub enum Commands {
         /// Sample-to-target mapping TSV (optional, used with --genomes)
         #[arg(long)]
         sample_target_map: Option<PathBuf>,
+
+        /// Target groups TSV (optional). Maps target sequence IDs to group names for
+        /// group-level metrics. Format: seq_id<tab>group_name.
+        #[arg(long)]
+        groups: Option<PathBuf>,
+
+        /// Distractor groups TSV (optional). Maps distractor contig IDs to group names.
+        /// When absent, contigs from each --distractors FASTA file form one group
+        /// named after the file stem.
+        #[arg(long)]
+        distractor_groups: Option<PathBuf>,
 
         /// Fraction of reads from distractors (0-1). Mutually exclusive with --ct.
         #[arg(short = 'f', long, conflicts_with = "ct")]
@@ -412,6 +435,15 @@ pub enum Commands {
         /// Number of reads after host filtering (for pipeline flow tracking)
         #[arg(long)]
         reads_after_filter: Option<usize>,
+
+        /// Target groups TSV (optional). Maps target sequence IDs to group names for
+        /// group-level metrics. Format: seq_id<tab>group_name.
+        #[arg(long)]
+        target_groups: Option<PathBuf>,
+
+        /// Distractor groups TSV (optional). Maps distractor contig IDs to group names.
+        #[arg(long)]
+        distractor_groups: Option<PathBuf>,
     },
 
     /// Analyze probe tiling and coverage across target sequences (probe design QC)

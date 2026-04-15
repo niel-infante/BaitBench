@@ -13,6 +13,7 @@ option_list <- list(
   make_option("--params", type = "character", help = "Run parameters file (run_params.tsv)"),
   make_option("--coverage", type = "character", default = NULL, help = "Coverage profile TSV (optional)"),
   make_option("--species-calls", type = "character", default = NULL, help = "Species calls TSV (optional, from --identify)"),
+  make_option("--group-detail", type = "character", default = NULL, help = "Group detail TSV (optional, from --groups)"),
   make_option("--run-name", type = "character", default = "BaitBench Run", help = "Run name"),
   make_option("--output", type = "character", help = "Output HTML file")
 )
@@ -36,6 +37,7 @@ if (!file.exists(rmd_path)) {
 # Render the report
 coverage_file <- if (!is.null(opt$coverage)) normalizePath(opt$coverage) else ""
 species_calls_file <- if (!is.null(opt$`species-calls`)) normalizePath(opt$`species-calls`) else ""
+group_detail_file <- if (!is.null(opt$`group-detail`)) normalizePath(opt$`group-detail`) else ""
 
 rmarkdown::render(
   input = rmd_path,
@@ -46,6 +48,7 @@ rmarkdown::render(
     params_file = normalizePath(opt$params),
     coverage_file = coverage_file,
     species_calls_file = species_calls_file,
+    group_detail_file = group_detail_file,
     run_name = opt$`run-name`
   ),
   quiet = TRUE

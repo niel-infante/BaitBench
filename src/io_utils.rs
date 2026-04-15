@@ -207,6 +207,54 @@ pub fn parse_sample_target_map(path: &Path) -> Result<HashMap<String, Vec<String
     Ok(map)
 }
 
+/// Parse a groups TSV file into a HashMap of seq_id -> group_name.
+///
+/// Format: `seq_id<tab>group_name` (one mapping per line).
+/// Skips empty lines and lines starting with '#'.
+pub fn parse_groups_file(path: &Path) -> Result<HashMap<String, String>> {
+    let file = File::open(path)
+        .with_context(|| format!("Cannot open groups file: {}", path.display()))?;
+    let reader = BufReader::new(file);
+    let mut map: HashMap<String, String> = HashMap::new();
+
+    for line in reader.lines() {
+        let line = line?;
+        let line = line.trim().to_string();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let parts: Vec<&str> = line.split('\t').collect();
+        if parts.len() < 2 || parts[1].trim().is_empty() {
+            bail!(
+                "Invalid groups file line (expected seq_id<tab>group_name): '{}'",
+                line
+            );
+        }
+        let seq_id = parts[0].trim().trim_start_matches('>').to_string();
+        let group_name = parts[1].trim().to_string();
+        map.insert(seq_id, group_name);
+    }
+
+    Ok(map)
+}
+
+/// Write a groups map (seq_id -> group_name) to a TSV file.
+pub fn write_groups_file(map: &HashMap<String, String>, path: &Path) -> Result<()> {
+    let file = File::create(path)
+        .with_context(|| format!("Cannot create groups file: {}", path.display()))?;
+    let mut writer = BufWriter::new(file);
+    writeln!(writer, "# BaitBench groups: seq_id\tgroup_name")?;
+
+    let mut seq_ids: Vec<&String> = map.keys().collect();
+    seq_ids.sort();
+    for seq_id in seq_ids {
+        writeln!(writer, "{}\t{}", seq_id, map[seq_id])?;
+    }
+
+    writer.flush()?;
+    Ok(())
+}
+
 /// Write a sample-target-map to a TSV file.
 ///
 /// Format: `genome_id<tab>target_id` (one line per mapping).

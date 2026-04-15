@@ -19,6 +19,10 @@ pub struct RunArgs<'a> {
     pub probes: &'a Path,
     pub sample: Option<&'a HashMap<String, f64>>,
     pub sample_target_map: Option<&'a HashMap<String, Vec<String>>>,
+    /// Optional target groups file (seq_id → group_name TSV).
+    pub groups: Option<&'a Path>,
+    /// Optional distractor groups file (contig_id → group_name TSV).
+    pub distractor_groups: Option<&'a Path>,
     pub host_fasta: Option<&'a Path>,
     pub run_name: String,
     pub num_fragments: usize,
@@ -153,6 +157,8 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         distractors: args.distractors,
         sample: args.sample,
         sample_target_map: args.sample_target_map,
+        groups: args.groups,
+        distractor_groups: args.distractor_groups,
         distractor_fraction: args.distractor_fraction,
         outdir,
         output_prefix: pfx,
@@ -245,6 +251,30 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         None
     };
 
+    // Target groups file written by prepare (only if --groups was provided)
+    let target_groups_path = prefixed_join(outdir, pfx, "target_groups.tsv");
+    let target_groups_opt = if target_groups_path.exists() {
+        Some(target_groups_path)
+    } else {
+        None
+    };
+
+    // Distractor groups file is always written by prepare
+    let distractor_groups_path = prefixed_join(outdir, pfx, "distractor_groups.tsv");
+    let distractor_groups_opt = if distractor_groups_path.exists() {
+        Some(distractor_groups_path)
+    } else {
+        None
+    };
+
+    // Write group detail only when any grouping is active
+    let group_detail_path = prefixed_join(outdir, pfx, "group_detail.tsv");
+    let group_detail_opt = if target_groups_opt.is_some() || distractor_groups_opt.is_some() {
+        Some(group_detail_path)
+    } else {
+        None
+    };
+
     let fragments_path = prefixed_join(outdir, pfx, "fragments.fa");
 
     metrics::execute(&metrics::MetricsArgs {
@@ -252,6 +282,8 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         distractors: &prefixed_join(outdir, pfx, "distractors.txt"),
         sample: &prefixed_join(outdir, pfx, "sample.txt"),
         sample_target_map: sample_target_map_path.as_deref(),
+        target_groups: target_groups_opt.as_deref(),
+        distractor_groups: distractor_groups_opt.as_deref(),
         detected: &prefixed_join(outdir, pfx, "detected.list"),
         fragments: &fragments_path,
         captured: &fragments_path, // fragments IS the post-capture pool in the new pipeline
@@ -261,6 +293,7 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         seed: &seed_str,
         output_summary: &prefixed_join(outdir, pfx, "results.tsv"),
         output_detail: &prefixed_join(outdir, pfx, "detected_detail.tsv"),
+        output_group_detail: group_detail_opt.as_deref(),
         output_json: Some(&prefixed_join(outdir, pfx, "results.json")),
         output_coverage: Some(&prefixed_join(outdir, pfx, "coverage.tsv")),
         reads_sequenced: Some(reads_sequenced),
@@ -314,6 +347,7 @@ pub fn execute(args: &RunArgs) -> Result<()> {
                     params: &prefixed_join(outdir, pfx, "run_params.tsv"),
                     coverage: Some(&prefixed_join(outdir, pfx, "coverage.tsv")),
                     species_calls: species_calls_opt,
+                    group_detail: group_detail_opt.as_deref(),
                     run_name: &args.run_name,
                     output: &prefixed_join(outdir, pfx, "report.html"),
                     report: ReportMode::Full,
@@ -335,6 +369,7 @@ pub fn execute(args: &RunArgs) -> Result<()> {
                 params: &prefixed_join(outdir, pfx, "run_params.tsv"),
                 coverage: Some(&prefixed_join(outdir, pfx, "coverage.tsv")),
                 species_calls: species_calls_opt,
+                group_detail: group_detail_opt.as_deref(),
                 run_name: &args.run_name,
                 output: &prefixed_join(outdir, pfx, "report.html"),
                 report: ReportMode::Rmd,

@@ -46,7 +46,7 @@ src/
 ├── main.rs              # Entry point: CLI parsing → command dispatch
 ├── cli.rs               # clap argument definitions (Commands enum, all flags)
 ├── cleanup.rs           # Post-pipeline cleanup: delete intermediate files/dirs, keep report inputs
-├── io_utils.rs           # Shared helpers: prefixed_join, parse_id_set, extract_source_id, parse_sample_manifest, parse_sample_target_map
+├── io_utils.rs           # Shared helpers: prefixed_join, parse_id_set, extract_source_id, parse_sample_manifest, parse_sample_target_map, parse_groups_file, write_groups_file
 ├── target_similarity.rs  # Shared library: target-vs-target similarity computation, discriminability scoring, confusion matrices
 ├── alignment/
 │   ├── coverage.rs      # CIGAR-based per-position coverage from SAM
@@ -123,14 +123,14 @@ Every command module exports an `Args` struct and an `execute(&Args) -> Result<(
 
 | Command | Args struct | Key inputs | Key outputs |
 |---------|-------------|------------|-------------|
-| `prepare` | `PrepareArgs` | targets, distractors, sample, distractor_fraction, genomes, sample_target_map | combined_reference.fa, weights.txt, ID lists; genome mode also: mapping_reference.fa, genomes.txt, sample_target_map.txt |
+| `prepare` | `PrepareArgs` | targets, distractors, sample, distractor_fraction, genomes, sample_target_map, groups, distractor_groups | combined_reference.fa, weights.txt, ID lists, distractor_groups.tsv (always); target_groups.tsv (if --groups); genome mode also: mapping_reference.fa, genomes.txt, sample_target_map.txt |
 | `simulate` | `SimulateArgs` | reference, weights, probes, num_fragments, capture_fraction, simulate_mode, hybridization_temperature, seed, fragment_length_*, threads | fragments.fa (probe-biased + background) |
 | `sequence` | `SequenceArgs` | input, read_length, num_sequences, seed | reads.fa (trimmed, optionally sampled) |
 | `filter` | `FilterArgs` | host, reads, minimap_preset | filtered.fa |
 | `map_reads` | `MapArgs` | reference, reads, minimap_preset | mapped.sam |
 | `generate_list` | `ListArgs` | sam | detected.list |
-| `metrics` | `MetricsArgs` | targets, distractors, sample, detected, fragments, captured, sam, sample_target_map, reads_sequenced, reads_after_filter | results.tsv, detected_detail.tsv, results.json, coverage.tsv |
-| `report` | `ReportArgs` | summary, detail, params, coverage, run_name, report (ReportMode) | report.html or report.Rmd |
+| `metrics` | `MetricsArgs` | targets, distractors, sample, detected, fragments, captured, sam, sample_target_map, target_groups, distractor_groups, reads_sequenced, reads_after_filter, output_group_detail | results.tsv, detected_detail.tsv (with group col), group_detail.tsv (when groups present), results.json, coverage.tsv |
+| `report` | `ReportArgs` | summary, detail, params, coverage, group_detail, run_name, report (ReportMode) | report.html or report.Rmd |
 | `probe_coverage` | `ProbeCoverageArgs` | targets, probes, minimap_preset, proximity | probe_depth.tsv, probe_coverage_summary.tsv, probe_coverage_report.html |
 | `xreact` | `XreactArgs` | probes, against (genome FASTAs), self_mode, threshold, minimap_preset, report (ReportMode) | hits.tsv, summary.tsv, xreact_report.html |
 | `panel_qc` | `PanelQcArgs` | targets, sample_target_map, identity_threshold, minimap_preset, report (ReportMode) | target_similarity.tsv, species_discriminability.tsv, species_confusion_matrix.tsv, panel_qc_report.html |
@@ -146,11 +146,14 @@ Every command module exports an `Args` struct and an `execute(&Args) -> Result<(
 
 ### Metrics (`metrics.rs`)
 
-- **`MetricsResult`** — genome-level classification: tp/fn/fp_target/fp_distractor/tn_target/tn_distractor counts, sensitivity/specificity/precision/f1, plus ID lists (false_negatives, etc.), untargeted_genomes list
+- **`MetricsResult`** — group-level classification: tp/fn/fp_target/fp_distractor/tn_target/tn_distractor counts, sensitivity/specificity/precision/f1, plus group name lists (true_positives, false_negatives, etc.), untargeted_genomes list
 - **`ReadLevelMetrics`** — fragment/read counts: sample_captured, nonsample_target_captured, distractor_captured, untargeted_captured, reads_correctly_mapped, reads_incorrectly_mapped. Summary TSV also includes derived pipeline flow counts: reads_sequenced, reads_after_filter, reads_mapped, reads_unmapped
 - **`GenomeContext`** — derived from sample_target_map: sample_targets, genome_ids, sample_genome_ids, genome_to_targets, target_to_genomes, untargeted_genomes (genomes with no target mapping)
-- **`DetailRow`** (Serialize) — per-reference row: reference_id, category, expected, detected, fragments_generated, fragments_captured, reads_assigned, classification, ref_length, avg_coverage, pct_covered_5x, pct_covered_20x
+- **`DetailRow`** (Serialize) — per-reference row: reference_id, group, category, expected, detected, fragments_generated, fragments_captured, reads_assigned, classification, ref_length, avg_coverage, pct_covered_5x, pct_covered_20x
+- **`GroupDetailRow`** — per-group row for `group_detail.tsv`: group_name, category, expected, detected, classification, member_count, detected_member_count, total_reads
 - **`JsonOutput`** (Serialize) — wraps RunInfo, CaptureStats, ReadLevelStats, JsonMetrics, JsonDetails
+- Group maps are loaded via `load_group_map(path)` → `HashMap<String, String>` (seq_id → group_name). Missing entries default to identity mapping.
+- `collapse_to_groups(detected, group_map)` — collapses per-sequence detection counts to per-group counts
 
 ### Coverage (`alignment/coverage.rs`)
 
@@ -223,6 +226,8 @@ Every command module exports an `Args` struct and an `execute(&Args) -> Result<(
 - `format_sample_display(samples) → String` — human-readable display of sample HashMap (e.g. `t1 t2 t3(5.0) t4`)
 - `parse_sample_target_map(path) → HashMap<String, Vec<String>>` — TSV genome_id\ttarget_id, # comments; returns genome→[targets] mapping
 - `write_sample_target_map(map, path)` — writes genome→target mapping as commented TSV
+- `parse_groups_file(path) → HashMap<String, String>` — TSV seq_id\tgroup_name, # comments; strips leading `>` from IDs
+- `write_groups_file(map, path)` — writes sorted seq_id→group_name TSV with header comment
 
 ## External Tool Wrappers (`external/`)
 
@@ -276,6 +281,8 @@ All wrappers follow the pattern: `check_available() → bool/Result`, then speci
 | `genomes.txt` | ID list | prepare (genome mode) | enrich (genome mode), metrics |
 | `sample.txt` | ID list | prepare | metrics |
 | `sample_target_map.txt` | TSV (genome_id target_id) | prepare (genome mode) | metrics, coverage_curve |
+| `target_groups.tsv` | TSV (seq_id group_name) | prepare (only if `--groups`) | metrics, report |
+| `distractor_groups.tsv` | TSV (seq_id group_name) | prepare (always; auto or `--distractor-groups`) | metrics, report |
 | `fragments.fa` | FASTA | simulate | capture, metrics |
 | `captured.fa` | FASTA | capture | enrich (if --fold-enrichment), sequence, metrics |
 | `enriched.fa` | FASTA | enrich | sequence, metrics (only if --fold-enrichment) |
@@ -285,7 +292,8 @@ All wrappers follow the pattern: `check_available() → bool/Result`, then speci
 | `detected.list` | TSV (id count) | generate_list | metrics |
 | `run_params.tsv` | TSV (parameter flag value) | run | report |
 | `results.tsv` | TSV | metrics | report |
-| `detected_detail.tsv` | TSV | metrics | report |
+| `detected_detail.tsv` | TSV (includes `group` column) | metrics | report |
+| `group_detail.tsv` | TSV (one row per group) | metrics (when groups present) | report |
 | `results.json` | JSON | metrics | — |
 | `coverage.tsv` | TSV intervals (reference_id start end depth) | metrics | report |
 | `species_calls.tsv` | TSV | identify (optional) | report |

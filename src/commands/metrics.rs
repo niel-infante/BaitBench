@@ -17,6 +17,12 @@ pub struct MetricsArgs<'a> {
     /// When present, enables genome-aware classification where sample IDs are
     /// genome IDs and detection is measured through their mapped target regions.
     pub sample_target_map: Option<&'a Path>,
+    /// Optional target groups file (seq_id → group_name TSV).
+    /// When present, metrics are aggregated at group level.
+    pub target_groups: Option<&'a Path>,
+    /// Optional distractor groups file (contig_id → group_name TSV).
+    /// When present, distractor FP/TN counts are at group level.
+    pub distractor_groups: Option<&'a Path>,
     pub detected: &'a Path,
     pub fragments: &'a Path,
     pub captured: &'a Path,
@@ -26,6 +32,8 @@ pub struct MetricsArgs<'a> {
     pub seed: &'a str,
     pub output_summary: &'a Path,
     pub output_detail: &'a Path,
+    /// Optional output path for group-level detail TSV.
+    pub output_group_detail: Option<&'a Path>,
     pub output_json: Option<&'a Path>,
     pub output_coverage: Option<&'a Path>,
     /// Number of reads after sequencing step (for pipeline flow tracking)
@@ -175,6 +183,18 @@ pub fn execute(args: &MetricsArgs) -> Result<()> {
         None
     };
 
+    // Load group maps (empty map = identity mapping, handled at lookup time)
+    let target_group_map = load_group_map(args.target_groups)?;
+    let distractor_group_map = load_group_map(args.distractor_groups)?;
+    if !target_group_map.is_empty() {
+        let n_groups: HashSet<_> = target_group_map.values().collect();
+        log::info!("  Target groups: {} sequences → {} groups", target_group_map.len(), n_groups.len());
+    }
+    if !distractor_group_map.is_empty() {
+        let n_groups: HashSet<_> = distractor_group_map.values().collect();
+        log::info!("  Distractor groups: {} contigs → {} groups", distractor_group_map.len(), n_groups.len());
+    }
+
     log::info!("Parsing detection list...");
     let detected = parse_detected(args.detected)?;
     log::info!("  Found {} detected references", detected.len());
@@ -217,6 +237,8 @@ pub fn execute(args: &MetricsArgs) -> Result<()> {
         &distractors,
         genome_ctx.as_ref(),
         args.sam,
+        &target_group_map,
+        &distractor_group_map,
     )?;
 
     log::info!("  Sample fragments generated: {}", read_level.sample_generated);
@@ -259,7 +281,15 @@ pub fn execute(args: &MetricsArgs) -> Result<()> {
     }
 
     // Calculate genome-level metrics (classification)
-    let metrics = calculate_metrics(effective_sample, &targets, &distractors, &detected, genome_ctx.as_ref());
+    let metrics = calculate_metrics(
+        effective_sample,
+        &targets,
+        &distractors,
+        &detected,
+        genome_ctx.as_ref(),
+        &target_group_map,
+        &distractor_group_map,
+    );
 
     log::info!("  True Positives (sample detected): {}", metrics.tp_count);
     log::info!("  False Negatives (sample missed): {}", metrics.fn_count);
@@ -301,11 +331,28 @@ pub fn execute(args: &MetricsArgs) -> Result<()> {
         effective_sample, &targets, &distractors, &detected, &metrics,
         &generated_per_ref, &captured_per_ref, &coverage_stats,
         genome_ctx.as_ref(),
+        &target_group_map,
+        &distractor_group_map,
     );
 
     // Write detail TSV
     log::info!("Writing detail to {}...", args.output_detail.display());
     write_detail_tsv(args.output_detail, &detail_rows)?;
+
+    // Write group detail TSV (if path provided and grouping is active)
+    if let Some(group_detail_path) = args.output_group_detail {
+        let group_rows = build_group_detail_rows(
+            &metrics,
+            &detected,
+            &target_group_map,
+            &distractor_group_map,
+            effective_sample,
+            &targets,
+            &distractors,
+        );
+        log::info!("Writing group detail to {}...", group_detail_path.display());
+        write_group_detail_tsv(group_detail_path, &group_rows)?;
+    }
 
     // Write JSON
     if let Some(json_path) = args.output_json {
@@ -389,6 +436,8 @@ fn compute_read_level_metrics(
     distractors: &HashSet<String>,
     genome_ctx: Option<&GenomeContext>,
     sam_path: &Path,
+    target_group_map: &HashMap<String, String>,
+    _distractor_group_map: &HashMap<String, String>,
 ) -> Result<ReadLevelMetrics> {
     let mut sample_generated = 0usize;
     let mut nonsample_target_generated = 0usize;
@@ -445,8 +494,12 @@ fn compute_read_level_metrics(
                     reads_incorrectly_mapped += 1;
                 }
             } else {
-                // Standard mode: source ID should match mapped reference
-                if source == mapped_ref {
+                // Standard mode: correct if source and mapped_ref belong to the same group.
+                // When no group map is provided, each sequence is its own group,
+                // so this reduces to source == mapped_ref (unchanged behavior).
+                let source_group = get_group(source, target_group_map);
+                let mapped_group = get_group(mapped_ref, target_group_map);
+                if source_group == mapped_group {
                     reads_correctly_mapped += 1;
                 } else {
                     reads_incorrectly_mapped += 1;
@@ -481,6 +534,35 @@ fn count_per_source(path: &Path) -> Result<HashMap<String, usize>> {
     Ok(counts)
 }
 
+/// Load a groups file into a HashMap<seq_id, group_name>.
+/// For any sequence ID not found in the file, its group is its own ID (identity mapping).
+/// If no path is given, all IDs map to themselves.
+fn load_group_map(path: Option<&Path>) -> Result<HashMap<String, String>> {
+    match path {
+        Some(p) => io_utils::parse_groups_file(p),
+        None => Ok(HashMap::new()), // empty = identity mapping (handled at lookup time)
+    }
+}
+
+/// Look up the group for a sequence ID. Returns the ID itself if not in the map.
+fn get_group<'a>(seq_id: &'a str, group_map: &'a HashMap<String, String>) -> &'a str {
+    group_map.get(seq_id).map(|s| s.as_str()).unwrap_or(seq_id)
+}
+
+/// Collapse a per-sequence detected map to a per-group detected map.
+/// A group is detected if any of its member sequences has reads.
+fn collapse_to_groups(
+    detected: &HashMap<String, usize>,
+    group_map: &HashMap<String, String>,
+) -> HashMap<String, usize> {
+    let mut group_detected: HashMap<String, usize> = HashMap::new();
+    for (seq_id, &count) in detected {
+        let group = get_group(seq_id, group_map);
+        *group_detected.entry(group.to_string()).or_insert(0) += count;
+    }
+    group_detected
+}
+
 fn parse_detected(path: &Path) -> Result<HashMap<String, usize>> {
     let file = File::open(path)
         .with_context(|| format!("Cannot open detection list: {}", path.display()))?;
@@ -512,57 +594,95 @@ fn parse_detected(path: &Path) -> Result<HashMap<String, usize>> {
 ///
 /// In genome-aware mode, `effective_sample` contains target IDs derived from
 /// sample genomes via the mapping. Detection is at the target level.
+///
+/// When group maps are provided, classification is at group level:
+/// a group is detected if any member sequence has reads.
 fn calculate_metrics(
     effective_sample: &HashSet<String>,
     targets: &HashSet<String>,
     distractors: &HashSet<String>,
     detected: &HashMap<String, usize>,
     genome_ctx: Option<&GenomeContext>,
+    target_group_map: &HashMap<String, String>,
+    distractor_group_map: &HashMap<String, String>,
 ) -> MetricsResult {
-    // Sample targets
-    let mut true_positives: Vec<String> = effective_sample
+    // Collapse per-sequence detection to per-group detection
+    let group_detected = collapse_to_groups(detected, target_group_map);
+    let dist_group_detected = collapse_to_groups(detected, distractor_group_map);
+
+    // Build group-level sample set: groups that contain at least one sample sequence
+    let sample_groups: HashSet<String> = effective_sample
         .iter()
-        .filter(|id| detected.contains_key(*id))
+        .map(|id| get_group(id, target_group_map).to_string())
+        .collect();
+
+    // Build group-level target set (all unique groups from targets)
+    let all_target_groups: HashSet<String> = targets
+        .iter()
+        .map(|id| get_group(id, target_group_map).to_string())
+        .collect();
+
+    // Build group-level distractor set
+    let all_distractor_groups: HashSet<String> = distractors
+        .iter()
+        .map(|id| get_group(id, distractor_group_map).to_string())
+        .collect();
+
+    // Sample groups: TP if detected, FN if not
+    let mut true_positives: Vec<String> = sample_groups
+        .iter()
+        .filter(|g| group_detected.contains_key(*g))
         .cloned()
         .collect();
-    let mut false_negatives: Vec<String> = effective_sample
+    let mut false_negatives: Vec<String> = sample_groups
         .iter()
-        .filter(|id| !detected.contains_key(*id))
+        .filter(|g| !group_detected.contains_key(*g))
         .cloned()
         .collect();
 
-    // Non-sample targets (targets NOT in the effective sample)
-    let nonsample_targets: HashSet<&String> = targets.iter().filter(|id| !effective_sample.contains(*id)).collect();
-    let mut fp_targets: Vec<String> = nonsample_targets
+    // Non-sample target groups (in all_target_groups but NOT in sample_groups)
+    let nonsample_target_groups: HashSet<&String> = all_target_groups
         .iter()
-        .filter(|id| detected.contains_key(**id))
-        .map(|id| (*id).clone())
+        .filter(|g| !sample_groups.contains(*g))
         .collect();
-    let mut tn_targets: Vec<String> = nonsample_targets
+    let mut fp_targets: Vec<String> = nonsample_target_groups
         .iter()
-        .filter(|id| !detected.contains_key(**id))
-        .map(|id| (*id).clone())
+        .filter(|g| group_detected.contains_key(**g))
+        .map(|g| (*g).clone())
         .collect();
-
-    // Distractors
-    let mut fp_distractors: Vec<String> = distractors
+    let mut tn_targets: Vec<String> = nonsample_target_groups
         .iter()
-        .filter(|id| detected.contains_key(*id))
-        .cloned()
-        .collect();
-    let mut tn_distractors: Vec<String> = distractors
-        .iter()
-        .filter(|id| !detected.contains_key(*id))
-        .cloned()
+        .filter(|g| !group_detected.contains_key(**g))
+        .map(|g| (*g).clone())
         .collect();
 
-    // Unknown detected (not in any category)
-    let all_known: HashSet<&String> = targets.iter().chain(distractors.iter()).collect();
+    // Distractor groups
+    let mut fp_distractors: Vec<String> = all_distractor_groups
+        .iter()
+        .filter(|g| dist_group_detected.contains_key(*g))
+        .cloned()
+        .collect();
+    let mut tn_distractors: Vec<String> = all_distractor_groups
+        .iter()
+        .filter(|g| !dist_group_detected.contains_key(*g))
+        .cloned()
+        .collect();
+
+    // Unknown detected (seq IDs not belonging to any target or distractor group)
+    let all_known_groups: HashSet<&String> = all_target_groups.iter().chain(all_distractor_groups.iter()).collect();
+    // Use the original per-sequence detected for unknowns (sequences not in any known category)
+    let all_known_seqs: HashSet<&String> = targets.iter().chain(distractors.iter()).collect();
     let mut unknown_detected: Vec<String> = detected
         .keys()
-        .filter(|id| !all_known.contains(id))
+        .filter(|id| !all_known_seqs.contains(id))
         .cloned()
         .collect();
+    // Also include any group-level detections not in known groups
+    for g in group_detected.keys().chain(dist_group_detected.keys()) {
+        if !all_known_groups.contains(g) && !unknown_detected.contains(g) {
+            unknown_detected.push(g.clone());
+        }
+    }
 
     // Untargeted genomes
     let mut untargeted_genomes: Vec<String> = genome_ctx
@@ -686,6 +806,7 @@ fn write_summary_tsv(
 #[derive(Serialize)]
 struct DetailRow {
     reference_id: String,
+    group: String,
     category: String,
     expected: String,
     detected: String,
@@ -703,16 +824,137 @@ fn write_detail_tsv(path: &Path, rows: &[DetailRow]) -> Result<()> {
     let file = File::create(path)?;
     let mut w = BufWriter::new(file);
 
-    writeln!(w, "reference_id\tcategory\texpected\tdetected\tfragments_generated\tfragments_captured\treads_assigned\tclassification\tref_length\tavg_coverage\tpct_covered_5x\tpct_covered_20x")?;
+    writeln!(w, "reference_id\tgroup\tcategory\texpected\tdetected\tfragments_generated\tfragments_captured\treads_assigned\tclassification\tref_length\tavg_coverage\tpct_covered_5x\tpct_covered_20x")?;
 
     for row in rows {
         writeln!(
             w,
-            "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{:.2}\t{:.1}\t{:.1}",
-            row.reference_id, row.category, row.expected, row.detected,
+            "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{:.2}\t{:.1}\t{:.1}",
+            row.reference_id, row.group, row.category, row.expected, row.detected,
             row.fragments_generated, row.fragments_captured, row.reads_assigned,
             row.classification, row.ref_length, row.avg_coverage,
             row.pct_covered_5x, row.pct_covered_20x
+        )?;
+    }
+
+    w.flush()?;
+    Ok(())
+}
+
+/// Build group-level detail rows from per-sequence data and group maps.
+fn build_group_detail_rows(
+    _metrics: &MetricsResult,
+    detected: &HashMap<String, usize>,
+    target_group_map: &HashMap<String, String>,
+    distractor_group_map: &HashMap<String, String>,
+    effective_sample: &HashSet<String>,
+    targets: &HashSet<String>,
+    distractors: &HashSet<String>,
+) -> Vec<GroupDetailRow> {
+    // Build group → [member seq IDs] for targets
+    let mut target_group_members: HashMap<String, Vec<String>> = HashMap::new();
+    for id in targets {
+        let g = get_group(id, target_group_map).to_string();
+        target_group_members.entry(g).or_default().push(id.clone());
+    }
+    // Build group → [member seq IDs] for distractors
+    let mut distractor_group_members: HashMap<String, Vec<String>> = HashMap::new();
+    for id in distractors {
+        let g = get_group(id, distractor_group_map).to_string();
+        distractor_group_members.entry(g).or_default().push(id.clone());
+    }
+
+    let sample_groups: HashSet<String> = effective_sample
+        .iter()
+        .map(|id| get_group(id, target_group_map).to_string())
+        .collect();
+
+    let mut rows: Vec<GroupDetailRow> = Vec::new();
+
+    // Target groups
+    for (group, members) in &target_group_members {
+        let detected_members = members.iter().filter(|id| detected.contains_key(*id)).count();
+        let total_reads: usize = members.iter()
+            .map(|id| detected.get(id).copied().unwrap_or(0))
+            .sum();
+        let is_sample = sample_groups.contains(group);
+        let is_detected = detected_members > 0;
+
+        let (category, expected, classification) = if is_sample {
+            if is_detected { ("sample", "true", "TP") } else { ("sample", "true", "FN") }
+        } else {
+            if is_detected { ("target", "false", "FP_target") } else { ("target", "false", "TN_target") }
+        };
+
+        rows.push(GroupDetailRow {
+            group_name: group.clone(),
+            category: category.to_string(),
+            expected: expected.to_string(),
+            detected: is_detected.to_string(),
+            classification: classification.to_string(),
+            member_count: members.len(),
+            detected_member_count: detected_members,
+            total_reads,
+        });
+    }
+
+    // Distractor groups
+    for (group, members) in &distractor_group_members {
+        let detected_members = members.iter().filter(|id| detected.contains_key(*id)).count();
+        let total_reads: usize = members.iter()
+            .map(|id| detected.get(id).copied().unwrap_or(0))
+            .sum();
+        let is_detected = detected_members > 0;
+        let classification = if is_detected { "FP_distractor" } else { "TN_distractor" };
+
+        rows.push(GroupDetailRow {
+            group_name: group.clone(),
+            category: "distractor".to_string(),
+            expected: "false".to_string(),
+            detected: is_detected.to_string(),
+            classification: classification.to_string(),
+            member_count: members.len(),
+            detected_member_count: detected_members,
+            total_reads,
+        });
+    }
+
+    rows.sort_by(|a, b| {
+        let order = |c: &str| match c {
+            "TP" => 0, "FP_target" => 1, "FP_distractor" => 2, "FN" => 3,
+            "TN_target" => 4, "TN_distractor" => 5, _ => 99,
+        };
+        order(&a.classification).cmp(&order(&b.classification))
+            .then(b.total_reads.cmp(&a.total_reads))
+    });
+
+    rows
+}
+
+/// Group-level summary row.
+struct GroupDetailRow {
+    group_name: String,
+    category: String,
+    expected: String,
+    detected: String,
+    classification: String,
+    member_count: usize,
+    detected_member_count: usize,
+    total_reads: usize,
+}
+
+fn write_group_detail_tsv(path: &Path, rows: &[GroupDetailRow]) -> Result<()> {
+    let file = File::create(path)?;
+    let mut w = BufWriter::new(file);
+
+    writeln!(w, "group_name\tcategory\texpected\tdetected\tclassification\tmember_count\tdetected_member_count\ttotal_reads")?;
+    for row in rows {
+        writeln!(
+            w,
+            "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
+            row.group_name, row.category, row.expected, row.detected,
+            row.classification, row.member_count, row.detected_member_count,
+            row.total_reads,
         )?;
     }
 
@@ -801,6 +1043,8 @@ fn build_detail_rows(
     captured_per_ref: &HashMap<String, usize>,
     coverage_stats: &HashMap<String, coverage::CoverageStats>,
     genome_ctx: Option<&GenomeContext>,
+    target_group_map: &HashMap<String, String>,
+    distractor_group_map: &HashMap<String, String>,
 ) -> Vec<DetailRow> {
     let mut rows: Vec<DetailRow> = Vec::new();
 
@@ -813,6 +1057,11 @@ fn build_detail_rows(
             ("distractor", "false", "FP_distractor")
         } else {
             ("unknown", "false", "UNKNOWN")
+        };
+        let group = if distractors.contains(ref_id) {
+            get_group(ref_id, distractor_group_map).to_string()
+        } else {
+            get_group(ref_id, target_group_map).to_string()
         };
 
         // In genome mode, fragment counts are per genome source, but detected
@@ -844,6 +1093,7 @@ fn build_detail_rows(
         let cov = coverage_stats.get(ref_id);
         rows.push(DetailRow {
             reference_id: ref_id.clone(),
+            group,
             category: category.to_string(),
             expected: expected.to_string(),
             detected: "true".to_string(),
@@ -860,8 +1110,11 @@ fn build_detail_rows(
 
     for ref_id in &metrics.false_negatives {
         let cov = coverage_stats.get(ref_id);
+        // metrics.false_negatives contains group names when grouping is active,
+        // but may also contain seq IDs in identity-mapping case — handle both.
         rows.push(DetailRow {
             reference_id: ref_id.clone(),
+            group: ref_id.clone(), // FN groups are already group names
             category: "sample".to_string(),
             expected: "true".to_string(),
             detected: "false".to_string(),
@@ -883,6 +1136,7 @@ fn build_detail_rows(
             let frag_cap = captured_per_ref.get(genome_id).copied().unwrap_or(0);
             rows.push(DetailRow {
                 reference_id: genome_id.clone(),
+                group: genome_id.clone(),
                 category: "untargeted".to_string(),
                 expected: "false".to_string(),
                 detected: if frag_cap > 0 { "true" } else { "false" }.to_string(),

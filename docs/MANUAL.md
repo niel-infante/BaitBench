@@ -53,6 +53,7 @@ Complete reference for BaitBench, an in-silico probe capture simulation tool.
   - [Run Output Directory](#run-output-directory)
   - [results.tsv Columns](#resultstsv-columns)
   - [detected_detail.tsv Columns](#detected_detailtsv-columns)
+  - [group_detail.tsv Columns](#group_detailtsv-columns)
   - [results.json Structure](#resultsjson-structure)
   - [coverage.tsv Format](#coveragetsv-format)
 - [Usage Examples](#usage-examples)
@@ -62,6 +63,7 @@ Complete reference for BaitBench, an in-silico probe capture simulation tool.
   - [Genome Mode for Bacteria](#genome-mode-for-bacteria)
   - [Mixed Panels (Virus + Bacteria)](#mixed-panels-virus--bacteria)
   - [Multiple Distractor Sources](#multiple-distractor-sources)
+  - [Group-Level Grouping](#group-level-grouping)
   - [Capture Fraction Sweep](#capture-fraction-sweep)
   - [Sequencing Depth Control](#sequencing-depth-control)
   - [Host Filtering](#host-filtering)
@@ -88,6 +90,7 @@ Complete reference for BaitBench, an in-silico probe capture simulation tool.
   - [FASTA Files](#fasta-files)
   - [Sample Manifest](#sample-manifest-format)
   - [Sample-Target Map](#sample-target-map-format)
+  - [Groups File Format](#groups-file-format)
 - [Dependencies](#dependencies)
 
 ---
@@ -200,6 +203,21 @@ This distinguishes two types of false positives:
 - **FP_distractor**: True off-target capture (e.g., probe captures bacterial DNA)
 
 Without `--sample`, all targets are in the sample, reducing to a 2-way classification (TP/FP/FN/TN with no FP_target).
+
+### Group-Level Metrics
+
+When a target panel contains multiple sequence variants of the same organism (e.g., `West_Nile_virus_0001`, `West_Nile_virus_0002`, `West_Nile_virus_0003`), it may be desirable to treat all variants as a single entity for metrics purposes. Similarly, a distractor FASTA with thousands of contigs (e.g., host genome) should count as a single FP entity rather than thousands.
+
+BaitBench supports **group-level metrics** via two optional flags:
+
+- `--groups <groups.tsv>` -- maps target sequence IDs to group names. Sequences not mentioned form singleton groups using their own ID. When absent, each target sequence is its own group (backward-compatible behavior).
+- `--distractor-groups <distractor_groups.tsv>` -- explicit distractor grouping. When absent (default), all contigs from each `--distractors` FASTA file are automatically grouped under the file stem name (e.g., all contigs in `Aaegypti.fa` → group `"Aaegypti"`).
+
+A group is **detected** if any member sequence has at least one read mapped to it. Classification (TP/FN/FP/TN) operates on groups rather than individual sequences. A read mapping from a sequence in group A to any other sequence in group A is counted as **correctly mapped** (not as a cross-mapping error).
+
+Results include a `group_detail.tsv` file with one row per group, showing group name, category, detection status, member count, detected member count, and total reads. The `detected_detail.tsv` gains a `group` column showing each sequence's group assignment.
+
+See [Groups File Format](#groups-file-format) for syntax. See [Group-Level Grouping Example](#group-level-grouping) for a complete usage example.
 
 ### CT Scores
 
@@ -403,6 +421,8 @@ baitbench prepare \
   [--genomes genomes.fa] \
   [--sample manifest.tsv] \
   [--sample-target-map mapping.tsv] \
+  [--groups target_groups.tsv] \
+  [--distractor-groups distractor_groups.tsv] \
   [--distractor-fraction 0.9 | --ct 25] \
   [--ct-baseline 20.0] \
   [--ct-baseline-fraction 0.01] \
@@ -415,6 +435,8 @@ baitbench prepare \
 - `targets.txt` -- target sequence IDs (one per line)
 - `distractors.txt` -- distractor sequence IDs (one per line)
 - `sample.txt` -- sample sequence IDs (one per line)
+- `target_groups.tsv` -- target group assignments (written only if `--groups` provided)
+- `distractor_groups.tsv` -- distractor group assignments (always written; from `--distractor-groups` or auto-generated from FASTA file stems)
 - `mapping_reference.fa` -- targets + distractors for read mapping (genome mode only)
 - `genomes.txt` -- genome IDs (genome mode only)
 - `sample_target_map.txt` -- genome-to-target mapping (genome mode only)
@@ -525,12 +547,15 @@ baitbench metrics \
   [--output-json results.json] \
   [--output-coverage coverage.tsv] \
   [--sample-target-map sample_target_map.txt] \
+  [--target-groups target_groups.tsv] \
+  [--distractor-groups distractor_groups.tsv] \
   [--seed 42]
 ```
 
 **Output files:**
-- `results.tsv` -- genome-level summary metrics
-- `detected_detail.tsv` -- per-reference detection and coverage detail
+- `results.tsv` -- genome-level summary metrics (group-level if groups provided)
+- `detected_detail.tsv` -- per-reference detection and coverage detail (includes `group` column)
+- `group_detail.tsv` -- per-group summary (written when group files are provided)
 - `results.json` -- structured JSON output (optional)
 - `coverage.tsv` -- run-length encoded read depth intervals (optional)
 
@@ -1228,6 +1253,8 @@ The refinement reports are probe-coverage-only (no cross-reactivity re-analysis,
 | Probes | `--probes`, `-p` | required | run, capture, probe-coverage, coverage-curve | FASTA of probe sequences |
 | Sample | `--sample` | all targets | run, coverage-curve | Sample targets or genomes: TSV file path OR inline IDs with optional weights. See [Sample Manifest Format](#sample-manifest-format) |
 | Sample-target map | `--sample-target-map` | none | run, prepare, coverage-curve | TSV mapping genome IDs to target IDs (genome mode). See [Sample-Target Map Format](#sample-target-map-format) |
+| Groups | `--groups` | none | run, prepare | TSV mapping target sequence IDs to group names for group-level metrics. See [Groups File Format](#groups-file-format) |
+| Distractor groups | `--distractor-groups` | none | run, prepare | TSV mapping distractor sequence IDs to group names (overrides default file-stem grouping). See [Groups File Format](#groups-file-format) |
 | Host FASTA | `--host-fasta` | none | run, coverage-curve | Host genome for read filtering |
 
 ### Fragment Generation
@@ -1398,8 +1425,11 @@ results/run_20250101_120000/
 ├── mapped.sam                  # Read alignments to reference
 ├── detected.list               # Read counts per reference
 ├── run_params.tsv              # Run configuration (used by report)
+├── target_groups.tsv           # Target group assignments (if --groups)
+├── distractor_groups.tsv       # Distractor group assignments (always; auto or from --distractor-groups)
 ├── results.tsv                 # Summary metrics
 ├── detected_detail.tsv         # Per-reference detection and coverage detail
+├── group_detail.tsv            # Per-group summary (if groups are present)
 ├── results.json                # Machine-readable JSON metrics
 ├── coverage.tsv                # Run-length encoded read depth intervals
 ├── report.html                 # HTML report (--report full, requires R)
@@ -1456,6 +1486,7 @@ One row per reference sequence:
 | Column | Description |
 |--------|-------------|
 | `reference_id` | Sequence ID |
+| `group` | Group name this sequence belongs to (sequence's own ID if no groups file provided) |
 | `category` | `sample`, `nonsample_target`, `distractor`, or `untargeted` |
 | `expected` | 1 if expected to be detected (sample target), 0 otherwise |
 | `detected` | 1 if at least one read maps to this reference, 0 otherwise |
@@ -1467,6 +1498,21 @@ One row per reference sequence:
 | `avg_coverage` | Average read depth across reference |
 | `pct_covered_5x` | % positions with >= 5x depth |
 | `pct_covered_20x` | % positions with >= 20x depth |
+
+### group_detail.tsv Columns
+
+Written when group files are present (`target_groups.tsv` or `distractor_groups.tsv`). One row per group:
+
+| Column | Description |
+|--------|-------------|
+| `group_name` | Group identifier |
+| `category` | `sample`, `nonsample_target`, or `distractor` |
+| `expected` | `true` if the group is expected to be detected (sample group) |
+| `detected` | `true` if at least one member sequence has reads mapped to it |
+| `classification` | `TP`, `FN`, `FP_target`, `FP_distractor`, `TN_target`, or `TN_distractor` |
+| `member_count` | Number of sequences in this group |
+| `detected_member_count` | Number of member sequences individually detected |
+| `total_reads` | Sum of reads assigned to all members of this group |
 
 ### results.json Structure
 
@@ -1656,7 +1702,61 @@ baitbench run \
   --outdir results
 ```
 
-All distractor sequences are concatenated and share the same per-sequence weight.
+All distractor sequences are concatenated and share the same per-sequence weight. Each distinct `--distractors` file automatically forms its own distractor group (by file stem), so multiple distractor files are still counted separately in the group-level metrics.
+
+### Group-Level Grouping
+
+When your target panel contains multiple sequence variants of the same organism, use `--groups` to collapse them into a single entity for metrics:
+
+```bash
+# Create groups file
+cat > groups.tsv <<'EOF'
+West_Nile_virus_0001	West_Nile_virus
+West_Nile_virus_0002	West_Nile_virus
+West_Nile_virus_0003	West_Nile_virus
+Dengue_virus_1_6275	Dengue_virus_1
+Dengue_virus_1_2274	Dengue_virus_1
+Dengue_virus_2_8773	Dengue_virus_2
+Dengue_virus_2_1822	Dengue_virus_2
+EOF
+
+baitbench run \
+  --targets all_variants.fa \
+  --distractors Aaegypti.fa \
+  --probes probes.fa \
+  --sample West_Nile_virus_0001 \
+  --groups groups.tsv \
+  --num-fragments 10000 \
+  --outdir results
+```
+
+With this configuration:
+- Detection of **any** WNV variant counts as a TP for the `West_Nile_virus` group
+- `Dengue_virus_1_6275` and `Dengue_virus_1_2274` are grouped as `Dengue_virus_1` (one entity for FP/TN counting)
+- `Dengue_virus_2_*` is a separate group
+- All ~2300 Aaegypti contigs are automatically grouped as `"Aaegypti"` (one FP_distractor)
+- Cross-mapping between variants of the same group (e.g., WNV_0001 reads mapping to WNV_0002) is counted as **correctly mapped**
+
+For distractors, the default file-stem grouping is automatic. To override it (e.g., if multiple organisms share one FASTA file), provide an explicit distractor groups file:
+
+```bash
+# Override automatic distractor grouping
+cat > distractor_groups.tsv <<'EOF'
+# seq_id	group_name
+contig_001	Aedes_aegypti
+contig_002	Aedes_aegypti
+bacterial_16S_1	E_coli
+bacterial_16S_2	E_coli
+EOF
+
+baitbench run \
+  --targets targets.fa \
+  --distractors mixed_distractors.fa \
+  --probes probes.fa \
+  --distractor-groups distractor_groups.tsv \
+  --num-fragments 10000 \
+  --outdir results
+```
 
 ### Capture Fraction Sweep
 
@@ -2318,6 +2418,36 @@ Explicit mappings take precedence over auto-linking for the same genome ID.
 **Untargeted genomes:** Sample genomes with no target mapping (explicit or auto-linked) become "untargeted" -- they generate fragments but have no expected target to detect. This models unknown organisms.
 
 **Validation:** BaitBench errors if the map references genome or target IDs not found in their respective FASTA files.
+
+### Groups File Format
+
+TSV file mapping sequence IDs to group names. Used by `--groups` (target grouping) and `--distractor-groups` (distractor grouping):
+
+```
+# Optional comment lines starting with #
+# seq_id	group_name
+West_Nile_virus_0001	West_Nile_virus
+West_Nile_virus_0002	West_Nile_virus
+West_Nile_virus_0003	West_Nile_virus
+Dengue_virus_1_6275	Dengue_virus_1
+Dengue_virus_1_2274	Dengue_virus_1
+Dengue_virus_2_8773	Dengue_virus_2
+```
+
+- One mapping per line: `seq_id<TAB>group_name`
+- Lines starting with `#` are ignored
+- Empty lines are ignored
+- Leading `>` characters on sequence IDs are stripped automatically
+
+**Target groups (`--groups`):**
+- Sequence IDs must exist in the targets FASTA (BaitBench errors on unknown IDs)
+- Sequences not listed in the file form singleton groups (their own ID = their group name)
+- Without `--groups`, each target sequence is its own singleton group (no behavioral change)
+
+**Distractor groups (`--distractor-groups`):**
+- Overrides the default automatic grouping by FASTA file stem
+- Sequence IDs must exist in the distractor sequences (BaitBench errors on unknown IDs)
+- Without `--distractor-groups`, all contigs from each `--distractors` FASTA file are automatically grouped together using the file stem as the group name (e.g., all contigs in `Aaegypti.fa` → group `"Aaegypti"`)
 
 ---
 

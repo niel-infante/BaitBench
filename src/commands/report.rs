@@ -10,6 +10,8 @@ pub struct ReportArgs<'a> {
     pub params: &'a Path,
     pub coverage: Option<&'a Path>,
     pub species_calls: Option<&'a Path>,
+    /// Optional group-level detection detail TSV (group_detail.tsv).
+    pub group_detail: Option<&'a Path>,
     pub run_name: &'a str,
     pub output: &'a Path,
     pub report: ReportMode,
@@ -92,6 +94,17 @@ fn execute_full(args: &ReportArgs) -> Result<()> {
         }
     }
 
+    let group_detail_str;
+    if let Some(gd_path) = args.group_detail {
+        if gd_path.exists() {
+            let gd_abs = std::fs::canonicalize(gd_path)
+                .with_context(|| format!("Cannot find group detail file: {}", gd_path.display()))?;
+            group_detail_str = gd_abs.to_str().unwrap_or("").to_string();
+            r_args.push("--group-detail");
+            r_args.push(&group_detail_str);
+        }
+    }
+
     rscript::run_rscript(&report_script, &r_args)?;
 
     log::info!("Report generated: {}", args.output.display());
@@ -145,12 +158,27 @@ fn execute_rmd(args: &ReportArgs) -> Result<()> {
         String::new()
     };
 
+    let group_detail_val = if let Some(gd_path) = args.group_detail {
+        if gd_path.exists() {
+            std::fs::canonicalize(gd_path)
+                .with_context(|| format!("Cannot find group detail file: {}", gd_path.display()))?
+                .to_str()
+                .unwrap_or("")
+                .to_string()
+        } else {
+            String::new()
+        }
+    } else {
+        String::new()
+    };
+
     let params = vec![
         ("summary_file", summary_abs.to_str().unwrap_or("")),
         ("detail_file", detail_abs.to_str().unwrap_or("")),
         ("params_file", params_abs.to_str().unwrap_or("")),
         ("coverage_file", &coverage_val),
         ("species_calls_file", &species_calls_val),
+        ("group_detail_file", &group_detail_val),
         ("run_name", args.run_name),
     ];
 

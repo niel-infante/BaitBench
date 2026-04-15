@@ -12,6 +12,7 @@ params:
   params_file: ""
   coverage_file: ""
   species_calls_file: ""
+  group_detail_file: ""
   run_name: "BaitBench Run"
 ---
 
@@ -43,6 +44,12 @@ if (has_coverage) {
 has_species_calls <- nchar(params$species_calls_file) > 0 && file.exists(params$species_calls_file)
 if (has_species_calls) {
   species_calls <- read.delim(params$species_calls_file, stringsAsFactors = FALSE)
+}
+
+# Read group detail if available (from --groups step)
+has_group_detail <- nchar(params$group_detail_file) > 0 && file.exists(params$group_detail_file)
+if (has_group_detail) {
+  group_detail_df <- read.delim(params$group_detail_file, stringsAsFactors = FALSE)
 }
 
 # Convert interval-format coverage to plottable points for a single reference.
@@ -533,6 +540,68 @@ ggplot(cm_data, aes(x = predicted, y = actual, fill = count)) +
 ```
 
 
+```{r group-detection-section, results='asis', eval=has_group_detail}
+cat("## Group-Level Detection\n\n")
+cat("Sequences were aggregated into logical groups. A group is **detected** if any of its member sequences received mapped reads.\n\n")
+```
+
+```{r group-detail-table, eval=has_group_detail}
+if (has_group_detail && nrow(group_detail_df) > 0) {
+  class_colors_map <- c(
+    "TP" = "#27ae60", "FN" = "#c0392b",
+    "FP_target" = "#e67e22", "TN_target" = "#95a5a6",
+    "FP_distractor" = "#e74c3c", "TN_distractor" = "#bdc3c7"
+  )
+
+  display_group <- group_detail_df %>%
+    arrange(factor(classification,
+                   levels = c("TP", "FP_target", "FP_distractor", "FN", "TN_target", "TN_distractor")),
+            desc(total_reads))
+
+  col_labels <- c("Group", "Category", "Expected", "Detected",
+                  "Classification", "Members", "Members Detected", "Total Reads")
+
+  if (nrow(display_group) > 20) {
+    datatable(
+      display_group,
+      colnames = col_labels,
+      options = list(pageLength = 25, scrollX = TRUE),
+      rownames = FALSE,
+      filter = if (nrow(display_group) > 50) "top" else "none"
+    )
+  } else {
+    knitr::kable(display_group, col.names = col_labels)
+  }
+}
+```
+
+```{r group-barplot, eval=has_group_detail, fig.height=max(3, min(nrow(group_detail_df), 40) * 0.35 + 1)}
+if (has_group_detail && nrow(group_detail_df) > 0) {
+  class_colors <- c(
+    "TP" = "#27ae60", "FN" = "#c0392b",
+    "FP_target" = "#e67e22", "TN_target" = "#95a5a6",
+    "FP_distractor" = "#e74c3c", "TN_distractor" = "#bdc3c7"
+  )
+
+  plot_data <- group_detail_df %>%
+    filter(total_reads > 0 | classification %in% c("TP", "FN")) %>%
+    arrange(factor(classification, levels = names(class_colors)), desc(total_reads)) %>%
+    slice_head(n = 40)
+
+  if (nrow(plot_data) > 0) {
+    ggplot(plot_data, aes(x = reorder(group_name, total_reads), y = total_reads,
+                          color = classification)) +
+      geom_segment(aes(xend = group_name, y = 0, yend = total_reads), linewidth = 0.8) +
+      geom_point(size = 3) +
+      scale_color_manual(values = class_colors, drop = FALSE) +
+      coord_flip() +
+      labs(x = NULL, y = "Total reads assigned", color = "Classification",
+           title = "Group-level read assignment") +
+      theme(axis.text.y = element_text(size = if (nrow(plot_data) > 20) 7 else 9))
+  }
+}
+```
+
 ## Detection Performance
 
 ```{r metrics-barplot}
@@ -573,7 +642,7 @@ if (nrow(detail_df) > 0) {
       pct_covered_20x = sprintf("%.1f%%", pct_covered_20x)
     )
 
-  col_labels <- c("Reference ID", "Category", "Expected", "Detected",
+  col_labels <- c("Reference ID", "Group", "Category", "Expected", "Detected",
                    "Fragments Generated", "Fragments Captured", "Reads Assigned",
                    "Classification", "Ref Length", "Avg Coverage",
                    "% \u22655X", "% \u226520X")
@@ -583,12 +652,12 @@ if (nrow(detail_df) > 0) {
       display_detail,
       colnames = col_labels,
       options = list(pageLength = 25, scrollX = TRUE,
-                     order = list(list(6, "desc"))),
+                     order = list(list(7, "desc"))),
       rownames = FALSE,
       filter = if (nrow(display_detail) > 50) "top" else "none"
     )
   } else {
-    knitr::kable(display_detail, col.names = col_labels, align = "llllrrrllrrr")
+    knitr::kable(display_detail, col.names = col_labels, align = "lllllrrrllrrr")
   }
 } else {
   cat("No detection details available.")

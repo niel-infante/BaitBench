@@ -9,6 +9,7 @@ BaitBench tests how well a probe set captures intended target sequences while re
 Key capabilities:
 
 - **Sample discrimination** -- test whether probes can distinguish between organisms within the target panel by specifying a subset of targets as "present" in the sample
+- **Group-level metrics** -- collapse multiple sequence variants of the same organism into a single entity; all contigs from each distractor FASTA are automatically grouped by file name
 - **Genome mode** -- model bacteria and other large pathogens where the probe target region is a small part of the full genome
 - **CT-based simulation** -- set target abundance using qPCR CT scores instead of abstract fractions
 - **Thermodynamic simulation** -- probe binding sites scored by nearest-neighbor free energy (SantaLucia 1998); fragments biased toward high-affinity sites via multinomial sampling
@@ -230,6 +231,8 @@ baitbench assess-probes \
 | `--distractors` | required | Distractor sequences FASTA (repeatable) |
 | `--probes` | required | Probe sequences FASTA |
 | `--sample` | all targets | Subset of targets present in specimen (TSV file or inline IDs) |
+| `--groups` | -- | TSV mapping target sequence IDs to group names for group-level metrics |
+| `--distractor-groups` | -- | TSV overriding automatic file-stem grouping of distractor sequences |
 | `--num-fragments` | 10000 | Number of fragments to simulate |
 | `--ct` | -- | CT score (alternative to `--distractor-fraction`) |
 | `--distractor-fraction` | 0.9 | Fraction of fragments from distractors |
@@ -248,7 +251,9 @@ Run `baitbench run --help` for the full list.
 Results are written to `<outdir>/<run_name>/` and include:
 
 - `results.tsv` -- summary metrics (sensitivity, specificity, precision, F1)
-- `detected_detail.tsv` -- per-reference detection status and coverage
+- `detected_detail.tsv` -- per-reference detection status and coverage (with `group` column)
+- `group_detail.tsv` -- per-group summary when group files are present
+- `distractor_groups.tsv` -- distractor group assignments (auto-generated from FASTA file stems)
 - `results.json` -- machine-readable metrics
 - `report.html` -- HTML report with figures (requires R)
 

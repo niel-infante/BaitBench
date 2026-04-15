@@ -392,6 +392,8 @@ fn run_prepare(
         distractors: args.distractors,
         sample: Some(args.sample),
         sample_target_map: args.sample_target_map,
+        groups: None,
+        distractor_groups: None,
         distractor_fraction,
         outdir,
         output_prefix: pfx,

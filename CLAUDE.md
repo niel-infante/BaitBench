@@ -108,7 +108,7 @@ genomes.fa + targets.fa + distractors.fa [+ sample.tsv] [+ mapping.tsv]
 | `src/alignment/sam.rs` | SAM format parser |
 | `src/sampling/` | Weights calculation and fragment sampling |
 | `src/cleanup.rs` | Post-pipeline cleanup: delete intermediate files/dirs, keep report inputs |
-| `src/io_utils.rs` | `prefixed_join` helper, ID set parsing, sample manifest parsing, source ID extraction, sample-target-map I/O |
+| `src/io_utils.rs` | `prefixed_join` helper, ID set parsing, sample manifest parsing, source ID extraction, sample-target-map I/O, groups file I/O |
 | `src/external/` | minimap2, blastn, catch, Rscript process wrappers |
 | `R/report.Rmd` | RMarkdown template with ggplot2 figures |
 | `R/report.R` | R script entry point for report generation |
@@ -140,12 +140,14 @@ Without `--sample`, all targets are in the sample, reducing to the traditional 2
 
 In **genome mode**, the "sample targets" are derived from the sample-target-map: the union of all target IDs linked to sample genome IDs. Untargeted genomes (sample genomes with no target mapping) are tracked separately and do not participate in TP/FP/FN/TN classification.
 
+When `--groups` is provided, all classification is at **group level**: a group is detected if any of its member sequences has mapped reads. Multiple variant sequences of the same organism can be collapsed into one logical entity. Distractor contigs are always grouped by source FASTA file (e.g., all contigs in `Aaegypti.fa` → one `"Aaegypti"` entity); `--distractor-groups` overrides this with an explicit mapping.
+
 **Read-level** (how reads flow through the pipeline):
 - **sample_captured**: Captured fragments originating from sample target sequences (or sample genome sequences in genome mode)
 - **nonsample_target_captured**: Captured fragments originating from non-sample target sequences
 - **distractor_captured**: Captured fragments originating from distractor sequences
 - **untargeted_captured**: Captured fragments originating from untargeted genome sequences (genome mode only)
-- **reads_correctly_mapped**: Reads that map back to their source reference. In genome mode, a read from genome G mapping to target T is correct if T is in genome_to_targets[G]
+- **reads_correctly_mapped**: Reads that map back to their source reference. In genome mode, a read from genome G mapping to target T is correct if T is in genome_to_targets[G]. With `--groups`, a read mapping to any sequence in the same group as the source counts as correctly mapped.
 - **reads_incorrectly_mapped**: Reads that map to a different reference (e.g., virus A read maps to virus B)
 
 Read source is extracted from the fragment name pattern `{seq_id}_fragment_{n}` using the last occurrence of `_fragment_` as the delimiter.
@@ -185,6 +187,20 @@ TSV format: `id<tab>weight` (weight optional, defaults to 1.0). In standard mode
 ### Sample-Target Map
 
 Optional TSV format: `genome_id<tab>target_id` (one mapping per line, `#` comments). Links genome IDs to their corresponding target IDs. Supports one-to-one, one-to-many, and many-to-one relationships. If omitted, auto-linking matches genome IDs to target IDs by (1) exact name match or (2) prefix match where a target ID starts with `{genome_id}|` (e.g., genome `Bartonella_grahamii` auto-links to `Bartonella_grahamii|ompB`). Genome IDs with no matching target become "untargeted" — they generate fragments but aren't expected to produce reads mapping to any target. Errors if map references IDs not found in genomes or targets FASTA.
+
+### Target Groups (`--groups`)
+
+Optional TSV format: `seq_id<tab>group_name` (one mapping per line, `#` comments). Maps individual target sequence IDs to logical group names. When provided, all classification metrics (TP/FP/FN/TN) are computed at the group level: a group is detected if **any** of its member sequences has mapped reads.
+
+**Use case**: Multiple variant sequences of the same organism (e.g., `West_Nile_virus_0001`, `_0002`, `_0003`) should be treated as one entity. Reads from any variant count as detecting the group.
+
+Sequences not present in the groups file are treated as singleton groups (their own ID is the group name), so ungrouped sequences behave exactly as before.
+
+### Distractor Groups (`--distractor-groups`)
+
+Optional TSV format: `contig_id<tab>group_name`. By default (when omitted), all contigs from each `--distractors` FASTA file are automatically grouped by file stem (e.g., all contigs in `Aaegypti.fa` → group `"Aaegypti"`). This means FP_distractor / TN_distractor counts are at the file level, not per-contig.
+
+Use `--distractor-groups` when multiple organisms are mixed into one FASTA file and you want per-organism distractor counting.
 
 ## Important Rules
 
