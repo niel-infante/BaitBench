@@ -11,6 +11,7 @@ use std::path::Path;
 ///
 /// Sequences are weighted by both their explicit weight AND sequence length.
 /// Fragment lengths follow a normal distribution clamped to [min, max].
+#[allow(dead_code)]
 pub fn generate_fragments(
     sequences: &HashMap<String, String>,
     weights: &HashMap<String, f64>,

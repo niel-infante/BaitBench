@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use anyhow::{Context, Result, bail};
 use std::collections::HashSet;
 use std::fs::File;

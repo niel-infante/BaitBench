@@ -68,6 +68,7 @@ pub fn parse_paf_records(paf_path: &Path) -> Result<Vec<PafRecord>> {
 /// - No indels (I or D in cg:Z: CIGAR tag)
 /// - Mismatches (NM:i: tag) <= max_mismatches
 /// - Matching bases (column 10) >= min_match_bases
+#[allow(dead_code)]
 pub fn filter_paf(
     paf_path: &Path,
     max_mismatches: u32,

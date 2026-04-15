@@ -10,9 +10,11 @@ use std::collections::VecDeque;
 const NUM_TRIPLETS: usize = 64;
 
 /// Default score threshold (T parameter from the paper).
+#[allow(dead_code)]
 pub const DEFAULT_THRESHOLD: f64 = 2.0;
 
 /// Default window size in bases (W parameter from the paper).
+#[allow(dead_code)]
 pub const DEFAULT_WINDOW: usize = 64;
 
 #[derive(Clone, Debug)]

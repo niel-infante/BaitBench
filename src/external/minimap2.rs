@@ -20,6 +20,7 @@ pub fn check_available() -> Result<()> {
 /// Run minimap2 for probe capture (PAF output with CIGAR).
 ///
 /// `minimap2 -x sr -c --cs -A 4 -B 2 -O 12,32 --secondary=yes <probes> <reads> > <output>`
+#[allow(dead_code)]
 pub fn capture_align(
     probes: &Path,
     reads: &Path,

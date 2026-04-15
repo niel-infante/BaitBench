@@ -32,6 +32,7 @@ pub enum SimulateMode {
 /// A single probe alignment hit against the reference.
 #[derive(Debug)]
 pub struct ProbeHit {
+    #[allow(dead_code)]
     pub probe_name: String,
     pub seq_id: String,
     pub start: usize, // 0-based, inclusive
