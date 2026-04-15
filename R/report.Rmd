@@ -554,6 +554,7 @@ if (has_group_detail && nrow(group_detail_df) > 0) {
   )
 
   display_group <- group_detail_df %>%
+    filter(total_reads > 0) %>%
     arrange(factor(classification,
                    levels = c("TP", "FP_target", "FP_distractor", "FN", "TN_target", "TN_distractor")),
             desc(total_reads))
@@ -575,7 +576,7 @@ if (has_group_detail && nrow(group_detail_df) > 0) {
 }
 ```
 
-```{r group-barplot, eval=has_group_detail, fig.height=max(3, min(nrow(group_detail_df), 40) * 0.35 + 1)}
+```{r group-barplot, eval=has_group_detail, fig.height=local({n <- nrow(dplyr::filter(group_detail_df, total_reads > 0 | classification %in% c("TP", "FN"))); max(3, min(n, 40) * 0.35 + 1)})}
 if (has_group_detail && nrow(group_detail_df) > 0) {
   class_colors <- c(
     "TP" = "#27ae60", "FN" = "#c0392b",
