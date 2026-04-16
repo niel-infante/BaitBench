@@ -481,6 +481,120 @@ Report sections:
 2. **Sequences per Step** — bar chart of sequence counts through pipeline
 3. **Total Bases per Step** — bar chart of total bases through pipeline
 
+## Desktop GUI (`gui/`)
+
+A Tauri v2 desktop application that wraps the `baitbench` CLI as a sidecar. The GUI does **not** share library code with the CLI — it invokes the compiled binary as a subprocess and communicates via stdin/stdout/stderr.
+
+### Structure
+
+```
+gui/
+├── src-tauri/               # Tauri Rust backend
+│   ├── Cargo.toml
+│   ├── tauri.conf.json      # sidecar registration, window config, plugin config
+│   ├── capabilities/
+│   │   └── default.json     # permission grants (shell, dialog, fs, notification, store)
+│   ├── icons/
+│   │   └── icon.png         # app icon (RGBA PNG)
+│   ├── binaries/
+│   │   └── baitbench-<triple>  # compiled CLI binary (gitignored; copied by make copy-sidecar)
+│   └── src/
+│       ├── main.rs          # Tauri entry point
+│       ├── lib.rs           # plugin registration, AppState, command registration
+│       └── commands/
+│           ├── setup.rs     # detect_conda_envs, validate_conda_env
+│           ├── pipeline.rs  # run_pipeline, get_pipeline_status, cancel_pipeline, AppState
+│           └── report.rs    # open_report (opens HTML in a new WebviewWindow)
+├── src/                     # Svelte + TypeScript frontend
+│   ├── App.svelte           # root component; loads persisted env on mount, routes to correct view
+│   ├── app.css              # design tokens (light/dark), reset, drag-region rules
+│   ├── main.ts
+│   └── lib/
+│       ├── stores.ts        # currentView, pipelineStatus, logLines, reportPath, condaEnvPath
+│       ├── types.ts         # CondaEnv, ValidationResult, LogLine, PipelineConfig, ToolDef
+│       ├── views/
+│       │   ├── SetupView.svelte  # conda env detection, validation badge, persist to store
+│       │   ├── RunView.svelte    # tool selector sidebar + per-tool forms + run button
+│       │   └── LogView.svelte   # real-time log panel, cancel, view-report button
+│       └── components/
+│           ├── FilePicker.svelte      # text input + browse button wrapping dialog:open
+│           └── AdvancedOptions.svelte # <details> collapsible section
+├── scripts/
+│   └── copy-sidecar.mjs     # copies target/release/baitbench → binaries/baitbench-<triple>
+├── Makefile                 # dev / build / copy-sidecar targets
+├── package.json
+├── vite.config.ts           # Svelte + svelte-preprocess (TypeScript support)
+└── tsconfig.json
+```
+
+### Tauri Commands (Rust → Frontend)
+
+| Command | Signature | Description |
+|---------|-----------|-------------|
+| `detect_conda_envs` | `() → Vec<CondaEnv>` | Scans common conda paths + `$CONDA_PREFIX`; returns name+path pairs |
+| `validate_conda_env` | `(path) → ValidationResult` | Checks for `minimap2`, `cd-hit-est` (required) and `R`, `pandoc` (optional warnings) |
+| `run_pipeline` | `(PipelineConfig) → ()` | Spawns sidecar with conda bin prepended to PATH; streams stdout/stderr as `pipeline-log` events; emits `pipeline-complete` / `pipeline-error` + OS notification on exit |
+| `get_pipeline_status` | `() → PipelineStatus` | Returns current state: `idle \| running \| complete \| failed` |
+| `cancel_pipeline` | `() → ()` | Sends SIGTERM to the running child process |
+| `open_report` | `(path) → ()` | Opens an HTML file in a new 1200×900 WebviewWindow |
+
+### Frontend Events (Backend → Frontend)
+
+| Event | Payload | Emitted when |
+|-------|---------|--------------|
+| `pipeline-log` | `{ text: string, stream: "stdout" \| "stderr" }` | Each line of output from the sidecar |
+| `pipeline-complete` | — | Sidecar exits with code 0 |
+| `pipeline-error` | — | Sidecar exits with non-zero code or spawn error |
+
+### View Flow
+
+```
+App mount
+  └─ load conda_env_path from tauri-plugin-store
+       ├─ found → RunView
+       └─ not found → SetupView
+            └─ save → RunView
+                  └─ Run button clicked → LogView
+                        └─ pipeline-complete → "View Report" button → report WebviewWindow
+```
+
+### Sidecar Invocation
+
+`PipelineConfig` holds `{ tool, args: HashMap<flag, value>, conda_env }`. The Rust backend converts it to argv:
+- Boolean flags (value `""`) → append flag only
+- Single-value flags → `[flag, value]`
+- Multi-value flags (tab-separated value) → `[flag, v1, v2, ...]`
+
+The sidecar is invoked as `baitbench <subcommand> [flags...]` with `PATH` prepended by `{conda_env}/bin`.
+
+### Build / Dev Workflow
+
+```bash
+# One-time setup
+cd gui && npm install
+
+# Every time the CLI changes
+make copy-sidecar   # cargo build --release (root) + copy binary
+
+# Development (hot-reload frontend, recompiles Rust backend on change)
+make dev            # = make copy-sidecar && npm run tauri:dev
+
+# Production bundle (macOS .app / .dmg, Windows .msi, Linux .AppImage)
+make build          # = make copy-sidecar && npm run tauri:build
+```
+
+### Required Plugins
+
+| Plugin | Purpose |
+|--------|---------|
+| `tauri-plugin-shell` | Spawn sidecar, stream output |
+| `tauri-plugin-dialog` | File and directory pickers |
+| `tauri-plugin-fs` | File existence checks |
+| `tauri-plugin-store` | Persist conda env path across launches |
+| `tauri-plugin-notification` | OS notification on pipeline completion |
+
+---
+
 ## Key Conventions
 
 - **Error handling**: `anyhow::Result` throughout; commands return `Result<()>`

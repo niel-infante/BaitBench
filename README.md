@@ -39,6 +39,40 @@ cargo build --release
 
 The binary is at `target/release/baitbench`.
 
+### 3. Desktop GUI (optional)
+
+A Tauri v2 desktop GUI is available in `gui/`. It wraps the `baitbench` binary as a sidecar and provides a point-and-click interface for all major tools, real-time log streaming, and in-app report viewing.
+
+**Additional prerequisites:**
+- [Node.js](https://nodejs.org/) v18 or later
+
+**First-time setup:**
+
+```bash
+cd gui
+npm install       # install frontend dependencies
+make copy-sidecar # build the CLI and copy it into the GUI package
+```
+
+**Launch in development mode (hot-reload):**
+
+```bash
+make dev
+# or equivalently:
+npm run tauri:dev
+```
+
+**Build a distributable app bundle:**
+
+```bash
+make build
+# output: gui/src-tauri/target/release/bundle/
+```
+
+**On first launch** the app shows a setup screen to select and validate your conda environment. Once saved it goes straight to the tool picker on subsequent launches.
+
+---
+
 ## Quick Start
 
 ### Basic run
