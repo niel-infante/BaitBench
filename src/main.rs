@@ -586,6 +586,7 @@ fn main() -> Result<()> {
             capture_fraction_values,
             capture_fraction,
             simulate_mode,
+            hybridization_temperature_values,
             hybridization_temperature,
             num_sequences_values,
             num_sequences,
@@ -646,6 +647,14 @@ fn main() -> Result<()> {
                 vec![num_sequences]
             };
 
+            // Resolve hybridization-temperature dimension
+            let resolved_temp_values: Vec<f64> = if let Some(temp_vals) = hybridization_temperature_values {
+                swept_params.push("hybridization_temperature".to_string());
+                temp_vals
+            } else {
+                vec![hybridization_temperature]
+            };
+
             let sim_mode = match simulate_mode {
                 cli::SimulateMode::Thermodynamic => ThSimMode::Thermodynamic,
                 cli::SimulateMode::Simple => ThSimMode::Simple,
@@ -664,7 +673,7 @@ fn main() -> Result<()> {
                 ns_values: resolved_ns_values,
                 swept_params,
                 simulate_mode: sim_mode,
-                hybridization_temperature,
+                temp_values: resolved_temp_values,
                 num_fragments,
                 read_length,
                 seed,

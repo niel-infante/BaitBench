@@ -110,6 +110,7 @@
   let cc_captureFractionFixed = '0.5';
   let cc_numFragments = '10000';
   let cc_simulateMode = 'thermodynamic';
+  let cc_tempValues = '';
 
   // ── Build config and run ──────────────────────────────────────────────────
   function buildArgs(): Record<string, string> | null {
@@ -245,6 +246,14 @@
         add('--capture-fraction', cc_captureFractionFixed);
         add('--num-fragments', cc_numFragments);
         add('--simulate-mode', cc_simulateMode);
+        if (cc_tempValues.trim()) {
+          const vals = cc_tempValues.trim().split(/\s+/);
+          if (vals.length === 1) {
+            add('--hybridization-temperature', vals[0]);
+          } else {
+            a['--hybridization-temperature-values'] = vals.join('\t');
+          }
+        }
         add('--threads', threads);
         break;
       }
@@ -732,6 +741,16 @@
                 <option value="simple">Simple</option>
               </select>
             </div>
+            {#if cc_simulateMode === 'thermodynamic'}
+            <div class="field-row">
+              <label class="field-label" for="cc-tempvals">
+                Hybridization temp(s) °C
+                <span class="hint-sm">space-separated to sweep, e.g. 60 65 70 75</span>
+              </label>
+              <input id="cc-tempvals" class="text-input" type="text"
+                bind:value={cc_tempValues} placeholder="70" />
+            </div>
+            {/if}
           </section>
           <section class="form-section">
             <h3>Output</h3>
@@ -890,6 +909,7 @@
   }
   .field-group { display: flex; flex-direction: column; gap: 8px; }
   .field-label { font-size: 0.85rem; font-weight: 600; color: var(--color-label); }
+  .hint-sm { display: block; font-size: 0.75rem; font-weight: 400; color: var(--color-muted); margin-top: 1px; }
   .text-input, .select-input {
     padding: 5px 8px;
     font-size: 0.85rem;

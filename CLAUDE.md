@@ -60,7 +60,7 @@ genomes.fa + targets.fa + distractors.fa [+ sample.tsv] [+ mapping.tsv]
 
 `baitbench run` chains all steps automatically. With `--identify`, adds species-level calling.
 
-`baitbench ct-sweep` runs the pipeline at multiple CT values and produces coverage depth curve plots.
+`baitbench coverage-curve` runs the pipeline at multiple parameter combinations (CT × hybridization temperature × capture fraction × num-sequences) and produces coverage depth curve plots. Use `--ct-values`, `--hybridization-temperature-values`, `--capture-fraction-values`, and `--num-sequences-values` to sweep each dimension independently or in combination.
 
 `baitbench xreact` checks probe cross-reactivity against genomes and/or other probes (standalone, not part of the pipeline).
 
@@ -96,7 +96,7 @@ genomes.fa + targets.fa + distractors.fa [+ sample.tsv] [+ mapping.tsv]
 | `src/commands/panel_qc.rs` | Target panel discriminability QC (target-vs-target similarity, species discrimination) |
 | `src/commands/identify.rs` | Species-level calling from multi-target detection patterns |
 | `src/target_similarity.rs` | Shared library: target similarity computation, discriminability scoring, confusion matrices |
-| `src/commands/ct_sweep.rs` | CT sweep: pipeline at multiple CT values → depth curves |
+| `src/commands/coverage_curve.rs` | Coverage curve: pipeline at multiple param combos (CT × temp × CF × NS) → depth curves |
 | `src/commands/build_probes.rs` | Build probes: N filter → collapse → tile/CATCH/Syotti → GC filter → complexity filter (sDUST) → deduplicate; auto-chains to assess-probes |
 | `src/commands/assess_probes.rs` | Combined probe assessment: orchestrates probe_coverage + xreact + optional individual-target coverage, generates combined report |
 | `src/sdust.rs` | sDUST low-complexity sequence detection (Morgulis et al. 2006) |

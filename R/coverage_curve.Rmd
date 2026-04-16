@@ -48,7 +48,9 @@ if (has_params) {
 if (length(swept_params) == 0 || (length(swept_params) == 1 && swept_params[1] == "")) {
   swept_params <- character(0)
   if (length(unique(sweep_df$ct)) > 1) swept_params <- c(swept_params, "ct")
-  if (length(unique(sweep_df$fold_enrichment)) > 1) swept_params <- c(swept_params, "fold_enrichment")
+  if ("hybridization_temperature" %in% names(sweep_df) && length(unique(sweep_df$hybridization_temperature)) > 1)
+    swept_params <- c(swept_params, "hybridization_temperature")
+  if (length(unique(sweep_df$capture_fraction)) > 1) swept_params <- c(swept_params, "capture_fraction")
   if (length(unique(sweep_df$num_sequences)) > 1) swept_params <- c(swept_params, "num_sequences")
 }
 
@@ -67,7 +69,8 @@ format_number <- function(x) {
 # Full display names for swept parameter types
 param_full_names <- c(
   ct = "CT",
-  fold_enrichment = "Fold Enrichment",
+  hybridization_temperature = "Hybridization Temp (\u00b0C)",
+  capture_fraction = "Capture Fraction",
   num_sequences = "Num Sequences"
 )
 
@@ -81,9 +84,13 @@ build_combo_label <- function(df, swept) {
     formatted <- format_number(df$ct)
     parts[["CT"]] <- if (single_param) formatted else paste0("CT=", formatted)
   }
-  if ("fold_enrichment" %in% swept) {
-    fe_val <- ifelse(df$fold_enrichment == 0, "none", format_number(df$fold_enrichment))
-    parts[["FE"]] <- if (single_param) fe_val else paste0("FE=", fe_val)
+  if ("hybridization_temperature" %in% swept) {
+    temp_val <- as.character(df$hybridization_temperature)
+    parts[["Temp"]] <- if (single_param) temp_val else paste0("Temp=", temp_val, "\u00b0C")
+  }
+  if ("capture_fraction" %in% swept) {
+    cf_val <- as.character(df$capture_fraction)
+    parts[["CF"]] <- if (single_param) cf_val else paste0("CF=", cf_val)
   }
   if ("num_sequences" %in% swept) {
     ns_val <- ifelse(df$num_sequences == 0, "all", format_number(df$num_sequences))
@@ -96,7 +103,7 @@ sweep_df$combo_label <- build_combo_label(sweep_df, swept_params)
 
 # Order combo labels numerically by underlying parameter values
 if (length(swept_params) > 0) {
-  sort_cols <- intersect(c("ct", "fold_enrichment", "num_sequences"), swept_params)
+  sort_cols <- intersect(c("ct", "hybridization_temperature", "capture_fraction", "num_sequences"), swept_params)
   order_df <- sweep_df %>%
     distinct(combo_label, .keep_all = TRUE) %>%
     arrange(across(all_of(sort_cols)))
@@ -172,7 +179,7 @@ if (n_combos >= 10 && length(swept_params) >= 2) {
   sweep_df$color_label <- build_combo_label(sweep_df, remaining_swept)
 
   # Order color labels numerically
-  color_sort_cols <- intersect(c("ct", "fold_enrichment", "num_sequences"), remaining_swept)
+  color_sort_cols <- intersect(c("ct", "hybridization_temperature", "capture_fraction", "num_sequences"), remaining_swept)
   color_order_df <- sweep_df %>%
     distinct(color_label, .keep_all = TRUE) %>%
     arrange(across(all_of(color_sort_cols)))
@@ -188,9 +195,10 @@ if (n_combos >= 10 && length(swept_params) >= 2) {
   # Build facet label with formatted numbers
   if (facet_param == "ct") {
     sweep_df$facet_label <- paste0("CT=", format_number(sweep_df$ct))
-  } else if (facet_param == "fold_enrichment") {
-    sweep_df$facet_label <- ifelse(sweep_df$fold_enrichment == 0, "FE=none",
-                                    paste0("FE=", format_number(sweep_df$fold_enrichment)))
+  } else if (facet_param == "hybridization_temperature") {
+    sweep_df$facet_label <- paste0("Temp=", sweep_df$hybridization_temperature, "\u00b0C")
+  } else if (facet_param == "capture_fraction") {
+    sweep_df$facet_label <- paste0("CF=", sweep_df$capture_fraction)
   } else if (facet_param == "num_sequences") {
     sweep_df$facet_label <- ifelse(sweep_df$num_sequences == 0, "NS=all",
                                     paste0("NS=", format_number(sweep_df$num_sequences)))
@@ -279,10 +287,11 @@ if (length(available_thresholds) > 0) {
   if ("ct" %in% swept_params) {
     display_cols <- c(display_cols, "ct")
   }
-  if ("fold_enrichment" %in% swept_params) {
-    summary_tbl <- summary_tbl %>%
-      mutate(fold_enrichment_display = ifelse(fold_enrichment == 0, "none", as.character(fold_enrichment)))
-    display_cols <- c(display_cols, "fold_enrichment_display")
+  if ("hybridization_temperature" %in% swept_params) {
+    display_cols <- c(display_cols, "hybridization_temperature")
+  }
+  if ("capture_fraction" %in% swept_params) {
+    display_cols <- c(display_cols, "capture_fraction")
   }
   if ("num_sequences" %in% swept_params) {
     summary_tbl <- summary_tbl %>%
@@ -300,7 +309,8 @@ if (length(available_thresholds) > 0) {
   # Build column names
   col_names <- c()
   if ("ct" %in% swept_params) col_names <- c(col_names, "CT")
-  if ("fold_enrichment" %in% swept_params) col_names <- c(col_names, "Fold Enrichment")
+  if ("hybridization_temperature" %in% swept_params) col_names <- c(col_names, "Hyb Temp (\u00b0C)")
+  if ("capture_fraction" %in% swept_params) col_names <- c(col_names, "Capture Fraction")
   if ("num_sequences" %in% swept_params) col_names <- c(col_names, "Num Sequences")
   col_names <- c(col_names, "Target")
   col_names <- c(col_names, names(summary_wide)[-(1:length(c(display_cols, "reference_id")))])

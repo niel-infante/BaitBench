@@ -897,8 +897,14 @@ pub enum Commands {
         #[arg(long, default_value = "thermodynamic")]
         simulate_mode: SimulateMode,
 
-        /// Hybridization temperature in °C (thermodynamic mode only)
-        #[arg(long, default_value = "70.0")]
+        /// Hybridization temperature values to sweep in °C (space-separated, thermodynamic mode only).
+        /// Conflicts with --hybridization-temperature.
+        #[arg(long, num_args = 1.., conflicts_with = "hybridization_temperature")]
+        hybridization_temperature_values: Option<Vec<f64>>,
+
+        /// Fixed hybridization temperature in °C (thermodynamic mode only).
+        /// Conflicts with --hybridization-temperature-values.
+        #[arg(long, default_value = "70.0", conflicts_with = "hybridization_temperature_values")]
         hybridization_temperature: f64,
 
         /// Num-sequences values to sweep (space-separated). Conflicts with --num-sequences.

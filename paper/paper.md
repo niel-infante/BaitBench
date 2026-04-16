@@ -14,13 +14,13 @@ virus/whole genome different than targeted site/wes
 
 Installing tools can be hard
 
-Simulating thermodynamics gives insight into realistic expectations, and an make predictions for needed sequencing depth.
 
 
 
-## Feature and Functionality
 
-BaitBench is both a command line and a GUI tool written primarily in Rust. It is available as source code or precompiled binaries. (Not yet)
+## The Tool
+
+BaitBench is a command line tool written primarily in Rust. It is available as source code or precompiled binaries. (Not yet)
 Conda?
 
 
@@ -38,17 +38,16 @@ When working with multiple highly similar targets, coverage can become problemat
 
 ### Run Simulation
 
-Assessing probes assumes a (near) perfect world. Here we try to simulate a more realistic capture experiment. The coverage report is intended for assessing samples with a single, or small number of targets present representing a realistic sample. A host or distactor genome can be specified, . BaitBench simulates all stages of the target capture workflow. The user specifies what targets and distractors are in the sample with relative weights. BaitBench then randomly generates fragments of the given DNA. Capturing is simulated incorporating the thermodynamic properties of the probe - fragment binding using the RAmpSim [@zhangRAmpSimThermodynamicSimulator2025] algorithm. A tune-able fraction of all the DNA is randomly selected regardless of capture to represent the incomplete nature of the capture process. Sequencing is then simulated (currently just trimming all fragments to a read length, but drop-in ready for a read simulator such as .… to give realistic Illumina or long read sequences), followed by an optional distractor filtering step, and finally mapping to the targets and assessment of the sensitivity, specificity, and precision of the experiment. 
+Assessing probes assumes a (near) perfect world. Here we try to simulate a more realistic capture experiment. 
 
-
-
+The coverage report is intended for assessing samples with a single, or small number of targets present. BaitBench simulates all stages of the target capture workflow. The user specifies what targets and distractors are in the sample with relative weights. BaitBench then randomly generates fragments of the given DNA selected weighted by the user provided weights and the genome sizes. Fragment size follows a normal distribution bound by user specified min, max,and mean. Capturing is simulated incorporating the thermodynamic properties of the probe - fragment binding using the RAmpSim [@zhangRAmpSimThermodynamicSimulator2025] algorithm. A tune-able fraction of all the DNA is randomly selected regardless of capture to represent the incomplete nature of the capture process. Sequencing is then simulated (currently just trimming all fragments to a read length, but drop-in ready for a read simulator such as ART-modern or PBSIM2), followed by an optional distractor filtering step, and finally mapping to the targets and assessment of the sensitivity, specificity, and precision of the experiment. We track every fragment from generation through to the mapping, so we can give a very fine tuned view 
 
 
 
 
 ### Coverage Curve
 
-
+This module allows user to do a parameter sweep over some key parameters: capture fraction, temperature, number of sequences generated, and initial fraction of desired sample present. The resulting coverage curve give users insights into the effort needed to reach coverage sufficient for their downstream analyses. Capture fraction is a measure of how clean the capture is, and how much bleed through there is. Generally speaking, longer capture times and a cleaner wash will lead to a higher capture fraction. Within BaitBench, 
 
 
 

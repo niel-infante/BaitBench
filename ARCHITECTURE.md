@@ -67,7 +67,7 @@ src/
 │   ├── xreact.rs        # Standalone cross-reactivity analysis (probes vs genomes, probes vs probes)
 │   ├── panel_qc.rs      # Standalone target panel discriminability QC (target-vs-target similarity, species discrimination)
 │   ├── identify.rs      # Species-level calling from multi-target detection patterns (standalone or pipeline step)
-│   ├── coverage_curve.rs # Coverage curve: pipeline at multiple param combos → depth curves
+│   ├── coverage_curve.rs # Coverage curve: pipeline at multiple param combos (CT × temp × CF × NS) → depth curves
 │   ├── build_probes.rs  # Standalone probe building: N filter → collapse → length filter → tile/CATCH/Syotti → GC filter → complexity filter (sDUST) → deduplicate
 │   ├── assess_probes.rs # Combined probe assessment: probe coverage + cross-reactivity (self + optional genomes), orchestrates sub-commands
 │   └── tool_dustview.rs # `baitbench tool dustview` handler: execute() — sDUST masking visualization on FASTA sequences
@@ -113,7 +113,7 @@ R/
 - **`ProbeMethod`** — ValueEnum: Tile | Catch | Syotti
 - **`ReportMode`** — ValueEnum: Full | None | Rmd — controls report output (HTML, skip, or editable RMarkdown)
 - **CT score flags** — `--ct`, `--ct-baseline`, `--ct-baseline-fraction` on Run and Prepare; `--ct` conflicts with `--distractor-fraction`
-- **Simulate flags** — `--probes` (probe FASTA), `--simulate-mode` (thermodynamic/simple), `--hybridization-temperature` (°C, default 70), `--capture-fraction` (0–1, default 0.5) on Run and Simulate
+- **Simulate flags** — `--probes` (probe FASTA), `--simulate-mode` (thermodynamic/simple), `--hybridization-temperature` (°C, default 70), `--capture-fraction` (0–1, default 0.5) on Run and Simulate; `--hybridization-temperature-values` on CoverageCurve for temperature sweep
 - **Genome mode flags** — `--genomes` (optional genome FASTA for fragment generation), `--sample-target-map` (optional genome-to-target mapping TSV) on Run, Prepare, and CoverageCurve
 - **`--output-prefix`** — string prepended to every auto-generated output filename; available on Run, Prepare, ProbeCoverage, CoverageCurve, Xreact, PanelQc, Identify (default: empty string)
 
@@ -397,10 +397,10 @@ Runs the pipeline for each parameter combination (CT × fold-enrichment × num-s
 | `_prep_ct_N/_enrich_fe_X/enriched.fa` | FASTA | enrich (per CT×FE) | sequence |
 | `{combo}/reads.fa` | FASTA | sequence (per combo) | filter/map_reads |
 | `{combo}/mapped.sam` | SAM | map_reads (per combo) | coverage_curve (coverage) |
-| `coverage_curve_depth_curves.tsv` | TSV (ct, fold_enrichment, num_sequences, reference_id, depth_threshold, pct_covered) | coverage_curve | coverage_curve report |
+| `coverage_curve_depth_curves.tsv` | TSV (ct, hybridization_temperature, capture_fraction, num_sequences, reference_id, depth_threshold, pct_covered) | coverage_curve | coverage_curve report |
 | `coverage_curve_report.html` | HTML | coverage_curve (via R) | — |
 
-Combo directory names use only swept params: `ct_20`, `ct_20_fe_100`, `ct_20_fe_100_ns_500`. Single combo uses `run/`.
+Combo directory names use only swept params: `ct_20`, `ct_20_temp_65`, `ct_20_temp_65_cf_0.50`, `ct_20_temp_65_cf_0.50_ns_500`. Single combo uses `run/`.
 
 ### Coverage Curve Report (`R/coverage_curve.Rmd`)
 

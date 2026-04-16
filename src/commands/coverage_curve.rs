@@ -29,7 +29,7 @@ pub struct CoverageCurveArgs<'a> {
     pub swept_params: Vec<String>,         // which params are swept (for dir naming + report)
     // Simulate params
     pub simulate_mode: SimulateMode,
-    pub hybridization_temperature: f64,
+    pub temp_values: Vec<f64>,             // hybridization temperature values (1+ entries)
     // Pipeline params
     pub num_fragments: usize,
     pub read_length: usize,
@@ -49,6 +49,7 @@ pub struct CoverageCurveArgs<'a> {
 
 struct DepthCurveRow {
     ct: f64,
+    hybridization_temperature: f64,
     capture_fraction: f64,
     num_sequences: usize, // 0 = all
     reference_id: String,
@@ -59,6 +60,7 @@ struct DepthCurveRow {
 /// Build a directory name for a parameter combo, using only swept params.
 fn combo_dir_name(
     ct: f64,
+    temp: f64,
     cf: f64,
     ns: Option<usize>,
     swept: &[String],
@@ -69,6 +71,9 @@ fn combo_dir_name(
     let mut parts = Vec::new();
     if swept.contains(&"ct".to_string()) {
         parts.push(format!("ct_{}", ct));
+    }
+    if swept.contains(&"hybridization_temperature".to_string()) {
+        parts.push(format!("temp_{:.0}", temp));
     }
     if swept.contains(&"capture_fraction".to_string()) {
         parts.push(format!("cf_{:.2}", cf));
@@ -101,7 +106,7 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
 
     let sample_ids: HashSet<String> = args.sample.keys().cloned().collect();
 
-    let total_combos = args.ct_display_values.len() * args.cf_values.len() * args.ns_values.len();
+    let total_combos = args.ct_display_values.len() * args.temp_values.len() * args.cf_values.len() * args.ns_values.len();
 
     let sim_mode_str = match args.simulate_mode {
         SimulateMode::Thermodynamic => "thermodynamic",
@@ -131,7 +136,11 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
     );
     log::info!("Simulate mode  : {}", sim_mode_str);
     if matches!(args.simulate_mode, SimulateMode::Thermodynamic) {
-        log::info!("Hybridization temp : {}°C", args.hybridization_temperature);
+        if args.temp_values.len() == 1 {
+            log::info!("Hybridization temp : {}°C", args.temp_values[0]);
+        } else {
+            log::info!("Hybridization temps: {:?}°C", args.temp_values);
+        }
     }
     if args.swept_params.is_empty() {
         log::info!("Mode           : single run (no parameters swept)");
@@ -143,6 +152,9 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
     }
     if args.swept_params.contains(&"ct".to_string()) {
         log::info!("CT values      : {:?}", args.ct_display_values);
+    }
+    if args.swept_params.contains(&"hybridization_temperature".to_string()) {
+        log::info!("Temp values    : {:?}°C", args.temp_values);
     }
     if args.swept_params.contains(&"capture_fraction".to_string()) {
         log::info!("CF values      : {:?}", args.cf_values);
@@ -217,20 +229,26 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
             prefixed_join(&prep_dir, pfx, "combined_reference.fa")
         };
 
-        // Middle loop: capture-fraction values (affects simulate)
+        // Middle loop: hybridization temperature (affects simulate)
+        for &temp in &args.temp_values {
+        // Inner loop: capture-fraction values (affects simulate)
         for &cf in &args.cf_values {
-            let sim_dir = prep_dir.join(format!("_sim_cf_{:.2}", cf));
+            let sim_dir = if args.temp_values.len() > 1 {
+                prep_dir.join(format!("_sim_temp_{:.0}_cf_{:.2}", temp, cf))
+            } else {
+                prep_dir.join(format!("_sim_cf_{:.2}", cf))
+            };
             fs::create_dir_all(&sim_dir)?;
 
-            run_simulate(&sim_dir, &prep_dir, cf, args)?;
+            run_simulate(&sim_dir, &prep_dir, temp, cf, args)?;
 
             let fragments_path = prefixed_join(&sim_dir, pfx, "fragments.fa");
 
-            // Inner loop: num-sequences values (affects sequence step)
+            // Innermost loop: num-sequences values (affects sequence step)
             for ns_val in &args.ns_values {
                 combo_idx += 1;
                 let dir_name =
-                    combo_dir_name(ct_display, cf, *ns_val, &args.swept_params);
+                    combo_dir_name(ct_display, temp, cf, *ns_val, &args.swept_params);
                 let combo_dir = args.outdir.join(&dir_name);
                 fs::create_dir_all(&combo_dir)?;
 
@@ -305,6 +323,7 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
                     for (threshold, pct) in curves {
                         all_curves.push(DepthCurveRow {
                             ct: ct_display,
+                            hybridization_temperature: temp,
                             capture_fraction: cf,
                             num_sequences: ns_tsv,
                             reference_id: target_id.clone(),
@@ -314,8 +333,9 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
                     }
                 }
             }
-        }
-    }
+        } // end CF loop
+        } // end temp loop
+    } // end CT loop
 
     // Write aggregated depth curves TSV
     let curves_path = prefixed_join(&args.outdir, pfx, "coverage_curve_depth_curves.tsv");
@@ -402,11 +422,12 @@ fn run_prepare(
     Ok(())
 }
 
-/// Run simulate (probe-biased + background) for a specific capture fraction.
+/// Run simulate (probe-biased + background) for a specific temperature + capture fraction.
 /// Reads from the prep dir's reference + weights.
 fn run_simulate(
     sim_dir: &Path,
     prep_dir: &Path,
+    hybridization_temperature: f64,
     capture_fraction: f64,
     args: &CoverageCurveArgs,
 ) -> Result<()> {
@@ -418,7 +439,10 @@ fn run_simulate(
         return Ok(());
     }
 
-    log::info!("  Simulating fragments (capture_fraction={:.2})...", capture_fraction);
+    log::info!(
+        "  Simulating fragments (temp={}°C, capture_fraction={:.2})...",
+        hybridization_temperature, capture_fraction
+    );
     simulate::execute(&simulate::SimulateArgs {
         reference: &prefixed_join(prep_dir, pfx, "combined_reference.fa"),
         weights: &prefixed_join(prep_dir, pfx, "weights.txt"),
@@ -426,7 +450,7 @@ fn run_simulate(
         num_fragments: args.num_fragments,
         capture_fraction,
         simulate_mode: args.simulate_mode,
-        hybridization_temperature: args.hybridization_temperature,
+        hybridization_temperature,
         seed: args.seed,
         output: &prefixed_join(sim_dir, pfx, "fragments.fa"),
         fragment_length_mean: args.fragment_length_mean,
@@ -481,14 +505,14 @@ fn write_depth_curves_tsv(path: &Path, rows: &[DepthCurveRow]) -> Result<()> {
 
     writeln!(
         w,
-        "ct\tcapture_fraction\tnum_sequences\treference_id\tdepth_threshold\tpct_covered"
+        "ct\thybridization_temperature\tcapture_fraction\tnum_sequences\treference_id\tdepth_threshold\tpct_covered"
     )?;
     for row in rows {
         writeln!(
             w,
-            "{}\t{:.4}\t{}\t{}\t{}\t{:.2}",
-            row.ct, row.capture_fraction, row.num_sequences, row.reference_id,
-            row.depth_threshold, row.pct_covered
+            "{}\t{:.1}\t{:.4}\t{}\t{}\t{}\t{:.2}",
+            row.ct, row.hybridization_temperature, row.capture_fraction, row.num_sequences,
+            row.reference_id, row.depth_threshold, row.pct_covered
         )?;
     }
 
@@ -519,7 +543,12 @@ fn write_run_params(path: &Path, args: &CoverageCurveArgs) -> Result<()> {
     writeln!(w, "num_fragments\t--num-fragments\t{}", args.num_fragments)?;
     writeln!(w, "read_length\t--read-length\t{}", args.read_length)?;
     writeln!(w, "simulate_mode\t--simulate-mode\t{}", sim_mode_str)?;
-    writeln!(w, "hybridization_temperature\t--hybridization-temperature\t{}", args.hybridization_temperature)?;
+    if args.temp_values.len() == 1 {
+        writeln!(w, "hybridization_temperature\t--hybridization-temperature\t{}", args.temp_values[0])?;
+    } else {
+        let temp_str = args.temp_values.iter().map(|t| t.to_string()).collect::<Vec<_>>().join(" ");
+        writeln!(w, "hybridization_temperature_values\t--hybridization-temperature-values\t{}", temp_str)?;
+    }
     writeln!(w, "minimap_preset\t--minimap-preset\t{}", args.minimap_preset)?;
     writeln!(w, "fragment_length_mean\t--fragment-length-mean\t{}", args.fragment_length_mean)?;
     writeln!(w, "fragment_length_min\t--fragment-length-min\t{}", args.fragment_length_min)?;
