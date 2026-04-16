@@ -1,12 +1,13 @@
-.PHONY: all dev build install copy-sidecar
+.PHONY: all dev build install copy-sidecar release clean-release
+
+TRIPLE := $(shell rustc -vV 2>/dev/null | grep '^host:' | cut -d' ' -f2)
+RELEASE_DIR := dist-release
+
+# ── Development ────────────────────────────────────────────────────────────
 
 # Build the CLI and start Tauri in dev mode
 dev: copy-sidecar
 	npm run tauri:dev
-
-# Build everything for distribution
-build: copy-sidecar
-	npm run tauri:build
 
 # Install frontend dependencies
 install:
@@ -18,3 +19,13 @@ copy-sidecar:
 	node scripts/copy-sidecar.mjs
 
 all: install copy-sidecar
+
+# ── Distribution ───────────────────────────────────────────────────────────
+
+# Full release build: CLI + GUI app bundle, signed, packaged into dist-release/
+release: copy-sidecar
+	npm run tauri:build
+	node scripts/package-release.mjs
+
+clean-release:
+	rm -rf $(RELEASE_DIR)
