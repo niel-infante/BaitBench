@@ -48,6 +48,40 @@ impl Default for AppState {
     }
 }
 
+/// Find the BaitBench R scripts directory so we can pass it as BAITBENCH_R_DIR.
+///
+/// Search order:
+/// 1. Tauri resource dir (works in production bundles where R/ is bundled as a resource)
+/// 2. Walk up from the GUI binary location (works in dev where the repo tree is intact)
+fn find_r_dir(app: &AppHandle) -> Option<std::path::PathBuf> {
+    // 1. Check Tauri resource directory (production bundle path).
+    if let Ok(res) = app.path().resource_dir() {
+        let candidate = res.join("R");
+        if candidate.join("report.R").is_file() {
+            return Some(candidate);
+        }
+    }
+
+    // 2. Walk up from the GUI executable (dev mode: binary is inside src-tauri/target/...).
+    if let Ok(exe) = std::env::current_exe() {
+        let resolved = std::fs::canonicalize(&exe).unwrap_or(exe);
+        let mut dir = resolved.parent();
+        for _ in 0..8 {
+            if let Some(d) = dir {
+                let candidate = d.join("R");
+                if candidate.join("report.R").is_file() {
+                    return Some(candidate);
+                }
+                dir = d.parent();
+            } else {
+                break;
+            }
+        }
+    }
+
+    None
+}
+
 /// Build the argv list from a PipelineConfig.
 /// Each flag → one or more args in the correct order.
 fn build_argv(config: &PipelineConfig) -> Vec<String> {
@@ -102,12 +136,18 @@ pub async fn run_pipeline(
     // The sidecar binary IS baitbench; all args including the subcommand name are passed as argv.
     let argv = build_argv(&config);
 
+    let r_dir = find_r_dir(&app);
+
     let shell = app.shell();
-    let cmd = shell
+    let mut cmd = shell
         .sidecar("baitbench")
         .map_err(|e| e.to_string())?
         .env("PATH", &new_path)
         .args(&argv);
+
+    if let Some(r) = r_dir {
+        cmd = cmd.env("BAITBENCH_R_DIR", r);
+    }
 
     let (mut rx, child) = cmd.spawn().map_err(|e| e.to_string())?;
 

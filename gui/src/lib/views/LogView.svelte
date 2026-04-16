@@ -9,20 +9,41 @@
   let autoScroll = true;
   let unlisten: (() => void)[] = [];
 
+  // Match any absolute path ending in .html in a log line.
+  const HTML_PATH_RE = /([\/~][^\s'"]+\.html)/;
+
+  function extractHtmlPath(text: string): string | null {
+    const m = text.match(HTML_PATH_RE);
+    return m ? m[1] : null;
+  }
+
   onMount(async () => {
     const u1 = await listen<LogLine>('pipeline-log', (event) => {
       logLines.update((lines) => [...lines, event.payload]);
+      // Pick up the report path from log output as soon as it appears.
+      const found = extractHtmlPath(event.payload.text);
+      if (found) reportPath.set(found);
       if (autoScroll) scrollToBottom();
     });
-    const u2 = await listen('pipeline-complete', () => {
+
+    const u2 = await listen('pipeline-complete', async () => {
       pipelineStatus.set('complete');
+      // Auto-open the report if we found one in the log output.
+      const path = $reportPath ?? null;
+      // Use a small delay to let the file system finish writing.
+      if (path) {
+        await new Promise(r => setTimeout(r, 800));
+        await invoke('open_report', { path });
+      }
     });
+
     const u3 = await listen('pipeline-error', () => {
       pipelineStatus.set('failed');
     });
+
     unlisten = [u1, u2, u3];
 
-    // Sync status on mount in case we navigated here after already running
+    // Sync status on mount in case we navigated here after the run already finished.
     const status = await invoke<string>('get_pipeline_status');
     pipelineStatus.set(status as any);
   });

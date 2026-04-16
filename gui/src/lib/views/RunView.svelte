@@ -114,7 +114,7 @@
   // ── Build config and run ──────────────────────────────────────────────────
   function buildArgs(): Record<string, string> | null {
     const a: Record<string, string> = {};
-    const add = (flag: string, val: string) => { if (val && val !== '') a[flag] = val; };
+    const add = (flag: string, val: string | number) => { const s = String(val); if (s !== '' && s !== 'undefined' && s !== 'null') a[flag] = s; };
     const flag = (f: string, on: boolean) => { if (on) a[f] = ''; };
 
     // Shared

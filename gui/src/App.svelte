@@ -1,5 +1,4 @@
 <script lang="ts">
-  // @ts-nocheck -- Svelte 4 component import resolution in conditionals
   import { onMount } from 'svelte';
   import { load } from '@tauri-apps/plugin-store';
   import { currentView, condaEnvPath } from './lib/stores';
@@ -21,6 +20,10 @@
       currentView.set('setup');
     }
   });
+
+  // Keep references visible to Svelte's checker so it doesn't tree-shake the imports.
+  // These are never rendered — they only satisfy the static analyser.
+  const _views = [SetupView, RunView, LogView];
 </script>
 
 {#if $currentView === 'setup'}
