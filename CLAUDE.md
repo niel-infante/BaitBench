@@ -322,6 +322,8 @@ cat test_results_genomes/*/detected_detail.tsv
 
 **Adding a new subcommand**: Add to `src/cli.rs` (clap definition), create `src/commands/new_cmd.rs`, wire into `main.rs`.
 
+**Adding a new CLI flag (GUI)**: The only GUI work needed is adding the corresponding input field in the relevant tool's section of `gui/src/lib/views/RunView.svelte` — either in the main form or inside the `<AdvancedOptions>` block. The Rust GUI backend passes all args through as plain strings via a `HashMap<String, String>`, so no Rust changes to the GUI are needed for new flags.
+
 **Modifying fragment generation**: Edit `src/sampling/fragment.rs`.
 
 **Modifying sequencing**: Edit `src/commands/sequence.rs` (currently trims to read length; future: paired-end, error models, nanopore).
