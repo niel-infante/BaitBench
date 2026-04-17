@@ -30,6 +30,8 @@ pub struct CoverageCurveArgs<'a> {
     // Simulate params
     pub simulate_mode: SimulateMode,
     pub temp_values: Vec<f64>,             // hybridization temperature values (1+ entries)
+    /// Na+ concentration in molar (converted from CLI mM)
+    pub na_conc_m: f64,
     // Pipeline params
     pub num_fragments: usize,
     pub read_length: usize,
@@ -451,6 +453,7 @@ fn run_simulate(
         capture_fraction,
         simulate_mode: args.simulate_mode,
         hybridization_temperature,
+        na_conc_m: args.na_conc_m,
         seed: args.seed,
         output: &prefixed_join(sim_dir, pfx, "fragments.fa"),
         fragment_length_mean: args.fragment_length_mean,
@@ -549,6 +552,7 @@ fn write_run_params(path: &Path, args: &CoverageCurveArgs) -> Result<()> {
         let temp_str = args.temp_values.iter().map(|t| t.to_string()).collect::<Vec<_>>().join(" ");
         writeln!(w, "hybridization_temperature_values\t--hybridization-temperature-values\t{}", temp_str)?;
     }
+    writeln!(w, "salt_concentration\t--salt-concentration\t{}", args.na_conc_m * 1000.0)?;
     writeln!(w, "minimap_preset\t--minimap-preset\t{}", args.minimap_preset)?;
     writeln!(w, "fragment_length_mean\t--fragment-length-mean\t{}", args.fragment_length_mean)?;
     writeln!(w, "fragment_length_min\t--fragment-length-min\t{}", args.fragment_length_min)?;

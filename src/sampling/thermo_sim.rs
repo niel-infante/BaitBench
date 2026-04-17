@@ -18,7 +18,7 @@ use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::Path;
 
-use crate::thermodynamics::{boltzmann_score, delta_g};
+use crate::thermodynamics::{boltzmann_score, delta_g, ThermoModel};
 
 /// Simulate mode — controls how probe hit scores are computed.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -198,12 +198,12 @@ const FLAG_UNMAPPED: u16 = 0x4;
 /// `sequences` — reference sequences keyed by seq_id (from combined_reference.fa).
 /// `weights`   — per-seq_id sampling weights (0.0 = skip).
 /// `mode`      — thermodynamic or simple.
-/// `temp_c`    — hybridisation temperature (only used in Thermodynamic mode).
+/// `model`     — thermodynamic model (temperature + salt); only used in Thermodynamic mode.
 pub fn load_probe_hits(
     sam_path: &Path,
     weights: &HashMap<String, f64>,
     mode: SimulateMode,
-    temp_c: f64,
+    model: &ThermoModel,
 ) -> Result<HashMap<String, Vec<ProbeHit>>> {
     let file = File::open(sam_path)
         .with_context(|| format!("Cannot open SAM file: {}", sam_path.display()))?;
@@ -262,8 +262,8 @@ pub fn load_probe_hits(
         let score = match mode {
             SimulateMode::Thermodynamic => {
                 let pairs = cigar_and_md_to_pairs(seq, cigar, md);
-                let dg = delta_g(&pairs, temp_c);
-                boltzmann_score(dg, temp_c) * seq_weight
+                let dg = delta_g(&pairs, model);
+                boltzmann_score(dg, model) * seq_weight
             }
             SimulateMode::Simple => seq_weight,
         };

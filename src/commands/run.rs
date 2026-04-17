@@ -33,6 +33,8 @@ pub struct RunArgs<'a> {
     pub seed: Option<u64>,
     pub simulate_mode: SimulateMode,
     pub hybridization_temperature: f64,
+    /// Na+ concentration in molar (converted from CLI mM)
+    pub na_conc_m: f64,
     pub capture_fraction: f64,
     pub minimap_preset: String,
     pub host_minimap_preset: String,
@@ -83,6 +85,7 @@ pub fn execute(args: &RunArgs) -> Result<()> {
     log::info!("Simulate mode       : {}", sim_mode_str);
     if matches!(args.simulate_mode, SimulateMode::Thermodynamic) {
         log::info!("Hybridization temp  : {}°C", args.hybridization_temperature);
+        log::info!("Salt concentration  : {} mM Na+", args.na_conc_m * 1000.0);
     }
     log::info!("Capture fraction    : {}", args.capture_fraction);
     log::info!(
@@ -135,6 +138,7 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         writeln!(f, "ct_baseline_fraction\t--ct-baseline-fraction\t{}", args.ct_baseline_fraction)?;
         writeln!(f, "simulate_mode\t--simulate-mode\t{}", sim_mode_str)?;
         writeln!(f, "hybridization_temperature\t--hybridization-temperature\t{}", args.hybridization_temperature)?;
+        writeln!(f, "salt_concentration\t--salt-concentration\t{}", args.na_conc_m * 1000.0)?;
         writeln!(f, "capture_fraction\t--capture-fraction\t{}", args.capture_fraction)?;
         writeln!(f, "minimap_preset\t--minimap-preset\t{}", args.minimap_preset)?;
         writeln!(f, "host_minimap_preset\t--host-minimap-preset\t{}", args.host_minimap_preset)?;
@@ -175,6 +179,7 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         capture_fraction: args.capture_fraction,
         simulate_mode: args.simulate_mode,
         hybridization_temperature: args.hybridization_temperature,
+        na_conc_m: args.na_conc_m,
         seed: args.seed,
         output: &prefixed_join(outdir, pfx, "fragments.fa"),
         fragment_length_mean: args.fragment_length_mean,

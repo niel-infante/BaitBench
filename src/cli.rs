@@ -105,6 +105,13 @@ pub enum Commands {
         #[arg(long, default_value = "70.0")]
         hybridization_temperature: f64,
 
+        /// Na+ concentration in mM for ΔG salt correction (thermodynamic mode only).
+        /// SantaLucia (1998) NN parameters assume 1000 mM (1 M NaCl); typical hybridization
+        /// capture buffers are around 50 mM Na+. Values other than 1000 apply the
+        /// Owczarzy et al. (1997) entropy correction to ΔS.
+        #[arg(long, default_value = "50.0")]
+        salt_concentration: f64,
+
         /// Fraction of fragments derived from probe binding sites (0.0–1.0).
         /// The remaining fraction are background fragments sampled uniformly by sequence weight.
         #[arg(long, default_value = "0.5")]
@@ -264,6 +271,13 @@ pub enum Commands {
         /// Hybridization temperature in °C (only used with --simulate-mode thermodynamic)
         #[arg(long, default_value = "70.0")]
         hybridization_temperature: f64,
+
+        /// Na+ concentration in mM for ΔG salt correction (thermodynamic mode only).
+        /// SantaLucia (1998) NN parameters assume 1000 mM (1 M NaCl); typical hybridization
+        /// capture buffers are around 50 mM Na+. Values other than 1000 apply the
+        /// Owczarzy et al. (1997) entropy correction to ΔS.
+        #[arg(long, default_value = "50.0")]
+        salt_concentration: f64,
 
         /// Random seed
         #[arg(short, long)]
@@ -906,6 +920,13 @@ pub enum Commands {
         /// Conflicts with --hybridization-temperature-values.
         #[arg(long, default_value = "70.0", conflicts_with = "hybridization_temperature_values")]
         hybridization_temperature: f64,
+
+        /// Na+ concentration in mM for ΔG salt correction (thermodynamic mode only).
+        /// SantaLucia (1998) NN parameters assume 1000 mM (1 M NaCl); typical hybridization
+        /// capture buffers are around 50 mM Na+. Values other than 1000 apply the
+        /// Owczarzy et al. (1997) entropy correction to ΔS.
+        #[arg(long, default_value = "50.0")]
+        salt_concentration: f64,
 
         /// Num-sequences values to sweep (space-separated). Conflicts with --num-sequences.
         #[arg(long, num_args = 1.., conflicts_with = "num_sequences")]

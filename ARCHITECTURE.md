@@ -179,8 +179,12 @@ Every command module exports an `Args` struct and an `execute(&Args) -> Result<(
 
 ### Thermodynamics (`thermodynamics.rs`)
 
-- `delta_g(aligned_pairs: &[(u8,u8)], temp_c: f64) -> f64` — SantaLucia (1998) nearest-neighbor free energy in kcal/mol; SkipStacking strategy (mismatches break stacking chain)
-- `boltzmann_score(dg: f64, temp_c: f64) -> f64` — `exp(-ΔG / (R × T_K))` where R = 1.987e-3 kcal/(mol·K)
+- `ThermoModel { temp_c: f64, na_conc_m: f64 }` — parameter struct for hybridization temperature (°C) and Na+ concentration (molar); constructed via `ThermoModel::new(temp_c, na_conc_m)` from `--hybridization-temperature` and `--salt-concentration` (mM→M)
+- `delta_g(aligned_pairs: &[(u8,u8)], model: &ThermoModel) -> f64` — SantaLucia (1998) nearest-neighbor free energy in kcal/mol; three contributions:
+  1. NN stacking energy (SkipStacking: mismatches break stacking chain)
+  2. Initiation terms (SantaLucia 1998 Table 2): AT (+2.3/+4.1) or GC (+0.1/−2.8) applied once per terminal WC pair
+  3. Salt correction (Owczarzy et al. 1997): `ΔS += 0.368 × (n_wc−1) × ln([Na+])`; at 1 M Na+ ln(1)=0 so no correction; at 50 mM (~typical hybridization buffer) makes ΔG more positive (weaker binding)
+- `boltzmann_score(dg: f64, model: &ThermoModel) -> f64` — `exp(-ΔG / (R × T_K))` where R = 1.987e-3 kcal/(mol·K)
 
 ### Sampling (`sampling/`)
 
@@ -191,8 +195,8 @@ Every command module exports an `Args` struct and an `execute(&Args) -> Result<(
 **`thermo_sim.rs`:**
 - `SimulateMode` — enum: `Thermodynamic` | `Simple`
 - `ProbeHit` — struct: probe_name, seq_id, start (0-based), end (exclusive), score
-- `load_probe_hits(sam_path, weights, mode, temp_c) → HashMap<String, Vec<ProbeHit>>`
-  - Parses SAM; scores each hit as `boltzmann_score(delta_g(...)) × seq_weight` (thermodynamic) or `seq_weight` (simple)
+- `load_probe_hits(sam_path, weights, mode, model: &ThermoModel) → HashMap<String, Vec<ProbeHit>>`
+  - Parses SAM; scores each hit as `boltzmann_score(delta_g(..., model), model) × seq_weight` (thermodynamic) or `seq_weight` (simple)
   - Skips unmapped, secondary-flag-dropped, and weight-0 sequences
 - `sample_capture_fragments(hits_by_probe, sequences, n, length_params, seed, counter) → Vec<(header, seq)>`
   - Two-level multinomial: probe (uniform) → hit (weighted by score) → fragment center (probe_center ± frag_len/4 jitter) → length (Normal)

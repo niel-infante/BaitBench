@@ -83,7 +83,7 @@ genomes.fa + targets.fa + distractors.fa [+ sample.tsv] [+ mapping.tsv]
 | `src/cli.rs` | Subcommand and argument definitions |
 | `src/commands/run.rs` | Full pipeline orchestrator |
 | `src/commands/prepare.rs` | Combines references, generates weights, writes ID lists; genome mode: two references + sample-target-map |
-| `src/thermodynamics.rs` | SantaLucia (1998) nearest-neighbor TNN model: delta_g(), boltzmann_score() |
+| `src/thermodynamics.rs` | SantaLucia (1998) nearest-neighbor TNN model: `ThermoModel` struct (temp_c, na_conc_m), `delta_g()` (stacking + initiation terms + Owczarzy salt correction), `boltzmann_score()` |
 | `src/commands/simulate.rs` | Thermodynamic/simple probe-biased fragment simulation (replaces simulate+capture+enrich) |
 | `src/sampling/thermo_sim.rs` | ProbeHit, SimulateMode, load_probe_hits, sample_capture_fragments, sample_background_fragments, write_fragments |
 | `src/commands/sequence.rs` | Simulate sequencing (trim fragments to read length) |

@@ -5,6 +5,7 @@ use crate::external::minimap2;
 use crate::fasta;
 use crate::sampling::{thermo_sim, weights};
 use crate::sampling::thermo_sim::SimulateMode;
+use crate::thermodynamics::ThermoModel;
 
 
 pub struct SimulateArgs<'a> {
@@ -17,6 +18,9 @@ pub struct SimulateArgs<'a> {
     pub simulate_mode: SimulateMode,
     /// Hybridization temperature in °C (thermodynamic mode only)
     pub hybridization_temperature: f64,
+    /// Na+ concentration in molar (e.g. 0.05 for 50 mM); thermodynamic mode only.
+    /// SantaLucia (1998) tables assume 1 M; other values apply an entropy correction.
+    pub na_conc_m: f64,
     pub seed: Option<u64>,
     pub output: &'a Path,
     pub fragment_length_mean: f64,
@@ -52,12 +56,13 @@ pub fn execute(args: &SimulateArgs) -> Result<()> {
     )?;
 
     // --- Step 2: Load and score probe hits ---
+    let thermo_model = ThermoModel::new(args.hybridization_temperature, args.na_conc_m);
     log::info!("Loading probe hits from SAM...");
     let hits_by_probe = thermo_sim::load_probe_hits(
         &temp_sam,
         &wts,
         args.simulate_mode,
-        args.hybridization_temperature,
+        &thermo_model,
     )?;
 
     let n_probes_with_hits = hits_by_probe.len();
