@@ -105,12 +105,25 @@
   let cc_targets = '';
   let cc_probes = '';
   let cc_distractors = '';
+  let cc_sampleIsFile = true;
   let cc_sample = '';
-  let cc_ctValues = '20 25 30';
-  let cc_captureFractionFixed = '0.5';
+  let cc_sampleInline = '';
+  // Simulation
   let cc_numFragments = '10000';
   let cc_simulateMode = 'thermodynamic';
-  let cc_tempValues = '';
+  // Per-parameter sweep: checkbox + fixed value + list
+  let cc_ctSweep = false;
+  let cc_ctFixed = '25';
+  let cc_ctList = '20 25 30';
+  let cc_tempSweep = false;
+  let cc_tempFixed = '70';
+  let cc_tempList = '60 65 70 75';
+  let cc_cfSweep = false;
+  let cc_cfFixed = '0.5';
+  let cc_cfList = '0.3 0.5 0.8';
+  let cc_nsSweep = false;
+  let cc_nsFixed = '';
+  let cc_nsList = '500 1000 5000';
 
   // ── Build config and run ──────────────────────────────────────────────────
   function buildArgs(): Record<string, string> | null {
@@ -237,22 +250,39 @@
         add('--targets', cc_targets);
         add('--probes', cc_probes);
         add('--distractors', cc_distractors);
-        if (cc_sample) add('--sample', cc_sample);
-        // CT values as a space-separated list passed as individual args
-        if (cc_ctValues) {
-          const vals = cc_ctValues.trim().split(/\s+/);
-          a['--ct-values'] = vals.join('\t');
+        // Sample
+        if (cc_sampleIsFile) {
+          if (cc_sample) add('--sample', cc_sample);
+        } else if (cc_sampleInline.trim()) {
+          a['--sample'] = cc_sampleInline.trim().split(/\s+/).join('\t');
         }
-        add('--capture-fraction', cc_captureFractionFixed);
         add('--num-fragments', cc_numFragments);
         add('--simulate-mode', cc_simulateMode);
-        if (cc_tempValues.trim()) {
-          const vals = cc_tempValues.trim().split(/\s+/);
-          if (vals.length === 1) {
-            add('--hybridization-temperature', vals[0]);
-          } else {
-            a['--hybridization-temperature-values'] = vals.join('\t');
+        // CT
+        if (cc_ctSweep && cc_ctList.trim()) {
+          a['--ct-values'] = cc_ctList.trim().split(/\s+/).join('\t');
+        } else if (cc_ctFixed) {
+          add('--ct', cc_ctFixed);
+        }
+        // Hybridization temperature (thermodynamic only)
+        if (cc_simulateMode === 'thermodynamic') {
+          if (cc_tempSweep && cc_tempList.trim()) {
+            a['--hybridization-temperature-values'] = cc_tempList.trim().split(/\s+/).join('\t');
+          } else if (cc_tempFixed) {
+            add('--hybridization-temperature', cc_tempFixed);
           }
+        }
+        // Capture fraction
+        if (cc_cfSweep && cc_cfList.trim()) {
+          a['--capture-fraction-values'] = cc_cfList.trim().split(/\s+/).join('\t');
+        } else {
+          add('--capture-fraction', cc_cfFixed);
+        }
+        // Num sequences
+        if (cc_nsSweep && cc_nsList.trim()) {
+          a['--num-sequences-values'] = cc_nsList.trim().split(/\s+/).join('\t');
+        } else if (cc_nsFixed) {
+          add('--num-sequences', cc_nsFixed);
         }
         add('--threads', threads);
         break;
@@ -714,21 +744,31 @@
               filters={[{ name: 'FASTA', extensions: ['fa', 'fasta'] }]} />
             <FilePicker label="Distractor FASTA(s)" bind:value={cc_distractors} multiple required
               filters={[{ name: 'FASTA', extensions: ['fa', 'fasta', 'fna'] }]} />
-            <FilePicker label="Sample manifest (optional)" bind:value={cc_sample}
-              filters={[{ name: 'TSV', extensions: ['tsv', 'txt'] }]} />
           </section>
+
           <section class="form-section">
-            <h3>Parameter Sweep</h3>
-            <div class="field-row">
-              <label class="field-label" for="cc-ctvals">CT values (space-separated)</label>
-              <input id="cc-ctvals" class="text-input" type="text"
-                bind:value={cc_ctValues} placeholder="20 25 30" />
+            <h3>Sample Manifest</h3>
+            <div class="toggle-row">
+              <button class="toggle-btn" class:active={cc_sampleIsFile}
+                on:click={() => cc_sampleIsFile = true}>File (TSV)</button>
+              <button class="toggle-btn" class:active={!cc_sampleIsFile}
+                on:click={() => cc_sampleIsFile = false}>Inline IDs</button>
             </div>
-            <div class="field-row">
-              <label class="field-label" for="cc-capfrac">Capture fraction (fixed)</label>
-              <input id="cc-capfrac" class="text-input short" type="number" min="0" max="1" step="0.01"
-                bind:value={cc_captureFractionFixed} />
-            </div>
+            {#if cc_sampleIsFile}
+              <FilePicker label="Sample manifest (optional)" bind:value={cc_sample}
+                filters={[{ name: 'TSV', extensions: ['tsv', 'txt'] }]} />
+            {:else}
+              <label class="field-label" for="cc-sample-inline">
+                Space-separated target IDs (optionally followed by weight)
+              </label>
+              <input id="cc-sample-inline" class="text-input" type="text"
+                bind:value={cc_sampleInline}
+                placeholder="target_1 target_2 target_3" />
+            {/if}
+          </section>
+
+          <section class="form-section">
+            <h3>Simulation</h3>
             <div class="field-row">
               <label class="field-label" for="cc-nfrags">Number of fragments</label>
               <input id="cc-nfrags" class="text-input short" type="number" min="100"
@@ -737,21 +777,75 @@
             <div class="field-row">
               <label class="field-label" for="cc-simmode">Simulate mode</label>
               <select id="cc-simmode" class="select-input" bind:value={cc_simulateMode}>
-                <option value="thermodynamic">Thermodynamic</option>
+                <option value="thermodynamic">Thermodynamic (TNN)</option>
                 <option value="simple">Simple</option>
               </select>
             </div>
-            {#if cc_simulateMode === 'thermodynamic'}
-            <div class="field-row">
-              <label class="field-label" for="cc-tempvals">
-                Hybridization temp(s) °C
-                <span class="hint-sm">space-separated to sweep, e.g. 60 65 70 75</span>
+          </section>
+
+          <section class="form-section">
+            <h3>Parameter Sweep</h3>
+            <p class="sweep-hint">Check a parameter to sweep over multiple values; uncheck to use a single fixed value.</p>
+
+            <div class="sweep-row">
+              <label class="sweep-label">
+                <input type="checkbox" bind:checked={cc_ctSweep} />
+                CT
               </label>
-              <input id="cc-tempvals" class="text-input" type="text"
-                bind:value={cc_tempValues} placeholder="70" />
+              {#if cc_ctSweep}
+                <input class="text-input sweep-input" type="text"
+                  bind:value={cc_ctList} placeholder="20 25 30" />
+              {:else}
+                <input class="text-input short" type="number" step="0.1"
+                  bind:value={cc_ctFixed} placeholder="25" />
+              {/if}
+            </div>
+
+            {#if cc_simulateMode === 'thermodynamic'}
+            <div class="sweep-row">
+              <label class="sweep-label">
+                <input type="checkbox" bind:checked={cc_tempSweep} />
+                Hybridization Temp (°C)
+              </label>
+              {#if cc_tempSweep}
+                <input class="text-input sweep-input" type="text"
+                  bind:value={cc_tempList} placeholder="60 65 70 75" />
+              {:else}
+                <input class="text-input short" type="number" step="1"
+                  bind:value={cc_tempFixed} placeholder="70" />
+              {/if}
             </div>
             {/if}
+
+            <div class="sweep-row">
+              <label class="sweep-label">
+                <input type="checkbox" bind:checked={cc_cfSweep} />
+                Capture Fraction
+              </label>
+              {#if cc_cfSweep}
+                <input class="text-input sweep-input" type="text"
+                  bind:value={cc_cfList} placeholder="0.3 0.5 0.8" />
+              {:else}
+                <input class="text-input short" type="number" min="0" max="1" step="0.01"
+                  bind:value={cc_cfFixed} placeholder="0.5" />
+              {/if}
+            </div>
+
+            <div class="sweep-row">
+              <label class="sweep-label">
+                <input type="checkbox" bind:checked={cc_nsSweep} />
+                Num Sequences
+              </label>
+              {#if cc_nsSweep}
+                <input class="text-input sweep-input" type="text"
+                  bind:value={cc_nsList} placeholder="500 1000 5000" />
+              {:else}
+                <input class="text-input short" type="number" min="1"
+                  bind:value={cc_nsFixed} placeholder="all" />
+              {/if}
+            </div>
           </section>
+
           <section class="form-section">
             <h3>Output</h3>
             <FilePicker label="Output directory" bind:value={outdir} directory required />
@@ -910,6 +1004,11 @@
   .field-group { display: flex; flex-direction: column; gap: 8px; }
   .field-label { font-size: 0.85rem; font-weight: 600; color: var(--color-label); }
   .hint-sm { display: block; font-size: 0.75rem; font-weight: 400; color: var(--color-muted); margin-top: 1px; }
+  .sweep-hint { font-size: 0.8rem; color: var(--color-muted); margin: 0 0 8px; }
+  .sweep-row { display: flex; align-items: center; gap: 10px; min-height: 32px; }
+  .sweep-label { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; font-weight: 600; color: var(--color-label); min-width: 180px; cursor: pointer; white-space: nowrap; }
+  .sweep-label input[type="checkbox"] { width: 15px; height: 15px; flex-shrink: 0; cursor: pointer; }
+  .sweep-input { flex: 1; min-width: 0; }
   .text-input, .select-input {
     padding: 5px 8px;
     font-size: 0.85rem;
