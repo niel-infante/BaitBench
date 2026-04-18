@@ -5,50 +5,23 @@
 
 ## Introduction
 
-Target capture good. 
-Target capture important.
+Hybridization-based target capture, also called bait capture or probe enrichment, has become an essential technique for selectively sequencing genomic regions of interest from complex nucleic acid mixtures. In the protocol, a set of biotinylated oligonucleotide probes hybridizes to complementary fragments in a sheared DNA library, streptavidin-coated beads then pull down probe-bound fragments, the unbound majority is washed away, and the enriched library is sequenced. The resulting orders-of-magnitude increase in on-target read depth enables applications that are otherwise prohibitively expensive or impossible with whole sample sequencing alone. It is essential for detecting low-abundance targets in complex backgrounds such as clinical metagenomics, pathogen surveillance, antimicrobial resistance gene detection, viral genomics, ancient DNA, whole-exome sequencing or the sensitive detection of low-abundance pathogens directly from patient specimens [@bravoMethodsApplicationsComputational2025]. Clinical use cases span Rickettsia and other obligate intracellular bacteria that are poorly recovered by culture \[@paskey2024], SARS-CoV-2 and respiratory viruses in low-titer nasopharyngeal samples \[@nagysakal2021], and co-circulating arboviruses such as dengue, Zika, and chikungunya, where simultaneous full-genome recovery aids outbreak investigation \[@kamaraj2019; @metskyCapturingSequenceDiversity2019]. For many of these settings the target represents as little as 0.001–1% of the total DNA in the sample, making the design and performance of the probe set the decisive factor between a successful assay and a failed one.
 
-not much to assess probes
+The computational side of probe design has matured considerably. Tools such as CATCH [@metskyCapturingSequenceDiversity2019], Syotti [@alankoSyottiScalableBait2022], and ProbeTools [@kuchinskiProbeToolsDesigningHybridization2022] can efficiently construct minimal probe sets with guaranteed coverage across diverse, rapidly evolving viral targets. However, a systematic gap remains between designing a probe panel and knowing how it will perform. Prior to synthesis and wet-lab validation, there is no broadly adopted approach for predicting sensitivity as a function of target abundance, specificity against a background of host and distractor sequences, within-panel cross-reactivity, or coverage uniformity across target sequences. 
 
-virus/whole genome different than targeted site/wes
+Wet lab iteration is slow and expensive; insilico evaluation remains largely ad-hoc and beyond the abilities of some bench scientists. When simulations are used, they commonly assume uniform per-base capture probability, an approximation that ignores the sequence dependent binding affinities that govern real hybridization.
 
-Installing tools can be hard
+Recent work on RAmpSim @zhangRAmpSimThermodynamicSimulator2025 demonstrated that thermodynamic simulation using the SantaLucia (1998) nearest-neighbor (TNN) model   [@santaluciaUnifiedViewPolymer1998] can produce substantially more realistic coverage distributions than uniform models. By computing the Gibbs free energy ΔG for each probe-reference alignment and converting it to a Boltzmann-weighted binding probability, fragment enrichment near high-affinity sites emerges naturally from the physics of hybridization rather than from an imposed enrichment parameter. However, RAmpSim addresses only the simulation step; it does not include probe design, structured probe quality control, or quantitative performance metrics, leaving users to assemble these capabilities from separate tools with incompatible formats and dependencies.
 
-
-Simulating thermodynamics gives insight into realistic expectations, and an make predictions for needed sequencing depth.
-
-Can simulate all steps in target sequence capture workflow.
-
-
- Hybridization-based target capture (bait capture) is a widely used method for enriching specific genomic regions prior to sequencing. It is essential for detecting low-abundance targets in complex backgrounds such as clinical metagenomics, pathogen surveillance, antimicrobial resistance gene detection, viral genomics, ancient DNA, or whole-exome sequencing.
-
- 
-- Probes (baits) bind to complementary sequences in fragmented DNA; unbound material is washed away; bound fragments are sequenced
-- Reference review for the field: Bravo et al. (2025) — covers applications, limitations, and open computational problems
-
-[@bravoMethodsApplicationsComputational2025]
-
-
-### Applications / why it matters
-- Clinical diagnostics: detecting low-titer pathogens (Rickettsia, SARS-CoV-2, arboviruses) directly from clinical specimens [Paskey 2024, Nagy-Szakal 2021, Kamaraj 2019]
-- Pathogen surveillance panels: broad-range viral or bacterial detection from environmental and clinical metagenomes
-- Epidemiological genomics: full-genome recovery from complex samples (Lassa outbreak, ZIKV/DENV co-infections [Metsky 2019, Kamaraj 2019])
-- AMR surveillance from microbiomes
-- Ancient DNA recovery from degraded samples
-
-### The design–experiment gap
+Here we present BaitBench, an end-to-end computational suite for designing, assessing, and benchmarking probe panels for target capture sequencing. BaitBench integrates native Rust reimplementations of the CATCH and Syotti probe design algorithms with a quality-controlled build pipeline, a comprehensive probe assessment module, and a full thermodynamic simulation pipeline based on the SantaLucia (1998) nearest-neighbor model, including initiation terms, Boltzmann-weighted fragment sampling, and a sodium concentration correction following Owczarzy et al. [@owczarzyPredictingSequencedependentMelting1997]. The simulation pipeline supports both standard mode for small-genome targets such as viruses and a genome mode for bacteria and other large pathogens where probes target a genetic locus within a full genome. To directly connect simulations to clinical practice, BaitBench accepts qPCR cycle-threshold (CT) scores as input, automatically converting them to target DNA fractions and enabling the question "at what CT is my assay expected to work?" to be answered insilico. Performance is evaluated with a three-way classification scheme that separately quantifies within-panel cross-reactivity and true off-target capture, a clinically meaningful distinction that a binary detected/not-detected call obscures. BaitBench also offers the ability to simulate how different temperatures, capture efficiencies, and sequencing depths will effect target coverage, giving some direction for experiment design. Written in Rust for performance and distributed with an optional desktop GUI, BaitBench is designed to lower the barrier to rigorous probe panel evaluation for both command-line and non-specialist users.
 
 Probe panel design is relatively mature with tools such as CATCH [@metskyCapturingSequenceDiversity2019], Syotti [@alankoSyottiScalableBait2022], tiling, ProbeTools [@kuchinskiProbeToolsDesigningHybridization2022], but evaluating performance before wet-lab experiments remains largely manual or ad hoc. Further, there is no standardized way to predict sensitivity for a given target abundance, specificity against distractors, within-panel cross-reactivity, or coverage uniformity. Wet-lab iteration is expensive and slow; in-silico evaluation is underutilized and complicated by multiple tools with diverse dependencies and conventions. BaitBench aims to fill this gap with an easy to install, simple to use tool.
-
-
-
-RAmpSim [Zhang 2025] introduced thermodynamic nearest-neighbor (TNN) Boltzmann-weighted simulation for metagenomics but is scope-limited to the simulation step; does not include probe design, probe QC, or structured performance metrics
 
 
 ## The Tool
 
 BaitBench is a command line tool written primarily in Rust. It is available as source code or precompiled binaries. (Not yet)
-Conda?
+Conda? Docker?
 
 
 BaitBench is single tool in a single environment providing unified, end-to-end solution: design probes → assess probes → simulate a capture experiment → quantitative performance metrics → HTML report. BaitBench includes thermodynamic simulation of binding affinities derived from [@santaluciaUnifiedViewPolymer1998] as described by RAmpSim [@zhangRAmpSimThermodynamicSimulator2025], utilizing nearest-neighbor model, Boltzmann-weighted fragment sampling and more realistic than uniform-coverage approaches. BaitBench accommodates small genomes such as viruses and large pathogens such as bacteria where probes target gene regions within a set of genomes, or whole exome regions targeting a single genome. Direct integration of clinical context qPCR CT scores translate to target abundances, making simulations interpretable alongside real diagnostic data. BaitBench is written in Rust for performance, with an optional desktop GUI for accessibility.
@@ -78,7 +51,7 @@ When working with multiple highly similar targets, coverage can become problemat
 FIG_ASSESS
 ![Probe assessment diagram](../docs/diagrams/paper_assess_probes.png)
 
-### Run Simulation
+### Simulating Capture
 
 Assessing probes assumes a (near) perfect world. Here we try to simulate a more realistic capture experiment incorporating all steps in the process. BaitBench’s workflow is split into eight steps each of which can be run separately, and since all intermediate files are documented and retained (unless --cleanup is called) the pipeline can be re-entered at any step.
 
@@ -104,33 +77,32 @@ FIG_PREPARE_3
 
 
 #### Step 2 — Simulate (thermodynamic fragment generation)
-- Align probes to combined reference with minimap2; parse CIGAR + MD tags to reconstruct per-position (probe_base, ref_base) pairs for each alignment
-- **Thermodynamic scoring**: compute ΔG (Gibbs free energy) for each probe-reference alignment using the SantaLucia (1998) nearest-neighbor model via a `ThermoModel` struct (temperature + salt concentration)
-  - *NN stacking*: accumulate stacking energy over consecutive Watson-Crick pairs; mismatches break the stacking chain (SkipStacking strategy)
-  - *Initiation terms*: add AT (+2.3 kcal/mol ΔH, +4.1 cal/mol/K ΔS) or GC (+0.1, −2.8) initiation penalty for the first and last WC terminal of each alignment (SantaLucia 1998 Table 2)
-  - *Salt correction*: adjust ΔS for actual Na+ concentration via Owczarzy et al. (1997): `ΔS += 0.368 × (n_wc−1) × ln([Na+])`; user-specified via `--salt-concentration` (mM, default 50 mM); at 1 M the correction is exactly zero
-  - Convert to Boltzmann binding score: `score = exp(−ΔG / RT)` at user-specified hybridization temperature
-- **Two-level multinomial fragment sampling** for captured reads:
+
+The simulate step is modeled directly on RAmpSim [@zhangRAmpSimThermodynamicSimulator2025]. Probes are aligned to the combined reference with minimap2 [@liMinimap2PairwiseAlignment2018], CIGAR and MD tags are parsed via an internal tool to reconstruct per-position (probe_base, ref_base) pairs for each alignment.  Gibbs free energy (ΔG) is calculated for each probe-reference alignment using the SantaLucia (1998) nearest-neighbor model via a `ThermoModel` struct (temperature and salt concentration).  NN stacking accumulates stacking energy over consecutive Watson-Crick pairs, mismatches break the stacking chain (SkipStacking strategy) Initiation terms add AT (+2.3 kcal/mol ΔH, +4.1 cal/mol/K ΔS) or GC (+0.1, −2.8) initiation penalty for the first and last WC terminal of each alignment (SantaLucia 1998 Table 2) Salt correction adjusts ΔS for actual Na+ concentration via Owczarzy et al. [@owczarzyPredictingSequencedependentMelting1997]: `ΔS += 0.368 × (n_wc−1) × ln([Na+])`; user-specified via `--salt-concentration` (mM, default 50 mM). At 1 M the correction is exactly zero. Convert to Boltzmann binding score: `score = exp(−ΔG / RT)` at user-specified hybridization temperature. Now we can use a Two-level multinomial fragment sampling for captured reads:
   1. Sample a probe uniformly from probes with ≥1 alignment hit
-  2. Sample an alignment hit for that probe, weighted by `Boltzmann_score × sequence_weight`
+  2. Sample an alignment hit for that probe, weighted by Boltzmann_score × sequence_weight
   3. Fragment center: alignment center ± uniform jitter (±fragment_length/4)
   4. Fragment length: sampled from truncated normal distribution (user-specified mean, SD, min, max)
-- Background fragments (fraction `1 − capture_fraction`): sampled uniformly weighted by `sequence_weight × sequence_length`
-- Capture fraction (`--capture-fraction`): controls ratio of probe-biased to background fragments; models incomplete capture efficiency in real experiments
-- Target enrichment is emergent — no imposed fold-enrichment parameter
+- Background fragments (fraction `1 − capture_fraction`): sampled uniformly weighted by sequence_weight × sequence_length. To model incomplete capture efficiency in real experiments we use the single parameter.
+  Target enrichment is and emergent property of the thermodynamic sampling method. 
+
+
+FIG_THERMO
+
+![Thermodynamics algorithm](../docs/diagrams/paper_thermodynamic_scoring.png)
+
 
 #### Step 3 — Sequence
-- Trim fragments to read length (current implementation); architecture is designed for drop-in read simulators (ART-modern, PBSIM2) for realistic error profiles
-- Optional: subsample to target sequencing depth
+We need to fix this. Right now we simply trim to sequence length. It wont be hard to add some read simulators. Probably want to add short read, long read, paired end.
 
 #### Step 4 — Filter (optional)
-- Map reads against host genome(s); discard mapping reads; models host depletion step in real workflows
+Map reads against host genome(s); discard mapping reads; models host depletion step in real workflows
 
 #### Step 5 — Map
-- Align reads to combined reference with minimap2; configurable preset and secondary alignment settings
+Align reads to combined reference with minimap2; configurable preset and secondary alignment settings
 
 #### Step 6 — List
-- Parse SAM; count reads per reference sequence
+Parse SAM; count reads per reference sequence
 
 #### Step 7 — Metrics (3-way classification)
 - Classification at genome/group level (was each target detected?):
@@ -141,41 +113,24 @@ FIG_PREPARE_3
   - **FP_distractor**: distractor detected (off-target capture)
   - **TN_distractor**: distractor not detected
   - **Untargeted**: genome-mode genomes with no target mapping (tracked separately)
-- Summary metrics: sensitivity, specificity, precision, F1-score
-- Coverage statistics: per-reference depth, pct_covered_5x, pct_covered_20x
-- Read-level tracking: correctly mapped, incorrectly mapped, source vs. mapping destination
+
+From this we are able to calculate summary metrics, coverage statistics: per-reference depth, pct_covered_5x, pct_covered_20x we implemented read-level tracking so we can report correctly mapped, incorrectly mapped, source vs. mapping destination.
 
 #### Step 8 — Report
-- Self-contained HTML generated via RMarkdown/ggplot2
-- Sankey diagram of fragment flow (generation → capture → sequencing → filtering → mapping)
-- Performance metrics bar charts, detection detail lollipop chart, coverage depth plots
-- Parameters section with reconstructed CLI command for reproducibility
-
-
-
-
-
-The coverage report is intended for assessing samples with a single, or small number of targets present. BaitBench simulates all stages of the target capture workflow. The user specifies what targets and distractors are in the sample with relative weights. BaitBench then randomly generates fragments of the given DNA selected weighted by the user provided weights and the genome sizes. Fragment size follows a normal distribution bound by user specified min, max,and mean. Capturing is simulated incorporating the thermodynamic properties of the probe - fragment binding using the RAmpSim [@zhangRAmpSimThermodynamicSimulator2025] algorithm. A tune-able fraction of all the DNA is randomly selected regardless of capture to represent the incomplete nature of the capture process. Sequencing is then simulated (currently just trimming all fragments to a read length, but drop-in ready for a read simulator such as ART-modern or PBSIM2), followed by an optional distractor filtering step, and finally mapping to the targets and assessment of the sensitivity, specificity, and precision of the experiment. We track every fragment from generation through to the mapping, so we can give a very fine tuned view 
-
-
-### Coverage report
-The coverage report is intended for assessing samples with a single, or small number of targets present. BaitBench simulates all stages of the target capture workflow. The user specifies what targets and distractors are in the sample with relative weights. BaitBench then randomly generates fragments of the given DNA. Capturing is simulated incorporating the thermodynamic properties of the probe - fragment binding using the RAmSim (ref) algorithm. A tune-able fraction of all the DNA is randomly selected regardless of capture to represent the incomplete nature of the capture process. Sequencing is then simulated (currently just trimming all fragments to a read length, but drop-in ready for a read simulator such as .… to give realistic Illumina or long read sequences), followed by an optional distractor filtering step, and finally mapping to the targets and assessment of the sensitivity, specificity, and precision of the experiment. 
-
-
-
-
-
-
-
-
-
-
-
-
+BaitBench produces a self-contained HTML report generated via RMarkdown (or an .Rmd file the user can alter for custom graphics). The report contains a sankey diagram of fragment flow (generation → capture → sequencing → filtering → mapping), performance metrics bar charts, detection detail lollipop chart, a confusion matrix, coverage depth plots, and interactive tables of useful metrics. Every report BaitBench gernerates includes a parameters section with a reconstructed CLI command for reproducibility.
 
 ### Coverage Curve
 
-This module allows user to do a parameter sweep over some key parameters: capture fraction, temperature, number of sequences generated, and initial fraction of desired sample present. The resulting coverage curve give users insights into the effort needed to reach coverage sufficient for their downstream analyses. Capture fraction is a measure of how clean the capture is, and how much bleed through there is. Generally speaking, longer capture times and a cleaner wash will lead to a higher capture fraction. 
+This module allows user to do a parameter sweep over some key parameters: capture fraction, temperature, number of sequences generated, and initial fraction of desired sample present. The resulting coverage curve gives users insights into the effort needed to reach coverage sufficient for their downstream analyses. 
+
+FIG_COVERAGE_CURVE   - Need a better one, this one still has fold enrichment which is no longer a parameter.
+
+![Coverage Curve](FIG_CovCurve.png)
+
+### Other Modules
+**Species identification** (`baitbench identify`)   When working with similar species, and targeting the same genes in each, there is the concern that even with perfect capture you may not be able to tell species apart. This tool will look at all of the targets of every species, and consider the homology between them. Species are then called PRESENT if unique marker targets detected, ABSENT when all hits explained by cross-reactivity, AMBIGUOUS when indeterminate.
+ **Cross-reactivity** (`baitbench xreact`): Standalone probe cross-reactivity check against genomes and/or other probes based on homology. Also useful to check if your targets are close.
+## 
 
 
 
@@ -191,17 +146,20 @@ Not everything implemented
 
 ## Discussion
 
+## Limitations
+
+## Distribution
+
 
 ### Future Directions
 wrap sequence simulator(s)
 support long reads
-GUI
+~~GUI~~
 editing probests 
     Remove redundant or useless probes
     Add probes to targeted, low coverage areas
 
 In documentation, include some helpful cli commands, such as how to create a sample group file from a target.fa
-
 
 
 ## References
