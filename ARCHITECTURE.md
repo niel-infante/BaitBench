@@ -182,9 +182,19 @@ Every command module exports an `Args` struct and an `execute(&Args) -> Result<(
 - `ThermoModel { temp_c: f64, na_conc_m: f64 }` — parameter struct for hybridization temperature (°C) and Na+ concentration (molar); constructed via `ThermoModel::new(temp_c, na_conc_m)` from `--hybridization-temperature` and `--salt-concentration` (mM→M)
 - `delta_g(aligned_pairs: &[(u8,u8)], model: &ThermoModel) -> f64` — SantaLucia (1998) nearest-neighbor free energy in kcal/mol; three contributions:
   1. NN stacking energy (SkipStacking: mismatches break stacking chain)
-  2. Initiation terms (SantaLucia 1998 Table 2): AT (+2.3/+4.1) or GC (+0.1/−2.8) applied once per terminal WC pair
+  2. Initiation terms (SantaLucia 1998 Table 2): AT (+2.3/+4.1) or GC (+0.1/−2.8) applied once per terminal WC pair, **only when at least one stacking step exists** (see design note below)
   3. Salt correction (Owczarzy et al. 1997): `ΔS += 0.368 × (n_wc−1) × ln([Na+])`; at 1 M Na+ ln(1)=0 so no correction; at 50 mM (~typical hybridization buffer) makes ΔG more positive (weaker binding)
-- `boltzmann_score(dg: f64, model: &ThermoModel) -> f64` — `exp(-ΔG / (R × T_K))` where R = 1.987e-3 kcal/(mol·K)
+- `boltzmann_score(dg: f64, model: &ThermoModel) -> f64` — `exp(-ΔG / (R × T_K))` where R = 1.987e-3 kcal/(mol·K); score = 1 means neutral (no hybridization), > 1 means favorable binding, < 1 is not produced by this model
+
+#### Thermodynamic model design notes
+
+**Score semantics.** `boltzmann_score` is a Boltzmann factor proportional to the hybridization equilibrium constant. It is used as a relative sampling weight — only ratios between scores matter, not their absolute values. Score = 1 (ΔG = 0) is the neutral baseline: no thermodynamic tendency to bind.
+
+**Initiation terms.** SantaLucia (1998) was designed to predict the *absolute* ΔG of duplex formation from two free strands in solution. Initiation parameters capture two physical costs: (1) the loss of translational/rotational entropy when two separate molecules associate, and (2) the instability of terminal base pairs, which are less constrained than interior ones. AT termini (+2.3/+4.1 kcal/mol) are more costly than GC termini (+0.1/−2.8) because A-T pairs have only two hydrogen bonds and are weaker duplex anchors. Initiation always adds positive ΔG (destabilising), reducing the Boltzmann score relative to stacking alone.
+
+**Why initiation is conditional on stacking.** Initiation terms are only applied when at least one NN stacking step exists (i.e., ≥ 2 consecutive WC pairs). An isolated single WC pair flanked by mismatches on both sides cannot sustain a stable duplex — applying the initiation nucleation cost to it would produce ΔG > 0 and score < 1, implying the probe is actively repelled from that locus, which is unphysical. When no stacking exists, ΔG = 0 and score = 1 (neutral), matching the behaviour of RAmpSim (see below).
+
+**Comparison with RAmpSim.** RAmpSim (Rooney et al. 2025, biorxiv 2025.12.05.692407) implements the same SantaLucia NN stacking table and SkipStacking mismatch strategy but omits initiation and salt correction entirely. For a relative-scoring use case, the constant part of the initiation penalty cancels across all probes when normalising sampling weights. The residual effect — AT vs GC terminal distinction — is a secondary correction (~2 kcal/mol) that BaitBench preserves because it is physically real: probes with GC-rich termini form more stable duplexes than AT-rich ones, and this difference affects relative capture probabilities. The salt correction has a larger practical impact: at 50 mM Na+ (typical hybridization buffer), it reduces scores by an additional factor that scales with duplex length, meaningfully changing the relative ranking of long vs short probe hits.
 
 ### Sampling (`sampling/`)
 

@@ -63,6 +63,24 @@ Probe binding sites are scored using the SantaLucia (1998) nearest-neighbor ther
 
 Target enrichment is emergent from TNN affinity × sequence weights rather than being imposed post-hoc — sequences with weight 0.0 (non-sample targets) never generate probe-biased fragments. Fold enrichment is no longer a parameter.
 
+### Thermodynamic model details
+
+The Boltzmann score `exp(-ΔG / RT)` is used as a relative sampling weight — only the ratio between scores matters, not the absolute value. A score of **1** (ΔG = 0) is the neutral baseline: no thermodynamic tendency to bind. Scores above 1 represent favorable hybridization; the model never produces scores below 1.
+
+ΔG has three contributions:
+
+**1. Nearest-neighbor stacking.** The dominant term. Each pair of consecutive Watson-Crick base pairs contributes a stacking free energy from the SantaLucia (1998) Table 2 parameters. Stacking is always stabilising (negative ΔG). A mismatch breaks the stacking chain — BaitBench uses the SkipStacking strategy, meaning mismatches interrupt but do not reverse accumulated stacking energy.
+
+**2. Initiation penalty.** Forming a duplex from two separate strands carries a one-time nucleation cost: the strands lose translational and rotational freedom on association, and the terminal base pairs are less constrained than interior ones. This is captured by the SantaLucia initiation parameters, applied once for each end of the duplex. AT termini are more costly (+2.3 kcal/mol enthalpy) than GC termini (+0.1 kcal/mol) because A-T pairs have two hydrogen bonds versus three for G-C and are weaker duplex anchors.
+
+The initiation penalty and salt correction are only applied when at least one stacking step exists — i.e., when there are at least two consecutive Watson-Crick pairs. A single isolated complementary base pair flanked by mismatches cannot sustain a stable duplex, so there is no nucleation event to penalise and no duplex over which to apply a salt correction. Without this guard, isolated complementary positions at low salt would produce scores below 1 (implying the probe is repelled from that site), which is unphysical.
+
+**3. Salt correction.** At salt concentrations below 1 M Na+, the negatively charged DNA backbone is less shielded, making hybridization less favorable. BaitBench applies the Owczarzy et al. (1997) correction `ΔS += 0.368 × (n_wc − 1) × ln([Na+])`. At 1 M Na+ this term is zero; at 50 mM Na+ (a typical hybridization buffer, controlled by `--salt-concentration`) it meaningfully weakens binding, with the effect scaling with the number of Watson-Crick pairs. Set `--salt-concentration 1000` to disable the correction.
+
+### Comparison with RAmpSim
+
+RAmpSim (Rooney et al. 2025) uses the same SantaLucia stacking table and SkipStacking strategy but omits initiation and salt correction entirely. For relative scoring, the constant part of the initiation penalty cancels when normalising sampling weights across probes. BaitBench preserves the AT vs GC terminal distinction (~2 kcal/mol effect on ΔG) because it is physically real: GC-terminated duplexes are genuinely more stable and should be sampled more frequently. The salt correction has a larger practical impact — at 50 mM Na+ it can shift scores by tens of kcal/mol for longer probe hits — and meaningfully re-ranks long vs short binding sites relative to omitting it.
+
 ## Weight Calculation
 
 Sampling weights determine how many fragments each sequence generates. The number of fragments from a sequence is proportional to `weight * sequence_length`.

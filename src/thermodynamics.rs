@@ -7,6 +7,37 @@
 ///   ΔS([Na+]) = ΔS(1 M) + 0.368 × (n_bp - 1) × ln([Na+])
 ///
 /// Nucleotide index convention: A=0, C=1, G=2, T=3
+///
+/// # Design notes
+///
+/// `boltzmann_score` is used as a relative sampling weight — only ratios between
+/// scores matter.  Score = 1 (ΔG = 0) is the neutral baseline; > 1 means
+/// favorable binding; < 1 is never produced by this model (see initiation note).
+///
+/// ## Initiation terms
+///
+/// SantaLucia (1998) initiation parameters capture the cost of nucleating a new
+/// duplex from two free strands: loss of translational/rotational entropy on
+/// association, plus the instability of terminal base pairs (only partially
+/// stacked, fewer constraints than interior pairs).  AT termini are more costly
+/// than GC because A-T pairs have two hydrogen bonds vs three for G-C.
+///
+/// Initiation is applied **only when at least one NN stacking step exists**
+/// (≥ 2 consecutive WC pairs).  A single isolated WC pair flanked by mismatches
+/// cannot sustain a stable duplex; applying the nucleation penalty to it would
+/// give ΔG > 0 and score < 1 — implying the probe is actively repelled, which
+/// is unphysical.  When no stacking exists, ΔG = 0 and score = 1 (neutral).
+///
+/// ## Comparison with RAmpSim
+///
+/// RAmpSim (Rooney et al. 2025, bioRxiv 2025.12.05.692407) uses the same
+/// SantaLucia stacking table and SkipStacking strategy but omits initiation and
+/// salt correction.  For relative scoring, the constant part of initiation
+/// cancels across probes.  BaitBench preserves the AT vs GC terminal distinction
+/// (~2 kcal/mol effect) because it is physically real and affects relative
+/// capture probabilities.  The salt correction has a larger impact at typical
+/// hybridization conditions (50 mM Na+) and meaningfully re-ranks long vs short
+/// probe hits.
 
 /// Gas constant in kcal/(mol·K)
 const R_KCAL: f64 = 1.987_204_258_64e-3;
@@ -155,6 +186,7 @@ pub fn delta_g(aligned_pairs: &[(u8, u8)], model: &ThermoModel) -> f64 {
     // --- 1. NN stacking (SkipStacking) ---
     let mut prev_top: Option<u8> = None;
     let mut prev_bot: Option<u8> = None;
+    let mut has_stacking = false;
 
     for &(probe_b, ref_b) in aligned_pairs {
         let top = nt_to_idx(probe_b);
@@ -169,6 +201,7 @@ pub fn delta_g(aligned_pairs: &[(u8, u8)], model: &ThermoModel) -> f64 {
                 let params = NN_TABLE[pt as usize][top as usize];
                 sum_dh += params.dh;
                 sum_ds += params.ds;
+                has_stacking = true;
             }
             // If either is a mismatch, skip this step (SkipStacking)
         }
@@ -178,39 +211,51 @@ pub fn delta_g(aligned_pairs: &[(u8, u8)], model: &ThermoModel) -> f64 {
     }
 
     // --- 2. Initiation terms: first and last WC pair ---
-    // Forward scan: first WC pair
-    for &(probe_b, ref_b) in aligned_pairs.iter() {
-        let top = nt_to_idx(probe_b);
-        let bot = nt_to_idx(ref_b);
-        if let Some(p) = initiation_params(top, bot) {
-            sum_dh += p.dh;
-            sum_ds += p.ds;
-            break;
+    // Only applied when at least one stacking step exists (≥ 2 consecutive WC pairs).
+    // An isolated single WC pair flanked by mismatches cannot form a stable duplex,
+    // so paying the initiation cost for it would produce ΔG > 0 (score < 1) — implying
+    // the probe is actively repelled, which is unphysical. RAmpSim omits initiation
+    // entirely; we apply it only when there is genuine duplex stacking.
+    if has_stacking {
+        // Forward scan: first WC pair
+        for &(probe_b, ref_b) in aligned_pairs.iter() {
+            let top = nt_to_idx(probe_b);
+            let bot = nt_to_idx(ref_b);
+            if let Some(p) = initiation_params(top, bot) {
+                sum_dh += p.dh;
+                sum_ds += p.ds;
+                break;
+            }
         }
-    }
 
-    // Reverse scan: last WC pair
-    for &(probe_b, ref_b) in aligned_pairs.iter().rev() {
-        let top = nt_to_idx(probe_b);
-        let bot = nt_to_idx(ref_b);
-        if let Some(p) = initiation_params(top, bot) {
-            sum_dh += p.dh;
-            sum_ds += p.ds;
-            break;
+        // Reverse scan: last WC pair
+        for &(probe_b, ref_b) in aligned_pairs.iter().rev() {
+            let top = nt_to_idx(probe_b);
+            let bot = nt_to_idx(ref_b);
+            if let Some(p) = initiation_params(top, bot) {
+                sum_dh += p.dh;
+                sum_ds += p.ds;
+                break;
+            }
         }
     }
 
     // --- 3. Salt correction on ΔS (Owczarzy et al. 1997) ---
     // ΔS([Na+]) = ΔS(1M) + 0.368 × (n_wc - 1) × ln([Na+])
     // 0.368 is in cal/(mol·K) per base pair — same units as sum_ds
-    let n_wc = aligned_pairs
-        .iter()
-        .filter(|&&(p, r)| is_wc(nt_to_idx(p), nt_to_idx(r)))
-        .count();
+    // Only applied when a duplex actually exists (same guard as initiation).
+    // Without this guard, isolated WC pairs at low salt would make sum_ds negative
+    // with sum_dh = 0, producing ΔG > 0 and score < 1 — unphysical.
+    if has_stacking {
+        let n_wc = aligned_pairs
+            .iter()
+            .filter(|&&(p, r)| is_wc(nt_to_idx(p), nt_to_idx(r)))
+            .count();
 
-    if n_wc >= 1 {
-        let salt_correction = 0.368 * (n_wc as f64 - 1.0) * model.na_conc_m.ln();
-        sum_ds += salt_correction;
+        if n_wc >= 1 {
+            let salt_correction = 0.368 * (n_wc as f64 - 1.0) * model.na_conc_m.ln();
+            sum_ds += salt_correction;
+        }
     }
 
     // ΔG = ΔH - T × (ΔS/1000)   [convert cal → kcal for ΔS]
@@ -220,10 +265,18 @@ pub fn delta_g(aligned_pairs: &[(u8, u8)], model: &ThermoModel) -> f64 {
 /// Compute the Boltzmann binding score for a probe-reference interaction.
 ///
 /// `dg` is the free energy in kcal/mol (from `delta_g()`).
-/// Returns `exp(-ΔG / (R × T))`. Higher score = stronger binding.
+/// Returns `exp(-ΔG / (R × T))`, clamped to a minimum of 1.0.
+///
+/// The clamp enforces that probes can only *enrich* fragments relative to
+/// background — never deplete them. Score = 1 is the neutral baseline (no
+/// preferential binding); score > 1 means favorable hybridization. A raw
+/// ΔG > 0 indicates the duplex is thermodynamically too weak to be stable at
+/// the given temperature and salt conditions (e.g. a single stacking step at
+/// high temperature with costly AT initiation), and is treated the same as
+/// no binding.
 pub fn boltzmann_score(dg: f64, model: &ThermoModel) -> f64 {
     let t_k = model.temp_c + 273.15;
-    (-dg / (R_KCAL * t_k)).exp()
+    (-dg / (R_KCAL * t_k)).exp().max(1.0)
 }
 
 #[cfg(test)]
@@ -273,30 +326,45 @@ mod tests {
     }
 
     #[test]
-    fn single_at_pair_has_two_initiation_terms() {
-        // A single A-T pair: no stacking, no salt correction (n_wc=1, n_wc-1=0),
-        // but two initiation terms (same pair is both first and last terminal).
-        // Expected: sum_dh = 2 * 2.3 = 4.6, sum_ds = 2 * 4.1 = 8.2
-        // ΔG = 4.6 - 343.15 * (8.2 / 1000)
+    fn single_at_pair_no_stacking_no_initiation() {
+        // A single A-T pair has no stacking (needs ≥ 2 consecutive WC pairs)
+        // and therefore no initiation terms either. ΔG = 0, score = 1.
         let pairs = vec![(b'A', b'T')];
         let dg = delta_g(&pairs, &model_1m());
-        let expected = 2.0 * 2.3 - (70.0 + 273.15) * (2.0 * 4.1 / 1000.0);
-        assert!(
-            (dg - expected).abs() < 1e-9,
-            "Single AT pair ΔG should be {:.6}, got {:.6}", expected, dg
-        );
+        assert_eq!(dg, 0.0, "Single AT pair with no stacking should give ΔG = 0, got {}", dg);
     }
 
     #[test]
-    fn single_gc_pair_has_two_initiation_terms() {
-        // A single G-C pair: INIT_GC applied twice (first and last terminal are same).
+    fn single_gc_pair_no_stacking_no_initiation() {
+        // A single G-C pair: same reasoning — no stacking, no initiation → ΔG = 0.
         let pairs = vec![(b'G', b'C')];
         let dg = delta_g(&pairs, &model_1m());
-        let expected = 2.0 * 0.1 - (70.0 + 273.15) * (2.0 * (-2.8) / 1000.0);
-        assert!(
-            (dg - expected).abs() < 1e-9,
-            "Single GC pair ΔG should be {:.6}, got {:.6}", expected, dg
-        );
+        assert_eq!(dg, 0.0, "Single GC pair with no stacking should give ΔG = 0, got {}", dg);
+    }
+
+    #[test]
+    fn boltzmann_score_never_below_one() {
+        // A very weak duplex (single AT stacking step, AT terminals, 50 mM Na+) can
+        // have ΔG > 0 because initiation + salt correction outweigh stacking energy.
+        // boltzmann_score must clamp to 1.0 — probes can only enrich, not deplete.
+        let pairs: Vec<(u8, u8)> = vec![(b'A', b'T'), (b'A', b'T')]; // single AT stack
+        let model = ThermoModel::new(70.0, 0.05);
+        let dg = delta_g(&pairs, &model);
+        assert!(dg > 0.0, "Expected ΔG > 0 for weak duplex, got {}", dg);
+        let score = boltzmann_score(dg, &model);
+        assert!((score - 1.0).abs() < 1e-9, "Score should be clamped to 1.0, got {}", score);
+    }
+
+    #[test]
+    fn isolated_wc_pairs_no_stacking_score_neutral_at_low_salt() {
+        // Two isolated WC pairs with a mismatch between them — no consecutive stacking.
+        // At 50 mM Na+, salt correction must NOT be applied (has_stacking = false),
+        // otherwise sum_ds would go negative with sum_dh = 0, giving ΔG > 0 and score < 1.
+        let pairs = vec![(b'A', b'T'), (b'A', b'A'), (b'G', b'C')]; // AT, mismatch, GC
+        let dg = delta_g(&pairs, &model_50mm());
+        assert_eq!(dg, 0.0, "Isolated WC pairs at 50 mM should give ΔG = 0 (no stacking), got {}", dg);
+        let score = boltzmann_score(dg, &model_50mm());
+        assert!((score - 1.0).abs() < 1e-9, "Score should be 1.0, got {}", score);
     }
 
     #[test]
