@@ -464,7 +464,11 @@ Fragment lengths follow a truncated normal distribution clamped to [min, max]. F
 
 ### sequence
 
-Simulates sequencing by trimming fragments to read length.
+Simulates sequencing of captured fragments. Three modes are available:
+
+#### Perfect (default)
+
+Trims each fragment to `--read-length` bp. No errors. One read per fragment.
 
 ```bash
 baitbench sequence \
@@ -475,10 +479,66 @@ baitbench sequence \
   [--seed 42]
 ```
 
-Fragments shorter than `--read-length` are kept as-is. With `--num-sequences`, reads are sampled with replacement from the fragment pool (modeling PCR amplification before sequencing) and given unique IDs.
+Fragments shorter than `--read-length` are kept as-is. With `--num-sequences`, reads are sampled with replacement from the fragment pool.
+
+#### Illumina (ART-modern)
+
+Generates error-realistic Illumina reads using [ART-modern](https://github.com/YU-Zhejian/art_modern). Requires `art_modern` on PATH (`conda install -c bioconda art_modern`).
+
+```bash
+baitbench sequence \
+  --input fragments.fa \
+  --output reads.fa \
+  --read-simulator art \
+  --sequencer-profile HiSeq2500_150bp \
+  --read-length 150 \
+  [--coverage-depth 1.0] \
+  [--paired-end] \
+  [--pe-frag-len-mean 200 --pe-frag-len-sd 50]
+```
+
+Common profiles: `HiSeq2500_150bp` (default), `HiSeq2500_100bp`, `MiSeq_250bp`. Run `art_modern --list-profiles` for the full list. `--coverage-depth` controls how many reads are generated per fragment (total reads ≈ num_fragments × mean_fragment_len / read_length × coverage_depth). `--paired-end` produces both `reads.fa` (R1) and `reads_R2.fa` (R2).
+
+#### Long reads (badread)
+
+Generates ONT or PacBio CLR long reads using [badread](https://github.com/rrwick/Badread). Requires `badread` on PATH (`conda install -c conda-forge badread`).
+
+```bash
+baitbench sequence \
+  --input fragments.fa \
+  --output reads.fa \
+  --read-simulator badread \
+  --sequencer-profile ont \
+  [--coverage-depth 1.0]
+```
+
+`--sequencer-profile` selects the chemistry:
+
+| Profile | Platform / Chemistry | Notes |
+|---------|---------------------|-------|
+| `ont` (default) | ONT R10.4.1 / Kit14 | nanopore2023 error model |
+| `ont-2020` | ONT R9.4.1 | nanopore2020 error model |
+| `pacbio` | PacBio CLR | pacbio2016 error model |
+
+`--read-length` is not used — read length is bounded by fragment length. `--coverage-depth 1` produces approximately one read per captured fragment. Paired-end is not supported for long reads.
+
+#### Choosing a simulator
+
+| Scenario | Recommended simulator |
+|----------|-----------------------|
+| Fast development / debugging | `perfect` |
+| Comparing against Illumina data | `art` with matching profile |
+| Comparing against ONT data | `badread --sequencer-profile ont` or `ont-2020` |
+| Comparing against PacBio CLR data | `badread --sequencer-profile pacbio` |
+| Paired-end Illumina panel evaluation | `art --paired-end` |
+
+When `--num-sequences` is set, the final read count is capped by sampling, regardless of simulator. This lets you model a fixed sequencing depth even when `art`/`badread` generate more reads than needed.
+
+When using `baitbench run`, `--minimap-preset` and `--host-minimap-preset` are auto-selected to match the simulator: `sr` for `perfect`/`art`, `map-ont` for badread `ont`/`ont-2020`, `map-pb` for badread `pacbio`. Pass either flag explicitly to override.
 
 **Output files:**
-- `reads.fa` -- sequencing reads
+- `reads.fa` -- sequencing reads (R1 for paired-end)
+- `reads_R2.fa` -- R2 reads (paired-end only)
 
 ### filter
 
@@ -1301,8 +1361,27 @@ See [CT Score Calculation](#ct-score-calculation) for details.
 
 | Parameter | Flag | Default | Description |
 |-----------|------|---------|-------------|
-| Read length | `--read-length` | 120 | Trim captured fragments to this length (bp). Fragments shorter than this are kept as-is |
-| Num sequences | `--num-sequences` | all | Number of reads to sample with replacement. If not set, all captured fragments become reads. Models sequencing depth control |
+| Read length | `--read-length` | 120 | Trim fragments to this length (bp). Used by `perfect` and `art`. Not applicable for `badread` |
+| Num sequences | `--num-sequences` | all | Number of reads to sample with replacement. If not set, all fragments become reads. Models sequencing depth control |
+| Read simulator | `--read-simulator` | `perfect` | `perfect` (trim, no errors), `art` (Illumina via ART-modern), `badread` (long reads — ONT or PacBio CLR) |
+| Sequencer profile | `--sequencer-profile` | `HiSeq2500_150bp` / `ont` | Chemistry / error model. Required for `art` and `badread`. See [sequence command docs](#sequence) for details |
+| Coverage depth | `--coverage-depth` | 1.0 | Reads generated per fragment for `art`/`badread`. With `badread`, depth=1 ≈ 1 read per captured fragment |
+| Paired-end | `--paired-end` | false | Paired-end output (art only). Produces reads.fa + reads_R2.fa |
+| PE fragment mean | `--pe-frag-len-mean` | 200 | Mean insert size for paired-end (`art` + `--paired-end`) |
+| PE fragment SD | `--pe-frag-len-sd` | 50 | Insert size std-dev for paired-end (`art` + `--paired-end`) |
+
+#### Minimap2 Preset Auto-Selection
+
+When `--minimap-preset` (and `--host-minimap-preset`) are not specified, `baitbench run` automatically picks the appropriate preset based on `--read-simulator` and `--sequencer-profile`:
+
+| Simulator | Profile | Auto preset |
+|-----------|---------|-------------|
+| `perfect` | — | `sr` |
+| `art` | any | `sr` |
+| `badread` | `ont`, `ont-2020` | `map-ont` |
+| `badread` | `pacbio` | `map-pb` |
+
+You can always override by passing `--minimap-preset` explicitly.
 
 ### Execution Parameters
 
@@ -1315,8 +1394,8 @@ See [CT Score Calculation](#ct-score-calculation) for details.
 | Report mode | `--report` | full | Report output: `full` (render HTML), `none` (skip), `rmd` (editable RMarkdown file) |
 | Seed | `--seed`, `-s` | random | Random seed for reproducibility. If not set, results vary between runs |
 | Verbose | `--verbose` | false | Enable debug logging (global flag) |
-| Minimap preset | `--minimap-preset` | sr | Minimap2 preset for read mapping |
-| Host minimap preset | `--host-minimap-preset` | sr | Minimap2 preset for host read filtering |
+| Minimap preset | `--minimap-preset` | auto | Minimap2 preset for read mapping. Auto-selected based on `--read-simulator` and `--sequencer-profile` (see below) |
+| Host minimap preset | `--host-minimap-preset` | auto | Minimap2 preset for host read filtering. Same auto-selection as `--minimap-preset` |
 | Cleanup | `--cleanup` | false | Delete intermediate files after completion, keeping only report inputs and final outputs. Available on `run`, `coverage-curve`, `probe-coverage`, and `xreact` |
 | Identify | `--identify` | false | Enable species-level identification after metrics (genome mode only, requires `--sample-target-map`). Available on `run` |
 | Identity threshold | `--identity-threshold` | 90.0 | Minimum sequence identity % to consider targets "similar" for species identification. Available on `run`, `panel-qc`, `identify` |

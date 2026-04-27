@@ -57,7 +57,7 @@ src/
 │   ├── run.rs           # Full pipeline orchestrator (steps 1-7 + report)
 │   ├── prepare.rs       # Combine FASTAs, generate weights, write ID lists
 │   ├── simulate.rs      # Thermodynamic/simple probe-biased fragment simulation (replaces simulate+capture+enrich)
-│   ├── sequence.rs      # Trim fragments to read length
+│   ├── sequence.rs      # Simulate sequencing: perfect (trim), art (Illumina via ART-modern), badread (long reads — ONT/PacBio CLR); dispatches ReadSimulator enum; art renaming via SAM RNAME; badread renaming via ref_name in read description
 │   ├── filter.rs        # Remove host-mapping reads
 │   ├── map_reads.rs     # Map reads to reference (minimap2)
 │   ├── generate_list.rs # Count reads per reference from SAM → detected.list
@@ -75,7 +75,9 @@ src/
 ├── syotti.rs            # Syotti greedy bait design: design_probes() — k-mer hash index, seed-and-extend, greedy set-cover (Alanko et al. 2022)
 ├── catch.rs             # Native CATCH probe design: design_probes() — tiling → MinHash dedup → greedy set cover (reimplementation of Metsky et al. 2019)
 ├── external/
-│   ├── minimap2.rs      # minimap2 wrapper: capture_align (PAF), map_reads (SAM), host_align, probe_align(max_secondary)
+│   ├── minimap2.rs      # minimap2 wrapper: capture_align (PAF), map_reads (SAM, optional reads_r2 for PE), host_align (optional reads_r2), probe_align(max_secondary), xreact_align
+│   ├── art_modern.rs    # ART-modern wrapper: check_available, run_simulation (Illumina SE/PE reads + SAM for renaming)
+│   ├── badread.rs       # badread wrapper: check_available, profile_params (ont/ont-2020/pacbio → error+qscore models), run_simulation (long reads; FASTQ to stdout)
 │   ├── blastn.rs        # BLAST+ wrapper: capture_align, filter_blast_results
 │   ├── cdhit.rs         # cd-hit-est wrapper: check_available, cluster (sequence clustering by identity)
 │   └── rscript.rs       # Rscript discovery (BAITBENCH_R_DIR, binary walk, ./R/) and execution
@@ -125,9 +127,9 @@ Every command module exports an `Args` struct and an `execute(&Args) -> Result<(
 |---------|-------------|------------|-------------|
 | `prepare` | `PrepareArgs` | targets, distractors, sample, distractor_fraction, genomes, sample_target_map, groups, distractor_groups | combined_reference.fa, weights.txt, ID lists, distractor_groups.tsv (always); target_groups.tsv (if --groups); genome mode also: mapping_reference.fa, genomes.txt, sample_target_map.txt |
 | `simulate` | `SimulateArgs` | reference, weights, probes, num_fragments, capture_fraction, simulate_mode, hybridization_temperature, seed, fragment_length_*, threads | fragments.fa (probe-biased + background) |
-| `sequence` | `SequenceArgs` | input, read_length, num_sequences, seed | reads.fa (trimmed, optionally sampled) |
-| `filter` | `FilterArgs` | host, reads, minimap_preset | filtered.fa |
-| `map_reads` | `MapArgs` | reference, reads, minimap_preset | mapped.sam |
+| `sequence` | `SequenceArgs` | input, output, output_r2, read_length, num_sequences, seed, simulator (perfect/art/badread), sequencer_profile, coverage_depth, paired_end, pe_frag_len_mean, pe_frag_len_sd | reads.fa (SE) or reads.fa + reads_R2.fa (PE); errors injected by art_modern or badread when simulator ≠ perfect |
+| `filter` | `FilterArgs` | host, reads, reads_r2, minimap_preset | filtered.fa (+ filtered_R2.fa for PE) |
+| `map_reads` | `MapArgs` | reference, reads, reads_r2, minimap_preset | mapped.sam |
 | `generate_list` | `ListArgs` | sam | detected.list |
 | `metrics` | `MetricsArgs` | targets, distractors, sample, detected, fragments, captured, sam, sample_target_map, target_groups, distractor_groups, reads_sequenced, reads_after_filter, output_group_detail | results.tsv, detected_detail.tsv (with group col), group_detail.tsv (when groups present), results.json, coverage.tsv |
 | `report` | `ReportArgs` | summary, detail, params, coverage, group_detail, run_name, report (ReportMode) | report.html or report.Rmd |
@@ -135,7 +137,7 @@ Every command module exports an `Args` struct and an `execute(&Args) -> Result<(
 | `xreact` | `XreactArgs` | probes, against (genome FASTAs), self_mode, threshold, minimap_preset, report (ReportMode) | hits.tsv, summary.tsv, xreact_report.html |
 | `panel_qc` | `PanelQcArgs` | targets, sample_target_map, identity_threshold, minimap_preset, report (ReportMode) | target_similarity.tsv, species_discriminability.tsv, species_confusion_matrix.tsv, panel_qc_report.html |
 | `identify` | `IdentifyArgs` | detected_detail, sample_target_map, target_similarity (or targets for on-the-fly), identity_threshold, min_unique_targets | species_calls.tsv, species_calls.json |
-| `run` | `RunArgs` | all pipeline inputs + ct, ct_baseline, ct_baseline_fraction, simulate_mode, hybridization_temperature, capture_fraction, num_sequences, genomes, sample_target_map, identify, identity_threshold, min_unique_targets | all of the above |
+| `run` | `RunArgs` | all pipeline inputs + ct, ct_baseline, ct_baseline_fraction, simulate_mode, hybridization_temperature, capture_fraction, num_sequences, simulator, sequencer_profile, coverage_depth, paired_end, pe_frag_len_mean/sd, genomes, sample_target_map, identify, identity_threshold, min_unique_targets | all of the above |
 | `coverage_curve` | `CoverageCurveArgs` | targets, distractors, probes, sample (required), ct/cf/ns values (sweep or fixed), simulate_mode, hybridization_temperature, all pipeline params, genomes, sample_target_map | coverage_curve_depth_curves.tsv, coverage_curve_report.html, combo subdirs |
 | `build_probes` | `BuildProbesArgs` | targets, method (tile/catch-lite/syotti-lite/catch), probe_length, step, catch_probe_stride/mismatches/extension/coverage/minhash_threshold, syotti_mismatches, syotti_seed_len, max_n_frac, min/max_gc, dust_threshold/dust_window/max_masked_frac, collapse/dedup thresholds, threads, genomes, threshold, skip_assess | probes_final.fa, build_probes_stats.tsv; filters sequences shorter than probe_length after collapse; auto-chains to assess_probes unless --skip-assess |
 | `tool syotti` | — (standalone) | targets, output, probe_length, mismatches, seed_len | output FASTA of probes; direct access to Syotti algorithm |

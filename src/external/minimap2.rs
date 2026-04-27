@@ -52,11 +52,12 @@ pub fn capture_align(
 
 /// Run minimap2 for read mapping (SAM output).
 ///
-/// `minimap2 -ax <preset> --secondary=no <reference> <reads> > <output>`
+/// `minimap2 -ax <preset> --secondary=no <reference> <reads> [<reads_r2>] > <output>`
 pub fn map_reads(
     preset: &str,
     reference: &Path,
     reads: &Path,
+    reads_r2: Option<&Path>,
     output_sam: &Path,
     log_file: &Path,
 ) -> Result<()> {
@@ -65,11 +66,15 @@ pub fn map_reads(
     let log = File::create(log_file)
         .with_context(|| format!("Cannot create log: {}", log_file.display()))?;
 
-    let status = Command::new("minimap2")
-        .args(["-ax", preset])
+    let mut cmd = Command::new("minimap2");
+    cmd.args(["-ax", preset])
         .arg("--secondary=no")
         .arg(reference)
-        .arg(reads)
+        .arg(reads);
+    if let Some(r2) = reads_r2 {
+        cmd.arg(r2);
+    }
+    let status = cmd
         .stdout(out)
         .stderr(log)
         .status()
@@ -171,11 +176,12 @@ pub fn xreact_align(
 
 /// Run minimap2 for host filtering (SAM output).
 ///
-/// `minimap2 -ax <preset> <host> <reads> > <output>`
+/// `minimap2 -ax <preset> <host> <reads> [<reads_r2>] > <output>`
 pub fn host_align(
     preset: &str,
     host: &Path,
     reads: &Path,
+    reads_r2: Option<&Path>,
     output_sam: &Path,
     log_file: &Path,
 ) -> Result<()> {
@@ -184,10 +190,14 @@ pub fn host_align(
     let log = File::create(log_file)
         .with_context(|| format!("Cannot create log: {}", log_file.display()))?;
 
-    let status = Command::new("minimap2")
-        .args(["-ax", preset])
+    let mut cmd = Command::new("minimap2");
+    cmd.args(["-ax", preset])
         .arg(host)
-        .arg(reads)
+        .arg(reads);
+    if let Some(r2) = reads_r2 {
+        cmd.arg(r2);
+    }
+    let status = cmd
         .stdout(out)
         .stderr(log)
         .status()

@@ -117,13 +117,14 @@ pub enum Commands {
         #[arg(long, default_value = "0.5")]
         capture_fraction: f64,
 
-        /// Minimap2 preset for read mapping
-        #[arg(long, default_value = "sr")]
-        minimap_preset: String,
+        /// Minimap2 preset for read mapping. Auto-selected when omitted:
+        /// `sr` for perfect/art, `map-ont` for badread ont/ont-2020, `map-pb` for badread pacbio.
+        #[arg(long)]
+        minimap_preset: Option<String>,
 
-        /// Minimap2 preset for host filtering
-        #[arg(long, default_value = "sr")]
-        host_minimap_preset: String,
+        /// Minimap2 preset for host filtering. Auto-selected using the same rules as --minimap-preset.
+        #[arg(long)]
+        host_minimap_preset: Option<String>,
 
         /// Mean fragment length
         #[arg(long, default_value = "175")]
@@ -137,13 +138,45 @@ pub enum Commands {
         #[arg(long, default_value = "200")]
         fragment_length_max: usize,
 
-        /// Sequencing read length (trim captured fragments to this length)
+        /// Sequencing read length in bp. Used by `perfect` (trim) and `art` (--read_len).
+        /// Not applicable for `badread` (read length is determined by the error model and fragment length).
         #[arg(long, default_value = "120")]
         read_length: usize,
 
         /// Number of sequences to sample in sequencing step (with replacement). If not specified, all captured fragments become reads.
         #[arg(long)]
         num_sequences: Option<usize>,
+
+        /// Read simulator: `perfect` (trim, no errors), `art` (Illumina via ART-modern),
+        /// `badread` (long reads — ONT or PacBio CLR).
+        #[arg(long, default_value = "perfect")]
+        read_simulator: String,
+
+        /// Sequencer profile / chemistry model. Required when --read-simulator is `art` or `badread`.
+        /// For `art`: ART-modern built-in profile (e.g. HiSeq2500_150bp, MiSeq_250bp).
+        ///   Run `art_modern --list-profiles` for available options.
+        /// For `badread`: ont (R10.4.1/Kit14, nanopore2023) | ont-2020 (R9.4.1, nanopore2020) | pacbio (CLR, pacbio2016).
+        ///   Default: ont.
+        #[arg(long)]
+        sequencer_profile: Option<String>,
+
+        /// Coverage depth per fragment for `art` and `badread` simulators.
+        /// With `badread`, depth=1 produces ~1 read per captured fragment.
+        #[arg(long, default_value = "1.0")]
+        coverage_depth: f64,
+
+        /// Enable paired-end sequencing output (art only).
+        /// Produces reads_R1.fa and reads_R2.fa instead of reads.fa.
+        #[arg(long)]
+        paired_end: bool,
+
+        /// Mean insert size for paired-end sequencing (art + --paired-end only).
+        #[arg(long, default_value = "200")]
+        pe_frag_len_mean: usize,
+
+        /// Insert size standard deviation for paired-end sequencing (art + --paired-end only).
+        #[arg(long, default_value = "50")]
+        pe_frag_len_sd: usize,
 
         /// Output directory
         #[arg(short, long, default_value = "./results")]
@@ -304,17 +337,21 @@ pub enum Commands {
         threads: usize,
     },
 
-    /// Simulate sequencing of captured fragments (trim to read length)
+    /// Simulate sequencing of captured fragments
     Sequence {
         /// Input captured fragments FASTA
         #[arg(short, long)]
         input: PathBuf,
 
-        /// Output reads FASTA
+        /// Output reads FASTA (R1 for paired-end)
         #[arg(short, long)]
         output: PathBuf,
 
-        /// Read length to trim to
+        /// Output R2 reads FASTA (paired-end only)
+        #[arg(long)]
+        output_r2: Option<PathBuf>,
+
+        /// Read length in bp. Used by `perfect` and `art`. Not applicable for `badread`.
         #[arg(long, default_value = "120")]
         read_length: usize,
 
@@ -325,6 +362,31 @@ pub enum Commands {
         /// Random seed for sampling reproducibility
         #[arg(short, long)]
         seed: Option<u64>,
+
+        /// Read simulator: `perfect` (trim, no errors), `art` (Illumina), `badread` (long reads).
+        #[arg(long, default_value = "perfect")]
+        read_simulator: String,
+
+        /// Sequencer profile / chemistry model (required for art and badread).
+        /// For `badread`: ont | ont-2020 | pacbio. Default: ont.
+        #[arg(long)]
+        sequencer_profile: Option<String>,
+
+        /// Coverage depth per fragment (art/badread only).
+        #[arg(long, default_value = "1.0")]
+        coverage_depth: f64,
+
+        /// Enable paired-end output (art only).
+        #[arg(long)]
+        paired_end: bool,
+
+        /// Mean insert size for paired-end (art + --paired-end only).
+        #[arg(long, default_value = "200")]
+        pe_frag_len_mean: usize,
+
+        /// Insert size standard deviation for paired-end (art + --paired-end only).
+        #[arg(long, default_value = "50")]
+        pe_frag_len_sd: usize,
     },
 
     /// Filter out host reads using minimap2

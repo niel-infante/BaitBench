@@ -11,6 +11,9 @@ dependencies:
   - cd-hit>=4.8
   # Probe design (optional: required for --method catch)
   - catch
+  # Read simulators (optional: required for --read-simulator art / badread)
+  - art_modern>=1.4.0
+  - badread>=0.4.0
   # R and visualization
   - r-base>=4.2
   - r-ggplot2>=3.4

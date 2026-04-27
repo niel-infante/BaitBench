@@ -86,7 +86,7 @@ genomes.fa + targets.fa + distractors.fa [+ sample.tsv] [+ mapping.tsv]
 | `src/thermodynamics.rs` | SantaLucia (1998) nearest-neighbor TNN model: `ThermoModel` struct (temp_c, na_conc_m), `delta_g()` (stacking + initiation terms + Owczarzy salt correction), `boltzmann_score()` |
 | `src/commands/simulate.rs` | Thermodynamic/simple probe-biased fragment simulation (replaces simulate+capture+enrich) |
 | `src/sampling/thermo_sim.rs` | ProbeHit, SimulateMode, load_probe_hits, sample_capture_fragments, sample_background_fragments, write_fragments |
-| `src/commands/sequence.rs` | Simulate sequencing (trim fragments to read length) |
+| `src/commands/sequence.rs` | Simulate sequencing: dispatches `ReadSimulator` enum (perfect/art/badread); `art_modern.rs` handles read renaming via SAM RNAME field; `badread.rs` via the `{ref_name},{start}-{end}` field in read descriptions |
 | `src/commands/filter.rs` | Optional host read filtering |
 | `src/commands/map_reads.rs` | Map reads back to reference |
 | `src/commands/generate_list.rs` | SAM parsing → per-reference counts |
@@ -326,7 +326,9 @@ cat test_results_genomes/*/detected_detail.tsv
 
 **Modifying fragment generation**: Edit `src/sampling/fragment.rs`.
 
-**Modifying sequencing**: Edit `src/commands/sequence.rs` (currently trims to read length; future: paired-end, error models, nanopore).
+**Modifying sequencing**: Edit `src/commands/sequence.rs`. To add a new simulator: add a variant to `ReadSimulator` in `sequence.rs`, create a wrapper in `src/external/`, add profiles to `badread.rs` if needed, update `from_str()` and `execute()` dispatch, then add the new flag default in `main.rs`'s `Commands::Run` profile resolver.
+
+**Changing paired-end behavior**: paired-end flows through `SequenceArgs.output_r2`, `FilterArgs.reads_r2`/`output_r2`, `MapArgs.reads_r2`, and `minimap2::map_reads`/`host_align`'s `reads_r2` parameter. All accept `Option<&Path>` — `None` is the default for non-PE mode.
 
 ## Dependencies
 

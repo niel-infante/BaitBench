@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use crate::cleanup;
 use crate::cli::ReportMode;
 use crate::commands::{filter, generate_list, identify, map_reads, metrics, prepare, report, sequence, simulate};
+use crate::commands::sequence::ReadSimulator;
 use crate::external::rscript;
 use crate::fasta;
 use crate::io_utils;
@@ -43,6 +44,12 @@ pub struct RunArgs<'a> {
     pub fragment_length_max: usize,
     pub read_length: usize,
     pub num_sequences: Option<usize>,
+    pub simulator: ReadSimulator,
+    pub sequencer_profile: String,
+    pub coverage_depth: f64,
+    pub paired_end: bool,
+    pub pe_frag_len_mean: usize,
+    pub pe_frag_len_sd: usize,
     pub outdir: PathBuf,
     pub threads: usize,
     pub identify: bool,
@@ -147,6 +154,17 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         writeln!(f, "fragment_length_max\t--fragment-length-max\t{}", args.fragment_length_max)?;
         writeln!(f, "read_length\t--read-length\t{}", args.read_length)?;
         writeln!(f, "num_sequences\t--num-sequences\t{}", args.num_sequences.map(|s| s.to_string()).unwrap_or_else(|| "none".to_string()))?;
+        let sim_name = match args.simulator {
+            ReadSimulator::Perfect => "perfect",
+            ReadSimulator::Art     => "art",
+            ReadSimulator::Badread => "badread",
+        };
+        writeln!(f, "read_simulator\t--read-simulator\t{}", sim_name)?;
+        writeln!(f, "sequencer_profile\t--sequencer-profile\t{}", args.sequencer_profile)?;
+        writeln!(f, "coverage_depth\t--coverage-depth\t{}", args.coverage_depth)?;
+        writeln!(f, "paired_end\t--paired-end\t{}", args.paired_end)?;
+        writeln!(f, "pe_frag_len_mean\t--pe-frag-len-mean\t{}", args.pe_frag_len_mean)?;
+        writeln!(f, "pe_frag_len_sd\t--pe-frag-len-sd\t{}", args.pe_frag_len_sd)?;
         writeln!(f, "threads\t--threads\t{}", args.threads)?;
         writeln!(f, "seed\t--seed\t{}", args.seed.map(|s| s.to_string()).unwrap_or_else(|| "none".to_string()))?;
         writeln!(f, "outdir\t--outdir\t{}", outdir.display())?;
@@ -189,33 +207,49 @@ pub fn execute(args: &RunArgs) -> Result<()> {
     })?;
 
     // Step 3: Sequence fragments into reads
-    log::info!("Step 3/7: Sequencing fragments...");
+    log::info!("Step 3/7: Sequencing fragments (simulator={:?})...", args.simulator);
+    let reads_r1_path = prefixed_join(outdir, pfx, "reads.fa");
+    let reads_r2_path = if args.paired_end {
+        Some(prefixed_join(outdir, pfx, "reads_R2.fa"))
+    } else {
+        None
+    };
     sequence::execute(&sequence::SequenceArgs {
         input: &prefixed_join(outdir, pfx, "fragments.fa"),
-        output: &prefixed_join(outdir, pfx, "reads.fa"),
+        output: &reads_r1_path,
+        output_r2: reads_r2_path.as_deref(),
         read_length: args.read_length,
         num_sequences: args.num_sequences,
         seed: args.seed,
+        simulator: args.simulator,
+        sequencer_profile: args.sequencer_profile.clone(),
+        coverage_depth: args.coverage_depth,
+        paired_end: args.paired_end,
+        pe_frag_len_mean: args.pe_frag_len_mean,
+        pe_frag_len_sd: args.pe_frag_len_sd,
     })?;
-    let reads_sequenced = fasta::count_sequences(&prefixed_join(outdir, pfx, "reads.fa"))?;
+    let reads_sequenced = fasta::count_sequences(&reads_r1_path)?;
     log::info!("  Reads after sequencing: {}", reads_sequenced);
 
     // Step 4: Optional host filtering
-    let (reads_for_mapping, reads_after_filter) = if let Some(host) = args.host_fasta {
+    let filtered_r2_path = reads_r2_path.as_ref().map(|_| prefixed_join(outdir, pfx, "filtered_R2.fa"));
+    let (reads_for_mapping, reads_for_mapping_r2, reads_after_filter) = if let Some(host) = args.host_fasta {
         log::info!("Step 4/7: Filtering host reads...");
         filter::execute(&filter::FilterArgs {
             host,
-            reads: &prefixed_join(outdir, pfx, "reads.fa"),
+            reads: &reads_r1_path,
+            reads_r2: reads_r2_path.as_deref(),
             minimap_preset: &args.host_minimap_preset,
             output: &prefixed_join(outdir, pfx, "filtered.fa"),
+            output_r2: filtered_r2_path.as_deref(),
             log_file: &prefixed_join(outdir, pfx, "host_filter.log"),
         })?;
         let count = fasta::count_sequences(&prefixed_join(outdir, pfx, "filtered.fa"))?;
         log::info!("  Reads after host filtering: {}", count);
-        (prefixed_join(outdir, pfx, "filtered.fa"), Some(count))
+        (prefixed_join(outdir, pfx, "filtered.fa"), filtered_r2_path, Some(count))
     } else {
         log::info!("Step 4/7: Skipping host filtering (no host genome provided)");
-        (prefixed_join(outdir, pfx, "reads.fa"), None)
+        (reads_r1_path.clone(), reads_r2_path.clone(), None)
     };
 
     // Step 5: Map reads
@@ -231,6 +265,7 @@ pub fn execute(args: &RunArgs) -> Result<()> {
     map_reads::execute(&map_reads::MapArgs {
         reference: &mapping_reference,
         reads: &reads_for_mapping,
+        reads_r2: reads_for_mapping_r2.as_deref(),
         minimap_preset: &args.minimap_preset,
         output: &prefixed_join(outdir, pfx, "mapped.sam"),
         log_file: &prefixed_join(outdir, pfx, "mapping.log"),
@@ -399,7 +434,9 @@ pub fn execute(args: &RunArgs) -> Result<()> {
             "sample_target_map.txt",
             "fragments.fa",
             "reads.fa",
+            "reads_R2.fa",
             "filtered.fa",
+            "filtered_R2.fa",
             "mapped.sam",
             "detected.list",
             "mapping.log",

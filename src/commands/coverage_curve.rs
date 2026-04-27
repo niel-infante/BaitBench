@@ -261,14 +261,22 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
                     dir_name
                 );
 
-                // Sequence
+                // Sequence (perfect/trim mode only in coverage-curve)
                 log::info!("  Sequencing...");
+                let reads_path = prefixed_join(&combo_dir, pfx, "reads.fa");
                 sequence::execute(&sequence::SequenceArgs {
                     input: &fragments_path,
-                    output: &prefixed_join(&combo_dir, pfx, "reads.fa"),
+                    output: &reads_path,
+                    output_r2: None,
                     read_length: args.read_length,
                     num_sequences: *ns_val,
                     seed: args.seed,
+                    simulator: sequence::ReadSimulator::Perfect,
+                    sequencer_profile: String::new(),
+                    coverage_depth: 1.0,
+                    paired_end: false,
+                    pe_frag_len_mean: 200,
+                    pe_frag_len_sd: 50,
                 })?;
 
                 // Optional host filtering
@@ -276,14 +284,16 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
                     log::info!("  Filtering host reads...");
                     filter::execute(&filter::FilterArgs {
                         host,
-                        reads: &prefixed_join(&combo_dir, pfx, "reads.fa"),
+                        reads: &reads_path,
+                        reads_r2: None,
                         minimap_preset: args.host_minimap_preset,
                         output: &prefixed_join(&combo_dir, pfx, "filtered.fa"),
+                        output_r2: None,
                         log_file: &prefixed_join(&combo_dir, pfx, "host_filter.log"),
                     })?;
                     prefixed_join(&combo_dir, pfx, "filtered.fa")
                 } else {
-                    prefixed_join(&combo_dir, pfx, "reads.fa")
+                    reads_path
                 };
 
                 // Map reads
@@ -291,6 +301,7 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
                 map_reads::execute(&map_reads::MapArgs {
                     reference: &mapping_reference,
                     reads: &reads_for_mapping,
+                    reads_r2: None,
                     minimap_preset: args.minimap_preset,
                     output: &prefixed_join(&combo_dir, pfx, "mapped.sam"),
                     log_file: &prefixed_join(&combo_dir, pfx, "mapping.log"),

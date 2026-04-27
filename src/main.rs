@@ -17,11 +17,23 @@ use clap::Parser;
 
 use cli::{Cli, Commands, ToolCommands};
 use commands::{assess_probes, build_probes, coverage_curve, filter, generate_list, identify, map_reads, metrics, panel_qc, prepare, probe_coverage, report, run, sequence, simulate, xreact};
+use sequence::ReadSimulator;
 use sampling::thermo_sim::SimulateMode as ThSimMode;
 use io_utils::resolve_sample_arg;
 
 /// Default distractor fraction when neither --distractor-fraction nor --ct is specified.
 const DEFAULT_DISTRACTOR_FRACTION: f64 = 0.9;
+
+/// Pick the best minimap2 preset for read mapping/filtering based on the simulator and profile.
+fn auto_minimap_preset(simulator: &ReadSimulator, profile: &str) -> &'static str {
+    match simulator {
+        ReadSimulator::Badread => match profile {
+            "pacbio" => "map-pb",
+            _        => "map-ont",  // ont, ont-2020
+        },
+        _ => "sr",
+    }
+}
 
 /// Convert a CT (cycle threshold) score to a distractor fraction.
 ///
@@ -103,6 +115,12 @@ fn main() -> Result<()> {
             fragment_length_max,
             read_length,
             num_sequences,
+            read_simulator,
+            sequencer_profile,
+            coverage_depth,
+            paired_end,
+            pe_frag_len_mean,
+            pe_frag_len_sd,
             outdir,
             output_prefix,
             threads,
@@ -136,6 +154,16 @@ fn main() -> Result<()> {
                 cli::SimulateMode::Simple => ThSimMode::Simple,
             };
 
+            let simulator = ReadSimulator::from_str(&read_simulator)?;
+            let sequencer_profile = sequencer_profile.unwrap_or_else(|| match simulator {
+                ReadSimulator::Art    => "HiSeq2500_150bp".to_string(),
+                ReadSimulator::Badread => "ont".to_string(),
+                ReadSimulator::Perfect => String::new(),
+            });
+            let preset = auto_minimap_preset(&simulator, &sequencer_profile);
+            let minimap_preset = minimap_preset.unwrap_or_else(|| preset.to_string());
+            let host_minimap_preset = host_minimap_preset.unwrap_or_else(|| preset.to_string());
+
             run::execute(&run::RunArgs {
                 targets: &targets,
                 genomes: genomes.as_deref(),
@@ -164,6 +192,12 @@ fn main() -> Result<()> {
                 fragment_length_max,
                 read_length,
                 num_sequences,
+                simulator,
+                sequencer_profile,
+                coverage_depth,
+                paired_end,
+                pe_frag_len_mean,
+                pe_frag_len_sd,
                 outdir: full_outdir,
                 threads,
                 identify,
@@ -259,16 +293,36 @@ fn main() -> Result<()> {
         Commands::Sequence {
             input,
             output,
+            output_r2,
             read_length,
             num_sequences,
             seed,
+            read_simulator,
+            sequencer_profile,
+            coverage_depth,
+            paired_end,
+            pe_frag_len_mean,
+            pe_frag_len_sd,
         } => {
+            let simulator = sequence::ReadSimulator::from_str(&read_simulator)?;
+            let profile = sequencer_profile.unwrap_or_else(|| match simulator {
+                sequence::ReadSimulator::Art     => "HiSeq2500_150bp".to_string(),
+                sequence::ReadSimulator::Badread => "ont".to_string(),
+                sequence::ReadSimulator::Perfect => String::new(),
+            });
             sequence::execute(&sequence::SequenceArgs {
                 input: &input,
                 output: &output,
+                output_r2: output_r2.as_deref(),
                 read_length,
                 num_sequences,
                 seed,
+                simulator,
+                sequencer_profile: profile,
+                coverage_depth,
+                paired_end,
+                pe_frag_len_mean,
+                pe_frag_len_sd,
             })?;
         }
 
@@ -282,8 +336,10 @@ fn main() -> Result<()> {
             filter::execute(&filter::FilterArgs {
                 host: &host,
                 reads: &reads,
+                reads_r2: None,
                 minimap_preset: &minimap_preset,
                 output: &output,
+                output_r2: None,
                 log_file: &log_file,
             })?;
         }
@@ -298,6 +354,7 @@ fn main() -> Result<()> {
             map_reads::execute(&map_reads::MapArgs {
                 reference: &reference,
                 reads: &reads,
+                reads_r2: None,
                 minimap_preset: &minimap_preset,
                 output: &output,
                 log_file: &log_file,

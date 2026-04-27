@@ -53,8 +53,62 @@ See [CT Score Calculation](#ct-score-calculation) for details.
 
 | Parameter | Flag | Default | Description |
 |-----------|------|---------|-------------|
-| Read length | `--read-length` | 120 | Trim captured fragments to this length (bp). Fragments shorter than this are kept as-is |
+| Read length | `--read-length` | 120 | Trim captured fragments to this length (bp). Used by `perfect` and `art`. Not applicable for `badread` (read length is determined by the error model and fragment length) |
 | Num sequences | `--num-sequences` | all | Number of reads to sample with replacement. If not set, all captured fragments become reads. Models sequencing depth control |
+| Read simulator | `--read-simulator` | `perfect` | Simulator: `perfect` (trim, no errors), `art` (Illumina via ART-modern), `badread` (long reads — ONT or PacBio CLR) |
+| Sequencer profile | `--sequencer-profile` | `HiSeq2500_150bp` / `ont` | Chemistry / error model. Required when `--read-simulator` is `art` or `badread`. See profile details below |
+| Coverage depth | `--coverage-depth` | 1.0 | Reads generated per fragment (art/badread only). With `badread`, depth=1 produces ~1 read per captured fragment |
+| Paired-end | `--paired-end` | false | Paired-end output (art only). Produces reads.fa + reads_R2.fa |
+| PE fragment mean | `--pe-frag-len-mean` | 200 | Mean insert size for paired-end (art + --paired-end only) |
+| PE fragment SD | `--pe-frag-len-sd` | 50 | Insert size std-dev for paired-end (art + --paired-end only) |
+
+### Read Simulator Details
+
+#### `--read-simulator perfect` (default)
+
+Trims each captured fragment to `--read-length` bp from its start. No errors introduced. One read per fragment. Fragment names are preserved as-is.
+
+#### `--read-simulator art` — Illumina short reads
+
+Uses [ART-modern](https://github.com/YU-Zhejian/art_modern) to introduce Illumina-realistic base-call errors and quality scores. Requires `art_modern` on PATH:
+
+```bash
+conda install -c bioconda art_modern
+```
+
+`--sequencer-profile` selects the built-in quality profile (passed as `--builtin_qual_file`). Common values:
+
+| Profile | Platform | Read length |
+|---------|----------|-------------|
+| `HiSeq2500_150bp` (default) | Illumina HiSeq 2500 | 150 bp |
+| `HiSeq2500_100bp` | Illumina HiSeq 2500 | 100 bp |
+| `MiSeq_250bp` | Illumina MiSeq | 250 bp |
+
+Run `art_modern --list-profiles` for the full list of built-in profiles.
+
+`--read-length` sets the read length (passed as `--read_len`). `--coverage-depth` controls how many reads are generated per fragment. `--paired-end` enables paired-end mode with `--pe-frag-len-mean` / `--pe-frag-len-sd` controlling the insert-size distribution.
+
+See the [ART-modern documentation](https://github.com/YU-Zhejian/art_modern) for the full parameter reference.
+
+#### `--read-simulator badread` — ONT / PacBio CLR long reads
+
+Uses [badread](https://github.com/rrwick/Badread) to simulate Oxford Nanopore or PacBio CLR long-read sequencing. Requires `badread` on PATH:
+
+```bash
+conda install -c conda-forge badread
+```
+
+`--sequencer-profile` selects the chemistry and error model:
+
+| Profile | Platform / Chemistry | Error model | Notes |
+|---------|---------------------|-------------|-------|
+| `ont` (default) | ONT R10.4.1 / Kit14 | nanopore2023 | Latest pore chemistry |
+| `ont-2020` | ONT R9.4.1 | nanopore2020 | Older pore chemistry |
+| `pacbio` | PacBio CLR | pacbio2016 | PacBio continuous long reads |
+
+`--read-length` is not used for `badread` — read length is bounded by the fragment length and a per-profile lognormal distribution (mean 9000 / SD 7000 for ONT; mean 15000 / SD 13000 for PacBio). `--coverage-depth` sets reads-per-fragment (depth=1 ≈ 1 read per captured fragment). Paired-end is not supported for long reads.
+
+See the [badread documentation](https://github.com/rrwick/Badread) for the full parameter reference.
 
 ## Execution Parameters
 
