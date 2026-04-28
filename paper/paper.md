@@ -43,7 +43,39 @@ FIG_ASSESS
 
 Assessing probes assumes a (near) perfect world. To simulate a more realistic capture experiment incorporating all steps in the process, BaitBench integrates an eight step process to simulate hybrid capture enrichment sequencing. Each step can be run separately and all intermediate files are documented and retained, the pipeline can be re-entered at any step.
 
-**Prepare** creates a single fasta file containing all sequences, along with a weights file that specifies what is in the simulated sample, and in what proportion. **Simulate** aligns all probes to possible binding locations, Gibbs free energy is calculated, and fragments are generated randomly weighted by thermodynamic properties and sequence input weight. **Sequence** models the actual sequencing step either perfectly via fragment trimming, or using the wrapped sequence simulators ART-modern [@yuArt_modernAcceleratedART2026] or Badread [@wickBadreadSimulationErrorprone2019]. **Filter** is an optional step removing host sequence. **Map** aligns reads to the target sequence, and **List** parses the sam output and counts reads per reference sequence. **Metrics** computes a three way classification of true/false negeative/positive target/distractor hits. And finally **Report** produces a self-contained HTML report generated via RMarkdown. A much more detailed discussion of each of these steps is available in the BaitBench documentation.
+**Prepare** creates a single fasta file containing all sequences, along with a weights file that specifies what is in the simulated sample, and in what proportion. **Simulate** aligns all probes to possible binding locations, Gibbs free energy is calculated, and fragments are generated randomly weighted by thermodynamic properties and sequence input weight. **Sequence** models the actual sequencing step either perfectly via fragment trimming, or using the wrapped sequence simulators ART-modern [@yuArt_modernAcceleratedART2026] or Badread [@wickBadreadSimulationErrorprone2019]. **Filter** is an optional step removing host sequence. **Map** aligns reads to the target sequence, and **List** parses the sam output and counts reads per reference sequence. **Metrics** computes a three way classification of true/false negative/positive target/distractor hits. And finally **Report** produces a self-contained HTML report generated via RMarkdown. A much more detailed discussion of each of these steps is available in the BaitBench documentation.
+
+Expanding on the simulate step, minimap2 maps probes to the sample sequence promiscuously, giving all possible bindings. For each possible binding site, 
+
+- Align probes to combined reference with minimap2; parse CIGAR + MD tags to reconstruct per-position (probe_base, ref_base) pairs for each alignment
+- **Thermodynamic scoring**: compute ΔG (Gibbs free energy) for each probe-reference alignment using the SantaLucia (1998) nearest-neighbor model via a `ThermoModel` struct (temperature + salt concentration)
+  - *NN stacking*: accumulate stacking energy over consecutive Watson-Crick pairs; mismatches break the stacking chain (SkipStacking strategy)
+  - *Initiation terms*: add AT (+2.3 kcal/mol ΔH, +4.1 cal/mol/K ΔS) or GC (+0.1, −2.8) initiation penalty for the first and last WC terminal of each alignment (SantaLucia 1998 Table 2)
+  - *Salt correction*: adjust ΔS for actual Na+ concentration via Owczarzy et al. (1997): `ΔS += 0.368 × (n_wc−1) × ln([Na+])`; user-specified via `--salt-concentration` (mM, default 50 mM); at 1 M the correction is exactly zero
+  - Convert to Boltzmann binding score: `score = exp(−ΔG / RT)` at user-specified hybridization temperature
+- **Two-level multinomial fragment sampling** for captured reads:
+  1. Sample a probe uniformly from probes with ≥1 alignment hit
+  2. Sample an alignment hit for that probe, weighted by `Boltzmann_score × sequence_weight`
+  3. Fragment center: alignment center ± uniform jitter (±fragment_length/4)
+  4. Fragment length: sampled from truncated normal distribution (user-specified mean, SD, min, max)
+- Background fragments (fraction `1 − capture_fraction`): sampled uniformly weighted by `sequence_weight × sequence_length`
+- Capture fraction (`--capture-fraction`): controls ratio of probe-biased to background fragments; models incomplete capture efficiency in real experiments
+- Target enrichment is emergent — no imposed fold-enrichment parameter
+
+
+
+
+The simulate step is modeled directly on RAmpSim [@zhangRAmpSimThermodynamicSimulator2025]. Probes are aligned to the combined reference with minimap2 [@liMinimap2PairwiseAlignment2018], CIGAR and MD tags are parsed via an internal tool to reconstruct per-position (probe_base, ref_base) pairs for each alignment.  Gibbs free energy (ΔG) is calculated for each probe-reference alignment using the SantaLucia (1998) nearest-neighbor model via a `ThermoModel` struct (temperature and salt concentration).  NN stacking accumulates stacking energy over consecutive Watson-Crick pairs, mismatches break the stacking chain (SkipStacking strategy) Initiation terms add AT (+2.3 kcal/mol ΔH, +4.1 cal/mol/K ΔS) or GC (+0.1, −2.8) initiation penalty for the first and last WC terminal of each alignment (SantaLucia 1998 Table 2) Salt correction adjusts ΔS for actual Na+ concentration via Owczarzy et al. [@owczarzyPredictingSequencedependentMelting1997]: `ΔS += 0.368 × (n_wc−1) × ln([Na+])`; user-specified via `--salt-concentration` (mM, default 50 mM). At 1 M the correction is exactly zero. Convert to Boltzmann binding score: `score = exp(−ΔG / RT)` at user-specified hybridization temperature. Now we can use a Two-level multinomial fragment sampling for captured reads:
+  1. Sample a probe uniformly from probes with ≥1 alignment hit
+  2. Sample an alignment hit for that probe, weighted by Boltzmann_score × sequence_weight
+  3. Fragment center: alignment center ± uniform jitter (±fragment_length/4)
+  4. Fragment length: sampled from truncated normal distribution (user-specified mean, SD, min, max)
+- Background fragments (fraction `1 − capture_fraction`): sampled uniformly weighted by sequence_weight × sequence_length. To model incomplete capture efficiency in real experiments we use the single parameter.
+  Target enrichment is and emergent property of the thermodynamic sampling method. 
+
+
+
+
 
 ### Coverage Curve
 
