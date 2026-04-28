@@ -2,6 +2,17 @@ name: GUI Release
 
 on:
   workflow_dispatch:
+    inputs:
+      platform:
+        description: 'Platform to build (all = all three)'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - macos-arm64
+          - macos-x64
+          - windows
   push:
     tags:
       - 'v*'
@@ -10,6 +21,7 @@ jobs:
   build-macos-arm64:
     name: macOS (Apple Silicon)
     runs-on: macos-14
+    if: github.event_name == 'push' || inputs.platform == 'all' || inputs.platform == 'macos-arm64'
     steps:
       - uses: actions/checkout@v4
 
@@ -60,6 +72,7 @@ jobs:
   build-macos-x64:
     name: macOS (Intel)
     runs-on: macos-13
+    if: github.event_name == 'push' || inputs.platform == 'all' || inputs.platform == 'macos-x64'
     steps:
       - uses: actions/checkout@v4
 
@@ -110,6 +123,7 @@ jobs:
   build-windows:
     name: Windows (x64)
     runs-on: windows-latest
+    if: github.event_name == 'push' || inputs.platform == 'all' || inputs.platform == 'windows'
     steps:
       - uses: actions/checkout@v4
 
