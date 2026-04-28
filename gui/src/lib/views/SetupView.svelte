@@ -261,10 +261,15 @@
     </div>
 
   {:else if step === 'error'}
-    <div class="card">
+    <div class="card wide">
       <div class="fail-icon">✗</div>
       <h2>Setup failed</h2>
       <div class="error-msg">{errorMsg}</div>
+      {#if progressLog.length > 0}
+        <div class="log-box">
+          {#each progressLog as line}<div class="log-line">{line}</div>{/each}
+        </div>
+      {/if}
       <div class="btn-row">
         <button class="btn-secondary" on:click={openExistingFlow}>Use existing env</button>
         <button class="btn-primary" on:click={runScan}>Try again</button>

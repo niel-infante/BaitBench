@@ -414,7 +414,7 @@ pub async fn create_baitbench_env(
     let mut child = TokioCommand::new(&conda_executable)
         .args(["env", "create", "-f"])
         .arg(&env_yml)
-        .args(["-n", "baitbench", "--yes"])
+        .args(["-n", "baitbench"])
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
