@@ -22,6 +22,8 @@ jobs:
     name: macOS (Apple Silicon)
     runs-on: macos-14
     if: github.event_name == 'push' || inputs.platform == 'all' || inputs.platform == 'macos-arm64'
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -59,20 +61,35 @@ jobs:
         working-directory: gui
         run: npm run tauri:build
 
-      - name: Upload macOS ARM64 artifacts
+      - name: Rename artifact
+        run: |
+          DMG=$(find gui/src-tauri/target/release/bundle/dmg -name "*.dmg" | head -1)
+          cp "$DMG" BaitBench-macOS.dmg
+
+      - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: BaitBench-macOS-arm64
-          path: |
-            gui/src-tauri/target/release/bundle/dmg/*.dmg
-            gui/src-tauri/target/release/bundle/macos/*.app
-            target/release/baitbench
+          name: BaitBench-macOS
+          path: BaitBench-macOS.dmg
           if-no-files-found: warn
+
+      - name: Attach to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create ${{ github.ref_name }} \
+            --title "BaitBench ${{ github.ref_name }}" \
+            --generate-notes \
+            2>/dev/null || true
+          gh release upload ${{ github.ref_name }} BaitBench-macOS.dmg --clobber
 
   build-macos-x64:
     name: macOS (Intel)
     runs-on: macos-13
     if: github.event_name == 'push' || inputs.platform == 'all' || inputs.platform == 'macos-x64'
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -110,20 +127,35 @@ jobs:
         working-directory: gui
         run: npm run tauri:build
 
-      - name: Upload macOS x64 artifacts
+      - name: Rename artifact
+        run: |
+          DMG=$(find gui/src-tauri/target/release/bundle/dmg -name "*.dmg" | head -1)
+          cp "$DMG" BaitBench-macOS-Intel.dmg
+
+      - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: BaitBench-macOS-x64
-          path: |
-            gui/src-tauri/target/release/bundle/dmg/*.dmg
-            gui/src-tauri/target/release/bundle/macos/*.app
-            target/release/baitbench
+          name: BaitBench-macOS-Intel
+          path: BaitBench-macOS-Intel.dmg
           if-no-files-found: warn
+
+      - name: Attach to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create ${{ github.ref_name }} \
+            --title "BaitBench ${{ github.ref_name }}" \
+            --generate-notes \
+            2>/dev/null || true
+          gh release upload ${{ github.ref_name }} BaitBench-macOS-Intel.dmg --clobber
 
   build-windows:
     name: Windows (x64)
     runs-on: windows-latest
     if: github.event_name == 'push' || inputs.platform == 'all' || inputs.platform == 'windows'
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -161,31 +193,24 @@ jobs:
         working-directory: gui
         run: npm run tauri:build
 
-      - name: Upload Windows artifacts
+      - name: Rename artifact
+        shell: pwsh
+        run: |
+          $msi = Get-ChildItem gui/src-tauri/target/release/bundle/msi/*.msi | Select-Object -First 1
+          Copy-Item $msi.FullName BaitBench-Windows.msi
+
+      - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: BaitBench-Windows-x64
-          path: |
-            gui/src-tauri/target/release/bundle/msi/*.msi
-            gui/src-tauri/target/release/bundle/nsis/*.exe
-            target/release/baitbench.exe
+          name: BaitBench-Windows
+          path: BaitBench-Windows.msi
           if-no-files-found: warn
 
-  create-release:
-    name: Create GitHub Release
-    needs: [build-macos-arm64, build-macos-x64, build-windows]
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
-    permissions:
-      contents: write
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-
-      - name: Create release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: artifacts/**/*
-          generate_release_notes: true
+      - name: Attach to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: |
+          gh release create ${{ github.ref_name }} --title "BaitBench ${{ github.ref_name }}" --generate-notes 2>$null
+          gh release upload ${{ github.ref_name }} BaitBench-Windows.msi --clobber

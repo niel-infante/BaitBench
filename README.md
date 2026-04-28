@@ -2,6 +2,10 @@
 
 In-silico simulation of probe capture for evaluating probe set performance.
 
+## Download
+
+[**Download the latest GUI installer**](https://github.com/niel-infante/BaitBench/releases/latest) — available for macOS (Apple Silicon), macOS (Intel), and Windows.
+
 ## What It Does
 
 BaitBench tests how well a probe set captures intended target sequences while rejecting off-target (distractor) sequences. Given a set of probes, targets, and distractors, it simulates the full capture-sequencing workflow and reports detection metrics including sensitivity, specificity, precision, and F1 score.
