@@ -1,7 +1,6 @@
 name: baitbench
 channels:
   - conda-forge
-  - bioconda
   - defaults
 dependencies:
   # minimap2: no Windows bioconda package; installed separately from GitHub releases
@@ -9,7 +8,7 @@ dependencies:
   # art_modern: no Windows bioconda package
   # catch: no Windows bioconda package
   # badread: dependencies not reliably available on Windows
-  - blast>=2.12
+  # blast: no reliable Windows conda package; install NCBI BLAST+ separately if needed
   - r-base>=4.2
   - r-ggplot2>=3.4
   - r-dplyr>=1.1
