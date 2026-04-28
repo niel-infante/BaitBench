@@ -455,12 +455,7 @@ pub async fn create_baitbench_env(
         .ok_or("baitbench env was created but its path could not be determined")?;
 
     #[cfg(target_os = "windows")]
-    {
-        emit_progress(&app, "win_tools", "Downloading native Windows tools…", None);
-        if let Err(e) = fetch_windows_binaries(&app, &env_path).await {
-            emit_progress(&app, "win_tools", &format!("Warning: {}", e), None);
-        }
-    }
+    fetch_windows_binaries(&app, &env_path).await?;
 
     emit_progress(&app, "create_env", "Environment created successfully.", Some(1.0));
     Ok(env_path.to_string_lossy().to_string())
@@ -533,6 +528,41 @@ fn install_cli_windows(sidecar: &Path) -> Result<String, String> {
 
 // ── Windows native binary download ───────────────────────────────────────────
 
+/// Query GitHub releases API to find the download URL of the latest minimap2
+/// release that includes a win64 zip asset.
+#[cfg(target_os = "windows")]
+async fn minimap2_win64_url() -> Result<String, String> {
+    let client = reqwest::Client::builder()
+        .user_agent("baitbench-gui")
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let releases: serde_json::Value = client
+        .get("https://api.github.com/repos/lh3/minimap2/releases")
+        .send()
+        .await
+        .map_err(|e| format!("GitHub API request failed: {}", e))?
+        .json()
+        .await
+        .map_err(|e| format!("GitHub API response parse failed: {}", e))?;
+
+    for release in releases.as_array().ok_or("Unexpected GitHub API response")? {
+        if let Some(assets) = release["assets"].as_array() {
+            for asset in assets {
+                let name = asset["name"].as_str().unwrap_or("");
+                if name.contains("win64") && name.ends_with(".zip") {
+                    let url = asset["browser_download_url"]
+                        .as_str()
+                        .ok_or("Missing download URL in GitHub response")?;
+                    return Ok(url.to_string());
+                }
+            }
+        }
+    }
+
+    Err("No Windows minimap2 release found on GitHub".to_string())
+}
+
 #[cfg(target_os = "windows")]
 async fn fetch_windows_binaries(app: &AppHandle, env_path: &Path) -> Result<(), String> {
     use std::io::Read;
@@ -540,19 +570,17 @@ async fn fetch_windows_binaries(app: &AppHandle, env_path: &Path) -> Result<(), 
     let lib_bin = env_path.join("Library").join("bin");
     std::fs::create_dir_all(&lib_bin).map_err(|e| e.to_string())?;
 
-    let mm2_version = "2.28";
-    let mm2_url = format!(
-        "https://github.com/lh3/minimap2/releases/download/v{}/minimap2-{}_win64.zip",
-        mm2_version, mm2_version
-    );
-    let mm2_zip = std::env::temp_dir().join("minimap2_win64.zip");
+    emit_progress(app, "win_tools", "Finding latest minimap2 release for Windows…", None);
+    let mm2_url = minimap2_win64_url().await?;
+    emit_progress(app, "win_tools", &format!("Downloading {}…", mm2_url), None);
 
-    emit_progress(app, "win_tools", "Downloading minimap2 for Windows…", None);
+    let mm2_zip = std::env::temp_dir().join("minimap2_win64.zip");
     download_file(app, &mm2_url, &mm2_zip).await?;
 
     let zip_data = std::fs::read(&mm2_zip).map_err(|e| e.to_string())?;
     let cursor = std::io::Cursor::new(zip_data);
     let mut archive = zip::ZipArchive::new(cursor).map_err(|e| e.to_string())?;
+    let mut installed = false;
     for i in 0..archive.len() {
         let mut zf = archive.by_index(i).map_err(|e| e.to_string())?;
         if zf.name().ends_with("minimap2.exe") {
@@ -560,10 +588,15 @@ async fn fetch_windows_binaries(app: &AppHandle, env_path: &Path) -> Result<(), 
             let mut buf = Vec::new();
             zf.read_to_end(&mut buf).map_err(|e| e.to_string())?;
             std::fs::write(&dest, &buf).map_err(|e| e.to_string())?;
+            installed = true;
             break;
         }
     }
 
-    emit_progress(app, "win_tools", "minimap2 installed.", None);
+    if !installed {
+        return Err("minimap2.exe not found inside the downloaded zip".to_string());
+    }
+
+    emit_progress(app, "win_tools", "minimap2 installed successfully.", None);
     Ok(())
 }
