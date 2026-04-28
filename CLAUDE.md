@@ -322,13 +322,63 @@ cat test_results_genomes/*/detected_detail.tsv
 
 **Adding a new subcommand**: Add to `src/cli.rs` (clap definition), create `src/commands/new_cmd.rs`, wire into `main.rs`.
 
-**Adding a new CLI flag (GUI)**: The only GUI work needed is adding the corresponding input field in the relevant tool's section of `gui/src/lib/views/RunView.svelte` — either in the main form or inside the `<AdvancedOptions>` block. The Rust GUI backend passes all args through as plain strings via a `HashMap<String, String>`, so no Rust changes to the GUI are needed for new flags.
+**Adding a new CLI flag (GUI)**: Add the corresponding input field in `gui/src/lib/views/RunView.svelte` — either in the main form or inside the `<AdvancedOptions>` block. The Rust GUI backend passes all args through as plain strings via a `HashMap<String, String>`, so no Rust changes to the GUI are needed. See the GUI section below for the full architecture.
 
 **Modifying fragment generation**: Edit `src/sampling/fragment.rs`.
 
 **Modifying sequencing**: Edit `src/commands/sequence.rs`. To add a new simulator: add a variant to `ReadSimulator` in `sequence.rs`, create a wrapper in `src/external/`, add profiles to `badread.rs` if needed, update `from_str()` and `execute()` dispatch, then add the new flag default in `main.rs`'s `Commands::Run` profile resolver.
 
 **Changing paired-end behavior**: paired-end flows through `SequenceArgs.output_r2`, `FilterArgs.reads_r2`/`output_r2`, `MapArgs.reads_r2`, and `minimap2::map_reads`/`host_align`'s `reads_r2` parameter. All accept `Option<&Path>` — `None` is the default for non-PE mode.
+
+## GUI (Tauri v2 + Svelte)
+
+The `gui/` directory is a separate Tauri v2 + Svelte desktop app that wraps the CLI as a sidecar binary.
+
+### GUI Development Workflow
+
+```bash
+cd gui
+
+# First-time setup
+make install          # npm install
+make copy-sidecar     # cargo build --release + copy binary to src-tauri/binaries/
+
+# Development (hot-reload frontend + Tauri window)
+make dev
+
+# Production build + package into dist-release/
+make release
+```
+
+The sidecar binary must be rebuilt and copied any time the Rust CLI changes: `make copy-sidecar`.
+
+### GUI Architecture
+
+**View routing** (`src/App.svelte`): on mount, reads `conda_env_path` from the Tauri store (`settings.json`). If set → `RunView`; if missing → `SetupView`. After launching a pipeline → `LogView`.
+
+**Three views:**
+- `SetupView.svelte` — conda env picker; calls `detect_conda_envs` (auto-scans common paths) and `validate_conda_env` (checks for required binaries). Saves path to Tauri store on confirm.
+- `RunView.svelte` — tool selector + form for all BaitBench subcommands. Builds a `PipelineConfig` object and calls `run_pipeline`. Add new CLI flags here only (no Rust changes needed).
+- `LogView.svelte` — real-time log display via `listen('pipeline-log', ...)` events. Detects the report path in log output and calls `open_report` to open it in a new webview window.
+
+**Shared state** (`src/lib/stores.ts`): `currentView`, `pipelineStatus`, `logLines`, `reportPath`, `condaEnvPath` — all Svelte writable stores.
+
+**Tauri command layer** (`src-tauri/src/commands/`):
+- `setup.rs` — `detect_conda_envs`, `validate_conda_env`
+- `pipeline.rs` — `run_pipeline` (spawns sidecar with conda PATH prepended), `get_pipeline_status`, `cancel_pipeline`
+- `report.rs` — `open_report` (opens HTML in a new webview window)
+
+**Sidecar invocation**: `run_pipeline` prepends the conda env's bin directories to PATH (platform-aware: `bin/` on Unix, `Scripts/` + `Library/bin/` etc. on Windows), then spawns the `baitbench` sidecar with the subcommand and all flags as argv. stdout/stderr stream back as `pipeline-log` events.
+
+### Adding a New Tauri Command
+
+1. Add the `#[tauri::command]` function to the appropriate file in `src-tauri/src/commands/`
+2. Register it in `src-tauri/src/lib.rs` inside `generate_handler![...]`
+3. Call it from the frontend with `invoke('command_name', { args })` from `@tauri-apps/api/core`
+
+### GUI Distribution
+
+`.github/workflows/gui-release.yml` builds the GUI for macOS ARM64 (`macos-14`), macOS x64 (`macos-13`), and Windows (`windows-latest`) on push of a `v*` tag or manual dispatch. Each job compiles the CLI sidecar natively then runs `npm run tauri:build`. Artifacts (`.dmg`, `.msi`, `.exe`) are uploaded and attached to a GitHub Release.
 
 ## Dependencies
 

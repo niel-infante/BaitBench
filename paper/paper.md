@@ -10,26 +10,16 @@ Aniello M Infante^1^, Shaun T Cross^1*^
 
 Hybridization-based target capture, sometimes called bait capture or hybrid-capture enrichment, has become an essential technique for selectively sequencing genomic targets of interest from complex nucleic acid mixtures. In the protocol, a set of biotinylated oligonucleotide probes hybridize to complementary nucleic acids in a library, streptavidin-coated beads then pull down probe-bound fragments enriching for select targets with the unbound nucleic acid washed away, and the enriched library is sequenced. The result is orders-of-magnitude increase in on-target read depth, enabling applications that are otherwise prohibitively expensive or impossible with whole sample sequencing alone. Hybrid-capture target capture is essential for detecting low-abundance targets in complex backgrounds such as clinical metagenomics, pathogen surveillance, antimicrobial resistance gene detection, viral genomics, ancient DNA,  and whole-exome sequencing (Bravo et al. 2025). For many of these settings the target represents as little as 0.001–1% of the total nucleic acid in the sample, making the design and performance of the probe set the decisive factor between a successful assay and a failed one.
 
-
 The computational side of probe design has matured considerably. Tools such as CATCH [@metskyCapturingSequenceDiversity2019], Syotti [@alankoSyottiScalableBait2022], and ProbeTools [@kuchinskiProbeToolsDesigningHybridization2022] can efficiently construct minimal probe sets with guaranteed coverage across diverse, rapidly evolving viral targets. However, a systematic gap remains between designing a probe panel and predicting how it will perform. Prior to probe synthesis and wet-lab validation, there is no broadly adopted approach for predicting sensitivity as a function of target abundance, specificity against a background of host and other distractor sequences, within-panel cross-reactivity of probes, or coverage uniformity across target sequences. 
 
-Wet-lab iteration for validation of probes is expensive, slow, and labor intensive. On the other hand, _in silico_ evaluation is often underutilized and complicated by multiple tools with diverse dependencies and conventions
- When simulations are used, they commonly assume uniform per-base capture probability, an approximation that ignores the sequence dependent binding affinities that govern real hybridization. Recent work on RAmpSim @zhangRAmpSimThermodynamicSimulator2025 demonstrated that thermodynamic simulation using the SantaLucia (1998) nearest-neighbor (TNN) model   [@santaluciaUnifiedViewPolymer1998] can produce substantially more realistic coverage distributions than uniform models. By computing the Gibbs free energy ΔG for each probe-reference alignment and converting it to a Boltzmann-weighted binding probability, fragment enrichment near high-affinity sites emerges naturally from the physics of hybridization rather than from an imposed enrichment parameter. However, RAmpSim addresses only the simulation step; it does not include probe design, structured probe quality control, or quantitative performance metrics, leaving users to assemble these capabilities from separate tools with incompatible formats and dependencies.
+Wet-lab iteration for validation of probes is expensive, slow, and labor intensive. On the other hand, _in silico_ evaluation is often underutilized and complicated by multiple tools with diverse dependencies and conventions. When simulations are used, they commonly assume uniform per-base capture probability, an approximation that ignores the sequence dependent binding affinities that govern real hybridization. Recent work on RAmpSim @zhangRAmpSimThermodynamicSimulator2025 demonstrated that thermodynamic simulation using the SantaLucia nearest-neighbor (TNN) model   [@santaluciaUnifiedViewPolymer1998] can produce substantially more realistic coverage distributions than uniform models. By computing the Gibbs free energy for each probe-reference alignment and converting it to a Boltzmann-weighted binding probability, fragment enrichment near high-affinity sites emerges naturally from the physics of hybridization rather than from an imposed enrichment parameter. However, RAmpSim addresses only the simulation step; it does not include probe design, structured probe quality control, or quantitative performance metrics, leaving users to assemble these capabilities from separate tools with incompatible formats and dependencies.
 
-Here we present BaitBench, an end-to-end computational suite for designing, assessing, and benchmarking probe panels for target capture sequencing. BaitBench integrates native Rust reimplementations of the CATCH and Syotti probe design algorithms with a quality-controlled build pipeline, a comprehensive probe assessment module, and a full thermodynamic simulation pipeline based on the SantaLucia (1998) nearest-neighbor model, including initiation terms, Boltzmann-weighted fragment sampling, and a sodium concentration correction following Owczarzy et al. [@owczarzyPredictingSequencedependentMelting1997]. The simulation pipeline supports both whole genome sequence analysis for smaller targets such as viruses and  specific genetic loci targets within a full genome. To directly connect simulations to real-world practice, BaitBench accepts qPCR cycle-threshold (CT) scores as input, automatically converting them to estimated target nucleaic aced fractions to predict the efficiency and limitation of designed probes _insilico_. Performance is evaluated with a three-way classification scheme that separately quantifies within-panel cross-reactivity and true off-target capture, a clinically meaningful distinction that a binary detected/not-detected call obscures. BaitBench also offers the ability to simulate how different temperatures, capture efficiencies, and sequencing depths will effect target coverage, giving some direction for experiment design. Written in Rust for performance and distributed with an optional desktop GUI, BaitBench is designed to lower the barrier to rigorous probe panel evaluation for both command-line and non-specialist users.
+Here we present BaitBench, an end-to-end computational suite for designing, assessing, and benchmarking probe panels for target capture sequencing. BaitBench integrates native Rust reimplementations of the CATCH and Syotti probe design algorithms with a quality-controlled build pipeline, a comprehensive probe assessment module, and a full thermodynamic simulation pipeline based on the SantaLucia (1998) nearest-neighbor model, including initiation terms, Boltzmann-weighted fragment sampling, and a sodium concentration correction following Owczarzy et al. [@owczarzyPredictingSequencedependentMelting1997]. The simulation pipeline supports both whole genome sequence analysis for smaller targets such as viruses and  specific genetic loci targets within a full genome. To directly connect simulations to real-world practice, BaitBench accepts qPCR cycle-threshold (CT) scores as input, automatically converting them to estimated target nucleaic acid fractions to predict the efficiency and limitation of designed probes _insilico_. Performance is evaluated with a three-way classification scheme that separately quantifies within-panel cross-reactivity and true off-target capture, a clinically meaningful distinction that a binary detected/not-detected call obscures. BaitBench also offers the ability to simulate how different temperatures, capture efficiencies, and sequencing depths will effect target coverage, giving some direction for experiment design. Written in Rust for performance and distributed with an optional desktop GUI, BaitBench is designed to lower the barrier to rigorous probe panel evaluation for both command-line and non-specialist users.
 
 
 ## Features and Functionality
 
-
-BaitBench is a command line tool written primarily in Rust with an optional GUI interface. It is available as source code or precompiled binaries. (Not yet)
-Conda? Docker?
-
-
-BaitBench is single tool in a single environment providing unified, end-to-end solution: design probes → assess probes → simulate a capture experiment → quantitative performance metrics → HTML report. BaitBench includes thermodynamic simulation of binding affinities derived from [@santaluciaUnifiedViewPolymer1998] as described by RAmpSim [@zhangRAmpSimThermodynamicSimulator2025], utilizing nearest-neighbor model, Boltzmann-weighted fragment sampling and more realistic than uniform-coverage approaches. BaitBench accommodates small genomes such as viruses and large pathogens such as bacteria where probes target gene regions within a set of genomes, or whole exome regions targeting a single genome. Direct integration of clinical context qPCR CT scores translate to target abundances, making simulations interpretable alongside real diagnostic data. BaitBench is written in Rust for performance, with an optional desktop GUI for accessibility.
-
-BaitBench can be broadly split into three functionalities: building probes, assessing probes, and simulating capture.
-
+BaitBench is a full featured capture sequence tool and can be broadly split into three functionalities: building probes, assessing probes, and simulating capture.
 
 ### Building Probes
 
@@ -71,7 +61,7 @@ FIG_COVERAGE_CURVE   - Need a better one, this one still has fold enrichment whi
 
 ## Validation Using Public Data
 
-To evaluate BaitBench simulation, we used sequence and probe data from TELSeq comprising a mock microbial community (ZymoBIOMICS Microbial Community DNA Standard II \[Log Distribution]) [@slizovskiyTargetenrichedLongreadSequencing2022]. We used BaitBench to construct an input sample with the TELSeq community abundances, then BaitBench used the provided probes to simulate capture and sequencing. The proportions of reads for each species matched the real data very well, with a Spearman correlation of 0.884.   We then compared BaitBench output to the public sequence data. 
+To evaluate BaitBench simulation, we used sequence and probe data from TELSeq comprising a mock microbial community (ZymoBIOMICS Microbial Community DNA Standard II \[Log Distribution]) [@slizovskiyTargetenrichedLongreadSequencing2022]. We used BaitBench to construct an input sample with the TELSeq community abundances, then BaitBench used the provided probes to simulate capture and sequencing. The proportions of reads for each species matched the real data very well, with a Spearman correlation of 0.884. The farthest outlier, _M smithii_, has only 6 reads in the public set making it susceptible to big fold change differences with just a few changes in reads.   We then compared BaitBench output to the public sequence data. 
 
 
 ![TELSeq comparison plot](TELSeq_comp.png)
@@ -89,13 +79,20 @@ Not everything implemented
 
 ## Limitations
 
+The difficult with _M smithii_ highlights one issue with how BaitBench implements the capture. Probes are first mapped to all possible binding sites and delta G computed for each. Among all probes that mapped, one is selected uniformly at random, and then its binding site is selected randomly weighted by thermodynamics and sequence abundance, and finally a fragment overlapping that probe coverage is generated. This can lead to over-selecting rare species. The obvious solution is to select probes based on the sequence abundance of all their targets. However, this leads to over-selecting common species. To compensate, probe concentration and usage would have to be modeled which entails computational complexities and parameters the users may not have access to. BaitBench also does not explicitly model hybridization time or wash stringency dynamics. Rather, for all these  subtleties we use the capture fraction parameter as a pragmatic proxy. As can be seen in the validation we still get very close to real data, and are useful as a simulation and prediction tool.
+
+
+
+
+
 ## Distribution
+
+All code is available at [github.com/niel-infante/BaitBench.](https://github.com/niel-infante/BaitBench) Experts can clone the repo, install dependencies with Conda, and compile the Rust. Others can download the installers for Mac and Windows available there.
+
 
 
 ### Future Directions
-wrap sequence simulator(s)
-support long reads
-~~GUI~~
+GUI~~
 editing probests 
     Remove redundant or useless probes
     Add probes to targeted, low coverage areas

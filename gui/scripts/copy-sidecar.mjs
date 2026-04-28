@@ -27,9 +27,10 @@ if (!triple) {
   process.exit(1);
 }
 
-const src = resolve(repoRoot, 'target/release/baitbench');
+const isWin = process.platform === 'win32';
+const src = resolve(repoRoot, isWin ? 'target/release/baitbench.exe' : 'target/release/baitbench');
 const destDir = resolve(__dirname, '../src-tauri/binaries');
-const dest = resolve(destDir, `baitbench-${triple}`);
+const dest = resolve(destDir, `baitbench-${triple}${isWin ? '.exe' : ''}`);
 
 if (!existsSync(src)) {
   console.error(`Source binary not found: ${src}`);
@@ -39,8 +40,7 @@ if (!existsSync(src)) {
 
 mkdirSync(destDir, { recursive: true });
 cpSync(src, dest);
-// Make executable
-execSync(`chmod +x "${dest}"`);
+if (!isWin) execSync(`chmod +x "${dest}"`);
 
 console.log(`Copied  ${src}`);
 console.log(`    →   ${dest}`);

@@ -32,7 +32,8 @@
     "icon": ["icons/icon.png"],
     "externalBin": ["binaries/baitbench"],
     "resources": {
-      "../../R": "R"
+      "../../R": "R",
+      "../../environment.yml": "environment.yml"
     }
   },
   "plugins": {

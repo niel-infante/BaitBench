@@ -124,13 +124,27 @@ pub async fn run_pipeline(
     // Set status to Running
     *state.status.lock().unwrap() = PipelineStatus::Running;
 
-    // Build PATH with conda env prepended
-    let conda_bin = format!("{}/bin", config.conda_env);
+    // Build PATH with conda env prepended (platform-aware)
+    #[cfg(target_os = "windows")]
+    let conda_dirs = vec![
+        config.conda_env.clone(),
+        format!("{}\\Scripts", config.conda_env),
+        format!("{}\\Library\\bin", config.conda_env),
+        format!("{}\\Library\\usr\\bin", config.conda_env),
+    ];
+    #[cfg(not(target_os = "windows"))]
+    let conda_dirs = vec![format!("{}/bin", config.conda_env)];
+
+    #[cfg(target_os = "windows")]
+    let path_sep = ";";
+    #[cfg(not(target_os = "windows"))]
+    let path_sep = ":";
+
     let current_path = env::var("PATH").unwrap_or_default();
     let new_path = if current_path.is_empty() {
-        conda_bin.clone()
+        conda_dirs.join(path_sep)
     } else {
-        format!("{}:{}", conda_bin, current_path)
+        format!("{}{}{}", conda_dirs.join(path_sep), path_sep, current_path)
     };
 
     // The sidecar binary IS baitbench; all args including the subcommand name are passed as argv.

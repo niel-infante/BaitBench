@@ -3,6 +3,19 @@ export interface CondaEnv {
   path: string;
 }
 
+export interface SetupCheck {
+  conda_found: boolean;
+  conda_executable: string | null;
+  baitbench_env: string | null;
+  baitbench_env_valid: boolean;
+}
+
+export interface SetupProgress {
+  step: string;
+  message: string;
+  percent: number | null;
+}
+
 export interface ValidationResult {
   valid: boolean;
   missing: string[];

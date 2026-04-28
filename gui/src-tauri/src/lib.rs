@@ -13,6 +13,10 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::setup::detect_conda_envs,
             commands::setup::validate_conda_env,
+            commands::setup::check_setup,
+            commands::setup::install_conda,
+            commands::setup::create_baitbench_env,
+            commands::setup::install_cli_to_path,
             commands::pipeline::run_pipeline,
             commands::pipeline::get_pipeline_status,
             commands::pipeline::cancel_pipeline,
