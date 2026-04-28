@@ -65,7 +65,10 @@ pub fn execute(args: &BuildProbesArgs) -> Result<()> {
     }
 
     // Check external tools
-    cdhit::check_available()?;
+    let cdhit_available = cdhit::is_available();
+    if !cdhit_available {
+        log::warn!("cd-hit-est not found — target collapse (step 2) and probe deduplication (step 7) will be skipped. The probeset may contain redundant sequences.");
+    }
 
     // Create output directory
     fs::create_dir_all(args.outdir)?;
@@ -104,26 +107,31 @@ pub fn execute(args: &BuildProbesArgs) -> Result<()> {
     });
 
     // --- Step 2: Collapse targets with cd-hit-est ---
-    log::info!(
-        "Step 2: Collapsing targets (cd-hit-est, threshold={:.2})...",
-        args.collapse_threshold
-    );
     let collapsed_path = prefixed_join(args.outdir, args.output_prefix, "collapsed.fa");
-    let collapse_log = prefixed_join(args.outdir, args.output_prefix, "cdhit_collapse.log");
-    cdhit::cluster(
-        &targets_clean_path,
-        &collapsed_path,
-        args.collapse_threshold,
-        args.threads,
-        &collapse_log,
-    )?;
-    let (collapsed_seqs, collapsed_bases) = count_fasta_stats(&collapsed_path)?;
-    log::info!(
-        "  Collapsed: {} sequences, {} bases (removed {})",
-        collapsed_seqs,
-        collapsed_bases,
-        clean_seqs - collapsed_seqs
-    );
+    let (collapsed_seqs, collapsed_bases) = if cdhit_available {
+        log::info!(
+            "Step 2: Collapsing targets (cd-hit-est, threshold={:.2})...",
+            args.collapse_threshold
+        );
+        let collapse_log = prefixed_join(args.outdir, args.output_prefix, "cdhit_collapse.log");
+        cdhit::cluster(
+            &targets_clean_path,
+            &collapsed_path,
+            args.collapse_threshold,
+            args.threads,
+            &collapse_log,
+        )?;
+        let stats = count_fasta_stats(&collapsed_path)?;
+        log::info!(
+            "  Collapsed: {} sequences, {} bases (removed {})",
+            stats.0, stats.1, clean_seqs - stats.0
+        );
+        stats
+    } else {
+        log::warn!("Step 2: Skipping target collapse (cd-hit-est not available).");
+        fs::copy(&targets_clean_path, &collapsed_path)?;
+        (clean_seqs, clean_bases)
+    };
     stats.push(StepStats {
         step: "collapsed".to_string(),
         sequences: collapsed_seqs,
@@ -303,26 +311,31 @@ pub fn execute(args: &BuildProbesArgs) -> Result<()> {
     });
 
     // --- Step 7: Deduplicate probes with cd-hit-est ---
-    log::info!(
-        "Step 7: Deduplicating probes (cd-hit-est, threshold={:.2})...",
-        args.dedup_threshold
-    );
     let probes_final_path = prefixed_join(args.outdir, args.output_prefix, "probes_final.fa");
-    let dedup_log = prefixed_join(args.outdir, args.output_prefix, "cdhit_dedup.log");
-    cdhit::cluster(
-        &complexity_input,
-        &probes_final_path,
-        args.dedup_threshold,
-        args.threads,
-        &dedup_log,
-    )?;
-    let (final_seqs, final_bases) = count_fasta_stats(&probes_final_path)?;
-    log::info!(
-        "  Final: {} probes, {} bases (removed {})",
-        final_seqs,
-        final_bases,
-        complexity_seqs - final_seqs
-    );
+    let (final_seqs, final_bases) = if cdhit_available {
+        log::info!(
+            "Step 7: Deduplicating probes (cd-hit-est, threshold={:.2})...",
+            args.dedup_threshold
+        );
+        let dedup_log = prefixed_join(args.outdir, args.output_prefix, "cdhit_dedup.log");
+        cdhit::cluster(
+            &complexity_input,
+            &probes_final_path,
+            args.dedup_threshold,
+            args.threads,
+            &dedup_log,
+        )?;
+        let s = count_fasta_stats(&probes_final_path)?;
+        log::info!(
+            "  Final: {} probes, {} bases (removed {})",
+            s.0, s.1, complexity_seqs - s.0
+        );
+        s
+    } else {
+        log::warn!("Step 7: Skipping probe deduplication (cd-hit-est not available).");
+        fs::copy(&complexity_input, &probes_final_path)?;
+        (complexity_seqs, complexity_bases)
+    };
     stats.push(StepStats {
         step: "deduplicated".to_string(),
         sequences: final_seqs,
@@ -336,7 +349,7 @@ pub fn execute(args: &BuildProbesArgs) -> Result<()> {
 
     // --- Write run params ---
     let params_path = prefixed_join(args.outdir, args.output_prefix, "run_params.tsv");
-    write_run_params(&params_path, args)?;
+    write_run_params(&params_path, args, cdhit_available)?;
 
     // --- Assessment and/or Report ---
     if !args.skip_assess {
@@ -751,7 +764,7 @@ fn write_stats_tsv(path: &Path, stats: &[StepStats]) -> Result<()> {
 }
 
 /// Write run parameters TSV for report reconstruction.
-fn write_run_params(path: &Path, args: &BuildProbesArgs) -> Result<()> {
+fn write_run_params(path: &Path, args: &BuildProbesArgs, cdhit_available: bool) -> Result<()> {
     let file = File::create(path).with_context(|| format!("Cannot create: {}", path.display()))?;
     let mut w = BufWriter::new(file);
 
@@ -787,6 +800,7 @@ fn write_run_params(path: &Path, args: &BuildProbesArgs) -> Result<()> {
     )?;
     writeln!(w, "threads\t--threads\t{}", args.threads)?;
     writeln!(w, "outdir\t--outdir\t{}", args.outdir.display())?;
+    writeln!(w, "cdhit_available\t--n/a\t{}", cdhit_available)?;
 
     w.flush()?;
     Ok(())

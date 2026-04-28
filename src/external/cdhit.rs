@@ -5,16 +5,21 @@ use std::process::Command;
 
 /// Check that cd-hit-est is available on PATH.
 pub fn check_available() -> Result<()> {
-    let status = Command::new("cd-hit-est")
+    if is_available() {
+        Ok(())
+    } else {
+        bail!("cd-hit-est not found on PATH. Please install cd-hit.")
+    }
+}
+
+/// Return true if cd-hit-est is available on PATH.
+pub fn is_available() -> bool {
+    Command::new("cd-hit-est")
         .arg("-h")
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
-        .status();
-
-    match status {
-        Ok(_) => Ok(()),
-        _ => bail!("cd-hit-est not found on PATH. Please install cd-hit."),
-    }
+        .status()
+        .is_ok()
 }
 
 /// Run cd-hit-est to cluster sequences by identity.

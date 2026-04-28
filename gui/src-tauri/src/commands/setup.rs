@@ -395,11 +395,14 @@ pub async fn create_baitbench_env(
     conda_executable: String,
 ) -> Result<String, String> {
     let resource_dir = app.path().resource_dir().map_err(|e| e.to_string())?;
+    #[cfg(target_os = "windows")]
+    let env_yml = resource_dir.join("environment-windows.yml");
+    #[cfg(not(target_os = "windows"))]
     let env_yml = resource_dir.join("environment.yml");
 
     if !env_yml.exists() {
         return Err(format!(
-            "Bundled environment.yml not found at {}",
+            "Bundled environment file not found at {}",
             env_yml.display()
         ));
     }

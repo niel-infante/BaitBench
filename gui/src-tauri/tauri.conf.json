@@ -33,7 +33,8 @@
     "externalBin": ["binaries/baitbench"],
     "resources": {
       "../../R": "R",
-      "../../environment.yml": "environment.yml"
+      "../../environment.yml": "environment.yml",
+      "../../environment-windows.yml": "environment-windows.yml"
     }
   },
   "plugins": {

@@ -41,6 +41,19 @@ stats$dropped_bases <- c(NA, -diff(stats$bases))
 stats$pct_retained <- c(NA, round(100 * stats$sequences[-1] / stats$sequences[-nrow(stats)], 1))
 ```
 
+```{r cdhit_warning, results='asis'}
+if (has_params) {
+  row <- params_df[params_df$parameter == "cdhit_available", ]
+  if (nrow(row) > 0 && trimws(row$value) == "false") {
+    cat('<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:4px;padding:10px 14px;margin-bottom:16px;">',
+        '<strong>Warning:</strong> cd-hit-est was not found on PATH.',
+        'Target collapse (step 2) and probe deduplication (step 7) were skipped.',
+        'The probeset may contain redundant sequences.',
+        'Install cd-hit to enable these steps.</div>\n\n')
+  }
+}
+```
+
 ## Pipeline Summary
 
 ```{r summary_table, results='asis'}
