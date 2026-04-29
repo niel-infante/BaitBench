@@ -69,7 +69,7 @@ format_number <- function(x) {
 # Full display names for swept parameter types
 param_full_names <- c(
   ct = "CT",
-  hybridization_temperature = "Hybridization Temp (\u00b0C)",
+  hybridization_temperature = "Hybridization Temp (°C)",
   capture_fraction = "Capture Fraction",
   num_sequences = "Num Sequences"
 )
@@ -86,7 +86,7 @@ build_combo_label <- function(df, swept) {
   }
   if ("hybridization_temperature" %in% swept) {
     temp_val <- as.character(df$hybridization_temperature)
-    parts[["Temp"]] <- if (single_param) temp_val else paste0("Temp=", temp_val, "\u00b0C")
+    parts[["Temp"]] <- if (single_param) temp_val else paste0("Temp=", temp_val, "°C")
   }
   if ("capture_fraction" %in% swept) {
     cf_val <- as.character(df$capture_fraction)
@@ -161,77 +161,73 @@ Percentage of each target genome covered at increasing depth thresholds.
 `r if (length(swept_params) > 0) "Each line represents a different parameter combination." else ""`
 
 ```{r depth-curves, fig.height=if (n_targets > 1) min(max(6, ceiling(n_targets / 2) * 4), 60) else 6}
-# Determine faceting strategy
+# Determine faceting / color strategy.
+# Rule: if num_sequences is swept, it is always the color axis; other params facet.
+# Otherwise: facet by the param with fewest levels when there are >=10 combos.
 use_facet_param <- FALSE
-facet_param <- NULL
 color_label <- "combo_label"
 
-if (n_combos >= 10 && length(swept_params) >= 2) {
-  # Find swept param with fewest levels for faceting
-  param_levels <- sapply(swept_params, function(p) {
-    length(unique(sweep_df[[p]]))
-  })
-  facet_param <- swept_params[which.min(param_levels)]
+if ("num_sequences" %in% swept_params) {
+  ns_order <- sweep_df %>% distinct(num_sequences) %>% arrange(num_sequences)
+  sweep_df$ns_label <- factor(
+    ifelse(sweep_df$num_sequences == 0, "all", format_number(sweep_df$num_sequences)),
+    levels = ifelse(ns_order$num_sequences == 0, "all", format_number(ns_order$num_sequences))
+  )
+  color_label  <- "ns_label"
+  legend_title <- "Num Sequences"
+
+  remaining_swept <- setdiff(swept_params, "num_sequences")
+  if (length(remaining_swept) > 0) {
+    use_facet_param <- TRUE
+    sweep_df$facet_label <- build_combo_label(sweep_df, remaining_swept)
+    facet_sort_cols <- intersect(
+      c("ct", "hybridization_temperature", "capture_fraction"), remaining_swept
+    )
+    facet_order_df <- sweep_df %>%
+      distinct(facet_label, .keep_all = TRUE) %>%
+      arrange(across(all_of(facet_sort_cols)))
+    sweep_df$facet_label <- factor(sweep_df$facet_label, levels = facet_order_df$facet_label)
+  }
+} else if (n_combos >= 10 && length(swept_params) >= 2) {
+  param_levels <- sapply(swept_params, function(p) length(unique(sweep_df[[p]])))
+  facet_param  <- swept_params[which.min(param_levels)]
   use_facet_param <- TRUE
 
-  # Build color label from remaining swept params
   remaining_swept <- setdiff(swept_params, facet_param)
   sweep_df$color_label <- build_combo_label(sweep_df, remaining_swept)
-
-  # Order color labels numerically
-  color_sort_cols <- intersect(c("ct", "hybridization_temperature", "capture_fraction", "num_sequences"), remaining_swept)
+  color_sort_cols <- intersect(
+    c("ct", "hybridization_temperature", "capture_fraction", "num_sequences"), remaining_swept
+  )
   color_order_df <- sweep_df %>%
     distinct(color_label, .keep_all = TRUE) %>%
     arrange(across(all_of(color_sort_cols)))
   sweep_df$color_label <- factor(sweep_df$color_label, levels = color_order_df$color_label)
+  legend_title <- if (length(remaining_swept) == 1) param_full_names[remaining_swept] else "Parameters"
 
-  # Update legend title for remaining swept params
-  legend_title <- if (length(remaining_swept) == 1) {
-    param_full_names[remaining_swept]
-  } else {
-    "Parameters"
-  }
-
-  # Build facet label with formatted numbers
   if (facet_param == "ct") {
     sweep_df$facet_label <- paste0("CT=", format_number(sweep_df$ct))
   } else if (facet_param == "hybridization_temperature") {
-    sweep_df$facet_label <- paste0("Temp=", sweep_df$hybridization_temperature, "\u00b0C")
+    sweep_df$facet_label <- paste0("Temp=", sweep_df$hybridization_temperature, "°C")
   } else if (facet_param == "capture_fraction") {
     sweep_df$facet_label <- paste0("CF=", sweep_df$capture_fraction)
   } else if (facet_param == "num_sequences") {
     sweep_df$facet_label <- ifelse(sweep_df$num_sequences == 0, "NS=all",
                                     paste0("NS=", format_number(sweep_df$num_sequences)))
   }
-
-  # Order facet labels numerically
   facet_order_df <- sweep_df %>%
     distinct(facet_label, .keep_all = TRUE) %>%
     arrange(.data[[facet_param]])
   sweep_df$facet_label <- factor(sweep_df$facet_label, levels = facet_order_df$facet_label)
-
   color_label <- "color_label"
 }
 
 # Build plot
 if (n_combos == 1) {
-  # Single combo — no color legend
   p <- ggplot(sweep_df, aes(x = depth_threshold, y = pct_covered)) +
     geom_line(linewidth = 1, alpha = 0.85, color = "#440154") +
-    labs(title = paste0("Coverage Depth Curves \u2014 ", sample_display))
-} else if (!use_facet_param) {
-  # <10 combos — all on one plot, color by combo
-  n_colors <- n_combos
-  combo_colors <- scales::viridis_pal(option = "plasma")(n_colors)
-
-  p <- ggplot(sweep_df, aes(x = depth_threshold, y = pct_covered,
-                             color = combo_label, group = combo_label)) +
-    geom_line(linewidth = 1, alpha = 0.85) +
-    scale_color_manual(values = combo_colors, name = legend_title) +
-    labs(title = paste0("Coverage Depth Curves \u2014 ", sample_display))
+    labs(title = paste0("Coverage Depth Curves — ", sample_display))
 } else {
-  # >=10 combos — facet by param with fewest levels
-  n_colors <- length(unique(sweep_df[[color_label]]))
+  n_colors     <- length(unique(sweep_df[[color_label]]))
   combo_colors <- scales::viridis_pal(option = "plasma")(max(n_colors, 2))
 
   p <- ggplot(sweep_df, aes(x = depth_threshold, y = pct_covered,
@@ -239,7 +235,7 @@ if (n_combos == 1) {
                              group = combo_label)) +
     geom_line(linewidth = 1, alpha = 0.85) +
     scale_color_manual(values = combo_colors, name = legend_title) +
-    labs(title = paste0("Coverage Depth Curves \u2014 ", sample_display))
+    labs(title = paste0("Coverage Depth Curves — ", sample_display))
 }
 
 p <- p +
@@ -248,14 +244,8 @@ p <- p +
     labels = function(x) ifelse(x >= 1000, paste0(x/1000, "k"), x)
   ) +
   scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, 10)) +
-  labs(
-    x = "Depth of Coverage (X)",
-    y = "% Genome Covered"
-  ) +
-  theme(
-    legend.position = "right",
-    plot.title = element_text(face = "bold")
-  )
+  labs(x = "Depth of Coverage (X)", y = "% Genome Covered") +
+  theme(legend.position = "right", plot.title = element_text(face = "bold"))
 
 # Add faceting
 if (use_facet_param && n_targets > 1) {
@@ -280,7 +270,7 @@ available_thresholds <- key_thresholds[key_thresholds %in% sweep_df$depth_thresh
 if (length(available_thresholds) > 0) {
   summary_tbl <- sweep_df %>%
     filter(depth_threshold %in% available_thresholds) %>%
-    mutate(threshold_label = paste0("\u2265", depth_threshold, "X"))
+    mutate(threshold_label = paste0("≥", depth_threshold, "X"))
 
   # Build display columns based on swept params
   display_cols <- c()
@@ -309,7 +299,7 @@ if (length(available_thresholds) > 0) {
   # Build column names
   col_names <- c()
   if ("ct" %in% swept_params) col_names <- c(col_names, "CT")
-  if ("hybridization_temperature" %in% swept_params) col_names <- c(col_names, "Hyb Temp (\u00b0C)")
+  if ("hybridization_temperature" %in% swept_params) col_names <- c(col_names, "Hyb Temp (°C)")
   if ("capture_fraction" %in% swept_params) col_names <- c(col_names, "Capture Fraction")
   if ("num_sequences" %in% swept_params) col_names <- c(col_names, "Num Sequences")
   col_names <- c(col_names, "Target")
