@@ -23,6 +23,8 @@ baitbench prepare \
   [--genomes genomes.fa] \
   [--sample manifest.tsv] \
   [--sample-target-map mapping.tsv] \
+  [--groups target_groups.tsv] \
+  [--distractor-groups distractor_groups.tsv] \
   [--distractor-fraction 0.9 | --ct 25] \
   [--ct-baseline 20.0] \
   [--ct-baseline-fraction 0.01] \
@@ -35,6 +37,8 @@ baitbench prepare \
 - `targets.txt` -- target sequence IDs (one per line)
 - `distractors.txt` -- distractor sequence IDs (one per line)
 - `sample.txt` -- sample sequence IDs (one per line)
+- `target_groups.tsv` -- target group assignments (written only if `--groups` provided)
+- `distractor_groups.tsv` -- distractor group assignments (always written; from `--distractor-groups` or auto-generated from FASTA file stems)
 - `mapping_reference.fa` -- targets + distractors for read mapping (genome mode only)
 - `genomes.txt` -- genome IDs (genome mode only)
 - `sample_target_map.txt` -- genome-to-target mapping (genome mode only)
@@ -298,23 +302,24 @@ baitbench coverage-curve \
   [... other pipeline parameters ...]
 ```
 
-Three parameters can be swept (each has a singular fixed form and a plural sweep form):
+Four parameters can be swept (each has a singular fixed form and a plural sweep form):
 
-| Sweep flag | Fixed flag | Description |
-|-----------|------------|-------------|
-| `--ct-values 20 25 30` | `--ct 25` | CT values |
-| `--capture-fraction-values 0.3 0.5 0.8` | `--capture-fraction 0.5` | Capture fraction (probe-biased fragment proportion) |
-| `--num-sequences-values 100 500` | `--num-sequences 500` | Number of sequences to sample |
+| Sweep flag | Fixed flag | Default | Description |
+|-----------|------------|---------|-------------|
+| `--ct-values 20 25 30` | `--ct 25` | — | CT values (converted to distractor fractions) |
+| `--hybridization-temperature-values 55 65 70 75` | `--hybridization-temperature 70` | 70 °C | Hybridization temperature; thermodynamic mode only |
+| `--capture-fraction-values 0.3 0.5 0.8` | `--capture-fraction 0.5` | 0.5 | Capture fraction (probe-biased fragment proportion) |
+| `--num-sequences-values 100 500` | `--num-sequences 500` | all | Number of sequences to sample |
 
 Sweep and fixed forms of the same parameter are mutually exclusive. `--ct-values` and `--distractor-fraction` are also mutually exclusive.
 
 `--sample` is **required** for coverage-curve (must specify which targets to track).
 
-The pipeline shares intermediate files across combinations for efficiency: prepare is shared per CT value; simulate is shared per CT x capture-fraction combination.
+The pipeline shares intermediate files across combinations for efficiency: prepare is shared per CT value; simulate is shared per CT × temperature × capture-fraction combination.
 
 **Output files:**
-- Combo subdirectories named by swept params (e.g., `ct_20/`, `ct_20_cf_0.50/`, `ct_20_cf_0.50_ns_500/`)
-- `coverage_curve_depth_curves.tsv` -- aggregated depth data (columns: ct, capture_fraction, num_sequences, ...)
+- Combo subdirectories named by swept params (e.g., `ct_20/`, `ct_20_temp_65_cf_0.50/`, `ct_20_temp_65_cf_0.50_ns_500/`)
+- `coverage_curve_depth_curves.tsv` -- aggregated depth data (columns: ct, hybridization_temperature, capture_fraction, num_sequences, ...)
 - `coverage_curve_report.html` -- HTML report with depth curves (`--report full`)
 - `coverage_curve_report.Rmd` -- editable RMarkdown file (`--report rmd`)
 
@@ -704,6 +709,7 @@ baitbench assess-probes \
   [--output-prefix ""] \
   [--report full|none|rmd] \
   [--cleanup] \
+  [--all-individual-targets] \
   [--refine-iterations N | --refine-until-stable] \
   [--refine-threshold 80.0]
 ```
@@ -740,7 +746,7 @@ baitbench assess-probes \
 
 **Report sections:**
 
-1. **Probe Coverage** -- summary table, coverage breadth bar charts, tiered coverage, gap analysis, depth profiles, proximity coverage, multi-mapping probes
+1. **Probe Coverage** -- summary table, coverage breadth bar charts, individual target coverage (if `--all-individual-targets`), tiered coverage, gap analysis, pangenome depth, depth profiles, proximity coverage, multi-mapping probes
 2. **Self-Homology** -- heatmap (≤1000 probes), density plots, hits table
 3. **Cross-Reactivity vs Genomes** (if `--genomes` provided) -- heatmap, per-genome bar chart, density plots, hits table
 4. **Parameters** -- run configuration under a collapsible fold

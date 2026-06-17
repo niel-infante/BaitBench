@@ -39,7 +39,7 @@ pub struct SimilarityContext {
     pub target_to_species: HashMap<String, Vec<String>>,
 }
 
-/// Compute target-vs-target similarity using minimap2.
+/// Compute target-vs-target similarity using sequence alignment.
 ///
 /// Aligns all targets against themselves and returns pairwise similarities
 /// above the identity threshold. Self-hits (same target) are excluded.

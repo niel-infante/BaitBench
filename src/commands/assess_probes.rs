@@ -398,7 +398,7 @@ fn write_assess_rmd(
     Ok(())
 }
 
-/// Compute per-target probe coverage by running minimap2 individually for each target.
+/// Compute per-target probe coverage by running alignment individually for each target.
 ///
 /// Each target is evaluated in complete isolation: only that one sequence is present
 /// in the reference during alignment, so probe competition from similar targets is

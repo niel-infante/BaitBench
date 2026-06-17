@@ -148,6 +148,36 @@ Explicit mappings take precedence over auto-linking for the same genome ID.
 
 **Validation:** BaitBench errors if the map references genome or target IDs not found in their respective FASTA files.
 
+### Groups File Format
+
+TSV file mapping sequence IDs to group names. Used by `--groups` (target grouping) and `--distractor-groups` (distractor grouping):
+
+```
+# Optional comment lines starting with #
+# seq_id	group_name
+West_Nile_virus_0001	West_Nile_virus
+West_Nile_virus_0002	West_Nile_virus
+West_Nile_virus_0003	West_Nile_virus
+Dengue_virus_1_6275	Dengue_virus_1
+Dengue_virus_1_2274	Dengue_virus_1
+Dengue_virus_2_8773	Dengue_virus_2
+```
+
+- One mapping per line: `seq_id<TAB>group_name`
+- Lines starting with `#` are ignored
+- Empty lines are ignored
+- Leading `>` characters on sequence IDs are stripped automatically
+
+**Target groups (`--groups`):**
+- Sequence IDs must exist in the targets FASTA (BaitBench errors on unknown IDs)
+- Sequences not listed in the file form singleton groups (their own ID = their group name)
+- Without `--groups`, each target sequence is its own singleton group (no behavioral change)
+
+**Distractor groups (`--distractor-groups`):**
+- Overrides the default automatic grouping by FASTA file stem
+- Sequence IDs must exist in the distractor sequences (BaitBench errors on unknown IDs)
+- Without `--distractor-groups`, all contigs from each `--distractors` FASTA file are automatically grouped together using the file stem as the group name (e.g., all contigs in `Aaegypti.fa` → group `"Aaegypti"`)
+
 ---
 
 ## Dependencies
@@ -169,6 +199,7 @@ Explicit mappings take precedence over auto-linking for the same genome ID.
 |------|---------|-----------|
 | minimap2 | Alignment (simulate, mapping, filtering) | Yes |
 | BLAST+ | Cross-reactivity analysis (xreact) | Only if `baitbench xreact` is used |
+| cd-hit | Sequence clustering (build-probes, tool collapse) | Only if `baitbench build-probes` or `baitbench tool collapse` is used |
 | R + packages | HTML report generation | Only if reports are enabled |
 
 Install all via:

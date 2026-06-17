@@ -20,8 +20,11 @@ results/run_20250101_120000/
 ├── mapped.sam                  # Read alignments to reference
 ├── detected.list               # Read counts per reference
 ├── run_params.tsv              # Run configuration (used by report)
+├── target_groups.tsv           # Target group assignments (if --groups)
+├── distractor_groups.tsv       # Distractor group assignments (always; auto or from --distractor-groups)
 ├── results.tsv                 # Summary metrics
 ├── detected_detail.tsv         # Per-reference detection and coverage detail
+├── group_detail.tsv            # Per-group summary (if groups are present)
 ├── results.json                # Machine-readable JSON metrics
 ├── coverage.tsv                # Run-length encoded read depth intervals
 ├── report.html                 # HTML report (--report full, requires R)
@@ -78,6 +81,7 @@ One row per reference sequence:
 | Column | Description |
 |--------|-------------|
 | `reference_id` | Sequence ID |
+| `group` | Group name this sequence belongs to (sequence's own ID if no groups file provided) |
 | `category` | `sample`, `nonsample_target`, `distractor`, or `untargeted` |
 | `expected` | 1 if expected to be detected (sample target), 0 otherwise |
 | `detected` | 1 if at least one read maps to this reference, 0 otherwise |
@@ -89,6 +93,21 @@ One row per reference sequence:
 | `avg_coverage` | Average read depth across reference |
 | `pct_covered_5x` | % positions with >= 5x depth |
 | `pct_covered_20x` | % positions with >= 20x depth |
+
+## group_detail.tsv Columns
+
+Written when group files are present (`target_groups.tsv` or `distractor_groups.tsv`). One row per group:
+
+| Column | Description |
+|--------|-------------|
+| `group_name` | Group identifier |
+| `category` | `sample`, `nonsample_target`, or `distractor` |
+| `expected` | `true` if the group is expected to be detected (sample group) |
+| `detected` | `true` if at least one member sequence has reads mapped to it |
+| `classification` | `TP`, `FN`, `FP_target`, `FP_distractor`, `TN_target`, or `TN_distractor` |
+| `member_count` | Number of sequences in this group |
+| `detected_member_count` | Number of member sequences individually detected |
+| `total_reads` | Sum of reads assigned to all members of this group |
 
 ## results.json Structure
 

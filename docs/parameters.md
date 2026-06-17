@@ -10,6 +10,8 @@
 | Probes | `--probes`, `-p` | required | run, capture, probe-coverage, coverage-curve | FASTA of probe sequences |
 | Sample | `--sample` | all targets | run, coverage-curve | Sample targets or genomes: TSV file path OR inline IDs with optional weights. See [Sample Manifest Format](reference.md#sample-manifest-format) |
 | Sample-target map | `--sample-target-map` | none | run, prepare, coverage-curve | TSV mapping genome IDs to target IDs (genome mode). See [Sample-Target Map Format](reference.md#sample-target-map-format) |
+| Groups | `--groups` | none | run, prepare | TSV mapping target sequence IDs to group names for group-level metrics. See [Groups File Format](reference.md#groups-file-format) |
+| Distractor groups | `--distractor-groups` | none | run, prepare | TSV mapping distractor sequence IDs to group names (overrides default file-stem grouping). See [Groups File Format](reference.md#groups-file-format) |
 | Host FASTA | `--host-fasta` | none | run, coverage-curve | Host genome for read filtering |
 
 ## Fragment Generation

@@ -1,58 +1,139 @@
 use anyhow::{Context, Result, bail};
 use std::fs::File;
+use std::io::{BufWriter, Write};
 use std::path::Path;
-use std::process::Command;
 
-/// Check that minimap2 is available on PATH.
-pub fn check_available() -> Result<()> {
-    let status = Command::new("minimap2")
-        .arg("--version")
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status();
+use rammap::{Aligner, MapOpts, Preset, Strand};
+use rammap::align::map::AlignFlags;
 
-    match status {
-        Ok(s) if s.success() => Ok(()),
-        _ => bail!("minimap2 not found on PATH. Please install minimap2."),
+use crate::fasta;
+
+// ---- helpers ----
+
+fn to_preset(preset: &str) -> Result<Preset> {
+    match preset {
+        "sr"        => Ok(Preset::Sr),
+        "map-ont"   => Ok(Preset::MapOnt),
+        "map-pb"    => Ok(Preset::MapPb),
+        "map-hifi"  => Ok(Preset::MapHifi),
+        "map-iclr"  => Ok(Preset::MapIclr),
+        "lr:hq"     => Ok(Preset::LrHq),
+        "lr:hqae"   => Ok(Preset::LrHqae),
+        "splice"    => Ok(Preset::Splice),
+        "splice:hq" => Ok(Preset::SpliceHq),
+        "splice:sr" => Ok(Preset::SpliceSr),
+        "cdna"      => Ok(Preset::Cdna),
+        "asm5"      => Ok(Preset::Asm5),
+        "asm10"     => Ok(Preset::Asm10),
+        "asm20"     => Ok(Preset::Asm20),
+        "ava-ont"   => Ok(Preset::AvaOnt),
+        "ava-pb"    => Ok(Preset::AvaPb),
+        other => bail!("Unknown alignment preset: '{}'", other),
     }
 }
 
-/// Run minimap2 for probe capture (PAF output with CIGAR).
-///
-/// `minimap2 -x sr -c --cs -A 4 -B 2 -O 12,32 --secondary=yes <probes> <reads> > <output>`
-#[allow(dead_code)]
-pub fn capture_align(
-    probes: &Path,
-    reads: &Path,
-    output_paf: &Path,
-    log_file: &Path,
-) -> Result<()> {
-    let log = File::create(log_file)
+fn path_str(path: &Path) -> Result<&str> {
+    path.to_str()
+        .ok_or_else(|| anyhow::anyhow!("Path has non-UTF-8 characters: {}", path.display()))
+}
+
+fn write_stub_log(log_file: &Path, label: &str) -> Result<()> {
+    let mut f = File::create(log_file)
         .with_context(|| format!("Cannot create log: {}", log_file.display()))?;
-    let out = File::create(output_paf)
-        .with_context(|| format!("Cannot create PAF: {}", output_paf.display()))?;
-
-    let status = Command::new("minimap2")
-        .args(["-x", "sr", "-c", "--cs"])
-        .args(["-A", "4", "-B", "2", "-O", "12,32"])
-        .arg("--secondary=yes")
-        .arg(probes)
-        .arg(reads)
-        .stdout(out)
-        .stderr(log)
-        .status()
-        .context("Failed to execute minimap2")?;
-
-    if !status.success() {
-        bail!("minimap2 capture alignment failed (exit code {:?})", status.code());
-    }
-
+    writeln!(f, "[rammap] {}", label)?;
     Ok(())
 }
 
-/// Run minimap2 for read mapping (SAM output).
+fn write_sam_header<W: Write>(w: &mut W, aligner: &Aligner) -> Result<()> {
+    writeln!(w, "@HD\tVN:1.6\tSO:unsorted")?;
+    for seq in &aligner.index().seqs {
+        writeln!(w, "@SQ\tSN:{}\tLN:{}", seq.name, seq.len)?;
+    }
+    Ok(())
+}
+
+fn write_sam_mapped<W: Write>(
+    w: &mut W,
+    qname: &str,
+    qseq: &str,
+    flag: u16,
+    m: &rammap::Mapping,
+) -> Result<()> {
+    let cigar = m.cigar.as_deref().unwrap_or("*");
+    write!(
+        w,
+        "{}\t{}\t{}\t{}\t{}\t{}\t*\t0\t0\t{}\t*\tNM:i:{}",
+        qname,
+        flag,
+        m.target_name,
+        m.target_start + 1,
+        m.mapq,
+        cigar,
+        qseq,
+        m.edit_distance,
+    )?;
+    if let Some(ref md) = m.md {
+        write!(w, "\tMD:Z:{}", md)?;
+    }
+    writeln!(w)?;
+    Ok(())
+}
+
+fn write_sam_unmapped<W: Write>(w: &mut W, qname: &str, qseq: &str) -> Result<()> {
+    writeln!(w, "{}\t4\t*\t0\t0\t*\t*\t0\t0\t{}\t*", qname, qseq)?;
+    Ok(())
+}
+
+fn write_paf_record<W: Write>(
+    w: &mut W,
+    qname: &str,
+    qlen: usize,
+    m: &rammap::Mapping,
+) -> Result<()> {
+    let strand = if m.strand == Strand::Forward { '+' } else { '-' };
+    write!(
+        w,
+        "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
+        qname, qlen,
+        m.query_start, m.query_end,
+        strand,
+        m.target_name, m.target_len,
+        m.target_start, m.target_end,
+        m.matches, m.block_len, m.mapq,
+    )?;
+    write!(w, "\tNM:i:{}", m.edit_distance)?;
+    if let Some(ref cigar) = m.cigar {
+        write!(w, "\tcg:Z:{}", cigar)?;
+    }
+    writeln!(w)?;
+    Ok(())
+}
+
+// SAM FLAG constants
+const FLAG_REVERSE: u16 = 0x10;
+const FLAG_SECONDARY: u16 = 0x100;
+
+// ---- public API (signatures unchanged from subprocess version) ----
+
+/// rammap is compiled into the binary — always available.
+pub fn check_available() -> Result<()> {
+    Ok(())
+}
+
+/// Probe capture alignment — unused, kept for API compatibility.
+#[allow(dead_code)]
+pub fn capture_align(
+    _probes: &Path,
+    _reads: &Path,
+    _output_paf: &Path,
+    _log_file: &Path,
+) -> Result<()> {
+    bail!("capture_align is not implemented in the rammap backend")
+}
+
+/// Map reads to a reference (SAM output, primary alignments only).
 ///
-/// `minimap2 -ax <preset> --secondary=no <reference> <reads> [<reads_r2>] > <output>`
+/// Replicates `minimap2 -ax <preset> --secondary=no <reference> <reads> [<reads_r2>]`
 pub fn map_reads(
     preset: &str,
     reference: &Path,
@@ -61,36 +142,49 @@ pub fn map_reads(
     output_sam: &Path,
     log_file: &Path,
 ) -> Result<()> {
+    write_stub_log(log_file, "map_reads")?;
+
+    let aligner = Aligner::from_fasta(path_str(reference)?, to_preset(preset)?)
+        .with_context(|| format!("Failed to build alignment index for {}", reference.display()))?;
+
     let out = File::create(output_sam)
         .with_context(|| format!("Cannot create SAM: {}", output_sam.display()))?;
-    let log = File::create(log_file)
-        .with_context(|| format!("Cannot create log: {}", log_file.display()))?;
+    let mut w = BufWriter::new(out);
+    write_sam_header(&mut w, &aligner)?;
 
-    let mut cmd = Command::new("minimap2");
-    cmd.args(["-ax", preset])
-        .arg("--secondary=no")
-        .arg(reference)
-        .arg(reads);
-    if let Some(r2) = reads_r2 {
-        cmd.arg(r2);
+    for (name, seq) in fasta::parse_fasta(reads)? {
+        map_and_write_primary(&aligner, &mut w, &name, &seq)?;
     }
-    let status = cmd
-        .stdout(out)
-        .stderr(log)
-        .status()
-        .context("Failed to execute minimap2")?;
-
-    if !status.success() {
-        bail!("minimap2 mapping failed (exit code {:?})", status.code());
+    if let Some(r2) = reads_r2 {
+        for (name, seq) in fasta::parse_fasta(r2)? {
+            map_and_write_primary(&aligner, &mut w, &name, &seq)?;
+        }
     }
 
     Ok(())
 }
 
-/// Run minimap2 for probe-to-target mapping (SAM output with secondary alignments).
+fn map_and_write_primary<W: Write>(
+    aligner: &Aligner,
+    w: &mut W,
+    name: &str,
+    seq: &str,
+) -> Result<()> {
+    let result = aligner.map_seq(name, seq.as_bytes());
+    match result.mappings.iter().find(|m| m.is_primary && !m.is_supplementary) {
+        Some(m) => {
+            let flag = if m.strand == Strand::Reverse { FLAG_REVERSE } else { 0 };
+            write_sam_mapped(w, name, seq, flag, m)
+        }
+        None => write_sam_unmapped(w, name, seq),
+    }
+}
+
+/// Align probes to targets (SAM output with secondary alignments and MD tags).
 ///
-/// `minimap2 -ax <preset> --secondary=yes -N <max_secondary> <targets> <probes> > <output>`
+/// Replicates `minimap2 -ax <preset> --secondary=yes -N <max_secondary> -t <threads> <targets> <probes>`
 ///
+/// MD tags are enabled for thermodynamic scoring in `sampling/thermo_sim.rs`.
 /// Secondary alignments are kept because a single probe can legitimately
 /// tile conserved regions across multiple target sequences.
 ///
@@ -106,40 +200,89 @@ pub fn probe_align(
     threads: usize,
     max_secondary: usize,
 ) -> Result<()> {
+    write_stub_log(log_file, "probe_align")?;
+
+    let mut aligner = Aligner::from_fasta(path_str(targets)?, to_preset(preset)?)
+        .with_context(|| format!("Failed to build alignment index for {}", targets.display()))?;
+
+    // Enable secondary alignments (the SR preset suppresses them by default).
+    aligner.options_mut().flags.remove(AlignFlags::NO_PRINT_2ND);
+    aligner.options_mut().filtering.best_n = max_secondary as i32;
+    // Enable MD tags for thermo_sim.rs.
+    aligner.output_config_mut().do_md = true;
+
+    let opts = MapOpts { cs: None, md: Some(true) };
+
     let out = File::create(output_sam)
         .with_context(|| format!("Cannot create SAM: {}", output_sam.display()))?;
-    let log = File::create(log_file)
-        .with_context(|| format!("Cannot create log: {}", log_file.display()))?;
+    let mut w = BufWriter::new(out);
+    write_sam_header(&mut w, &aligner)?;
 
-    let status = Command::new("minimap2")
-        .args(["-ax", preset])
-        .arg("--secondary=yes")
-        .args(["-N", &max_secondary.to_string()])
-        .args(["-t", &threads.to_string()])
-        .arg(targets)
-        .arg(probes)
-        .stdout(out)
-        .stderr(log)
-        .status()
-        .context("Failed to execute minimap2")?;
+    let probe_seqs = fasta::parse_fasta(probes)?;
 
-    if !status.success() {
-        bail!(
-            "minimap2 probe alignment failed (exit code {:?})",
-            status.code()
-        );
+    if threads > 1 {
+        use std::sync::Arc;
+        use rayon::prelude::*;
+
+        let _ = rayon::ThreadPoolBuilder::new()
+            .num_threads(threads)
+            .build_global();
+
+        let shared = Arc::new(aligner);
+        let results: Vec<(String, String, rammap::MapResult)> = probe_seqs
+            .into_par_iter()
+            .map(|(name, seq)| {
+                let result = shared.map_seq_with(&name, seq.as_bytes(), opts);
+                (name, seq, result)
+            })
+            .collect();
+
+        for (name, seq, result) in results {
+            write_probe_alignments(&mut w, &name, &seq, &result.mappings, max_secondary)?;
+        }
+    } else {
+        for (name, seq) in probe_seqs {
+            let result = aligner.map_seq_with(&name, seq.as_bytes(), opts);
+            write_probe_alignments(&mut w, &name, &seq, &result.mappings, max_secondary)?;
+        }
     }
 
     Ok(())
 }
 
-/// Run minimap2 for cross-reactivity analysis (PAF output with secondary alignments).
+fn write_probe_alignments<W: Write>(
+    w: &mut W,
+    name: &str,
+    seq: &str,
+    mappings: &[rammap::Mapping],
+    max_secondary: usize,
+) -> Result<()> {
+    if mappings.is_empty() {
+        return write_sam_unmapped(w, name, seq);
+    }
+    let mut secondary_count = 0usize;
+    for m in mappings {
+        if m.is_supplementary {
+            continue;
+        }
+        if m.is_primary {
+            let flag = if m.strand == Strand::Reverse { FLAG_REVERSE } else { 0 };
+            write_sam_mapped(w, name, seq, flag, m)?;
+        } else if secondary_count < max_secondary {
+            let flag = FLAG_SECONDARY | if m.strand == Strand::Reverse { FLAG_REVERSE } else { 0 };
+            write_sam_mapped(w, name, seq, flag, m)?;
+            secondary_count += 1;
+        }
+    }
+    Ok(())
+}
+
+/// Cross-reactivity alignment (PAF output with all secondary alignments).
 ///
-/// `minimap2 -x <preset> -c --secondary=yes -N 10000 -p 0.5 <reference> <probes> > <output>`
+/// Replicates `minimap2 -x <preset> -c --secondary=yes -N 10000 -p 0.5 <reference> <probes>`
 ///
-/// Uses PAF output to get lightweight tabular format with matching base counts.
-/// Secondary alignments are kept to capture all cross-reactive hits.
-/// -p 0.5 lowers the secondary score threshold to catch weaker homology.
+/// Uses PAF format for lightweight tabular output with matching base counts.
+/// `-p 0.5` is replicated via `filtering.pri_ratio = 0.5` to catch weaker homology.
 pub fn xreact_align(
     preset: &str,
     reference: &Path,
@@ -147,36 +290,36 @@ pub fn xreact_align(
     output_paf: &Path,
     log_file: &Path,
 ) -> Result<()> {
-    let log = File::create(log_file)
-        .with_context(|| format!("Cannot create log: {}", log_file.display()))?;
+    write_stub_log(log_file, "xreact_align")?;
+
+    let mut aligner = Aligner::from_fasta(path_str(reference)?, to_preset(preset)?)
+        .with_context(|| format!("Failed to build alignment index for {}", reference.display()))?;
+
+    // Replicate minimap2 --secondary=yes -N 10000 -p 0.5.
+    aligner.options_mut().flags.remove(AlignFlags::NO_PRINT_2ND);
+    aligner.options_mut().filtering.best_n = 10000;
+    aligner.options_mut().filtering.pri_ratio = 0.5;
+
     let out = File::create(output_paf)
         .with_context(|| format!("Cannot create PAF: {}", output_paf.display()))?;
+    let mut w = BufWriter::new(out);
 
-    let status = Command::new("minimap2")
-        .args(["-x", preset, "-c"])
-        .arg("--secondary=yes")
-        .args(["-N", "10000"])
-        .args(["-p", "0.5"])
-        .arg(reference)
-        .arg(probes)
-        .stdout(out)
-        .stderr(log)
-        .status()
-        .context("Failed to execute minimap2")?;
-
-    if !status.success() {
-        bail!(
-            "minimap2 xreact alignment failed (exit code {:?})",
-            status.code()
-        );
+    for (name, seq) in fasta::parse_fasta(probes)? {
+        let qlen = seq.len();
+        let result = aligner.map_seq(&name, seq.as_bytes());
+        for m in &result.mappings {
+            if !m.is_supplementary {
+                write_paf_record(&mut w, &name, qlen, m)?;
+            }
+        }
     }
 
     Ok(())
 }
 
-/// Run minimap2 for host filtering (SAM output).
+/// Host read filtering alignment (SAM output).
 ///
-/// `minimap2 -ax <preset> <host> <reads> [<reads_r2>] > <output>`
+/// Replicates `minimap2 -ax <preset> <host> <reads> [<reads_r2>]`
 pub fn host_align(
     preset: &str,
     host: &Path,
@@ -185,26 +328,23 @@ pub fn host_align(
     output_sam: &Path,
     log_file: &Path,
 ) -> Result<()> {
+    write_stub_log(log_file, "host_align")?;
+
+    let aligner = Aligner::from_fasta(path_str(host)?, to_preset(preset)?)
+        .with_context(|| format!("Failed to build alignment index for {}", host.display()))?;
+
     let out = File::create(output_sam)
         .with_context(|| format!("Cannot create SAM: {}", output_sam.display()))?;
-    let log = File::create(log_file)
-        .with_context(|| format!("Cannot create log: {}", log_file.display()))?;
+    let mut w = BufWriter::new(out);
+    write_sam_header(&mut w, &aligner)?;
 
-    let mut cmd = Command::new("minimap2");
-    cmd.args(["-ax", preset])
-        .arg(host)
-        .arg(reads);
-    if let Some(r2) = reads_r2 {
-        cmd.arg(r2);
+    for (name, seq) in fasta::parse_fasta(reads)? {
+        map_and_write_primary(&aligner, &mut w, &name, &seq)?;
     }
-    let status = cmd
-        .stdout(out)
-        .stderr(log)
-        .status()
-        .context("Failed to execute minimap2")?;
-
-    if !status.success() {
-        bail!("minimap2 host alignment failed (exit code {:?})", status.code());
+    if let Some(r2) = reads_r2 {
+        for (name, seq) in fasta::parse_fasta(r2)? {
+            map_and_write_primary(&aligner, &mut w, &name, &seq)?;
+        }
     }
 
     Ok(())

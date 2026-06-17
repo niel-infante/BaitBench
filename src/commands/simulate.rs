@@ -44,7 +44,7 @@ pub fn execute(args: &SimulateArgs) -> Result<()> {
     let temp_sam = args.output.with_extension("probe_hits.sam");
     let temp_log = args.output.with_extension("probe_align.log");
 
-    log::info!("Aligning probes to reference with minimap2...");
+    log::info!("Aligning probes to reference...");
     minimap2::probe_align(
         "sr",
         args.reference,

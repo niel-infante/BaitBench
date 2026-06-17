@@ -5,7 +5,9 @@ channels:
   - defaults
 dependencies:
   # Alignment tools
-  - minimap2>=2.24
+  # minimap2 is no longer required — alignment is handled by the rammap library
+  # compiled into the baitbench binary.
+  # For the standalone 'rammap' CLI: cargo install rammap
   - blast>=2.12
   # Clustering
   - cd-hit>=4.8

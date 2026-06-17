@@ -118,14 +118,6 @@ Without `--sample`, all targets are treated as present with equal weight. When `
 | `--distractor-fraction` | 0.9 | Fraction of fragments from distractors (0-1) |
 | `--seed` | random | Random seed for reproducibility |
 
-### Capture Parameters
-
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `--capture-method` | minimap2 | Capture method: `minimap2` or `blast` |
-| `--max-mismatches` | 10 | Maximum mismatches (minimap2 only) |
-| `--min-match-bases` | 60 | Minimum matching bases required |
-
 ### Host Filtering (Optional)
 
 | Parameter | Default | Description |
@@ -138,25 +130,27 @@ Without `--sample`, all targets are treated as present with equal weight. When `
 |-----------|---------|-------------|
 | `--outdir` | ./results | Output directory |
 | `--run-name` | auto | Run name (auto-generated timestamp if not specified) |
-| `--no-report` | false | Skip HTML report generation |
+| `--report` | full | Report output: `full` (HTML), `none` (skip), `rmd` (editable RMarkdown) |
 
 ## Output Files
 
 ```
 results/<run_name>/
-├── combined_reference.fa   # Merged targets + distractors
+├── combined_reference.fa   # Merged targets + distractors (+ genomes in genome mode)
 ├── weights.txt             # Sampling weights
 ├── targets.txt             # Target IDs
 ├── distractors.txt         # Distractor IDs
 ├── sample.txt              # Sample IDs (subset of targets)
-├── fragments.fa             # Simulated fragments
-├── captured.fa              # Fragments passing capture filter
-├── reads.fa                 # Sequenced reads (fragments trimmed to read length)
-├── mapped.sam               # Alignments to references
+├── distractor_groups.tsv   # Distractor group assignments (always written)
+├── target_groups.tsv       # Target group assignments (if --groups)
+├── fragments.fa            # Simulated fragments (probe-biased + background)
+├── reads.fa                # Sequencing reads
+├── mapped.sam              # Alignments to references
 ├── detected.list           # Reference IDs and read counts
 ├── results.tsv             # Summary metrics
-├── detected_detail.tsv     # Per-reference breakdown (with coverage stats)
-├── coverage.tsv            # Per-position coverage depth for detected references
+├── detected_detail.tsv     # Per-reference breakdown (with group and coverage stats)
+├── group_detail.tsv        # Per-group summary (if groups are present)
+├── coverage.tsv            # Run-length encoded read depth intervals
 ├── results.json            # Machine-readable metrics
 └── report.html             # HTML report with figures (if R available)
 ```
@@ -226,27 +220,29 @@ The `detected_detail.tsv` file contains one row per reference (target or distrac
 | Column | Description |
 |--------|-------------|
 | `reference_id` | Reference sequence ID |
-| `category` | `sample`, `nonsample_target`, or `distractor` |
-| `expected` | Whether detection is expected (`true` for sample targets) |
-| `detected` | Whether at least one read mapped to this reference |
+| `group` | Group name this sequence belongs to (sequence's own ID if no groups file provided) |
+| `category` | `sample`, `nonsample_target`, `distractor`, or `untargeted` |
+| `expected` | 1 if expected to be detected (sample target), 0 otherwise |
+| `detected` | 1 if at least one read maps to this reference, 0 otherwise |
 | `fragments_generated` | Number of fragments generated from this reference |
-| `fragments_captured` | Number of fragments captured from this reference |
+| `fragments_captured` | Number of fragments captured by probes |
 | `reads_assigned` | Number of reads mapped to this reference |
-| `classification` | `TP`, `FN`, `FP_target`, `FP_distractor`, `TN_target`, or `TN_distractor` |
+| `classification` | `TP`, `FN`, `FP_target`, `FP_distractor`, `TN_target`, `TN_distractor`, or `untargeted` |
 | `ref_length` | Reference sequence length (bp) |
-| `avg_coverage` | Average coverage depth across the reference |
-| `pct_covered_5x` | Percentage of reference positions with coverage >= 5X |
-| `pct_covered_20x` | Percentage of reference positions with coverage >= 20X |
+| `avg_coverage` | Average read depth across reference |
+| `pct_covered_5x` | % positions with >= 5x depth |
+| `pct_covered_20x` | % positions with >= 20x depth |
 
 ## coverage.tsv
 
-The `coverage.tsv` file contains per-position coverage depth for each reference with at least one mapped read. This file is used by the HTML report for coverage profile plots.
+The `coverage.tsv` file contains run-length encoded read depth intervals for each reference. Consecutive positions with the same depth are collapsed into a single interval (1-based inclusive coordinates). This file is used by the HTML report for coverage profile plots.
 
 | Column | Description |
 |--------|-------------|
 | `reference_id` | Reference sequence ID |
-| `position` | 1-based genome position |
-| `depth` | Coverage depth at this position |
+| `start` | 1-based start position of the interval (inclusive) |
+| `end` | 1-based end position of the interval (inclusive) |
+| `depth` | Coverage depth for this interval |
 
 ## Understanding the Metrics
 
@@ -319,9 +315,8 @@ Each pipeline step is available as a subcommand:
 
 ```bash
 baitbench prepare   # Combine FASTAs, generate weights
-baitbench simulate  # Generate weighted random fragments
-baitbench capture   # Probe capture (minimap2 or BLAST)
-baitbench sequence  # Simulate sequencing (trim fragments to read length)
+baitbench simulate  # Probe alignment + thermodynamic scoring + fragment generation
+baitbench sequence  # Simulate sequencing (trim/error-model fragments to reads)
 baitbench filter    # Optional host read filtering
 baitbench map       # Map reads back to reference
 baitbench list      # Count reads per reference from SAM
@@ -353,15 +348,15 @@ baitbench run \
   --seed 42 \
   --outdir results
 
-# 3. More stringent capture
+# 3. With CT score simulation (low viral load at CT 30)
 baitbench run \
   --targets targets.fa \
   --distractors distractors.fa \
   --probes probes.fa \
   --num-fragments 10000 \
-  --min-match-bases 70 \
-  --max-mismatches 5 \
-  --outdir results/stringent
+  --ct 30 \
+  --seed 42 \
+  --outdir results/ct30
 
 # 4. Compare results
 cat results/*/results.tsv
@@ -378,19 +373,18 @@ The IDs in your sample manifest don't match the FASTA headers. Sequence IDs are 
 The HTML report requires R and the `R/` directory. Options:
 - Run from the project root directory
 - Set `BAITBENCH_R_DIR` to the path of the `R/` directory
-- Use `--no-report` to skip report generation
+- Use `--report none` to skip report generation
 
 ### Low capture rate
 
 If very few reads are being captured:
-- Try reducing `--min-match-bases`
-- Try increasing `--max-mismatches`
-- Verify your probes match your targets
+- Check that probes actually match your target sequences
+- Try increasing `--capture-fraction` to generate more probe-biased fragments
+- Verify your probes FASTA is in the correct format with unique IDs
 
 ### High false positive rate
 
 If many distractors or non-sample targets are being captured:
-- Try increasing `--min-match-bases`
-- Try decreasing `--max-mismatches`
+- Try lowering `--capture-fraction` to reduce probe-biased fragments and rely more on background
 - Consider adding host filtering with `--host-fasta`
 - Review which genomes appear in the `detected_detail.tsv` to distinguish FP_target from FP_distractor

@@ -332,7 +332,7 @@ pub enum Commands {
         #[arg(long, default_value = "200")]
         fragment_length_max: usize,
 
-        /// Number of threads for minimap2 probe alignment
+        /// Number of threads for probe alignment
         #[arg(long, default_value = "1")]
         threads: usize,
     },
@@ -389,7 +389,7 @@ pub enum Commands {
         pe_frag_len_sd: usize,
     },
 
-    /// Filter out host reads using minimap2
+    /// Filter out host reads by aligning against a host/background genome
     Filter {
         /// Host genome FASTA
         #[arg(long)]
@@ -907,7 +907,7 @@ pub enum Commands {
 
         /// Compute probe coverage for each target individually (eliminates probe competition).
         /// Useful when targets are highly similar (e.g., hundreds of strain variants).
-        /// Runs minimap2 once per target against that target alone, so probe competition
+        /// Runs alignment once per target against that target alone, so probe competition
         /// from other similar targets is entirely eliminated.
         #[arg(long)]
         all_individual_targets: bool,
