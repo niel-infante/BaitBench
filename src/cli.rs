@@ -842,6 +842,48 @@ pub enum Commands {
         /// Seed length (k-mer size) for the syotti approximate search (only used with --method syotti-lite)
         #[arg(long, default_value = "20")]
         syotti_seed_len: usize,
+
+        /// Sliding window step between consecutive k-mers during enumeration.
+        /// 1 = every position (dense, like original ProbeTools default); larger values reduce candidates.
+        /// Only used with --method probetools-lite.
+        #[arg(long, default_value = "1")]
+        pt_step: usize,
+
+        /// cd-hit-est sequence identity threshold for k-mer clustering.
+        /// Only used with --method probetools-lite.
+        #[arg(long, default_value = "0.9")]
+        pt_identity: f64,
+
+        /// Target coverage fraction (10th-percentile across all targets) to reach before stopping.
+        /// Only used with --method probetools-lite.
+        #[arg(long, default_value = "0.9")]
+        pt_coverage: f64,
+
+        /// Number of probes to add per iteration.
+        /// Only used with --method probetools-lite.
+        #[arg(long, default_value = "100")]
+        pt_batch_size: usize,
+
+        /// Hard cap on the total number of probes in the panel; no cap if omitted.
+        /// Only used with --method probetools-lite.
+        #[arg(long)]
+        pt_max_panel_size: Option<usize>,
+
+        /// Minimum per-position depth to count a position as covered.
+        /// Only used with --method probetools-lite.
+        #[arg(long, default_value = "1")]
+        pt_min_depth: u32,
+
+        /// Maximum number of iterations regardless of coverage progress.
+        /// Only used with --method probetools-lite.
+        #[arg(long, default_value = "20")]
+        pt_max_iterations: usize,
+
+        /// Stop iterating if the 10th-percentile coverage improves by less than this fraction
+        /// between consecutive iterations (stagnation guard).
+        /// Only used with --method probetools-lite.
+        #[arg(long, default_value = "0.001")]
+        pt_min_coverage_gain: f64,
     },
 
     /// Standalone utility tools (probe design algorithms, sequence analysis).
@@ -1169,6 +1211,11 @@ pub enum ProbeMethod {
     /// catch: external CATCH tool (requires catch conda package)
     /// All --catch-* flags apply
     Catch,
+    /// probetools-lite: native Rust reimplementation of ProbeTools iterative
+    /// k-mer clustering probe design (Kuchinski et al. 2022, doi:10.1186/s12864-022-08790-4).
+    /// All --pt-* flags apply. Requires cd-hit-est.
+    #[value(name = "probetools-lite")]
+    ProbeToolsLite,
 }
 
 #[derive(Clone, Copy, ValueEnum, Debug, PartialEq, Eq)]

@@ -8,6 +8,7 @@ mod fasta;
 mod io_utils;
 mod sampling;
 mod sdust;
+mod probetools;
 mod syotti;
 mod target_similarity;
 mod thermodynamics;
@@ -559,6 +560,14 @@ fn main() -> Result<()> {
             refine_until_stable,
             syotti_mismatches,
             syotti_seed_len,
+            pt_step,
+            pt_identity,
+            pt_coverage,
+            pt_batch_size,
+            pt_max_panel_size,
+            pt_min_depth,
+            pt_max_iterations,
+            pt_min_coverage_gain,
         } => {
             build_probes::execute(&build_probes::BuildProbesArgs {
                 targets: &targets,
@@ -593,6 +602,14 @@ fn main() -> Result<()> {
                 refine_until_stable,
                 syotti_mismatches,
                 syotti_seed_len,
+                pt_step,
+                pt_identity,
+                pt_coverage,
+                pt_batch_size,
+                pt_max_panel_size,
+                pt_min_depth,
+                pt_max_iterations,
+                pt_min_coverage_gain,
             })?;
         }
 

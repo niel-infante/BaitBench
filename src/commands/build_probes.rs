@@ -11,6 +11,7 @@ use crate::io_utils::prefixed_join;
 use crate::sdust;
 use crate::syotti;
 use crate::catch;
+use crate::probetools;
 
 pub struct BuildProbesArgs<'a> {
     pub targets: &'a Path,
@@ -45,6 +46,14 @@ pub struct BuildProbesArgs<'a> {
     pub refine_until_stable: bool,
     pub syotti_mismatches: usize,
     pub syotti_seed_len: usize,
+    pub pt_step: usize,
+    pub pt_identity: f64,
+    pub pt_coverage: f64,
+    pub pt_batch_size: usize,
+    pub pt_max_panel_size: Option<usize>,
+    pub pt_min_depth: u32,
+    pub pt_max_iterations: usize,
+    pub pt_min_coverage_gain: f64,
 }
 
 /// Statistics for a single pipeline step.
@@ -232,6 +241,35 @@ pub fn execute(args: &BuildProbesArgs) -> Result<()> {
                 args.catch_extension,
                 args.catch_coverage,
                 args.catch_minhash_threshold,
+            )?;
+        }
+        ProbeMethod::ProbeToolsLite => {
+            log::info!(
+                "Step 4: Building probes (probetools-lite, length={}, step={}, identity={:.2}, \
+                 coverage_goal={:.2}, batch={}, max_iterations={})...",
+                args.probe_length,
+                args.pt_step,
+                args.pt_identity,
+                args.pt_coverage,
+                args.pt_batch_size,
+                args.pt_max_iterations,
+            );
+            cdhit::check_available()?;
+            probetools::design_probes(
+                &length_filtered_path,
+                &probes_raw_path,
+                args.probe_length,
+                args.pt_step,
+                args.pt_identity,
+                args.pt_coverage,
+                args.pt_batch_size,
+                args.pt_max_panel_size,
+                args.pt_min_depth,
+                args.pt_max_iterations,
+                args.pt_min_coverage_gain,
+                args.minimap_preset,
+                args.threads,
+                args.outdir,
             )?;
         }
     }
@@ -423,6 +461,11 @@ pub fn execute(args: &BuildProbesArgs) -> Result<()> {
             if path.exists() {
                 let _ = fs::remove_file(&path);
             }
+        }
+        // Clean up probetools-lite working directory
+        let pt_work = args.outdir.join("probetools_work");
+        if pt_work.exists() {
+            let _ = fs::remove_dir_all(&pt_work);
         }
     }
 
@@ -801,6 +844,14 @@ fn write_run_params(path: &Path, args: &BuildProbesArgs, cdhit_available: bool) 
     writeln!(w, "threads\t--threads\t{}", args.threads)?;
     writeln!(w, "outdir\t--outdir\t{}", args.outdir.display())?;
     writeln!(w, "cdhit_available\t--n/a\t{}", cdhit_available)?;
+    writeln!(w, "pt_step\t--pt-step\t{}", args.pt_step)?;
+    writeln!(w, "pt_identity\t--pt-identity\t{:.2}", args.pt_identity)?;
+    writeln!(w, "pt_coverage\t--pt-coverage\t{:.2}", args.pt_coverage)?;
+    writeln!(w, "pt_batch_size\t--pt-batch-size\t{}", args.pt_batch_size)?;
+    writeln!(w, "pt_max_panel_size\t--pt-max-panel-size\t{}", args.pt_max_panel_size.map(|v| v.to_string()).unwrap_or_default())?;
+    writeln!(w, "pt_min_depth\t--pt-min-depth\t{}", args.pt_min_depth)?;
+    writeln!(w, "pt_max_iterations\t--pt-max-iterations\t{}", args.pt_max_iterations)?;
+    writeln!(w, "pt_min_coverage_gain\t--pt-min-coverage-gain\t{:.4}", args.pt_min_coverage_gain)?;
 
     w.flush()?;
     Ok(())

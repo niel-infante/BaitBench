@@ -247,6 +247,15 @@ baitbench build-probes \
   --method catch \
   --probe-length 120 \
   --outdir probes_output
+
+# probetools-lite method (native Rust reimplementation of ProbeTools; requires cd-hit-est)
+baitbench build-probes \
+  --targets targets.fa \
+  --method probetools-lite \
+  --probe-length 120 \
+  --pt-coverage 0.9 \
+  --pt-batch-size 100 \
+  --outdir probes_output
 ```
 
 ### Assess existing probes

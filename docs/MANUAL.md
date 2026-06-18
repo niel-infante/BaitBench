@@ -938,12 +938,12 @@ When `--identify` is passed to `baitbench run` (genome mode with `--sample-targe
 
 Build a probe set from target sequences. Runs a multi-step pipeline: collapse redundant targets, construct probes, filter by GC content and sequence complexity, and deduplicate. After building, automatically chains into probe assessment (probe coverage + cross-reactivity analysis) unless `--skip-assess` is specified.
 
-Four probe construction methods are available: `tile` (sliding window, default), `catch-lite` (native Rust reimplementation of CATCH optimization-based design), `catch` (external CATCH tool from the Broad Institute; requires the `catch` conda package), and `syotti-lite` (native Rust reimplementation of Syotti greedy set-cover design).
+Five probe construction methods are available: `tile` (sliding window, default), `catch-lite` (native Rust reimplementation of CATCH optimization-based design), `catch` (external CATCH tool from the Broad Institute; requires the `catch` conda package), `syotti-lite` (native Rust reimplementation of Syotti greedy set-cover design), and `probetools-lite` (native Rust reimplementation of ProbeTools iterative k-mer clustering design; requires cd-hit-est).
 
 ```bash
 baitbench build-probes \
   --targets targets.fa \
-  [--method tile|catch-lite|syotti-lite|catch] \
+  [--method tile|catch-lite|syotti-lite|catch|probetools-lite] \
   [--probe-length 120] \
   [--step -60] \
   [--catch-probe-stride 60] \
@@ -953,6 +953,14 @@ baitbench build-probes \
   [--catch-minhash-threshold 0.6] \
   [--syotti-mismatches 40] \
   [--syotti-seed-len 20] \
+  [--pt-step 1] \
+  [--pt-identity 0.9] \
+  [--pt-coverage 0.9] \
+  [--pt-batch-size 100] \
+  [--pt-max-panel-size N] \
+  [--pt-min-depth 1] \
+  [--pt-max-iterations 20] \
+  [--pt-min-coverage-gain 0.001] \
   [--min-gc 0.20] \
   [--max-gc 0.80] \
   [--max-n-frac 0.05] \
@@ -977,7 +985,7 @@ baitbench build-probes \
 
 1. **N filter**: Remove target sequences with more than `--max-n-frac` fraction of ambiguous (non-ACGT) bases. Sequences with excessive N content are poor probe sources and would generate uninformative probes.
 2. **Collapse**: cd-hit-est clusters targets at `--collapse-threshold` identity to remove near-duplicates
-3. **Build**: Construct probes from collapsed sequences. Method `tile` generates sliding-window probes of `--probe-length` bp across each sequence with `--step` controlling overlap/gap. A final probe is anchored to the end of each sequence to ensure full coverage. Method `catch-lite` uses BaitBench's native Rust reimplementation of the CATCH algorithm. Method `catch` calls the external CATCH tool (`design_probes.py`; requires `catch` conda package). Method `syotti-lite` uses BaitBench's native Rust reimplementation of the Syotti greedy set-cover algorithm.
+3. **Build**: Construct probes from collapsed sequences. Method `tile` generates sliding-window probes of `--probe-length` bp across each sequence with `--step` controlling overlap/gap. A final probe is anchored to the end of each sequence to ensure full coverage. Method `catch-lite` uses BaitBench's native Rust reimplementation of the CATCH algorithm. Method `catch` calls the external CATCH tool (`design_probes.py`; requires `catch` conda package). Method `syotti-lite` uses BaitBench's native Rust reimplementation of the Syotti greedy set-cover algorithm. Method `probetools-lite` uses BaitBench's native Rust reimplementation of the ProbeTools iterative k-mer clustering algorithm (requires cd-hit-est).
 4. **GC filter**: Remove probes with GC content outside `--min-gc` to `--max-gc` range
 5. **Complexity filter**: Remove low-complexity probes using the sDUST algorithm (Morgulis et al. 2006). Probes where more than `--max-masked-frac` of bases are identified as low-complexity (e.g., homopolymers, dinucleotide repeats) are removed. Set `--max-masked-frac 1.0` to disable.
 6. **Deduplicate**: cd-hit-est clusters probes at `--dedup-threshold` identity to remove redundant probes
@@ -1081,10 +1089,105 @@ Memory note: the k-mer index stores one entry per seed position per input base. 
 
 > Alanko JN, Slizovskiy IB, Lokshtanov D, Gagie T, Noyes NR, Boucher C. "Syotti: scalable bait design for DNA enrichment." *Bioinformatics.* 2022;38(Supplement_1):i177–i184. doi:10.1093/bioinformatics/btac226
 
+**probetools-lite method (`--method probetools-lite`):**
+
+BaitBench includes a native Rust reimplementation of the ProbeTools algorithm (Kuchinski et al. 2022, BMC Genomics). ProbeTools takes a coverage-first, diversity-aware approach: rather than starting from every position and pruning (tiling, Syotti) or optimizing a coverage model (CATCH), it identifies which k-mers in the target space are the most *representative* of sequence diversity — then greedily builds a panel that iterates on remaining coverage gaps.
+
+This makes it well-suited for highly variable targets (e.g., diverse virus families) where each probe needs to cover many slightly different sequence variants.
+
+**Algorithm:**
+
+1. **K-mer enumeration** — Extract all k-mers of length `--probe-length` from the input sequences using a sliding window with step `--pt-step`. K-mers with more than 50% N bases are discarded. With the default `--pt-step 1`, every overlapping window is enumerated; larger values reduce candidates and run time.
+
+2. **Clustering** — Cluster all k-mers by sequence identity using cd-hit-est at `--pt-identity` threshold. Each cluster groups similar k-mers together; the centroid represents the most "central" sequence in that cluster.
+
+3. **Ranking** — Sort cluster centroids by cluster size (number of members) in descending order. A large cluster means many similar k-mers exist across the input, so its centroid is a highly representative probe candidate that will hybridize broadly across variants.
+
+4. **Batch selection** — Add the top `--pt-batch-size` ranked centroids to the probe panel.
+
+5. **Coverage assessment** — Align the full accumulated panel against all original targets using minimap2 (`probe_align`), then compute per-position depth from the SAM output. For each target, calculate the fraction of positions with depth ≥ `--pt-min-depth`. The stopping metric is the **10th-percentile** of these fractions across all targets — meaning 90% of targets must reach the coverage goal before the algorithm considers itself done.
+
+6. **Low-coverage extraction** — Find runs of positions where depth < `--pt-min-depth`. Expand any run shorter than `--probe-length` bp bidirectionally to exactly `--probe-length` bp (centred on the run, clipped to sequence boundaries). Merge overlapping expanded regions. Write these sub-sequences to a new FASTA.
+
+7. **Iterate** — Repeat steps 1–6 on the under-covered sub-sequences. In each subsequent iteration the k-mer pool is drawn only from remaining problem regions, so probes become progressively more targeted to gaps.
+
+**Algorithm substitutions vs. original ProbeTools:**
+
+The original ProbeTools tool uses VSEARCH for k-mer clustering and BLAST+ for coverage assessment. BaitBench replaces both with tools already integrated into the binary:
+
+| Step | Original ProbeTools | probetools-lite |
+|------|--------------------|-----------------------|
+| K-mer clustering | VSEARCH (`--cluster_fast`) | cd-hit-est (equivalent identity-based clustering; already used by build-probes) |
+| Coverage assessment | blastn (`-task blastn-short`) | minimap2 (`probe_align`, via the embedded rammap library; no external process needed) |
+
+Both substitutions produce equivalent results for probe design. cd-hit-est and VSEARCH use the same sequence identity model. minimap2 and BLAST both produce ungapped short-read alignments against targets of this size, and minimap2 is already embedded in the BaitBench binary as a compiled library (no external `minimap2` process is spawned).
+
+**Termination conditions:**
+
+The iterative loop exits as soon as *any* of the following six conditions is met:
+
+| # | Condition | Log level | Notes |
+|---|-----------|-----------|-------|
+| 1 | 10th-pct coverage ≥ `--pt-coverage` | INFO | Normal success path |
+| 2 | Panel size ≥ `--pt-max-panel-size` | INFO | Only applies when `--pt-max-panel-size` is set |
+| 3 | Iteration count ≥ `--pt-max-iterations` | WARN | Hard safety cap; default 20 iterations |
+| 4 | Coverage gain < `--pt-min-coverage-gain` | WARN | Stagnation: each new batch adds negligible coverage |
+| 5 | Low-coverage extraction yields no sequences | INFO | All targets fully covered before goal was reached |
+| 6 | Under-covered regions too short or all-N to yield k-mers | INFO | Rare; happens with very short or degenerate gap regions |
+
+Conditions 3 and 4 are safety guards against non-termination. If the loop exits with a stagnation warning on real data, it typically means the remaining under-covered regions are too divergent from each other to form clusters at the current `--pt-identity` threshold. Solutions: lower `--pt-identity`, lower `--pt-coverage`, or increase `--pt-batch-size`.
+
+**Parameters:**
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--pt-step` | 1 | Sliding window step between consecutive k-mers during enumeration. `1` = every position (densest, matching original ProbeTools default). Increasing to `30` or `60` speeds up clustering significantly and is reasonable for lower-diversity panels. |
+| `--pt-identity` | 0.9 | cd-hit-est sequence identity threshold for k-mer clustering (0.0–1.0). Lower values merge more divergent k-mers into fewer, broader clusters, producing probes with wider cross-variant coverage. Higher values keep clusters tighter, preserving probe specificity. |
+| `--pt-coverage` | 0.9 | Coverage goal (0.0–1.0). The loop continues until the 10th-percentile of per-target coverage fractions reaches this value. Setting 0.9 means the loop stops when 90% of targets have ≥ 90% of their positions covered at depth ≥ `--pt-min-depth`. |
+| `--pt-batch-size` | 100 | Probes added per iteration. Larger batches converge faster but may overshoot the goal; smaller batches are more precise but require more iterations and minimap2 alignments. For large, diverse panels a value of 200–500 is practical. |
+| `--pt-max-panel-size` | (none) | Hard cap on total probes. Stops once this many probes are selected even if the coverage goal is not met. Use when targeting a fixed array format with a known probe budget. |
+| `--pt-min-depth` | 1 | Minimum per-position depth to count a position as covered. `1` (default) counts any alignment as sufficient. Set to `2` or higher to require redundant probe coverage at every position. |
+| `--pt-max-iterations` | 20 | Hard iteration cap. Always terminates after this many iterations regardless of coverage progress. Prevents infinite loops on pathological inputs such as highly repetitive regions or very divergent outlier sequences. A WARN is logged when this limit fires. |
+| `--pt-min-coverage-gain` | 0.001 | Stagnation threshold (0.0–1.0). The loop stops if the 10th-percentile coverage improves by less than this fraction between two consecutive iterations. At the default of `0.001`, the loop stops if a full batch of probes moves coverage by less than 0.1 percentage points. A WARN is logged when stagnation is detected. |
+
+Example for a diverse viral panel (dense enumeration, lower identity threshold):
+
+```bash
+baitbench build-probes \
+  --targets targets.fa \
+  --method probetools-lite \
+  --probe-length 120 \
+  --pt-step 1 \
+  --pt-identity 0.85 \
+  --pt-coverage 0.9 \
+  --pt-batch-size 200 \
+  --pt-max-panel-size 5000 \
+  --pt-max-iterations 15 \
+  --outdir probes_output
+```
+
+Example for a lower-diversity panel (sparser enumeration, faster):
+
+```bash
+baitbench build-probes \
+  --targets targets.fa \
+  --method probetools-lite \
+  --probe-length 120 \
+  --pt-step 30 \
+  --pt-identity 0.9 \
+  --pt-coverage 0.95 \
+  --pt-batch-size 50 \
+  --outdir probes_output
+```
+
+Temporary working files are written to `<outdir>/probetools_work/` during the run and are removed automatically if `--cleanup` is specified.
+
+> Kuchinski KS, Christropher-Hennings J, Bhide K, Bhide M. "ProbeTools: designing hybridization probes for targeted genomic sequencing of diverse and hypervariable viral taxa." *BMC Genomics.* 2022;23(1):579. doi:10.1186/s12864-022-08790-4
+
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | `--targets` | required | Input target sequences FASTA |
-| `--method` | tile | Probe construction method: `tile`, `catch-lite`, `syotti-lite`, or `catch` |
+| `--method` | tile | Probe construction method: `tile`, `catch-lite`, `syotti-lite`, `catch`, or `probetools-lite` |
 | `--probe-length` | 120 | Probe length in bp |
 | `--step` | -60 | Step from end of previous probe. Negative = overlap, 0 = tiled, positive = gap. Only used with `--method tile`. |
 | `--catch-probe-stride` | 60 | Step between candidate probes (bp). Used with `--method catch-lite` and `--method catch`. |
@@ -1094,6 +1197,14 @@ Memory note: the k-mer index stores one entry per seed position per input base. 
 | `--catch-minhash-threshold` | 0.6 | Jaccard similarity threshold for near-deduplication; 0.0 disables. Used with `--method catch-lite` and `--method catch`. |
 | `--syotti-mismatches` | 40 | Maximum Hamming distance for a bait to cover a reference window. Only used with `--method syotti-lite`. |
 | `--syotti-seed-len` | 20 | K-mer seed length for Syotti approximate matching. Only used with `--method syotti-lite`. |
+| `--pt-step` | 1 | Sliding window step between k-mer enumeration windows. Only used with `--method probetools-lite`. |
+| `--pt-identity` | 0.9 | cd-hit-est identity threshold for k-mer clustering (0.0–1.0). Only used with `--method probetools-lite`. |
+| `--pt-coverage` | 0.9 | 10th-percentile coverage goal (0.0–1.0). Only used with `--method probetools-lite`. |
+| `--pt-batch-size` | 100 | Probes added per iteration. Only used with `--method probetools-lite`. |
+| `--pt-max-panel-size` | (none) | Hard cap on total probes; no limit if omitted. Only used with `--method probetools-lite`. |
+| `--pt-min-depth` | 1 | Minimum per-position depth to count as covered. Only used with `--method probetools-lite`. |
+| `--pt-max-iterations` | 20 | Hard iteration cap (termination guard). Only used with `--method probetools-lite`. |
+| `--pt-min-coverage-gain` | 0.001 | Stagnation threshold; stops if coverage improvement per iteration falls below this (termination guard). Only used with `--method probetools-lite`. |
 | `--min-gc` | 0.20 | Minimum GC fraction (0–1) |
 | `--max-gc` | 0.80 | Maximum GC fraction (0–1) |
 | `--max-n-frac` | 0.05 | Maximum fraction of ambiguous (non-ACGT) bases in a target sequence (0–1). Targets exceeding this are removed before collapse. |

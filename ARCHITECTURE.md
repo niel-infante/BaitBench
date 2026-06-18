@@ -68,12 +68,13 @@ src/
 │   ├── panel_qc.rs      # Standalone target panel discriminability QC (target-vs-target similarity, species discrimination)
 │   ├── identify.rs      # Species-level calling from multi-target detection patterns (standalone or pipeline step)
 │   ├── coverage_curve.rs # Coverage curve: pipeline at multiple param combos (CT × temp × CF × NS) → depth curves
-│   ├── build_probes.rs  # Standalone probe building: N filter → collapse → length filter → tile/CATCH/Syotti → GC filter → complexity filter (sDUST) → deduplicate
+│   ├── build_probes.rs  # Standalone probe building: N filter → collapse → length filter → tile/CATCH/Syotti/ProbeTools → GC filter → complexity filter (sDUST) → deduplicate
 │   ├── assess_probes.rs # Combined probe assessment: probe coverage + cross-reactivity (self + optional genomes), orchestrates sub-commands
 │   └── tool_dustview.rs # `baitbench tool dustview` handler: execute() — sDUST masking visualization on FASTA sequences
 ├── sdust.rs             # sDUST low-complexity detection: sdust(), masked_fraction() (Morgulis et al. 2006)
 ├── syotti.rs            # Syotti greedy bait design: design_probes() — k-mer hash index, seed-and-extend, greedy set-cover (Alanko et al. 2022)
 ├── catch.rs             # Native CATCH probe design: design_probes() — tiling → MinHash dedup → greedy set cover (reimplementation of Metsky et al. 2019)
+├── probetools.rs        # ProbeTools-Lite probe design: design_probes() — iterative k-mer enumeration → cd-hit-est clustering → greedy batch selection → minimap2 coverage → low-cov extraction (reimplementation of Kuchinski et al. 2022)
 ├── external/
 │   ├── minimap2.rs      # minimap2 wrapper: capture_align (PAF), map_reads (SAM, optional reads_r2 for PE), host_align (optional reads_r2), probe_align(max_secondary), xreact_align
 │   ├── art_modern.rs    # ART-modern wrapper: check_available, run_simulation (Illumina SE/PE reads + SAM for renaming)
