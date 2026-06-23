@@ -105,11 +105,7 @@ pub enum Commands {
         #[arg(long, default_value = "70.0")]
         hybridization_temperature: f64,
 
-        /// Na+ concentration in mM for ΔG salt correction (thermodynamic mode only).
-        /// SantaLucia (1998) NN parameters assume 1000 mM (1 M NaCl); typical hybridization
-        /// capture buffers are around 50 mM Na+. Values other than 1000 apply the
-        /// Owczarzy et al. (1997) entropy correction to ΔS.
-        #[arg(long, default_value = "50.0")]
+        #[arg(long, default_value = "50.0", hide = true)]
         salt_concentration: f64,
 
         /// Fraction of fragments derived from probe binding sites (0.0–1.0).
@@ -305,11 +301,7 @@ pub enum Commands {
         #[arg(long, default_value = "70.0")]
         hybridization_temperature: f64,
 
-        /// Na+ concentration in mM for ΔG salt correction (thermodynamic mode only).
-        /// SantaLucia (1998) NN parameters assume 1000 mM (1 M NaCl); typical hybridization
-        /// capture buffers are around 50 mM Na+. Values other than 1000 apply the
-        /// Owczarzy et al. (1997) entropy correction to ΔS.
-        #[arg(long, default_value = "50.0")]
+        #[arg(long, default_value = "50.0", hide = true)]
         salt_concentration: f64,
 
         /// Random seed
@@ -1025,11 +1017,7 @@ pub enum Commands {
         #[arg(long, default_value = "70.0", conflicts_with = "hybridization_temperature_values")]
         hybridization_temperature: f64,
 
-        /// Na+ concentration in mM for ΔG salt correction (thermodynamic mode only).
-        /// SantaLucia (1998) NN parameters assume 1000 mM (1 M NaCl); typical hybridization
-        /// capture buffers are around 50 mM Na+. Values other than 1000 apply the
-        /// Owczarzy et al. (1997) entropy correction to ΔS.
-        #[arg(long, default_value = "50.0")]
+        #[arg(long, default_value = "50.0", hide = true)]
         salt_concentration: f64,
 
         /// Num-sequences values to sweep (space-separated). Conflicts with --num-sequences.
