@@ -150,6 +150,23 @@ pub fn execute(args: &ProbeCoverageArgs) -> Result<()> {
                 Err(e) => log::warn!("RMarkdown generation failed (non-fatal): {}", e),
             }
         }
+        ReportMode::BothR => {
+            let report_path = prefixed_join(args.outdir, pfx, "probe_coverage_report.html");
+            log::info!("Generating probe coverage RMarkdown file...");
+            match write_probe_coverage_rmd(&summary_path, &depth_path, &multi_mapping_path, &params_path, &report_path, args.proximity) {
+                Ok(()) => {}
+                Err(e) => log::warn!("RMarkdown generation failed (non-fatal): {}", e),
+            }
+            if rscript::check_available() {
+                log::info!("Generating probe coverage HTML report...");
+                match generate_probe_report(&summary_path, &depth_path, &multi_mapping_path, &params_path, &report_path, args.proximity) {
+                    Ok(()) => log::info!("Report generated: {}", report_path.display()),
+                    Err(e) => log::warn!("Report generation failed (non-fatal): {}", e),
+                }
+            } else {
+                log::warn!("Rscript not found — skipping HTML report (Rmd still written).");
+            }
+        }
     }
 
     // Cleanup intermediate files if requested

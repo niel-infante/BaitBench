@@ -168,6 +168,35 @@ pub fn execute(args: &PanelQcArgs) -> Result<()> {
                 Err(e) => log::warn!("RMarkdown generation failed (non-fatal): {}", e),
             }
         }
+        ReportMode::BothR => {
+            let report_path = prefixed_join(args.outdir, pfx, "panel_qc_report.html");
+            log::info!("Generating panel QC RMarkdown file...");
+            match write_panel_qc_rmd(
+                &disc_path,
+                &matrix_path,
+                &sim_path,
+                &params_path,
+                &report_path,
+            ) {
+                Ok(()) => {}
+                Err(e) => log::warn!("RMarkdown generation failed (non-fatal): {}", e),
+            }
+            if rscript::check_available() {
+                log::info!("Generating panel QC report...");
+                match generate_panel_qc_report(
+                    &disc_path,
+                    &matrix_path,
+                    &sim_path,
+                    &params_path,
+                    &report_path,
+                ) {
+                    Ok(()) => log::info!("Report generated: {}", report_path.display()),
+                    Err(e) => log::warn!("Report generation failed (non-fatal): {}", e),
+                }
+            } else {
+                log::warn!("Rscript not found — skipping HTML report (Rmd still written).");
+            }
+        }
     }
 
     // Cleanup

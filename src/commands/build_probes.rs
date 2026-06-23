@@ -438,6 +438,23 @@ pub fn execute(args: &BuildProbesArgs) -> Result<()> {
                     Err(e) => log::warn!("RMarkdown generation failed (non-fatal): {}", e),
                 }
             }
+            ReportMode::BothR => {
+                let report_path =
+                    prefixed_join(args.outdir, args.output_prefix, "build_probes_report.html");
+                let rmd_path = crate::commands::report::rmd_output_path(&report_path);
+                match write_rmd(&stats_path, &params_path, &rmd_path) {
+                    Ok(()) => log::info!("RMarkdown written: {}", rmd_path.display()),
+                    Err(e) => log::warn!("RMarkdown generation failed (non-fatal): {}", e),
+                }
+                if rscript::check_available() {
+                    match generate_report(&stats_path, &params_path, &report_path) {
+                        Ok(()) => log::info!("Report generated: {}", report_path.display()),
+                        Err(e) => log::warn!("Report generation failed (non-fatal): {}", e),
+                    }
+                } else {
+                    log::warn!("Rscript not found — skipping HTML report (Rmd still written).");
+                }
+            }
         }
     }
 

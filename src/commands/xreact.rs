@@ -279,6 +279,35 @@ pub fn execute(args: &XreactArgs) -> Result<()> {
                 Err(e) => log::warn!("RMarkdown generation failed (non-fatal): {}", e),
             }
         }
+        ReportMode::BothR => {
+            let report_path = prefixed_join(args.outdir, pfx, "xreact_report.html");
+            log::info!("Generating cross-reactivity RMarkdown file...");
+            match write_xreact_rmd(
+                &hits_path,
+                &summary_path,
+                &params_path,
+                args.threshold,
+                &report_path,
+            ) {
+                Ok(()) => {}
+                Err(e) => log::warn!("RMarkdown generation failed (non-fatal): {}", e),
+            }
+            if rscript::check_available() {
+                log::info!("Generating cross-reactivity HTML report...");
+                match generate_xreact_report(
+                    &hits_path,
+                    &summary_path,
+                    &params_path,
+                    args.threshold,
+                    &report_path,
+                ) {
+                    Ok(()) => log::info!("Report generated: {}", report_path.display()),
+                    Err(e) => log::warn!("Report generation failed (non-fatal): {}", e),
+                }
+            } else {
+                log::warn!("Rscript not found — skipping HTML report (Rmd still written).");
+            }
+        }
     }
 
     // Cleanup intermediate files if requested

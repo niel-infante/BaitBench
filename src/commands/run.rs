@@ -418,6 +418,23 @@ pub fn execute(args: &RunArgs) -> Result<()> {
                 Err(e) => log::warn!("RMarkdown generation failed (non-fatal): {}", e),
             }
         }
+        ReportMode::BothR => {
+            log::info!("Generating RMarkdown file and HTML report...");
+            match report::execute(&report::ReportArgs {
+                summary: &prefixed_join(outdir, pfx, "results.tsv"),
+                detail: &prefixed_join(outdir, pfx, "detected_detail.tsv"),
+                params: &prefixed_join(outdir, pfx, "run_params.tsv"),
+                coverage: Some(&prefixed_join(outdir, pfx, "coverage.tsv")),
+                species_calls: species_calls_opt,
+                group_detail: group_detail_opt.as_deref(),
+                run_name: &args.run_name,
+                output: &prefixed_join(outdir, pfx, "report.html"),
+                report: ReportMode::BothR,
+            }) {
+                Ok(()) => {}
+                Err(e) => log::warn!("Report generation failed (non-fatal): {}", e),
+            }
+        }
     }
 
     // Cleanup intermediate files if requested

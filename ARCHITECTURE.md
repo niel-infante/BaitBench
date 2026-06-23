@@ -114,7 +114,7 @@ R/
 - **`Commands`** enum — one variant per subcommand (Run, Prepare, Simulate, Sequence, Filter, Map, List, Metrics, ProbeCoverage, Xreact, PanelQc, Identify, Report, CoverageCurve, BuildProbes, AssessProbes, Syotti), each with its own fields
 - **`SimulateMode`** — ValueEnum: Thermodynamic | Simple — controls probe-site weighting in simulate
 - **`ProbeMethod`** — ValueEnum: Tile | Catch | Syotti
-- **`ReportMode`** — ValueEnum: Full | None | Rmd — controls report output (HTML, skip, or editable RMarkdown)
+- **`ReportMode`** — ValueEnum: Full | None | Rmd | BothR — controls report output (HTML, skip, editable RMarkdown, or both HTML and RMarkdown)
 - **CT score flags** — `--ct`, `--ct-baseline`, `--ct-baseline-fraction` on Run and Prepare; `--ct` conflicts with `--distractor-fraction`
 - **Simulate flags** — `--probes` (probe FASTA), `--simulate-mode` (thermodynamic/simple), `--hybridization-temperature` (°C, default 70), `--capture-fraction` (0–1, default 0.5) on Run and Simulate; `--hybridization-temperature-values` on CoverageCurve for temperature sweep
 - **Genome mode flags** — `--genomes` (optional genome FASTA for fragment generation), `--sample-target-map` (optional genome-to-target mapping TSV) on Run, Prepare, and CoverageCurve

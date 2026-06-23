@@ -25,6 +25,15 @@ pub fn execute(args: &ReportArgs) -> Result<()> {
         }
         ReportMode::Full => execute_full(args),
         ReportMode::Rmd => execute_rmd(args),
+        ReportMode::BothR => {
+            execute_rmd(args)?;
+            if rscript::check_available() {
+                execute_full(args)?;
+            } else {
+                log::warn!("Rscript not found — skipping HTML report (Rmd still written).");
+            }
+            Ok(())
+        }
     }
 }
 

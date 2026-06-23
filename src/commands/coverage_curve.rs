@@ -388,6 +388,23 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
                 Err(e) => log::warn!("RMarkdown generation failed (non-fatal): {}", e),
             }
         }
+        ReportMode::BothR => {
+            let report_path = prefixed_join(&args.outdir, pfx, "coverage_curve_report.html");
+            log::info!("Generating coverage curve RMarkdown file...");
+            match write_coverage_curve_rmd(&curves_path, tracking_ids, &args.swept_params, &params_path, &report_path) {
+                Ok(()) => {}
+                Err(e) => log::warn!("RMarkdown generation failed (non-fatal): {}", e),
+            }
+            if rscript::check_available() {
+                log::info!("Generating coverage curve HTML report...");
+                match generate_report(&curves_path, tracking_ids, &args.swept_params, &params_path, &report_path) {
+                    Ok(()) => log::info!("Report generated: {}", report_path.display()),
+                    Err(e) => log::warn!("Report generation failed (non-fatal): {}", e),
+                }
+            } else {
+                log::warn!("Rscript not found — skipping HTML report (Rmd still written).");
+            }
+        }
     }
 
     // Cleanup intermediate directories if requested

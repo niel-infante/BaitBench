@@ -199,7 +199,7 @@ pub enum Commands {
         #[arg(long, default_value = "1")]
         min_unique_targets: usize,
 
-        /// Report output mode: full (HTML report), none (skip), rmd (editable RMarkdown file)
+        /// Report output mode: full (HTML report), none (skip), rmd (editable RMarkdown file), both-r (HTML + RMarkdown)
         #[arg(long, default_value = "full")]
         report: ReportMode,
 
@@ -540,7 +540,7 @@ pub enum Commands {
         #[arg(long, default_value = "")]
         output_prefix: String,
 
-        /// Report output mode: full (HTML report), none (skip), rmd (editable RMarkdown file)
+        /// Report output mode: full (HTML report), none (skip), rmd (editable RMarkdown file), both-r (HTML + RMarkdown)
         #[arg(long, default_value = "full")]
         report: ReportMode,
 
@@ -575,7 +575,7 @@ pub enum Commands {
         #[arg(short, long)]
         output: PathBuf,
 
-        /// Report output mode: full (HTML report), rmd (editable RMarkdown file)
+        /// Report output mode: full (HTML report), rmd (editable RMarkdown file), both-r (HTML + RMarkdown)
         #[arg(long, default_value = "full")]
         report: ReportMode,
     },
@@ -610,7 +610,7 @@ pub enum Commands {
         #[arg(long, default_value = "")]
         output_prefix: String,
 
-        /// Report output mode: full (HTML report), none (skip), rmd (editable RMarkdown file)
+        /// Report output mode: full (HTML report), none (skip), rmd (editable RMarkdown file), both-r (HTML + RMarkdown)
         #[arg(long, default_value = "full")]
         report: ReportMode,
 
@@ -646,7 +646,7 @@ pub enum Commands {
         #[arg(long, default_value = "")]
         output_prefix: String,
 
-        /// Report output mode: full (HTML report), none (skip), rmd (editable RMarkdown file)
+        /// Report output mode: full (HTML report), none (skip), rmd (editable RMarkdown file), both-r (HTML + RMarkdown)
         #[arg(long, default_value = "full")]
         report: ReportMode,
 
@@ -807,7 +807,7 @@ pub enum Commands {
         #[arg(long, default_value = "")]
         output_prefix: String,
 
-        /// Report output mode: full (HTML report), none (skip), rmd (editable RMarkdown file)
+        /// Report output mode: full (HTML report), none (skip), rmd (editable RMarkdown file), both-r (HTML + RMarkdown)
         #[arg(long, default_value = "full")]
         report: ReportMode,
 
@@ -919,7 +919,7 @@ pub enum Commands {
         #[arg(long, default_value = "")]
         output_prefix: String,
 
-        /// Report output mode: full (HTML report), none (skip), rmd (editable RMarkdown file)
+        /// Report output mode: full (HTML report), none (skip), rmd (editable RMarkdown file), both-r (HTML + RMarkdown)
         #[arg(long, default_value = "full")]
         report: ReportMode,
 
@@ -1076,7 +1076,7 @@ pub enum Commands {
         #[arg(long, default_value = "")]
         output_prefix: String,
 
-        /// Report output mode: full (HTML report), none (skip), rmd (editable RMarkdown file)
+        /// Report output mode: full (HTML report), none (skip), rmd (editable RMarkdown file), both-r (HTML + RMarkdown)
         #[arg(long, default_value = "full")]
         report: ReportMode,
 
@@ -1214,6 +1214,9 @@ pub enum ReportMode {
     None,
     /// Output parameterized RMarkdown file for manual editing and rendering
     Rmd,
+    /// Generate both HTML report and RMarkdown file
+    #[value(name = "both-r")]
+    BothR,
 }
 
 #[derive(Clone, Copy, ValueEnum, Debug, PartialEq, Eq)]

@@ -177,6 +177,50 @@ pub fn execute(args: &AssessProbesArgs) -> Result<()> {
                 Err(e) => log::warn!("RMarkdown generation failed (non-fatal): {}", e),
             }
         }
+        ReportMode::BothR => {
+            let report_path =
+                prefixed_join(args.outdir, pfx, "assess_probes_report.html");
+            log::info!("Generating probe assessment RMarkdown file...");
+            match write_assess_rmd(
+                args.build_stats_file,
+                args.build_params_file,
+                &xreact_hits,
+                &xreact_summary,
+                args.threshold,
+                &cov_summary,
+                &cov_depth,
+                &cov_multi,
+                args.proximity,
+                &params_path,
+                indiv_summary.as_deref(),
+                &report_path,
+            ) {
+                Ok(()) => {}
+                Err(e) => log::warn!("RMarkdown generation failed (non-fatal): {}", e),
+            }
+            if rscript::check_available() {
+                log::info!("Generating combined probe assessment HTML report...");
+                match generate_assess_report(
+                    args.build_stats_file,
+                    args.build_params_file,
+                    &xreact_hits,
+                    &xreact_summary,
+                    args.threshold,
+                    &cov_summary,
+                    &cov_depth,
+                    &cov_multi,
+                    args.proximity,
+                    &params_path,
+                    indiv_summary.as_deref(),
+                    &report_path,
+                ) {
+                    Ok(()) => log::info!("Report generated: {}", report_path.display()),
+                    Err(e) => log::warn!("Report generation failed (non-fatal): {}", e),
+                }
+            } else {
+                log::warn!("Rscript not found — skipping HTML report (Rmd still written).");
+            }
+        }
     }
 
     // --- Step 6: Refinement iterations ---
@@ -644,6 +688,46 @@ fn run_refinement(args: &AssessProbesArgs, initial_summary: &Path) -> Result<()>
                         iteration,
                         e
                     ),
+                }
+            }
+            ReportMode::BothR => {
+                match probe_coverage::write_probe_coverage_rmd(
+                    &iter_summary,
+                    &iter_depth,
+                    &iter_multi,
+                    &iter_params,
+                    &report_path,
+                    args.proximity,
+                ) {
+                    Ok(()) => {}
+                    Err(e) => log::warn!(
+                        "Refinement iteration {} RMarkdown failed (non-fatal): {}",
+                        iteration,
+                        e
+                    ),
+                }
+                if rscript::check_available() {
+                    match probe_coverage::generate_probe_report(
+                        &iter_summary,
+                        &iter_depth,
+                        &iter_multi,
+                        &iter_params,
+                        &report_path,
+                        args.proximity,
+                    ) {
+                        Ok(()) => log::info!(
+                            "Refinement iteration {} report: {}",
+                            iteration,
+                            report_path.display()
+                        ),
+                        Err(e) => log::warn!(
+                            "Refinement iteration {} report failed (non-fatal): {}",
+                            iteration,
+                            e
+                        ),
+                    }
+                } else {
+                    log::warn!("Rscript not found — skipping HTML report (Rmd still written).");
                 }
             }
         }
