@@ -31,6 +31,8 @@ pub struct RunArgs<'a> {
     pub ct: Option<f64>,
     pub ct_baseline: f64,
     pub ct_baseline_fraction: f64,
+    pub ct_efficiency: f64,
+    pub ct_calibration: Option<Vec<String>>,
     pub seed: Option<u64>,
     pub simulate_mode: SimulateMode,
     pub hybridization_temperature: f64,
@@ -111,7 +113,12 @@ pub fn execute(args: &RunArgs) -> Result<()> {
     log::info!("Distractor fraction : {}", args.distractor_fraction);
     if let Some(ct) = args.ct {
         log::info!("CT score            : {}", ct);
-        log::info!("CT baseline         : {} (fraction {})", args.ct_baseline, args.ct_baseline_fraction);
+        if let Some(cal) = &args.ct_calibration {
+            log::info!("CT calibration      : {} / {}", cal[0], cal[1]);
+        } else {
+            log::info!("CT baseline         : {} (fraction {})", args.ct_baseline, args.ct_baseline_fraction);
+            log::info!("CT efficiency       : {}", args.ct_efficiency);
+        }
     }
     log::info!(
         "Seed                : {}",
@@ -141,8 +148,14 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         writeln!(f, "num_fragments\t--num-fragments\t{}", args.num_fragments)?;
         writeln!(f, "distractor_fraction\t--distractor-fraction\t{}", args.distractor_fraction)?;
         writeln!(f, "ct\t--ct\t{}", args.ct.map(|v| v.to_string()).unwrap_or_else(|| "none".to_string()))?;
-        writeln!(f, "ct_baseline\t--ct-baseline\t{}", args.ct_baseline)?;
-        writeln!(f, "ct_baseline_fraction\t--ct-baseline-fraction\t{}", args.ct_baseline_fraction)?;
+        if let Some(cal) = &args.ct_calibration {
+            writeln!(f, "ct_calibration_1\t--ct-calibration\t{}", cal[0])?;
+            writeln!(f, "ct_calibration_2\t--ct-calibration\t{}", cal[1])?;
+        } else {
+            writeln!(f, "ct_baseline\t--ct-baseline\t{}", args.ct_baseline)?;
+            writeln!(f, "ct_baseline_fraction\t--ct-baseline-fraction\t{}", args.ct_baseline_fraction)?;
+            writeln!(f, "ct_efficiency\t--ct-efficiency\t{}", args.ct_efficiency)?;
+        }
         writeln!(f, "simulate_mode\t--simulate-mode\t{}", sim_mode_str)?;
         writeln!(f, "hybridization_temperature\t--hybridization-temperature\t{}", args.hybridization_temperature)?;
         writeln!(f, "salt_concentration\t--salt-concentration\t{}", args.na_conc_m * 1000.0)?;

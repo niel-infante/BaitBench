@@ -86,12 +86,25 @@ pub enum Commands {
         ct: Option<f64>,
 
         /// CT baseline value (CT at which target fraction equals --ct-baseline-fraction)
-        #[arg(long, default_value = "20.0")]
+        #[arg(long, default_value = "20.0", conflicts_with = "ct_calibration")]
         ct_baseline: f64,
 
         /// Target fraction at the baseline CT value
-        #[arg(long, default_value = "0.01")]
+        #[arg(long, default_value = "0.01", conflicts_with = "ct_calibration")]
         ct_baseline_fraction: f64,
+
+        /// PCR amplification efficiency (0.0–1.0). Only meaningful with --ct.
+        /// 1.0 = 100% efficiency (perfect doubling per cycle). Typical values: 0.90–0.98.
+        /// Mutually exclusive with --ct-calibration.
+        #[arg(long, default_value = "1.0", conflicts_with = "ct_calibration")]
+        ct_efficiency: f64,
+
+        /// Two-point calibration for CT conversion. Provide exactly two "CT,fraction" strings.
+        /// Derives PCR efficiency automatically; replaces --ct-baseline, --ct-baseline-fraction.
+        /// Example: --ct-calibration "25.0,0.001" "30.0,0.00003"
+        #[arg(long, num_args = 2, value_name = "CT,FRAC",
+              conflicts_with_all = ["ct_efficiency", "ct_baseline", "ct_baseline_fraction"])]
+        ct_calibration: Option<Vec<String>>,
 
         /// Random seed for reproducibility
         #[arg(short, long)]
@@ -253,12 +266,25 @@ pub enum Commands {
         ct: Option<f64>,
 
         /// CT baseline value (CT at which target fraction equals --ct-baseline-fraction)
-        #[arg(long, default_value = "20.0")]
+        #[arg(long, default_value = "20.0", conflicts_with = "ct_calibration")]
         ct_baseline: f64,
 
         /// Target fraction at the baseline CT value
-        #[arg(long, default_value = "0.01")]
+        #[arg(long, default_value = "0.01", conflicts_with = "ct_calibration")]
         ct_baseline_fraction: f64,
+
+        /// PCR amplification efficiency (0.0–1.0). Only meaningful with --ct.
+        /// 1.0 = 100% efficiency (perfect doubling per cycle). Typical values: 0.90–0.98.
+        /// Mutually exclusive with --ct-calibration.
+        #[arg(long, default_value = "1.0", conflicts_with = "ct_calibration")]
+        ct_efficiency: f64,
+
+        /// Two-point calibration for CT conversion. Provide exactly two "CT,fraction" strings.
+        /// Derives PCR efficiency automatically; replaces --ct-baseline, --ct-baseline-fraction.
+        /// Example: --ct-calibration "25.0,0.001" "30.0,0.00003"
+        #[arg(long, num_args = 2, value_name = "CT,FRAC",
+              conflicts_with_all = ["ct_efficiency", "ct_baseline", "ct_baseline_fraction"])]
+        ct_calibration: Option<Vec<String>>,
 
         /// Output directory
         #[arg(short, long, default_value = ".")]
@@ -988,12 +1014,25 @@ pub enum Commands {
         distractor_fraction: Option<f64>,
 
         /// CT baseline value
-        #[arg(long, default_value = "20.0")]
+        #[arg(long, default_value = "20.0", conflicts_with = "ct_calibration")]
         ct_baseline: f64,
 
         /// Target fraction at baseline CT
-        #[arg(long, default_value = "0.01")]
+        #[arg(long, default_value = "0.01", conflicts_with = "ct_calibration")]
         ct_baseline_fraction: f64,
+
+        /// PCR amplification efficiency (0.0–1.0). Only meaningful with --ct or --ct-values.
+        /// 1.0 = 100% efficiency (perfect doubling per cycle). Typical values: 0.90–0.98.
+        /// Mutually exclusive with --ct-calibration.
+        #[arg(long, default_value = "1.0", conflicts_with = "ct_calibration")]
+        ct_efficiency: f64,
+
+        /// Two-point calibration for CT conversion. Provide exactly two "CT,fraction" strings.
+        /// Derives PCR efficiency automatically; replaces --ct-baseline, --ct-baseline-fraction.
+        /// Example: --ct-calibration "25.0,0.001" "30.0,0.00003"
+        #[arg(long, num_args = 2, value_name = "CT,FRAC",
+              conflicts_with_all = ["ct_efficiency", "ct_baseline", "ct_baseline_fraction"])]
+        ct_calibration: Option<Vec<String>>,
 
         /// Capture-fraction values to sweep (space-separated). Conflicts with --capture-fraction.
         #[arg(long, num_args = 1.., conflicts_with = "capture_fraction")]

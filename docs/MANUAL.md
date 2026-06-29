@@ -1454,8 +1454,10 @@ These parameters calibrate the CT-to-fraction conversion. Only relevant when usi
 
 | Parameter | Flag | Default | Description |
 |-----------|------|---------|-------------|
-| CT baseline | `--ct-baseline` | 20.0 | The CT value at which the target fraction equals the baseline fraction |
-| CT baseline fraction | `--ct-baseline-fraction` | 0.01 | The target fraction at the baseline CT value |
+| CT baseline | `--ct-baseline` | 20.0 | The CT value at which the target fraction equals the baseline fraction. Blocked by `--ct-calibration` |
+| CT baseline fraction | `--ct-baseline-fraction` | 0.01 | The target fraction at the baseline CT value. Blocked by `--ct-calibration` |
+| CT efficiency | `--ct-efficiency` | 1.0 | PCR amplification efficiency (0–1). 1.0 = perfect doubling per cycle; typical assays run at 0.90–0.98. Blocked by `--ct-calibration` |
+| CT calibration | `--ct-calibration` | — | Two `"CT,fraction"` reference points (e.g. `"20.0,0.01" "30.0,0.00001"`). Derives efficiency automatically from the slope; replaces `--ct-baseline`, `--ct-baseline-fraction`, and `--ct-efficiency` |
 
 See [CT Score Calculation](#ct-score-calculation) for details.
 
@@ -1516,25 +1518,28 @@ You can always override by passing `--minimap-preset` explicitly.
 
 ## CT Score Calculation
 
-CT (cycle threshold) scores from qPCR provide an intuitive way to express target abundance. In qPCR, each cycle doubles the DNA, so a CT difference of 1 corresponds to a 2-fold change in DNA quantity. Lower CT = more target DNA.
+CT (cycle threshold) scores from qPCR provide an intuitive way to express target abundance. In qPCR, each cycle amplifies the DNA by a factor of `(1 + E)`, where E is the amplification efficiency. At 100% efficiency, each cycle doubles the DNA. Lower CT = more target DNA.
 
 ### The Formula
 
 ```
-target_fraction = ct_baseline_fraction * 2^(ct_baseline - ct)
+target_fraction = ct_baseline_fraction * (1 + efficiency)^(ct_baseline - ct)
 distractor_fraction = 1 - target_fraction
 ```
 
 Where:
 - `ct_baseline` is a known CT value (default: 20.0)
 - `ct_baseline_fraction` is the target fraction at that CT (default: 0.01)
+- `efficiency` is the PCR amplification efficiency (default: 1.0 = 100%)
 - `ct` is the CT value you want to simulate
 
 ### Default Calibration
 
-With defaults (`--ct-baseline 20.0`, `--ct-baseline-fraction 0.01`), the interpretation is: "at CT 20, 1% of DNA is from targets."
+With defaults (`--ct-baseline 20.0`, `--ct-baseline-fraction 0.01`, `--ct-efficiency 1.0`), the interpretation is: "at CT 20, 1% of DNA is from targets, assuming 100% PCR efficiency."
 
 ### CT Reference Table
+
+Values below use default parameters (efficiency = 1.0, baseline CT 20 = 1% target):
 
 | CT | Target fraction | Distractor fraction | Interpretation |
 |----|-----------------|---------------------|----------------|
@@ -1551,9 +1556,28 @@ With defaults (`--ct-baseline 20.0`, `--ct-baseline-fraction 0.01`), the interpr
 
 *Target fractions above 100% are capped at 100% (distractor fraction = 0).
 
-### Custom Calibration
+At lower efficiency (e.g. 95%), the same CT maps to a slightly higher target fraction because each cycle amplifies less — reaching CT 25 requires more starting material.
 
-The default calibration assumes CT 20 = 1% target. If your experimental system has different characteristics, use `--ct-baseline` and `--ct-baseline-fraction` to calibrate:
+### PCR Efficiency
+
+Real qPCR assays typically run at 90–98% efficiency. The default assumption of 100% efficiency (`--ct-efficiency 1.0`) is an idealisation that can overestimate how much the target is diluted. Specify a measured efficiency with `--ct-efficiency`:
+
+```bash
+baitbench run \
+  --targets targets.fa \
+  --distractors distractors.fa \
+  --probes probes.fa \
+  --ct 25 \
+  --ct-efficiency 0.95 \
+  --num-fragments 10000 \
+  --outdir results
+```
+
+Assay efficiency is usually reported in kit documentation or can be measured from a standard curve: `E = 10^(-1/slope) - 1`, where slope is the slope of CT vs. log10(concentration).
+
+### One-Point Calibration
+
+The default calibration assumes CT 20 = 1% target. Shift the entire curve with `--ct-baseline` and `--ct-baseline-fraction`:
 
 **Example: Your lab data shows CT 25 = 0.1% target reads:**
 
@@ -1571,10 +1595,12 @@ baitbench run \
 
 This shifts the entire curve:
 - CT 25 = 0.1% target (your calibration point)
-- CT 30 = 0.003% target (5 CT higher = 32x less)
-- CT 20 = 3.2% target (5 CT lower = 32x more)
+- CT 30 = 0.003% target (5 CT higher = 32× less)
+- CT 20 = 3.2% target (5 CT lower = 32× more)
 
-**Example: Calibrate with a strong-positive sample (CT 15 = 50% target):**
+### Two-Point Calibration
+
+If you have two reference samples with known target fractions and their CT values (e.g. from ddPCR-quantified standards), use `--ct-calibration` to derive the efficiency automatically. This eliminates all modelling assumptions about efficiency and the baseline:
 
 ```bash
 baitbench run \
@@ -1582,17 +1608,35 @@ baitbench run \
   --distractors distractors.fa \
   --probes probes.fa \
   --ct 25 \
-  --ct-baseline 15 \
-  --ct-baseline-fraction 0.5 \
+  --ct-calibration "20.0,0.01" "30.0,0.00001" \
   --num-fragments 10000 \
   --outdir results
 ```
 
+The formula used to derive efficiency from the two points is:
+
+```
+E = (f1 / f2)^(1 / (ct2 - ct1)) - 1
+```
+
+Where `(ct1, f1)` and `(ct2, f2)` are the two calibration points. The first point also serves as the baseline. The derived efficiency is logged at run time so you can inspect it.
+
+`--ct-calibration` conflicts with `--ct-baseline`, `--ct-baseline-fraction`, and `--ct-efficiency` (it replaces all three).
+
+**Which calibration method to use:**
+
+| Situation | Recommended approach |
+|-----------|---------------------|
+| Quick simulation with reasonable defaults | `--ct` only |
+| Known assay efficiency from kit docs | `--ct --ct-efficiency 0.95` |
+| One reference sample with known fraction | `--ct --ct-baseline` + `--ct-baseline-fraction` |
+| Two ddPCR-quantified reference standards | `--ct --ct-calibration "CT1,frac1" "CT2,frac2"` |
+
 ### Tips for Using CT Scores
 
-- **Match your experimental system.** If you have empirical data linking CT to target fraction, use `--ct-baseline` and `--ct-baseline-fraction` to match your curve.
-- **Use coverage-curve to sweep.** The `coverage-curve` command with `--ct-values` lets you visualize performance across a range of CT values in a single analysis.
-- **Remember the log scale.** Each CT unit represents a 2-fold change. A 10-CT range spans ~1000-fold differences in abundance.
+- **Match your experimental system.** If you have empirical data linking CT to target fraction, use calibration flags to match your curve rather than relying on defaults.
+- **Use coverage-curve to sweep.** The `coverage-curve` command with `--ct-values` lets you visualize performance across a range of CT values in a single analysis. Calibration flags apply to every value in the sweep.
+- **Remember the log scale.** Each CT unit represents a `(1 + E)`-fold change. At 100% efficiency a 10-CT range spans ~1000-fold differences in abundance; at 95% efficiency it spans ~614-fold.
 
 ---
 

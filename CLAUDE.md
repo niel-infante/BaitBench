@@ -171,14 +171,19 @@ Read source is extracted from the fragment name pattern `{seq_id}_fragment_{n}` 
 Instead of `--distractor-fraction`, users can specify a qPCR CT (cycle threshold) score via `--ct`. The conversion is:
 
 ```
-target_fraction = ct_baseline_fraction * 2^(ct_baseline - ct)
+target_fraction = ct_baseline_fraction * (1 + efficiency)^(ct_baseline - ct)
 distractor_fraction = 1 - target_fraction
 ```
 
 - `--ct` and `--distractor-fraction` are mutually exclusive (enforced by clap)
-- `--ct-baseline` (default 20.0) and `--ct-baseline-fraction` (default 0.01) set the calibration point
-- Default: CT 20 → 1% target (0.99 distractor), CT 25 → 0.03% target, CT 30 → 0.001% target
+- `--ct-baseline` (default 20.0) and `--ct-baseline-fraction` (default 0.01) set the one-point calibration
+- `--ct-efficiency` (default 1.0 = 100%) sets the PCR amplification efficiency; typical real assays run at 0.90–0.98
+- Default: CT 20 → 1% target (0.99 distractor), CT 25 → ~0.03% target, CT 30 → ~0.001% target (at 100% efficiency)
 - If neither `--ct` nor `--distractor-fraction` is specified, defaults to distractor fraction 0.9
+
+**Two-point calibration** (`--ct-calibration "CT1,FRAC1" "CT2,FRAC2"`): provide two (CT, target-fraction) reference points; the tool derives PCR efficiency automatically via `E = (f1/f2)^(1/(ct2-ct1)) - 1` and uses the first point as the baseline. Replaces `--ct-baseline`, `--ct-baseline-fraction`, and `--ct-efficiency` (all three are blocked when `--ct-calibration` is active). The derived efficiency is logged.
+
+CT conversion logic lives in `src/main.rs`: `ct_to_distractor_fraction()`, `parse_calibration_point()`, `derive_calibration_params()`, `resolve_ct_params()`, `resolve_distractor_fraction()`.
 
 ### Sample Manifest
 

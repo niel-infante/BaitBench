@@ -38,15 +38,15 @@ fn auto_minimap_preset(simulator: &ReadSimulator, profile: &str) -> &'static str
 
 /// Convert a CT (cycle threshold) score to a distractor fraction.
 ///
-/// Formula: target_fraction = baseline_fraction * 2^(baseline_ct - ct)
+/// Formula: target_fraction = baseline_fraction * (1 + efficiency)^(baseline_ct - ct)
 ///          distractor_fraction = 1 - target_fraction
-pub(crate) fn ct_to_distractor_fraction(ct: f64, baseline_ct: f64, baseline_fraction: f64) -> Result<f64> {
-    let target_fraction = baseline_fraction * 2.0_f64.powf(baseline_ct - ct);
+pub(crate) fn ct_to_distractor_fraction(ct: f64, baseline_ct: f64, baseline_fraction: f64, efficiency: f64) -> Result<f64> {
+    let target_fraction = baseline_fraction * (1.0 + efficiency).powf(baseline_ct - ct);
     if target_fraction >= 1.0 {
         bail!(
-            "CT {:.1} with baseline CT {:.1} / fraction {:.4} yields target_fraction {:.4} >= 1.0. \
+            "CT {:.1} with baseline CT {:.1} / fraction {:.4} / efficiency {:.4} yields target_fraction {:.4} >= 1.0. \
              Use a higher CT value or adjust --ct-baseline / --ct-baseline-fraction.",
-            ct, baseline_ct, baseline_fraction, target_fraction
+            ct, baseline_ct, baseline_fraction, efficiency, target_fraction
         );
     }
     if target_fraction <= 0.0 {
@@ -57,10 +57,78 @@ pub(crate) fn ct_to_distractor_fraction(ct: f64, baseline_ct: f64, baseline_frac
     }
     let distractor_fraction = 1.0 - target_fraction;
     log::info!(
-        "CT {:.1} → target fraction {:.6} → distractor fraction {:.6}",
-        ct, target_fraction, distractor_fraction
+        "CT {:.1} (efficiency {:.4}) → target fraction {:.6} → distractor fraction {:.6}",
+        ct, efficiency, target_fraction, distractor_fraction
     );
     Ok(distractor_fraction)
+}
+
+/// Parse a "CT,fraction" calibration point string.
+fn parse_calibration_point(s: &str) -> Result<(f64, f64)> {
+    let parts: Vec<&str> = s.splitn(2, ',').collect();
+    if parts.len() != 2 {
+        bail!("Calibration point must be 'CT,fraction' (e.g. '25.0,0.001'), got: {}", s);
+    }
+    let ct = parts[0].trim().parse::<f64>()
+        .map_err(|_| anyhow::anyhow!("Invalid CT value '{}' in calibration point '{}'", parts[0].trim(), s))?;
+    let fraction = parts[1].trim().parse::<f64>()
+        .map_err(|_| anyhow::anyhow!("Invalid fraction '{}' in calibration point '{}'", parts[1].trim(), s))?;
+    Ok((ct, fraction))
+}
+
+/// Derive (baseline_ct, baseline_fraction, efficiency) from two calibration points.
+///
+/// Formula: 1 + E = (f1 / f2)^(1 / (ct2 - ct1))
+fn derive_calibration_params(ct1: f64, f1: f64, ct2: f64, f2: f64) -> Result<(f64, f64, f64)> {
+    if (ct1 - ct2).abs() < 1e-10 {
+        bail!("CT values in --ct-calibration must be different (got {} and {})", ct1, ct2);
+    }
+    if f1 <= 0.0 || f1 >= 1.0 {
+        bail!("Calibration fraction must be in (0, 1), got {}", f1);
+    }
+    if f2 <= 0.0 || f2 >= 1.0 {
+        bail!("Calibration fraction must be in (0, 1), got {}", f2);
+    }
+    let efficiency = (f1 / f2).powf(1.0 / (ct2 - ct1)) - 1.0;
+    if efficiency <= 0.0 {
+        bail!(
+            "Derived PCR efficiency {:.4} ≤ 0. Check calibration points — fractions may be inverted \
+             (lower CT should correspond to higher target fraction).",
+            efficiency
+        );
+    }
+    if efficiency > 1.0 {
+        bail!(
+            "Derived PCR efficiency {:.4} > 1.0, which is physically impossible. \
+             Check calibration points for errors.",
+            efficiency
+        );
+    }
+    log::info!(
+        "CT calibration: ({:.1}, {:.6}) and ({:.1}, {:.6}) → derived efficiency {:.4}",
+        ct1, f1, ct2, f2, efficiency
+    );
+    Ok((ct1, f1, efficiency))
+}
+
+/// Resolve (baseline_ct, baseline_fraction, efficiency) from CLI flags.
+/// If --ct-calibration is provided, derives all three from the two calibration points.
+fn resolve_ct_params(
+    ct_baseline: f64,
+    ct_baseline_fraction: f64,
+    ct_efficiency: f64,
+    ct_calibration: Option<&[String]>,
+) -> Result<(f64, f64, f64)> {
+    if let Some(cal) = ct_calibration {
+        let (ct1, f1) = parse_calibration_point(&cal[0])?;
+        let (ct2, f2) = parse_calibration_point(&cal[1])?;
+        derive_calibration_params(ct1, f1, ct2, f2)
+    } else {
+        if ct_efficiency <= 0.0 || ct_efficiency > 1.0 {
+            bail!("--ct-efficiency must be in (0, 1], got {}", ct_efficiency);
+        }
+        Ok((ct_baseline, ct_baseline_fraction, ct_efficiency))
+    }
 }
 
 /// Resolve distractor fraction from --distractor-fraction and --ct flags.
@@ -68,11 +136,12 @@ pub(crate) fn ct_to_distractor_fraction(ct: f64, baseline_ct: f64, baseline_frac
 fn resolve_distractor_fraction(
     distractor_fraction: Option<f64>,
     ct: Option<f64>,
-    ct_baseline: f64,
-    ct_baseline_fraction: f64,
+    baseline_ct: f64,
+    baseline_fraction: f64,
+    efficiency: f64,
 ) -> Result<f64> {
     match ct {
-        Some(ct_val) => ct_to_distractor_fraction(ct_val, ct_baseline, ct_baseline_fraction),
+        Some(ct_val) => ct_to_distractor_fraction(ct_val, baseline_ct, baseline_fraction, efficiency),
         None => Ok(distractor_fraction.unwrap_or(DEFAULT_DISTRACTOR_FRACTION)),
     }
 }
@@ -104,6 +173,8 @@ fn main() -> Result<()> {
             ct,
             ct_baseline,
             ct_baseline_fraction,
+            ct_efficiency,
+            ct_calibration,
             seed,
             simulate_mode,
             hybridization_temperature,
@@ -131,8 +202,11 @@ fn main() -> Result<()> {
             report,
             cleanup,
         } => {
+            let (baseline_ct, baseline_frac, efficiency) = resolve_ct_params(
+                ct_baseline, ct_baseline_fraction, ct_efficiency, ct_calibration.as_deref(),
+            )?;
             let resolved_df = resolve_distractor_fraction(
-                distractor_fraction, ct, ct_baseline, ct_baseline_fraction,
+                distractor_fraction, ct, baseline_ct, baseline_frac, efficiency,
             )?;
 
             let resolved_sample = sample
@@ -181,6 +255,8 @@ fn main() -> Result<()> {
                 ct,
                 ct_baseline,
                 ct_baseline_fraction,
+                ct_efficiency,
+                ct_calibration,
                 seed,
                 simulate_mode: sim_mode,
                 hybridization_temperature,
@@ -222,11 +298,16 @@ fn main() -> Result<()> {
             ct,
             ct_baseline,
             ct_baseline_fraction,
+            ct_efficiency,
+            ct_calibration,
             outdir,
             output_prefix,
         } => {
+            let (baseline_ct, baseline_frac, efficiency) = resolve_ct_params(
+                ct_baseline, ct_baseline_fraction, ct_efficiency, ct_calibration.as_deref(),
+            )?;
             let resolved_df = resolve_distractor_fraction(
-                distractor_fraction, ct, ct_baseline, ct_baseline_fraction,
+                distractor_fraction, ct, baseline_ct, baseline_frac, efficiency,
             )?;
 
             let resolved_sample = sample
@@ -661,6 +742,8 @@ fn main() -> Result<()> {
             distractor_fraction,
             ct_baseline,
             ct_baseline_fraction,
+            ct_efficiency,
+            ct_calibration,
             capture_fraction_values,
             capture_fraction,
             simulate_mode,
@@ -690,6 +773,10 @@ fn main() -> Result<()> {
                 .map(|p| io_utils::parse_sample_target_map(p))
                 .transpose()?;
 
+            let (baseline_ct, baseline_frac, efficiency) = resolve_ct_params(
+                ct_baseline, ct_baseline_fraction, ct_efficiency, ct_calibration.as_deref(),
+            )?;
+
             // Resolve CT dimension: --ct-values (sweep) or --ct/--distractor-fraction (fixed)
             let mut swept_params = Vec::new();
             let (ct_display_values, ct_distractor_fractions): (Vec<f64>, Vec<f64>) =
@@ -698,12 +785,12 @@ fn main() -> Result<()> {
                     let mut dfs = Vec::new();
                     for ct_val in &ct_vals {
                         dfs.push(ct_to_distractor_fraction(
-                            *ct_val, ct_baseline, ct_baseline_fraction,
+                            *ct_val, baseline_ct, baseline_frac, efficiency,
                         )?);
                     }
                     (ct_vals, dfs)
                 } else if let Some(ct_val) = ct {
-                    let df = ct_to_distractor_fraction(ct_val, ct_baseline, ct_baseline_fraction)?;
+                    let df = ct_to_distractor_fraction(ct_val, baseline_ct, baseline_frac, efficiency)?;
                     (vec![ct_val], vec![df])
                 } else {
                     let df = distractor_fraction.unwrap_or(DEFAULT_DISTRACTOR_FRACTION);

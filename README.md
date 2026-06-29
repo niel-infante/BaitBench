@@ -15,7 +15,7 @@ Key capabilities:
 - **Sample discrimination** -- test whether probes can distinguish between organisms within the target panel by specifying a subset of targets as "present" in the sample
 - **Group-level metrics** -- collapse multiple sequence variants of the same organism into a single entity; all contigs from each distractor FASTA are automatically grouped by file name
 - **Genome mode** -- model bacteria and other large pathogens where the probe target region is a small part of the full genome
-- **CT-based simulation** -- set target abundance using qPCR CT scores instead of abstract fractions
+- **CT-based simulation** -- set target abundance using qPCR CT scores with configurable PCR efficiency or two-point calibration from reference standards
 - **Thermodynamic simulation** -- probe binding sites scored by nearest-neighbor free energy (SantaLucia 1998); fragments biased toward high-affinity sites via multinomial sampling
 - **Coverage curves** -- sweep parameters (CT, capture fraction, sequencing depth) and visualize how coverage changes across conditions
 - **Probe QC** -- evaluate probe tiling coverage across targets independently of the simulation
@@ -117,6 +117,18 @@ baitbench run \
   --ct 25 \
   --num-fragments 10000 \
   --outdir results
+```
+
+Specify PCR efficiency (default 1.0 = 100%; typical assays run at 0.90–0.98):
+
+```bash
+baitbench run ... --ct 25 --ct-efficiency 0.95
+```
+
+Use two-point calibration to derive efficiency from reference measurements (e.g. from ddPCR-quantified standards), eliminating the need for `--ct-baseline` parameters:
+
+```bash
+baitbench run ... --ct 25 --ct-calibration "20.0,0.01" "30.0,0.00001"
 ```
 
 ### Genome mode (bacteria + viruses)
@@ -282,6 +294,8 @@ baitbench assess-probes \
 | `--distractor-groups` | -- | TSV overriding automatic file-stem grouping of distractor sequences |
 | `--num-fragments` | 10000 | Number of fragments to simulate |
 | `--ct` | -- | CT score (alternative to `--distractor-fraction`) |
+| `--ct-efficiency` | 1.0 | PCR amplification efficiency (0–1); used with `--ct` |
+| `--ct-calibration` | -- | Two "CT,fraction" reference points to derive efficiency automatically; replaces `--ct-baseline*` |
 | `--distractor-fraction` | 0.9 | Fraction of fragments from distractors |
 | `--simulate-mode` | thermodynamic | `thermodynamic` (TNN Boltzmann weighting) or `simple` (uniform probe-site weights) |
 | `--hybridization-temperature` | 70.0 | Hybridization temperature in °C (thermodynamic mode only) |
@@ -306,7 +320,7 @@ Results are written to `<outdir>/<run_name>/` and include:
 
 ## Documentation
 
-See [MANUAL.md](MANUAL.md) for complete documentation including:
+See [MANUAL.md](docs/MANUAL.md) for complete documentation including:
 
 - Detailed explanations of every parameter
 - CT score calculation and calibration
