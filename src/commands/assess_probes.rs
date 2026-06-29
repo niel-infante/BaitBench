@@ -124,7 +124,14 @@ pub fn execute(args: &AssessProbesArgs) -> Result<()> {
     let cov_depth = prefixed_join(args.outdir, &cov_prefix, "probe_depth.tsv");
     let cov_multi = prefixed_join(args.outdir, &cov_prefix, "multi_mapping_probes.tsv");
 
-    // --- Step 5: Generate report ---
+    // --- Step 5: Refinement iterations ---
+    let refine_summary: Option<PathBuf> = if args.refine_iterations.is_some() || args.refine_until_stable {
+        Some(run_refinement(args, &cov_summary)?)
+    } else {
+        None
+    };
+
+    // --- Step 6: Generate report (after refinement so it can include the refinement summary) ---
     match args.report {
         ReportMode::None => {
             log::info!("Skipping report generation (--report none)");
@@ -146,6 +153,7 @@ pub fn execute(args: &AssessProbesArgs) -> Result<()> {
                     args.proximity,
                     &params_path,
                     indiv_summary.as_deref(),
+                    refine_summary.as_deref(),
                     &report_path,
                 ) {
                     Ok(()) => log::info!("Report generated: {}", report_path.display()),
@@ -171,6 +179,7 @@ pub fn execute(args: &AssessProbesArgs) -> Result<()> {
                 args.proximity,
                 &params_path,
                 indiv_summary.as_deref(),
+                refine_summary.as_deref(),
                 &report_path,
             ) {
                 Ok(()) => {}
@@ -193,6 +202,7 @@ pub fn execute(args: &AssessProbesArgs) -> Result<()> {
                 args.proximity,
                 &params_path,
                 indiv_summary.as_deref(),
+                refine_summary.as_deref(),
                 &report_path,
             ) {
                 Ok(()) => {}
@@ -212,6 +222,7 @@ pub fn execute(args: &AssessProbesArgs) -> Result<()> {
                     args.proximity,
                     &params_path,
                     indiv_summary.as_deref(),
+                    refine_summary.as_deref(),
                     &report_path,
                 ) {
                     Ok(()) => log::info!("Report generated: {}", report_path.display()),
@@ -221,11 +232,6 @@ pub fn execute(args: &AssessProbesArgs) -> Result<()> {
                 log::warn!("Rscript not found — skipping HTML report (Rmd still written).");
             }
         }
-    }
-
-    // --- Step 6: Refinement iterations ---
-    if args.refine_iterations.is_some() || args.refine_until_stable {
-        run_refinement(args, &cov_summary)?;
     }
 
     // --- Step 7: Cleanup ---
@@ -311,6 +317,7 @@ fn generate_assess_report(
     proximity: usize,
     params_path: &Path,
     indiv_summary: Option<&Path>,
+    refine_summary: Option<&Path>,
     output_path: &Path,
 ) -> Result<()> {
     let r_dir = rscript::find_r_dir()
@@ -358,6 +365,11 @@ fn generate_assess_report(
             r_args.extend(["--indiv-cov-summary".into(), abs_path_str(p)?]);
         }
     }
+    if let Some(p) = refine_summary {
+        if p.exists() {
+            r_args.extend(["--refine-summary".into(), abs_path_str(p)?]);
+        }
+    }
 
     let arg_refs: Vec<&str> = r_args.iter().map(|s| s.as_str()).collect();
     rscript::run_rscript(&script, &arg_refs)
@@ -375,6 +387,7 @@ fn write_assess_rmd(
     proximity: usize,
     params_path: &Path,
     indiv_summary: Option<&Path>,
+    refine_summary: Option<&Path>,
     output_path: &Path,
 ) -> Result<()> {
     let r_dir = rscript::find_r_dir()
@@ -405,6 +418,9 @@ fn write_assess_rmd(
     let indiv_summary_str = indiv_summary
         .and_then(|p| if p.exists() { abs_path_str(p).ok() } else { None })
         .unwrap_or_default();
+    let refine_summary_str = refine_summary
+        .and_then(|p| if p.exists() { abs_path_str(p).ok() } else { None })
+        .unwrap_or_default();
     let xreact_hits_str = abs_path_str(xreact_hits)?;
     let xreact_summary_str = abs_path_str(xreact_summary)?;
     let cov_summary_str = abs_path_str(cov_summary)?;
@@ -423,6 +439,7 @@ fn write_assess_rmd(
         ("coverage_proximity", &proximity_str),
         ("params_file", params_path_str.as_str()),
         ("individual_coverage_file", indiv_summary_str.as_str()),
+        ("refine_summary_file", refine_summary_str.as_str()),
     ];
 
     let template_content = std::fs::read_to_string(&rmd_template)
@@ -549,6 +566,15 @@ fn compute_individual_coverage(
     Ok(summary_path)
 }
 
+/// Count the number of target rows (non-header lines) in a probe_coverage_summary.tsv.
+fn count_summary_targets(summary_path: &Path) -> Result<usize> {
+    let file = File::open(summary_path)
+        .with_context(|| format!("Cannot open coverage summary: {}", summary_path.display()))?;
+    let reader = BufReader::new(file);
+    let count = reader.lines().skip(1).filter(|l| l.as_ref().map(|s| !s.is_empty()).unwrap_or(false)).count();
+    Ok(count)
+}
+
 /// Parse a probe_coverage_summary.tsv and return IDs where pct_covered_1x < threshold.
 fn read_low_coverage_targets(summary_path: &Path, threshold: f64) -> Result<HashSet<String>> {
     let file = File::open(summary_path)
@@ -574,10 +600,37 @@ fn read_low_coverage_targets(summary_path: &Path, threshold: f64) -> Result<Hash
     Ok(low)
 }
 
+/// Write refinement step summary TSV.
+/// Columns: step, num_targets, num_below_threshold, pct_covered
+fn write_refine_summary(path: &Path, steps: &[(String, usize, usize)]) -> Result<()> {
+    let file = File::create(path)
+        .with_context(|| format!("Cannot create refine summary: {}", path.display()))?;
+    let mut w = BufWriter::new(file);
+    writeln!(w, "step\tnum_targets\tnum_below_threshold\tpct_covered")?;
+    for (step, num_targets, num_below) in steps {
+        let pct = if *num_targets > 0 {
+            100.0 * (*num_targets - *num_below) as f64 / *num_targets as f64
+        } else {
+            100.0
+        };
+        writeln!(w, "{}\t{}\t{}\t{:.1}", step, num_targets, num_below, pct)?;
+    }
+    w.flush()?;
+    Ok(())
+}
+
 /// Run one or more probe-coverage-only iterations on low-coverage targets.
-fn run_refinement(args: &AssessProbesArgs, initial_summary: &Path) -> Result<()> {
+/// Returns the path to the written refine_summary.tsv.
+fn run_refinement(args: &AssessProbesArgs, initial_summary: &Path) -> Result<PathBuf> {
     let pfx = args.output_prefix;
     let max_iterations = args.refine_iterations.unwrap_or(usize::MAX);
+
+    // Collect (step_label, num_targets_in_step, num_below_after_step) for each step.
+    let mut steps: Vec<(String, usize, usize)> = Vec::new();
+
+    let initial_total = count_summary_targets(initial_summary)?;
+    let initial_low_ids = read_low_coverage_targets(initial_summary, args.refine_threshold)?;
+    steps.push(("initial".to_string(), initial_total, initial_low_ids.len()));
 
     let mut current_summary = initial_summary.to_path_buf();
     let mut prev_ids: HashSet<String> = HashSet::new();
@@ -746,6 +799,10 @@ fn run_refinement(args: &AssessProbesArgs, initial_summary: &Path) -> Result<()>
             }
         }
 
+        // Record this iteration's step: how many we processed and how many remain below threshold.
+        let new_low_ids = read_low_coverage_targets(&iter_summary, args.refine_threshold)?;
+        steps.push((format!("{}", iteration), low_ids.len(), new_low_ids.len()));
+
         prev_ids = low_ids;
         current_summary = iter_summary;
 
@@ -753,5 +810,9 @@ fn run_refinement(args: &AssessProbesArgs, initial_summary: &Path) -> Result<()>
         // For --refine-iterations, the for-loop bound handles stopping
     }
 
-    Ok(())
+    let summary_path = prefixed_join(args.outdir, pfx, "refine_summary.tsv");
+    write_refine_summary(&summary_path, &steps)?;
+    log::info!("Refinement summary written: {}", summary_path.display());
+
+    Ok(summary_path)
 }

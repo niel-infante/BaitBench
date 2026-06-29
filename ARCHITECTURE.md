@@ -456,6 +456,7 @@ Report logic: detects swept params from data, builds combo labels. <10 combos: s
 | `xreact_summary.tsv` | TSV | assess_probes (via xreact) | assess_probes report |
 | `assess_run_params.tsv` | TSV (parameter, flag, value) | assess_probes | assess_probes report |
 | `individual_target_coverage_summary.tsv` | TSV (same columns as cov_probe_coverage_summary.tsv) | assess_probes (`--all-individual-targets` only) | assess_probes report |
+| `refine_summary.tsv` | TSV (step, num_targets, num_below_threshold, pct_covered) | assess_probes (when `--refine-iterations` or `--refine-until-stable` used) | assess_probes report |
 | `assess_probes_report.html` | HTML | assess_probes (via R) | — |
 
 ### Assess Probes Report (`R/assess_probes.Rmd`)
@@ -475,14 +476,16 @@ Report logic: detects swept params from data, builds combo labels. <10 combos: s
 | `coverage_proximity` | `--proximity` CLI value (integer, default 50) |
 | `params_file` | assess_run_params.tsv |
 | `individual_coverage_file` | individual_target_coverage_summary.tsv (optional, from `--all-individual-targets`) |
+| `refine_summary_file` | refine_summary.tsv (optional, from `--refine-iterations` / `--refine-until-stable`) |
 
 Report sections (conditionally rendered):
 1. **Build Pipeline** (if build_stats_file provided) — stats table, sequences/bases bar charts
 2. **Probe Coverage** (always) — summary table, coverage breadth, individual target coverage (if `individual_coverage_file` provided), tiered coverage, gap analysis, pangenome depth (subtitle shows % pangenome ≥1X), depth profiles, proximity, multi-mapping probes
-3. **Cross-Reactivity Summary** (always) — summary table
-4. **Self-Homology** (if self-mode hits present) — heatmap (≤1000 probes), density plots, hits table
-5. **Cross-Reactivity vs Genomes** (if against-mode hits present) — heatmap, per-genome bar chart, density plots, hits table
-6. **Parameters** (under `<details>` fold) — assess params + optional build params
+3. **Refinement Summary** (if refine_summary_file provided) — inline stats (iterations ran, initial/final below-threshold counts), step-by-step table, stacked bar chart of covered vs below-threshold per step
+4. **Cross-Reactivity Summary** (always) — summary table
+5. **Self-Homology** (if self-mode hits present) — heatmap (≤1000 probes), density plots, hits table
+6. **Cross-Reactivity vs Genomes** (if against-mode hits present) — heatmap, per-genome bar chart, density plots, hits table
+7. **Parameters** (under `<details>` fold) — assess params + optional build params
 
 ### Build Probes Report (`R/build_probes.Rmd`)
 

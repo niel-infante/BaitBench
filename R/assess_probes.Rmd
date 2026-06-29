@@ -18,6 +18,7 @@ params:
   coverage_proximity: 50
   params_file: ""
   individual_coverage_file: ""
+  refine_summary_file: ""
 ---
 
 <style>
@@ -145,6 +146,17 @@ has_individual_cov <- nchar(params$individual_coverage_file) > 0 &&
 if (has_individual_cov) {
   indiv_cov_df <- read.delim(params$individual_coverage_file,
                               stringsAsFactors = FALSE)
+}
+
+# --- Load refinement summary (optional) ---
+has_refine <- nchar(params$refine_summary_file) > 0 &&
+  file.exists(params$refine_summary_file)
+if (has_refine) {
+  refine_df <- read.delim(params$refine_summary_file,
+                           stringsAsFactors = FALSE)
+  n_refine_iters <- nrow(refine_df) - 1L
+  refine_initial_below <- refine_df$num_below_threshold[1]
+  refine_final_below   <- refine_df$num_below_threshold[nrow(refine_df)]
 }
 ```
 
@@ -740,6 +752,84 @@ if (nrow(multi_df) <= 20) {
       filter = "top"
     )
 }
+```
+
+---
+
+```{r refine-section-header, eval=has_refine, results='asis'}
+cat("\n# Refinement Summary\n")
+```
+
+```{r refine-stats, eval=has_refine, results='asis'}
+if (n_refine_iters == 0) {
+  cat(sprintf(
+    paste0("Refinement was requested but no iterations were needed: all %d",
+           " targets already met the coverage threshold.\n"),
+    refine_df$num_targets[1]
+  ))
+} else {
+  cat(sprintf(
+    "**%d refinement iteration%s** ran. ",
+    n_refine_iters,
+    if (n_refine_iters == 1) "" else "s"
+  ))
+  cat(sprintf(
+    "Initial targets below threshold: **%d**. ",
+    refine_initial_below
+  ))
+  if (refine_final_below == 0) {
+    cat("All targets are now covered.\n")
+  } else {
+    cat(sprintf("Targets remaining below threshold: **%d**.\n",
+                refine_final_below))
+  }
+}
+```
+
+```{r refine-table, eval=has_refine}
+display_refine <- refine_df %>%
+  mutate(
+    step = ifelse(step == "initial", "Initial", paste("Iteration", step)),
+    pct_covered = sprintf("%.1f%%", pct_covered)
+  )
+
+knitr::kable(
+  display_refine,
+  col.names = c("Step", "Targets Analyzed", "Below Threshold", "% Covered"),
+  align = "lrrr"
+)
+```
+
+```{r refine-chart, eval=has_refine && n_refine_iters > 0, fig.height=4, fig.width=7}
+plot_refine <- refine_df %>%
+  mutate(
+    step_label = ifelse(step == "initial", "Initial",
+                        paste("Iter", step)),
+    step_label = factor(step_label, levels = step_label),
+    covered = num_targets - num_below_threshold
+  ) %>%
+  select(step_label, covered, num_below_threshold) %>%
+  pivot_longer(cols = c(covered, num_below_threshold),
+               names_to = "category", values_to = "count") %>%
+  mutate(
+    category = ifelse(category == "covered",
+                      "Covered", "Below threshold"),
+    category = factor(category,
+                      levels = c("Below threshold", "Covered"))
+  )
+
+ggplot(plot_refine, aes(x = step_label, y = count, fill = category)) +
+  geom_col(width = 0.6) +
+  scale_fill_manual(values = c("Covered" = "#27ae60",
+                                "Below threshold" = "#e74c3c")) +
+  geom_text(data = plot_refine %>% filter(category == "Below threshold"),
+            aes(label = ifelse(count > 0, count, "")),
+            position = position_stack(vjust = 0.5),
+            color = "white", fontface = "bold", size = 4) +
+  labs(x = NULL, y = "Number of Targets", fill = NULL,
+       title = "Coverage Progress Across Refinement Steps",
+       subtitle = "Red: targets below threshold | Green: targets at or above threshold") +
+  theme(legend.position = "bottom")
 ```
 
 ---

@@ -31,6 +31,9 @@ option_list <- list(
   make_option("--indiv-cov-summary", type = "character", default = NULL,
               help = paste("Individual target coverage summary TSV",
                            "(optional, from --all-individual-targets)")),
+  make_option("--refine-summary", type = "character", default = NULL,
+              help = paste("Refinement summary TSV (optional,",
+                           "from --refine-iterations/--refine-until-stable)")),
   make_option("--output", type = "character",
               help = "Output HTML file")
 )
@@ -69,7 +72,9 @@ rmarkdown::render(
     coverage_proximity = opt$proximity,
     params_file = if (!is.null(opt$params)) normalizePath(opt$params) else "",
     individual_coverage_file = if (!is.null(opt$`indiv-cov-summary`))
-      normalizePath(opt$`indiv-cov-summary`) else ""
+      normalizePath(opt$`indiv-cov-summary`) else "",
+    refine_summary_file = if (!is.null(opt$`refine-summary`))
+      normalizePath(opt$`refine-summary`) else ""
   ),
   quiet = TRUE
 )
