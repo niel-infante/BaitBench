@@ -1024,6 +1024,7 @@ baitbench build-probes \
 1. **N filter**: Remove target sequences with more than `--max-n-frac` fraction of ambiguous (non-ACGT) bases. Sequences with excessive N content are poor probe sources and would generate uninformative probes.
 2. **Collapse**: cd-hit-est clusters targets at `--collapse-threshold` identity to remove near-duplicates
 3. **Build**: Construct probes from collapsed sequences. Method `tile` generates sliding-window probes of `--probe-length` bp across each sequence with `--step` controlling overlap/gap. A final probe is anchored to the end of each sequence to ensure full coverage. Method `catch-lite` uses BaitBench's native Rust reimplementation of the CATCH algorithm. Method `catch` calls the external CATCH tool (`design_probes.py`; requires `catch` conda package). Method `syotti-lite` uses BaitBench's native Rust reimplementation of the Syotti greedy set-cover algorithm. Method `probetools-lite` uses BaitBench's native Rust reimplementation of the ProbeTools iterative k-mer clustering algorithm (requires cd-hit-est).
+3b. **N fix** *(optional, `--no-n-in-probes`)*: Replace any remaining N bases in designed probes with a real nucleotide. T is preferred; if T would be immediately adjacent to an existing T on either side, the algorithm tries A, then C, then G. This step preserves panel coverage rather than discarding probes that contain N bases.
 4. **GC filter**: Remove probes with GC content outside `--min-gc` to `--max-gc` range
 5. **Complexity filter**: Remove low-complexity probes using the sDUST algorithm (Morgulis et al. 2006). Probes where more than `--max-masked-frac` of bases are identified as low-complexity (e.g., homopolymers, dinucleotide repeats) are removed. Set `--max-masked-frac 1.0` to disable.
 6. **Deduplicate**: cd-hit-est clusters probes at `--dedup-threshold` identity to remove redundant probes
@@ -1246,6 +1247,7 @@ Temporary working files are written to `<outdir>/probetools_work/` during the ru
 | `--min-gc` | 0.20 | Minimum GC fraction (0–1) |
 | `--max-gc` | 0.80 | Maximum GC fraction (0–1) |
 | `--max-n-frac` | 0.05 | Maximum fraction of ambiguous (non-ACGT) bases in a target sequence (0–1). Targets exceeding this are removed before collapse. |
+| `--no-n-in-probes` | false | Replace N bases in designed probes with a real nucleotide (T preferred; falls back to A, C, or G if T would be immediately adjacent to an existing T). Runs after probe construction and before GC filtering. |
 | `--dust-threshold` | 2.0 | sDUST score threshold *T* for low-complexity detection |
 | `--dust-window` | 64 | sDUST window size *W* in bases |
 | `--max-masked-frac` | 0.25 | Maximum fraction of bases masked by sDUST to keep a probe (0–1). Set to 1.0 to disable. |

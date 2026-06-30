@@ -270,6 +270,8 @@ baitbench build-probes \
   --outdir probes_output
 ```
 
+Add `--no-n-in-probes` to replace any N bases in the designed probes with a real nucleotide (T preferred; falls back to A/C/G if adjacent to T), preserving panel coverage rather than discarding probes.
+
 ### Assess existing probes
 
 Run combined probe coverage + cross-reactivity analysis:

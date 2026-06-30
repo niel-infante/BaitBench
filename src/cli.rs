@@ -837,6 +837,11 @@ pub enum Commands {
         #[arg(long, default_value = "0.05")]
         max_n_frac: f64,
 
+        /// Replace N bases in designed probes with a non-N base (T preferred;
+        /// falls back to A, C, or G if T would be immediately adjacent to an existing T).
+        #[arg(long)]
+        no_n_in_probes: bool,
+
         /// DUST score threshold for low-complexity filtering (Morgulis et al. 2006)
         #[arg(long, default_value = "2.0")]
         dust_threshold: f64,

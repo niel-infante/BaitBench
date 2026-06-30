@@ -677,6 +677,7 @@ fn main() -> Result<()> {
             pt_min_depth,
             pt_max_iterations,
             pt_min_coverage_gain,
+            no_n_in_probes,
         } => {
             build_probes::execute(&build_probes::BuildProbesArgs {
                 targets: &targets,
@@ -719,6 +720,7 @@ fn main() -> Result<()> {
                 pt_min_depth,
                 pt_max_iterations,
                 pt_min_coverage_gain,
+                no_n_in_probes,
             })?;
         }
 
