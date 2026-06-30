@@ -152,11 +152,11 @@ pub fn map_reads(
     let mut w = BufWriter::new(out);
     write_sam_header(&mut w, &aligner)?;
 
-    for (name, seq) in fasta::parse_fasta(reads)? {
+    for (name, seq) in fasta::parse_reads(reads)? {
         map_and_write_primary(&aligner, &mut w, &name, &seq)?;
     }
     if let Some(r2) = reads_r2 {
-        for (name, seq) in fasta::parse_fasta(r2)? {
+        for (name, seq) in fasta::parse_reads(r2)? {
             map_and_write_primary(&aligner, &mut w, &name, &seq)?;
         }
     }
@@ -338,11 +338,11 @@ pub fn host_align(
     let mut w = BufWriter::new(out);
     write_sam_header(&mut w, &aligner)?;
 
-    for (name, seq) in fasta::parse_fasta(reads)? {
+    for (name, seq) in fasta::parse_reads(reads)? {
         map_and_write_primary(&aligner, &mut w, &name, &seq)?;
     }
     if let Some(r2) = reads_r2 {
-        for (name, seq) in fasta::parse_fasta(r2)? {
+        for (name, seq) in fasta::parse_reads(r2)? {
             map_and_write_primary(&aligner, &mut w, &name, &seq)?;
         }
     }

@@ -20,7 +20,7 @@ targets.fa + distractors.fa + probes.fa [+ sample.tsv]
          ↓
    baitbench simulate  (probes→ref align + TNN scoring + multinomial sampling → fragments.fa)
          ↓
-   baitbench sequence  (optional sampling + trim to read length → reads.fa)
+   baitbench sequence  (optional sampling + trim to read length → reads.fa / reads.fq)
          ↓
    baitbench filter    (optional host filtering)
          ↓
@@ -43,7 +43,7 @@ genomes.fa + targets.fa + distractors.fa [+ sample.tsv] [+ mapping.tsv]
          ↓
    baitbench simulate  (probe-biased fragments from combined_reference.fa, TNN-scored)
          ↓
-   baitbench sequence  (optional sampling + trim to read length → reads.fa)
+   baitbench sequence  (optional sampling + trim to read length → reads.fa / reads.fq)
          ↓
    baitbench filter    (optional host filtering)
          ↓

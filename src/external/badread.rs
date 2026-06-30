@@ -39,15 +39,9 @@ pub fn profile_params(profile: &str) -> Result<(&'static str, &'static str, u32,
 
 /// Run badread to simulate long reads from a multi-FASTA of captured fragments.
 ///
-/// Command:
-/// ```text
-/// badread simulate --reference <input> --quantity <depth>x
-///                  --error_model <model> --qscore_model <model>
-///                  --length <mean>,<sd> [--seed <seed>]
-/// ```
-///
-/// Reads are written in FASTQ format to `output_fastq` (uncompressed).
-/// Read names embed the source sequence ID: `@{uuid} {ref_name},{start}-{end} ...`
+/// `len_mean` / `len_sd`: override the profile's default read length distribution.
+/// Realism controls (`glitches`, `junk_reads`, `random_reads`, `chimeras`) are only
+/// passed to badread when `Some`; when `None`, badread's own defaults apply.
 pub fn run_simulation(
     input: &Path,
     output_fastq: &Path,
@@ -55,8 +49,17 @@ pub fn run_simulation(
     coverage_depth: f64,
     seed: Option<u64>,
     log_file: &Path,
+    len_mean: Option<usize>,
+    len_sd: Option<usize>,
+    glitches: Option<&str>,
+    junk_reads: Option<f64>,
+    random_reads: Option<f64>,
+    chimeras: Option<f64>,
 ) -> Result<()> {
-    let (error_model, qscore_model, len_mean, len_sd) = profile_params(profile)?;
+    let (error_model, qscore_model, profile_mean, profile_sd) = profile_params(profile)?;
+    let final_mean = len_mean.unwrap_or(profile_mean as usize);
+    let final_sd   = len_sd.unwrap_or(profile_sd as usize);
+
     let log = File::create(log_file)
         .with_context(|| format!("Cannot create log: {}", log_file.display()))?;
     let output = File::create(output_fastq)
@@ -68,10 +71,22 @@ pub fn run_simulation(
         .arg("--quantity").arg(format!("{:.1}x", coverage_depth))
         .arg("--error_model").arg(error_model)
         .arg("--qscore_model").arg(qscore_model)
-        .arg("--length").arg(format!("{},{}", len_mean, len_sd));
+        .arg("--length").arg(format!("{},{}", final_mean, final_sd));
 
     if let Some(s) = seed {
         cmd.arg("--seed").arg(s.to_string());
+    }
+    if let Some(g) = glitches {
+        cmd.arg("--glitches").arg(g);
+    }
+    if let Some(j) = junk_reads {
+        cmd.arg("--junk_reads").arg(j.to_string());
+    }
+    if let Some(r) = random_reads {
+        cmd.arg("--random_reads").arg(r.to_string());
+    }
+    if let Some(c) = chimeras {
+        cmd.arg("--chimeras").arg(c.to_string());
     }
 
     cmd.stdout(output).stderr(log);

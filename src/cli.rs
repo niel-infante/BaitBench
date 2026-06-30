@@ -187,6 +187,35 @@ pub enum Commands {
         #[arg(long, default_value = "50")]
         pe_frag_len_sd: usize,
 
+        /// Output format for reads: fasta (default, quality scores discarded) or fastq (preserves quality).
+        /// For the `perfect` simulator, fastq uses dummy Q40 quality for all bases.
+        #[arg(long, default_value = "fasta")]
+        output_format: OutputFormat,
+
+        /// Override badread read length mean (bp). Defaults to profile value: 9000 (ont/ont-2020), 15000 (pacbio).
+        #[arg(long)]
+        long_read_length_mean: Option<usize>,
+
+        /// Override badread read length standard deviation (bp). Defaults to profile value: 7000 (ont/ont-2020), 13000 (pacbio).
+        #[arg(long)]
+        long_read_length_sd: Option<usize>,
+
+        /// badread glitch simulation: "rate,size,skips" (e.g. "10000,100,25"). When absent, badread uses its default.
+        #[arg(long)]
+        badread_glitches: Option<String>,
+
+        /// Percentage of badread reads that are junk sequence (0–100). When absent, badread uses its default (1%).
+        #[arg(long)]
+        badread_junk_reads: Option<f64>,
+
+        /// Percentage of badread reads that are random-looking noise (0–100). When absent, badread uses its default (1%).
+        #[arg(long)]
+        badread_random_reads: Option<f64>,
+
+        /// Percentage of badread reads that are chimeric (0–100). When absent, badread uses its default (1%).
+        #[arg(long)]
+        badread_chimeras: Option<f64>,
+
         /// Output directory
         #[arg(short, long, default_value = "./results")]
         outdir: PathBuf,
@@ -405,6 +434,35 @@ pub enum Commands {
         /// Insert size standard deviation for paired-end (art + --paired-end only).
         #[arg(long, default_value = "50")]
         pe_frag_len_sd: usize,
+
+        /// Output format: fasta (default, quality scores discarded) or fastq (preserves quality).
+        /// For the `perfect` simulator, fastq uses dummy Q40 quality for all bases.
+        #[arg(long, default_value = "fasta")]
+        output_format: OutputFormat,
+
+        /// Override badread read length mean (bp). Defaults to profile value: 9000 (ont/ont-2020), 15000 (pacbio).
+        #[arg(long)]
+        long_read_length_mean: Option<usize>,
+
+        /// Override badread read length standard deviation (bp). Defaults to profile value: 7000 (ont/ont-2020), 13000 (pacbio).
+        #[arg(long)]
+        long_read_length_sd: Option<usize>,
+
+        /// badread glitch simulation: "rate,size,skips" (e.g. "10000,100,25"). When absent, badread uses its default.
+        #[arg(long)]
+        badread_glitches: Option<String>,
+
+        /// Percentage of badread reads that are junk sequence (0–100). When absent, badread uses its default (1%).
+        #[arg(long)]
+        badread_junk_reads: Option<f64>,
+
+        /// Percentage of badread reads that are random-looking noise (0–100). When absent, badread uses its default (1%).
+        #[arg(long)]
+        badread_random_reads: Option<f64>,
+
+        /// Percentage of badread reads that are chimeric (0–100). When absent, badread uses its default (1%).
+        #[arg(long)]
+        badread_chimeras: Option<f64>,
     },
 
     /// Filter out host reads by aligning against a host/background genome
@@ -1264,4 +1322,13 @@ pub enum SimulateMode {
     Thermodynamic,
     /// Uniform probe-site weights — no temperature dependency
     Simple,
+}
+
+#[derive(Clone, Copy, ValueEnum, Debug, PartialEq, Eq, Default)]
+pub enum OutputFormat {
+    /// FASTA output (default) — quality scores discarded
+    #[default]
+    Fasta,
+    /// FASTQ output — preserves quality scores from art/badread; dummy Q40 for perfect simulator
+    Fastq,
 }

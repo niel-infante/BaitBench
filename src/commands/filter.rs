@@ -32,18 +32,18 @@ pub fn execute(args: &FilterArgs) -> Result<()> {
 
     // Passing = all R1 IDs minus host-mapped
     let all_ids: std::collections::HashSet<String> =
-        fasta::parse_fasta_ids(args.reads)?.into_iter().collect();
+        fasta::parse_reads_ids(args.reads)?.into_iter().collect();
     let passing: std::collections::HashSet<String> =
         all_ids.difference(&host_ids).cloned().collect();
     log::info!("{} reads passing host filter", passing.len());
 
     // Extract passing reads (R1)
-    let count = fasta::extract_by_ids(args.reads, &passing, args.output)?;
+    let count = fasta::extract_reads_by_ids(args.reads, &passing, args.output)?;
     log::info!("Wrote {} filtered sequences (R1)", count);
 
     // Extract passing R2 reads using the same ID set (paired reads share names)
     if let (Some(reads_r2), Some(output_r2)) = (args.reads_r2, args.output_r2) {
-        let count_r2 = fasta::extract_by_ids(reads_r2, &passing, output_r2)?;
+        let count_r2 = fasta::extract_reads_by_ids(reads_r2, &passing, output_r2)?;
         log::info!("Wrote {} filtered sequences (R2)", count_r2);
     }
 

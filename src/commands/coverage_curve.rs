@@ -277,6 +277,13 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
                     paired_end: false,
                     pe_frag_len_mean: 200,
                     pe_frag_len_sd: 50,
+                    output_format: crate::cli::OutputFormat::Fasta,
+                    long_read_length_mean: None,
+                    long_read_length_sd: None,
+                    badread_glitches: None,
+                    badread_junk_reads: None,
+                    badread_random_reads: None,
+                    badread_chimeras: None,
                 })?;
 
                 // Optional host filtering

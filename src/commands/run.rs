@@ -4,7 +4,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::cleanup;
-use crate::cli::ReportMode;
+use crate::cli::{OutputFormat, ReportMode};
 use crate::commands::{filter, generate_list, identify, map_reads, metrics, prepare, report, sequence, simulate};
 use crate::commands::sequence::ReadSimulator;
 use crate::external::rscript;
@@ -52,6 +52,13 @@ pub struct RunArgs<'a> {
     pub paired_end: bool,
     pub pe_frag_len_mean: usize,
     pub pe_frag_len_sd: usize,
+    pub output_format: OutputFormat,
+    pub long_read_length_mean: Option<usize>,
+    pub long_read_length_sd: Option<usize>,
+    pub badread_glitches: Option<String>,
+    pub badread_junk_reads: Option<f64>,
+    pub badread_random_reads: Option<f64>,
+    pub badread_chimeras: Option<f64>,
     pub outdir: PathBuf,
     pub threads: usize,
     pub identify: bool,
@@ -60,6 +67,13 @@ pub struct RunArgs<'a> {
     pub report: ReportMode,
     pub cleanup: bool,
     pub output_prefix: String,
+}
+
+fn reads_ext(fmt: OutputFormat) -> &'static str {
+    match fmt {
+        OutputFormat::Fasta => "fa",
+        OutputFormat::Fastq => "fq",
+    }
 }
 
 pub fn execute(args: &RunArgs) -> Result<()> {
@@ -178,6 +192,17 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         writeln!(f, "paired_end\t--paired-end\t{}", args.paired_end)?;
         writeln!(f, "pe_frag_len_mean\t--pe-frag-len-mean\t{}", args.pe_frag_len_mean)?;
         writeln!(f, "pe_frag_len_sd\t--pe-frag-len-sd\t{}", args.pe_frag_len_sd)?;
+        writeln!(f, "long_read_length_mean\t--long-read-length-mean\t{}", args.long_read_length_mean.map(|v| v.to_string()).unwrap_or_else(|| "default".to_string()))?;
+        writeln!(f, "long_read_length_sd\t--long-read-length-sd\t{}", args.long_read_length_sd.map(|v| v.to_string()).unwrap_or_else(|| "default".to_string()))?;
+        writeln!(f, "badread_glitches\t--badread-glitches\t{}", args.badread_glitches.as_deref().unwrap_or("default"))?;
+        writeln!(f, "badread_junk_reads\t--badread-junk-reads\t{}", args.badread_junk_reads.map(|v| v.to_string()).unwrap_or_else(|| "default".to_string()))?;
+        writeln!(f, "badread_random_reads\t--badread-random-reads\t{}", args.badread_random_reads.map(|v| v.to_string()).unwrap_or_else(|| "default".to_string()))?;
+        writeln!(f, "badread_chimeras\t--badread-chimeras\t{}", args.badread_chimeras.map(|v| v.to_string()).unwrap_or_else(|| "default".to_string()))?;
+        let fmt_str = match args.output_format {
+            OutputFormat::Fasta => "fasta",
+            OutputFormat::Fastq => "fastq",
+        };
+        writeln!(f, "output_format\t--output-format\t{}", fmt_str)?;
         writeln!(f, "threads\t--threads\t{}", args.threads)?;
         writeln!(f, "seed\t--seed\t{}", args.seed.map(|s| s.to_string()).unwrap_or_else(|| "none".to_string()))?;
         writeln!(f, "outdir\t--outdir\t{}", outdir.display())?;
@@ -221,9 +246,10 @@ pub fn execute(args: &RunArgs) -> Result<()> {
 
     // Step 3: Sequence fragments into reads
     log::info!("Step 3/7: Sequencing fragments (simulator={:?})...", args.simulator);
-    let reads_r1_path = prefixed_join(outdir, pfx, "reads.fa");
+    let ext = reads_ext(args.output_format);
+    let reads_r1_path = prefixed_join(outdir, pfx, &format!("reads.{}", ext));
     let reads_r2_path = if args.paired_end {
-        Some(prefixed_join(outdir, pfx, "reads_R2.fa"))
+        Some(prefixed_join(outdir, pfx, &format!("reads_R2.{}", ext)))
     } else {
         None
     };
@@ -240,26 +266,34 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         paired_end: args.paired_end,
         pe_frag_len_mean: args.pe_frag_len_mean,
         pe_frag_len_sd: args.pe_frag_len_sd,
+        output_format: args.output_format,
+        long_read_length_mean: args.long_read_length_mean,
+        long_read_length_sd: args.long_read_length_sd,
+        badread_glitches: args.badread_glitches.clone(),
+        badread_junk_reads: args.badread_junk_reads,
+        badread_random_reads: args.badread_random_reads,
+        badread_chimeras: args.badread_chimeras,
     })?;
-    let reads_sequenced = fasta::count_sequences(&reads_r1_path)?;
+    let reads_sequenced = fasta::count_reads(&reads_r1_path)?;
     log::info!("  Reads after sequencing: {}", reads_sequenced);
 
     // Step 4: Optional host filtering
-    let filtered_r2_path = reads_r2_path.as_ref().map(|_| prefixed_join(outdir, pfx, "filtered_R2.fa"));
+    let filtered_r2_path = reads_r2_path.as_ref().map(|_| prefixed_join(outdir, pfx, &format!("filtered_R2.{}", ext)));
     let (reads_for_mapping, reads_for_mapping_r2, reads_after_filter) = if let Some(host) = args.host_fasta {
         log::info!("Step 4/7: Filtering host reads...");
+        let filtered_path = prefixed_join(outdir, pfx, &format!("filtered.{}", ext));
         filter::execute(&filter::FilterArgs {
             host,
             reads: &reads_r1_path,
             reads_r2: reads_r2_path.as_deref(),
             minimap_preset: &args.host_minimap_preset,
-            output: &prefixed_join(outdir, pfx, "filtered.fa"),
+            output: &filtered_path,
             output_r2: filtered_r2_path.as_deref(),
             log_file: &prefixed_join(outdir, pfx, "host_filter.log"),
         })?;
-        let count = fasta::count_sequences(&prefixed_join(outdir, pfx, "filtered.fa"))?;
+        let count = fasta::count_reads(&filtered_path)?;
         log::info!("  Reads after host filtering: {}", count);
-        (prefixed_join(outdir, pfx, "filtered.fa"), filtered_r2_path, Some(count))
+        (filtered_path, filtered_r2_path, Some(count))
     } else {
         log::info!("Step 4/7: Skipping host filtering (no host genome provided)");
         (reads_r1_path.clone(), reads_r2_path.clone(), None)
@@ -464,9 +498,13 @@ pub fn execute(args: &RunArgs) -> Result<()> {
             "sample_target_map.txt",
             "fragments.fa",
             "reads.fa",
+            "reads.fq",
             "reads_R2.fa",
+            "reads_R2.fq",
             "filtered.fa",
+            "filtered.fq",
             "filtered_R2.fa",
+            "filtered_R2.fq",
             "mapped.sam",
             "detected.list",
             "mapping.log",

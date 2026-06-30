@@ -8,8 +8,8 @@ Quick reference for the codebase structure, module responsibilities, and key dat
 ```
 Step 1: prepare    → combined_reference.fa, weights.txt, targets.txt, distractors.txt, sample.txt
 Step 2: simulate   → fragments.fa  (probe-biased via TNN thermodynamics + background, controlled by --capture-fraction)
-Step 3: sequence   → reads.fa
-Step 4: filter     → filtered.fa (optional, if --host-fasta)
+Step 3: sequence   → reads.fa / reads.fq  (extension matches --output-format; default fasta)
+Step 4: filter     → filtered.fa / filtered.fq (optional, if --host-fasta)
 Step 5: map_reads  → mapped.sam  (against combined_reference.fa)
 Step 6: list       → detected.list
 Step 7: metrics    → results.tsv, detected_detail.tsv, results.json, coverage.tsv
@@ -21,8 +21,8 @@ Report: report     → report.html (optional, requires R)
 Step 1: prepare    → combined_reference.fa (genomes+distractors), mapping_reference.fa (targets+distractors),
                      weights.txt, targets.txt, distractors.txt, genomes.txt, sample.txt, sample_target_map.txt
 Step 2: simulate   → fragments.fa  (probe-biased fragments from combined_reference.fa — genomes+distractors)
-Step 3: sequence   → reads.fa
-Step 4: filter     → filtered.fa (optional, if --host-fasta)
+Step 3: sequence   → reads.fa / reads.fq  (extension matches --output-format; default fasta)
+Step 4: filter     → filtered.fa / filtered.fq (optional, if --host-fasta)
 Step 5: map_reads  → mapped.sam  (against mapping_reference.fa — targets+distractors)
 Step 6: list       → detected.list
 Step 7: metrics    → results.tsv, detected_detail.tsv, results.json, coverage.tsv  (genome-aware classification)
@@ -128,8 +128,8 @@ Every command module exports an `Args` struct and an `execute(&Args) -> Result<(
 |---------|-------------|------------|-------------|
 | `prepare` | `PrepareArgs` | targets, distractors, sample, distractor_fraction, genomes, sample_target_map, groups, distractor_groups | combined_reference.fa, weights.txt, ID lists, distractor_groups.tsv (always); target_groups.tsv (if --groups); genome mode also: mapping_reference.fa, genomes.txt, sample_target_map.txt |
 | `simulate` | `SimulateArgs` | reference, weights, probes, num_fragments, capture_fraction, simulate_mode, hybridization_temperature, seed, fragment_length_*, threads | fragments.fa (probe-biased + background) |
-| `sequence` | `SequenceArgs` | input, output, output_r2, read_length, num_sequences, seed, simulator (perfect/art/badread), sequencer_profile, coverage_depth, paired_end, pe_frag_len_mean, pe_frag_len_sd | reads.fa (SE) or reads.fa + reads_R2.fa (PE); errors injected by art_modern or badread when simulator ≠ perfect |
-| `filter` | `FilterArgs` | host, reads, reads_r2, minimap_preset | filtered.fa (+ filtered_R2.fa for PE) |
+| `sequence` | `SequenceArgs` | input, output, output_r2, read_length, num_sequences, seed, simulator (perfect/art/badread), sequencer_profile, coverage_depth, paired_end, pe_frag_len_mean, pe_frag_len_sd, output_format | reads.fa/.fq (SE) or reads.fa/.fq + reads_R2.fa/.fq (PE); extension determined by output_format; errors injected by art_modern or badread when simulator ≠ perfect |
+| `filter` | `FilterArgs` | host, reads, reads_r2, minimap_preset | filtered.fa/.fq (+ filtered_R2.fa/.fq for PE); format detected automatically from input |
 | `map_reads` | `MapArgs` | reference, reads, reads_r2, minimap_preset | mapped.sam |
 | `generate_list` | `ListArgs` | sam | detected.list |
 | `metrics` | `MetricsArgs` | targets, distractors, sample, detected, fragments, captured, sam, sample_target_map, target_groups, distractor_groups, reads_sequenced, reads_after_filter, output_group_detail | results.tsv, detected_detail.tsv (with group col), group_detail.tsv (when groups present), results.json, coverage.tsv |
@@ -303,8 +303,8 @@ All wrappers follow the pattern: `check_available() → bool/Result`, then speci
 | `fragments.fa` | FASTA | simulate | capture, metrics |
 | `captured.fa` | FASTA | capture | enrich (if --fold-enrichment), sequence, metrics |
 | `enriched.fa` | FASTA | enrich | sequence, metrics (only if --fold-enrichment) |
-| `reads.fa` | FASTA | sequence | filter/map_reads |
-| `filtered.fa` | FASTA | filter | map_reads |
+| `reads.fa` / `reads.fq` | FASTA or FASTQ | sequence | filter/map_reads |
+| `filtered.fa` / `filtered.fq` | FASTA or FASTQ | filter | map_reads |
 | `mapped.sam` | SAM | map_reads | generate_list, metrics |
 | `detected.list` | TSV (id count) | generate_list | metrics |
 | `run_params.tsv` | TSV (parameter flag value) | run | report |

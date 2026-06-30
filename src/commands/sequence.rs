@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 
+use crate::cli::OutputFormat;
 use crate::external::{art_modern, badread};
 use crate::io_utils::extract_source_id;
 
@@ -57,6 +58,21 @@ pub struct SequenceArgs<'a> {
     pub pe_frag_len_mean: usize,
     /// Insert size std-dev for paired-end (Art + paired_end only).
     pub pe_frag_len_sd: usize,
+    /// Output format: FASTA (default) or FASTQ.
+    pub output_format: OutputFormat,
+    // ── badread-specific overrides ────────────────────────────────────────────
+    /// Override profile default read length mean (badread only).
+    pub long_read_length_mean: Option<usize>,
+    /// Override profile default read length SD (badread only).
+    pub long_read_length_sd: Option<usize>,
+    /// badread --glitches "rate,size,skips" (None = badread default).
+    pub badread_glitches: Option<String>,
+    /// badread --junk_reads percentage 0–100 (None = badread default).
+    pub badread_junk_reads: Option<f64>,
+    /// badread --random_reads percentage 0–100 (None = badread default).
+    pub badread_random_reads: Option<f64>,
+    /// badread --chimeras percentage 0–100 (None = badread default).
+    pub badread_chimeras: Option<f64>,
 }
 
 pub fn execute(args: &SequenceArgs) -> Result<()> {
@@ -78,6 +94,7 @@ fn execute_perfect(args: &SequenceArgs) -> Result<()> {
 
 fn execute_perfect_passthrough(args: &SequenceArgs) -> Result<()> {
     log::info!("Sequencing fragments (perfect trim to {}bp)...", args.read_length);
+    let fastq_out = matches!(args.output_format, OutputFormat::Fastq);
     let reader = BufReader::new(
         File::open(args.input)
             .with_context(|| format!("Cannot open input: {}", args.input.display()))?,
@@ -93,7 +110,11 @@ fn execute_perfect_passthrough(args: &SequenceArgs) -> Result<()> {
         let line = line?;
         if line.starts_with('>') {
             if let Some(ref h) = header {
-                write_trimmed(&mut writer, h, &seq, args.read_length)?;
+                if fastq_out {
+                    write_trimmed_fastq(&mut writer, h, &seq, args.read_length)?;
+                } else {
+                    write_trimmed(&mut writer, h, &seq, args.read_length)?;
+                }
                 count += 1;
                 seq.clear();
             }
@@ -103,7 +124,11 @@ fn execute_perfect_passthrough(args: &SequenceArgs) -> Result<()> {
         }
     }
     if let Some(ref h) = header {
-        write_trimmed(&mut writer, h, &seq, args.read_length)?;
+        if fastq_out {
+            write_trimmed_fastq(&mut writer, h, &seq, args.read_length)?;
+        } else {
+            write_trimmed(&mut writer, h, &seq, args.read_length)?;
+        }
         count += 1;
     }
     writer.flush()?;
@@ -113,6 +138,7 @@ fn execute_perfect_passthrough(args: &SequenceArgs) -> Result<()> {
 
 fn execute_perfect_sampled(args: &SequenceArgs, n: usize) -> Result<()> {
     log::info!("Sequencing {} reads (sampled, trim to {}bp)...", n, args.read_length);
+    let fastq_out = matches!(args.output_format, OutputFormat::Fastq);
     let frags = load_fasta_records(args.input)?;
     let mut rng: StdRng = match args.seed {
         Some(s) => StdRng::seed_from_u64(s),
@@ -128,11 +154,21 @@ fn execute_perfect_sampled(args: &SequenceArgs, n: usize) -> Result<()> {
         let id_part = header.strip_prefix('>').unwrap_or(header)
             .split_whitespace().next().unwrap_or("");
         let source = extract_source_id(id_part).unwrap_or(id_part);
-        let meta = header_metadata(header);
-        write!(writer, ">{}_fragment_{}", source, i + 1)?;
-        if !meta.is_empty() { write!(writer, " {}", meta)?; }
-        writeln!(writer)?;
-        write_trimmed_seq(&mut writer, seq, args.read_length)?;
+        let read_name = format!("{}_fragment_{}", source, i + 1);
+        let trimmed = if seq.len() > args.read_length { &seq[..args.read_length] } else { seq };
+        if fastq_out {
+            let qual: String = "I".repeat(trimmed.len());
+            writeln!(writer, "@{}", read_name)?;
+            writeln!(writer, "{}", trimmed)?;
+            writeln!(writer, "+")?;
+            writeln!(writer, "{}", qual)?;
+        } else {
+            let meta = header_metadata(header);
+            write!(writer, ">{}", read_name)?;
+            if !meta.is_empty() { write!(writer, " {}", meta)?; }
+            writeln!(writer)?;
+            writeln!(writer, "{}", trimmed)?;
+        }
     }
     writer.flush()?;
     log::info!("Sampled {} reads", n);
@@ -176,22 +212,38 @@ fn execute_art(args: &SequenceArgs) -> Result<()> {
 
     let qname_to_frag = parse_sam_qname_to_rname(&tmp_sam)?;
 
-    // Write full FASTA (before optional sampling)
-    let full_r1 = match args.num_sequences {
-        Some(_) => tmp_path(args.output, "art_r1_full.fa"),
-        None    => args.output.to_path_buf(),
+    let fastq_out = matches!(args.output_format, OutputFormat::Fastq);
+
+    // Write full output (before optional sampling)
+    let (full_r1, full_r1_is_tmp) = match args.num_sequences {
+        Some(_) => {
+            let ext = if fastq_out { "art_r1_full.fq" } else { "art_r1_full.fa" };
+            (tmp_path(args.output, ext), true)
+        }
+        None => (args.output.to_path_buf(), false),
     };
-    fastq_to_renamed_fasta(&tmp_r1, &full_r1, &qname_to_frag)?;
+    if fastq_out {
+        fastq_to_renamed_fastq(&tmp_r1, &full_r1, &qname_to_frag)?;
+    } else {
+        fastq_to_renamed_fasta(&tmp_r1, &full_r1, &qname_to_frag)?;
+    }
 
     let full_r2 = if args.paired_end {
         let r2_out = args.output_r2.ok_or_else(|| {
             anyhow::anyhow!("output_r2 required when paired_end = true")
         })?;
         let path = match args.num_sequences {
-            Some(_) => tmp_path(r2_out, "art_r2_full.fa"),
-            None    => r2_out.to_path_buf(),
+            Some(_) => {
+                let ext = if fastq_out { "art_r2_full.fq" } else { "art_r2_full.fa" };
+                tmp_path(r2_out, ext)
+            }
+            None => r2_out.to_path_buf(),
         };
-        fastq_to_renamed_fasta(&tmp_r2, &path, &qname_to_frag)?;
+        if fastq_out {
+            fastq_to_renamed_fastq(&tmp_r2, &path, &qname_to_frag)?;
+        } else {
+            fastq_to_renamed_fasta(&tmp_r2, &path, &qname_to_frag)?;
+        }
         Some(path)
     } else {
         None
@@ -199,12 +251,20 @@ fn execute_art(args: &SequenceArgs) -> Result<()> {
 
     // Optional sampling pass
     if let Some(n) = args.num_sequences {
-        sample_fasta_reads(&full_r1, args.output, n, args.seed)?;
-        let _ = std::fs::remove_file(&full_r1);
+        if fastq_out {
+            sample_fastq_reads(&full_r1, args.output, n, args.seed)?;
+        } else {
+            sample_fasta_reads(&full_r1, args.output, n, args.seed)?;
+        }
+        if full_r1_is_tmp { let _ = std::fs::remove_file(&full_r1); }
         if args.paired_end {
             let r2_full = full_r2.as_ref().unwrap();
             let r2_out  = args.output_r2.unwrap();
-            sample_fasta_reads(r2_full, r2_out, n, args.seed)?;
+            if fastq_out {
+                sample_fastq_reads(r2_full, r2_out, n, args.seed)?;
+            } else {
+                sample_fasta_reads(r2_full, r2_out, n, args.seed)?;
+            }
             let _ = std::fs::remove_file(r2_full);
         }
     }
@@ -234,21 +294,41 @@ fn execute_badread(args: &SequenceArgs) -> Result<()> {
         args.coverage_depth,
         args.seed,
         &log_path,
+        args.long_read_length_mean,
+        args.long_read_length_sd,
+        args.badread_glitches.as_deref(),
+        args.badread_junk_reads,
+        args.badread_random_reads,
+        args.badread_chimeras,
     )?;
 
-    let full_out = match args.num_sequences {
-        Some(_) => tmp_path(args.output, "badread_full.fa"),
-        None    => args.output.to_path_buf(),
+    let fastq_out = matches!(args.output_format, OutputFormat::Fastq);
+
+    let (full_out, full_out_is_tmp) = match args.num_sequences {
+        Some(_) => {
+            let ext = if fastq_out { "badread_full.fq" } else { "badread_full.fa" };
+            (tmp_path(args.output, ext), true)
+        }
+        None => (args.output.to_path_buf(), false),
     };
-    badread_fastq_to_fasta(&tmp_fastq, &full_out)?;
+
+    if fastq_out {
+        badread_fastq_to_fastq(&tmp_fastq, &full_out)?;
+    } else {
+        badread_fastq_to_fasta(&tmp_fastq, &full_out)?;
+    }
 
     for p in [&tmp_fastq, &log_path] {
         let _ = std::fs::remove_file(p);
     }
 
     if let Some(n) = args.num_sequences {
-        sample_fasta_reads(&full_out, args.output, n, args.seed)?;
-        let _ = std::fs::remove_file(&full_out);
+        if fastq_out {
+            sample_fastq_reads(&full_out, args.output, n, args.seed)?;
+        } else {
+            sample_fasta_reads(&full_out, args.output, n, args.seed)?;
+        }
+        if full_out_is_tmp { let _ = std::fs::remove_file(&full_out); }
     }
     Ok(())
 }
@@ -293,11 +373,100 @@ fn badread_fastq_to_fasta(fastq: &Path, fasta_out: &Path) -> Result<()> {
     Ok(())
 }
 
+/// Produce a renamed FASTQ (preserving quality) from art FASTQ using the qname→fragment map.
+fn fastq_to_renamed_fastq(
+    fastq_path: &Path,
+    out_path: &Path,
+    qname_to_frag: &HashMap<String, String>,
+) -> Result<()> {
+    let reader = BufReader::new(
+        File::open(fastq_path)
+            .with_context(|| format!("Cannot open FASTQ: {}", fastq_path.display()))?,
+    );
+    let mut writer = BufWriter::new(
+        File::create(out_path)
+            .with_context(|| format!("Cannot create FASTQ: {}", out_path.display()))?,
+    );
+    let mut counter = 0usize;
+    let mut lines = reader.lines();
+    while let Some(header_line) = lines.next() {
+        let header_line = header_line?;
+        let seq_line    = lines.next().ok_or_else(|| anyhow::anyhow!("Truncated FASTQ"))??;
+        let _plus       = lines.next().ok_or_else(|| anyhow::anyhow!("Truncated FASTQ"))??;
+        let qual_line   = lines.next().ok_or_else(|| anyhow::anyhow!("Truncated FASTQ"))??;
+
+        let qname = header_line.strip_prefix('@').unwrap_or(&header_line)
+            .split_whitespace().next().unwrap_or("");
+        let qname_base = qname.trim_end_matches("/1").trim_end_matches("/2");
+
+        let source_id = if let Some(frag_id) = qname_to_frag.get(qname_base) {
+            extract_source_id(frag_id).unwrap_or(frag_id.as_str()).to_string()
+        } else {
+            extract_source_id(qname_base).unwrap_or(qname_base).to_string()
+        };
+
+        counter += 1;
+        writeln!(writer, "@{}_fragment_{}", source_id, counter)?;
+        writeln!(writer, "{}", seq_line)?;
+        writeln!(writer, "+")?;
+        writeln!(writer, "{}", qual_line)?;
+    }
+    writer.flush()?;
+    log::debug!("Converted {} reads → FASTQ {}", counter, out_path.display());
+    Ok(())
+}
+
+/// Convert badread FASTQ to renamed FASTQ (preserving quality scores).
+fn badread_fastq_to_fastq(fastq: &Path, out_path: &Path) -> Result<()> {
+    let reader = BufReader::new(
+        File::open(fastq)
+            .with_context(|| format!("Cannot open badread FASTQ: {}", fastq.display()))?,
+    );
+    let mut writer = BufWriter::new(
+        File::create(out_path)
+            .with_context(|| format!("Cannot create FASTQ: {}", out_path.display()))?,
+    );
+    let mut counter = 0usize;
+    let mut lines = reader.lines();
+    while let Some(header) = lines.next() {
+        let header  = header?;
+        let seq     = lines.next().ok_or_else(|| anyhow::anyhow!("Truncated FASTQ"))??;
+        let _plus   = lines.next().ok_or_else(|| anyhow::anyhow!("Truncated FASTQ"))??;
+        let qual    = lines.next().ok_or_else(|| anyhow::anyhow!("Truncated FASTQ"))??;
+
+        let desc      = header.strip_prefix('@').unwrap_or(&header);
+        let ref_field = desc.split_whitespace().nth(1).unwrap_or("");
+        let frag_id   = ref_field.split(',').next().unwrap_or(ref_field);
+        let source_id = extract_source_id(frag_id).unwrap_or(frag_id);
+
+        counter += 1;
+        writeln!(writer, "@{}_fragment_{}", source_id, counter)?;
+        writeln!(writer, "{}", seq)?;
+        writeln!(writer, "+")?;
+        writeln!(writer, "{}", qual)?;
+    }
+    writer.flush()?;
+    log::debug!("badread: converted {} reads → FASTQ {}", counter, out_path.display());
+    Ok(())
+}
+
 // ── Shared helpers ─────────────────────────────────────────────────────────────
 
 fn write_trimmed(writer: &mut impl Write, header: &str, seq: &str, read_length: usize) -> Result<()> {
     writeln!(writer, "{}", header)?;
     write_trimmed_seq(writer, seq, read_length)
+}
+
+fn write_trimmed_fastq(writer: &mut impl Write, header: &str, seq: &str, read_length: usize) -> Result<()> {
+    let name = header.strip_prefix('>').unwrap_or(header)
+        .split_whitespace().next().unwrap_or("read");
+    let trimmed = if seq.len() > read_length { &seq[..read_length] } else { seq };
+    let qual: String = "I".repeat(trimmed.len());
+    writeln!(writer, "@{}", name)?;
+    writeln!(writer, "{}", trimmed)?;
+    writeln!(writer, "+")?;
+    writeln!(writer, "{}", qual)?;
+    Ok(())
 }
 
 fn write_trimmed_seq(writer: &mut impl Write, seq: &str, read_length: usize) -> Result<()> {
@@ -433,6 +602,52 @@ fn sample_fasta_reads(input: &Path, output: &Path, n: usize, seed: Option<u64>) 
         if !meta.is_empty() { write!(writer, " {}", meta)?; }
         writeln!(writer)?;
         writeln!(writer, "{}", seq)?;
+    }
+    writer.flush()?;
+    Ok(())
+}
+
+fn load_fastq_records(path: &Path) -> Result<Vec<(String, String, String)>> {
+    let reader = BufReader::new(
+        File::open(path).with_context(|| format!("Cannot open: {}", path.display()))?,
+    );
+    let mut records = Vec::new();
+    let mut lines = reader.lines();
+    while let Some(header) = lines.next() {
+        let header = header?;
+        let seq    = lines.next().ok_or_else(|| anyhow::anyhow!("Truncated FASTQ: {}", path.display()))??;
+        let _plus  = lines.next().ok_or_else(|| anyhow::anyhow!("Truncated FASTQ: {}", path.display()))??;
+        let qual   = lines.next().ok_or_else(|| anyhow::anyhow!("Truncated FASTQ: {}", path.display()))??;
+        records.push((header, seq, qual));
+    }
+    Ok(records)
+}
+
+/// Sample `n` reads with replacement from a FASTQ file into another FASTQ file.
+fn sample_fastq_reads(input: &Path, output: &Path, n: usize, seed: Option<u64>) -> Result<()> {
+    let records = load_fastq_records(input)?;
+    if records.is_empty() {
+        File::create(output)?;
+        return Ok(());
+    }
+    let mut rng: StdRng = match seed {
+        Some(s) => StdRng::seed_from_u64(s),
+        None    => StdRng::from_entropy(),
+    };
+    let mut writer = BufWriter::new(
+        File::create(output)
+            .with_context(|| format!("Cannot create: {}", output.display()))?,
+    );
+    for i in 0..n {
+        let idx = rng.gen_range(0..records.len());
+        let (header, seq, qual) = &records[idx];
+        let id_part = header.strip_prefix('@').unwrap_or(header)
+            .split_whitespace().next().unwrap_or("");
+        let source = extract_source_id(id_part).unwrap_or(id_part);
+        writeln!(writer, "@{}_fragment_{}", source, i + 1)?;
+        writeln!(writer, "{}", seq)?;
+        writeln!(writer, "+")?;
+        writeln!(writer, "{}", qual)?;
     }
     writer.flush()?;
     Ok(())

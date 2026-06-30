@@ -536,9 +536,47 @@ When `--num-sequences` is set, the final read count is capped by sampling, regar
 
 When using `baitbench run`, `--minimap-preset` and `--host-minimap-preset` are auto-selected to match the simulator: `sr` for `perfect`/`art`, `map-ont` for badread `ont`/`ont-2020`, `map-pb` for badread `pacbio`. Pass either flag explicitly to override.
 
+#### Output format
+
+Add `--output-format fastq` to preserve quality scores from `art`/`badread`. The `perfect` simulator writes dummy Q40 (`I`) quality for all bases. Default is `fasta` (quality scores discarded).
+
+#### Underlying tool parameter mapping
+
+**ART-modern** (`--read-simulator art`):
+
+| BaitBench flag | ART-modern flag | Notes |
+|---|---|---|
+| `--read-length` | `--read_len` | |
+| `--sequencer-profile` | `--builtin_qual_file` | Same value string |
+| `--coverage-depth` | `--i-fcov` | |
+| `--paired-end` | `--lc pe` vs `--lc se` | Boolean → string enum |
+| `--pe-frag-len-mean` | `--pe_frag_dist_mean` | |
+| `--pe-frag-len-sd` | `--pe_frag_dist_std_dev` | |
+| `--seed` | *(not passed)* | ART uses its own internal seed |
+| `--num-sequences` | *(not passed)* | Applied as a post-processing sampling step |
+
+**badread** (`--read-simulator badread`):
+
+| BaitBench flag | badread flag | Notes |
+|---|---|---|
+| `--coverage-depth` | `--quantity` | Formatted as `{depth}x` |
+| `--sequencer-profile ont` | `--error_model nanopore2023 --qscore_model nanopore2023 --length 9000,7000` | |
+| `--sequencer-profile ont-2020` | `--error_model nanopore2020 --qscore_model nanopore2020 --length 9000,7000` | |
+| `--sequencer-profile pacbio` | `--error_model pacbio2016 --qscore_model pacbio2016 --length 15000,13000` | |
+| `--seed` | `--seed` | Same value |
+| `--read-length` | *(not passed)* | Length set per-profile (see above); bounded by fragment length |
+| `--paired-end` | *(not supported)* | badread does not produce paired-end reads |
+| `--num-sequences` | *(not passed)* | Applied as a post-processing sampling step |
+| `--long-read-length-mean` | `--length mean,sd` (mean) | Overrides profile default (9000 for ont/ont-2020, 15000 for pacbio). When absent, profile default is used. |
+| `--long-read-length-sd` | `--length mean,sd` (SD) | Overrides profile default (7000 for ont/ont-2020, 13000 for pacbio). When absent, profile default is used. |
+| `--badread-glitches` | `--glitches` | String `"rate,size,skips"` e.g. `"10000,100,25"`. When absent, badread default applies. |
+| `--badread-junk-reads` | `--junk_reads` | Percentage 0–100. When absent, badread default (1%) applies. |
+| `--badread-random-reads` | `--random_reads` | Percentage 0–100. When absent, badread default (1%) applies. |
+| `--badread-chimeras` | `--chimeras` | Percentage 0–100. When absent, badread default (1%) applies. |
+
 **Output files:**
-- `reads.fa` -- sequencing reads (R1 for paired-end)
-- `reads_R2.fa` -- R2 reads (paired-end only)
+- `reads.fa` / `reads.fq` -- sequencing reads (R1 for paired-end); extension matches `--output-format`
+- `reads_R2.fa` / `reads_R2.fq` -- R2 reads (paired-end only)
 
 ### filter
 
@@ -1482,6 +1520,13 @@ See [CT Score Calculation](#ct-score-calculation) for details.
 | Paired-end | `--paired-end` | false | Paired-end output (art only). Produces reads.fa + reads_R2.fa |
 | PE fragment mean | `--pe-frag-len-mean` | 200 | Mean insert size for paired-end (`art` + `--paired-end`) |
 | PE fragment SD | `--pe-frag-len-sd` | 50 | Insert size std-dev for paired-end (`art` + `--paired-end`) |
+| Output format | `--output-format` | `fasta` | Output format for reads: `fasta` (quality discarded) or `fastq` (quality preserved). `perfect` writes dummy Q40 when `fastq` is selected |
+| Long-read length mean | `--long-read-length-mean` | profile default | Override badread read length mean (bp). Profile defaults: 9000 (ont/ont-2020), 15000 (pacbio) |
+| Long-read length SD | `--long-read-length-sd` | profile default | Override badread read length SD (bp). Profile defaults: 7000 (ont/ont-2020), 13000 (pacbio) |
+| Badread glitches | `--badread-glitches` | badread default | `"rate,size,skips"` string, e.g. `"10000,100,25"`. Set to `"0,0,0"` to disable |
+| Badread junk reads | `--badread-junk-reads` | badread default (1%) | Percentage (0–100) of reads that are junk sequence |
+| Badread random reads | `--badread-random-reads` | badread default (1%) | Percentage (0–100) of reads that are random noise |
+| Badread chimeras | `--badread-chimeras` | badread default (1%) | Percentage (0–100) of reads that are chimeric |
 
 #### Minimap2 Preset Auto-Selection
 
