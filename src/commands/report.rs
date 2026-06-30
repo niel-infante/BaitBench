@@ -252,8 +252,8 @@ pub fn substitute_rmd_params(template: &str, params: &[(&str, &str)]) -> String 
                 if let Some((_, value)) = params.iter().find(|(k, _)| *k == key_part) {
                     // Get the indentation from the original line
                     let indent: String = line.chars().take_while(|c| c.is_whitespace()).collect();
-                    // Check if value is a pure integer or float
-                    if value.parse::<i64>().is_ok() || value.parse::<f64>().is_ok() {
+                    // R expressions (!r ...) and bare numerics must not be quoted in YAML
+                    if value.starts_with("!r ") || value.parse::<i64>().is_ok() || value.parse::<f64>().is_ok() {
                         result.push_str(&format!("{}{}: {}\n", indent, key_part, value));
                     } else {
                         result.push_str(&format!("{}{}: \"{}\"\n", indent, key_part, value));
