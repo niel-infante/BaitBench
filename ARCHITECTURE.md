@@ -139,7 +139,7 @@ Every command module exports an `Args` struct and an `execute(&Args) -> Result<(
 | `panel_qc` | `PanelQcArgs` | targets, sample_target_map, identity_threshold, minimap_preset, report (ReportMode) | target_similarity.tsv, species_discriminability.tsv, species_confusion_matrix.tsv, panel_qc_report.html |
 | `identify` | `IdentifyArgs` | detected_detail, sample_target_map, target_similarity (or targets for on-the-fly), identity_threshold, min_unique_targets | species_calls.tsv, species_calls.json |
 | `run` | `RunArgs` | all pipeline inputs + ct, ct_baseline, ct_baseline_fraction, simulate_mode, hybridization_temperature, capture_fraction, num_sequences, simulator, sequencer_profile, coverage_depth, paired_end, pe_frag_len_mean/sd, genomes, sample_target_map, identify, identity_threshold, min_unique_targets | all of the above |
-| `coverage_curve` | `CoverageCurveArgs` | targets, distractors, probes, sample (required), ct/cf/ns values (sweep or fixed), simulate_mode, hybridization_temperature, all pipeline params, genomes, sample_target_map | coverage_curve_depth_curves.tsv, coverage_curve_report.html, combo subdirs |
+| `coverage_curve` | `CoverageCurveArgs` | targets, distractors, probes, sample (required), ct/df/cf/ns values (sweep or fixed), simulate_mode, hybridization_temperature, all pipeline params, genomes, sample_target_map | coverage_curve_depth_curves.tsv, coverage_curve_report.html, combo subdirs |
 | `build_probes` | `BuildProbesArgs` | targets, method (tile/catch-lite/syotti-lite/catch), probe_length, step, catch_probe_stride/mismatches/extension/coverage/minhash_threshold, syotti_mismatches, syotti_seed_len, max_n_frac, min/max_gc, dust_threshold/dust_window/max_masked_frac, collapse/dedup thresholds, threads, genomes, threshold, skip_assess | probes_final.fa, build_probes_stats.tsv; filters sequences shorter than probe_length after collapse; auto-chains to assess_probes unless --skip-assess |
 | `tool syotti` | — (standalone) | targets, output, probe_length, mismatches, seed_len | output FASTA of probes; direct access to Syotti algorithm |
 | `tool catch` | — (standalone) | targets, output, probe_length, stride, mismatches, extension, coverage, minhash_threshold | output FASTA of probes; direct access to CATCH algorithm |
@@ -404,20 +404,18 @@ Heatmaps show axis labels when ≤20 items on that axis.
 
 ### Coverage Curve (standalone, not part of main pipeline)
 
-Runs the pipeline for each parameter combination (CT × fold-enrichment × num-sequences) and computes depth curves. Nested loop optimization: prepare/simulate/capture shared per CT, enrich shared per CT×FE, sequence/filter/map per combo.
+Runs the pipeline for each parameter combination (CT or distractor fraction × temp × CF × NS) and computes depth curves. Nested loop optimization: prepare/simulate shared per CT/DF × temp × CF combo; sequence/filter/map per full combo.
 
 | File | Format | Written by | Read by |
 |------|--------|------------|---------|
-| `_prep_ct_N/combined_reference.fa` | FASTA | prepare (per CT) | simulate, map_reads |
-| `_prep_ct_N/fragments.fa` | FASTA | simulate (per CT) | capture, enrich |
-| `_prep_ct_N/captured.fa` | FASTA | capture (per CT) | enrich, sequence |
-| `_prep_ct_N/_enrich_fe_X/enriched.fa` | FASTA | enrich (per CT×FE) | sequence |
+| `_prep_ct_N/combined_reference.fa` | FASTA | prepare (per CT/DF) | simulate, map_reads |
+| `_prep_ct_N/fragments.fa` | FASTA | simulate (per CT/DF) | sequence |
 | `{combo}/reads.fa` | FASTA | sequence (per combo) | filter/map_reads |
 | `{combo}/mapped.sam` | SAM | map_reads (per combo) | coverage_curve (coverage) |
 | `coverage_curve_depth_curves.tsv` | TSV (ct, hybridization_temperature, capture_fraction, num_sequences, reference_id, depth_threshold, pct_covered) | coverage_curve | coverage_curve report |
 | `coverage_curve_report.html` | HTML | coverage_curve (via R) | — |
 
-Combo directory names use only swept params: `ct_20`, `ct_20_temp_65`, `ct_20_temp_65_cf_0.50`, `ct_20_temp_65_cf_0.50_ns_500`. Single combo uses `run/`.
+Combo directory names use only swept params: `ct_20`, `df_0.50`, `ct_20_temp_65`, `ct_20_temp_65_cf_0.50`, `ct_20_temp_65_cf_0.50_ns_500`. Single combo uses `run/`. `df_{:.2}` prefix is used when `--distractor-fraction-values` is swept directly.
 
 ### Coverage Curve Report (`R/coverage_curve.Rmd`)
 

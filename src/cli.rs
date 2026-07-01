@@ -1064,17 +1064,21 @@ pub enum Commands {
         #[arg(long)]
         sample_target_map: Option<PathBuf>,
 
-        /// CT values to sweep (space-separated). Conflicts with --ct and --distractor-fraction.
-        #[arg(long, num_args = 1.., conflicts_with_all = ["ct", "distractor_fraction"])]
+        /// CT values to sweep (space-separated). Conflicts with --ct, --distractor-fraction, and --distractor-fraction-values.
+        #[arg(long, num_args = 1.., conflicts_with_all = ["ct", "distractor_fraction", "distractor_fraction_values"])]
         ct_values: Option<Vec<f64>>,
 
-        /// Fixed CT value (when not sweeping CT). Conflicts with --ct-values and --distractor-fraction.
-        #[arg(long, conflicts_with_all = ["ct_values", "distractor_fraction"])]
+        /// Fixed CT value (when not sweeping CT). Conflicts with --ct-values, --distractor-fraction, and --distractor-fraction-values.
+        #[arg(long, conflicts_with_all = ["ct_values", "distractor_fraction", "distractor_fraction_values"])]
         ct: Option<f64>,
 
-        /// Fixed distractor fraction (when not sweeping CT). Conflicts with --ct-values and --ct.
-        #[arg(long, conflicts_with_all = ["ct_values", "ct"])]
+        /// Fixed distractor fraction (when not sweeping CT). Conflicts with --ct-values, --ct, and --distractor-fraction-values.
+        #[arg(long, conflicts_with_all = ["ct_values", "ct", "distractor_fraction_values"])]
         distractor_fraction: Option<f64>,
+
+        /// Distractor fraction values to sweep (space-separated). Conflicts with --ct-values, --ct, and --distractor-fraction.
+        #[arg(long, num_args = 1.., conflicts_with_all = ["ct_values", "ct", "distractor_fraction"])]
+        distractor_fraction_values: Option<Vec<f64>>,
 
         /// CT baseline value
         #[arg(long, default_value = "20.0", conflicts_with = "ct_calibration")]

@@ -770,6 +770,7 @@ fn main() -> Result<()> {
             ct_values,
             ct,
             distractor_fraction,
+            distractor_fraction_values,
             ct_baseline,
             ct_baseline_fraction,
             ct_efficiency,
@@ -807,10 +808,14 @@ fn main() -> Result<()> {
                 ct_baseline, ct_baseline_fraction, ct_efficiency, ct_calibration.as_deref(),
             )?;
 
-            // Resolve CT dimension: --ct-values (sweep) or --ct/--distractor-fraction (fixed)
+            // Resolve CT/DF dimension: --distractor-fraction-values (sweep DF) or
+            // --ct-values (sweep CT) or --ct/--distractor-fraction (fixed single value)
             let mut swept_params = Vec::new();
             let (ct_display_values, ct_distractor_fractions): (Vec<f64>, Vec<f64>) =
-                if let Some(ct_vals) = ct_values {
+                if let Some(df_vals) = distractor_fraction_values {
+                    swept_params.push("distractor_fraction".to_string());
+                    (df_vals.clone(), df_vals)
+                } else if let Some(ct_vals) = ct_values {
                     swept_params.push("ct".to_string());
                     let mut dfs = Vec::new();
                     for ct_val in &ct_vals {

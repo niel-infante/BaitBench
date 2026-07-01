@@ -69,6 +69,7 @@ format_number <- function(x) {
 # Full display names for swept parameter types
 param_full_names <- c(
   ct = "CT",
+  distractor_fraction = "Distractor Fraction",
   hybridization_temperature = "Hybridization Temp (°C)",
   capture_fraction = "Capture Fraction",
   num_sequences = "Num Sequences"
@@ -83,6 +84,10 @@ build_combo_label <- function(df, swept) {
   if ("ct" %in% swept) {
     formatted <- format_number(df$ct)
     parts[["CT"]] <- if (single_param) formatted else paste0("CT=", formatted)
+  }
+  if ("distractor_fraction" %in% swept) {
+    df_val <- as.character(df$ct)
+    parts[["DF"]] <- if (single_param) df_val else paste0("DF=", df_val)
   }
   if ("hybridization_temperature" %in% swept) {
     temp_val <- as.character(df$hybridization_temperature)
@@ -101,9 +106,14 @@ build_combo_label <- function(df, swept) {
 
 sweep_df$combo_label <- build_combo_label(sweep_df, swept_params)
 
-# Order combo labels numerically by underlying parameter values
+# Order combo labels numerically by underlying parameter values.
+# "distractor_fraction" values are stored in the ct column, so map it there for sorting.
 if (length(swept_params) > 0) {
-  sort_cols <- intersect(c("ct", "hybridization_temperature", "capture_fraction", "num_sequences"), swept_params)
+  param_col_map <- c(ct = "ct", distractor_fraction = "ct",
+                     hybridization_temperature = "hybridization_temperature",
+                     capture_fraction = "capture_fraction", num_sequences = "num_sequences")
+  sort_cols <- unname(param_col_map[intersect(names(param_col_map), swept_params)])
+  sort_cols <- unique(sort_cols[!is.na(sort_cols)])
   order_df <- sweep_df %>%
     distinct(combo_label, .keep_all = TRUE) %>%
     arrange(across(all_of(sort_cols)))

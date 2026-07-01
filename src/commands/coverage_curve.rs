@@ -74,6 +74,9 @@ fn combo_dir_name(
     if swept.contains(&"ct".to_string()) {
         parts.push(format!("ct_{}", ct));
     }
+    if swept.contains(&"distractor_fraction".to_string()) {
+        parts.push(format!("df_{:.2}", ct));
+    }
     if swept.contains(&"hybridization_temperature".to_string()) {
         parts.push(format!("temp_{:.0}", temp));
     }
@@ -154,6 +157,9 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
     }
     if args.swept_params.contains(&"ct".to_string()) {
         log::info!("CT values      : {:?}", args.ct_display_values);
+    }
+    if args.swept_params.contains(&"distractor_fraction".to_string()) {
+        log::info!("DF values      : {:?}", args.ct_display_values);
     }
     if args.swept_params.contains(&"hybridization_temperature".to_string()) {
         log::info!("Temp values    : {:?}°C", args.temp_values);

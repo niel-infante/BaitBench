@@ -60,7 +60,7 @@ genomes.fa + targets.fa + distractors.fa [+ sample.tsv] [+ mapping.tsv]
 
 `baitbench run` chains all steps automatically. With `--identify`, adds species-level calling.
 
-`baitbench coverage-curve` runs the pipeline at multiple parameter combinations (CT × hybridization temperature × capture fraction × num-sequences) and produces coverage depth curve plots. Use `--ct-values`, `--hybridization-temperature-values`, `--capture-fraction-values`, and `--num-sequences-values` to sweep each dimension independently or in combination.
+`baitbench coverage-curve` runs the pipeline at multiple parameter combinations (CT × distractor fraction × hybridization temperature × capture fraction × num-sequences) and produces coverage depth curve plots. Use `--ct-values`, `--distractor-fraction-values`, `--hybridization-temperature-values`, `--capture-fraction-values`, and `--num-sequences-values` to sweep each dimension independently or in combination. `--distractor-fraction-values` sweeps distractor fraction directly (mutually exclusive with `--ct-values`, `--ct`, and `--distractor-fraction`).
 
 `baitbench xreact` checks probe cross-reactivity against genomes and/or other probes (standalone, not part of the pipeline).
 
