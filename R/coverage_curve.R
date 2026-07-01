@@ -9,6 +9,7 @@ suppressPackageStartupMessages({
 
 option_list <- list(
   make_option("--sweep", type = "character", help = "Coverage curve depth curves TSV"),
+  make_option("--summary", type = "character", default = NULL, help = "Coverage curve summary stats TSV"),
   make_option("--sample-ids", type = "character", help = "Comma-separated sample target IDs"),
   make_option("--swept-params", type = "character", default = "",
               help = "Comma-separated swept parameter names (ct, fold_enrichment, num_sequences)"),
@@ -43,6 +44,7 @@ rmarkdown::render(
   output_file = normalizePath(opt$output, mustWork = FALSE),
   params = list(
     sweep_file = normalizePath(opt$sweep),
+    summary_file = if (!is.null(opt$summary)) normalizePath(opt$summary) else "",
     sample_ids = strsplit(opt$`sample-ids`, ",")[[1]],
     swept_params = swept_params,
     params_file = if (!is.null(opt$params)) normalizePath(opt$params) else ""

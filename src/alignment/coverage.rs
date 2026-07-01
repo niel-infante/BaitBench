@@ -18,6 +18,8 @@ pub struct CoverageResult {
     pub ref_lengths: HashMap<String, usize>,
     /// Reference name → per-position depth vector (0-indexed, length = ref_length)
     pub coverage: HashMap<String, Vec<u32>>,
+    /// Reference name → count of primary alignments mapping to it
+    pub reads_per_ref: HashMap<String, usize>,
 }
 
 /// Parse CIGAR string into (length, operation) pairs.
@@ -52,6 +54,7 @@ pub fn compute_coverage(sam_path: &Path) -> Result<CoverageResult> {
 
     let mut ref_lengths: HashMap<String, usize> = HashMap::new();
     let mut coverage: HashMap<String, Vec<u32>> = HashMap::new();
+    let mut reads_per_ref: HashMap<String, usize> = HashMap::new();
 
     for line in reader.lines() {
         let line = line?;
@@ -94,6 +97,8 @@ pub fn compute_coverage(sam_path: &Path) -> Result<CoverageResult> {
             continue;
         }
 
+        *reads_per_ref.entry(rname.to_string()).or_insert(0) += 1;
+
         // Get coverage vector for this reference
         let cov = match coverage.get_mut(rname) {
             Some(c) => c,
@@ -130,6 +135,7 @@ pub fn compute_coverage(sam_path: &Path) -> Result<CoverageResult> {
     Ok(CoverageResult {
         ref_lengths,
         coverage,
+        reads_per_ref,
     })
 }
 
@@ -268,6 +274,7 @@ pub fn compute_probe_coverage(sam_path: &Path) -> Result<CoverageResult> {
     Ok(CoverageResult {
         ref_lengths,
         coverage,
+        reads_per_ref: HashMap::new(),
     })
 }
 

@@ -8,6 +8,7 @@ output:
     toc_float: true
 params:
   sweep_file: ""
+  summary_file: ""
   sample_ids: !r c()
   swept_params: !r c()
   params_file: ""
@@ -42,6 +43,12 @@ n_targets <- length(unique(sweep_df$reference_id))
 has_params <- nchar(params$params_file) > 0 && file.exists(params$params_file)
 if (has_params) {
   params_df <- read.delim(params$params_file, stringsAsFactors = FALSE)
+}
+
+# Read per-combo summary stats if available
+has_summary <- nchar(params$summary_file) > 0 && file.exists(params$summary_file)
+if (has_summary) {
+  summary_df <- read.delim(params$summary_file, stringsAsFactors = FALSE)
 }
 
 # Detect swept params from data if not explicitly provided
@@ -301,10 +308,40 @@ if (length(available_thresholds) > 0) {
 
   id_cols <- c(display_cols, "reference_id")
 
+  # Numeric sort columns: use raw numeric values, not display strings, so
+  # e.g. num_sequences sorts 1000 < 5000 < 10000 rather than alphabetically.
+  sort_cols <- c(
+    if ("ct" %in% swept_params) "ct" else NULL,
+    if ("hybridization_temperature" %in% swept_params) "hybridization_temperature" else NULL,
+    if ("capture_fraction" %in% swept_params) "capture_fraction" else NULL,
+    if ("num_sequences" %in% swept_params) "num_sequences" else NULL,
+    "reference_id"
+  )
+  extra_sort_cols <- setdiff(sort_cols, id_cols)
+
   summary_wide <- summary_tbl %>%
-    select(all_of(c(id_cols, "threshold_label", "pct_covered"))) %>%
+    select(all_of(c(id_cols, extra_sort_cols, "threshold_label", "pct_covered"))) %>%
     pivot_wider(names_from = threshold_label, values_from = pct_covered) %>%
-    arrange(across(all_of(id_cols)))
+    arrange(across(all_of(sort_cols))) %>%
+    select(-any_of(extra_sort_cols))
+
+  # Convert capture_fraction to character after sorting so small values (e.g. 0.02) are not
+  # rounded to 0 by kable's digits parameter.
+  if ("capture_fraction" %in% id_cols) {
+    summary_wide <- summary_wide %>%
+      mutate(capture_fraction = as.character(signif(capture_fraction, 4)))
+  }
+
+  # Make num_sequences_display an ordered factor so DT column-click sorting is numeric.
+  if ("num_sequences_display" %in% id_cols) {
+    ns_levels <- summary_tbl %>%
+      distinct(num_sequences, num_sequences_display) %>%
+      arrange(num_sequences) %>%
+      pull(num_sequences_display)
+    summary_wide$num_sequences_display <- factor(
+      summary_wide$num_sequences_display, levels = ns_levels, ordered = TRUE
+    )
+  }
 
   # Build column names
   col_names <- c()
@@ -334,6 +371,89 @@ if (length(available_thresholds) > 0) {
 } else {
   cat("No data available at standard depth thresholds.")
 }
+```
+
+---
+
+## Read & Coverage Statistics
+
+Per-parameter-combination read and depth statistics for each sample target.
+
+```{r stats-table, eval=has_summary}
+# Build display columns from swept params (same logic as summary table above)
+stat_display_cols <- c()
+if ("ct" %in% swept_params) stat_display_cols <- c(stat_display_cols, "ct")
+if ("hybridization_temperature" %in% swept_params) stat_display_cols <- c(stat_display_cols, "hybridization_temperature")
+if ("capture_fraction" %in% swept_params) stat_display_cols <- c(stat_display_cols, "capture_fraction")
+if ("num_sequences" %in% swept_params) {
+  summary_df <- summary_df %>%
+    mutate(num_sequences_display = ifelse(num_sequences == 0, "all", as.character(num_sequences)))
+  stat_display_cols <- c(stat_display_cols, "num_sequences_display")
+}
+
+stat_id_cols <- c(stat_display_cols, "reference_id")
+
+# Numeric sort columns: use raw numeric values, not display strings.
+stat_sort_cols <- c(
+  if ("ct" %in% swept_params) "ct" else NULL,
+  if ("hybridization_temperature" %in% swept_params) "hybridization_temperature" else NULL,
+  if ("capture_fraction" %in% swept_params) "capture_fraction" else NULL,
+  if ("num_sequences" %in% swept_params) "num_sequences" else NULL,
+  "reference_id"
+)
+stat_extra_sort_cols <- setdiff(stat_sort_cols, stat_id_cols)
+
+stat_tbl <- summary_df %>%
+  select(all_of(c(stat_id_cols, stat_extra_sort_cols, "probes_mapped", "probes_contributing", "total_reads", "reads_mapped", "avg_depth", "pct_covered_5x", "pct_covered_20x"))) %>%
+  arrange(across(all_of(stat_sort_cols))) %>%
+  select(-any_of(stat_extra_sort_cols))
+
+# Convert capture_fraction to character after sorting so small values (e.g. 0.02) display correctly.
+if ("capture_fraction" %in% stat_id_cols) {
+  stat_tbl <- stat_tbl %>%
+    mutate(capture_fraction = as.character(signif(capture_fraction, 4)))
+}
+
+# Make num_sequences_display an ordered factor so DT column-click sorting is numeric.
+if ("num_sequences_display" %in% stat_id_cols) {
+  ns_levels_stat <- summary_df %>%
+    distinct(num_sequences, num_sequences_display) %>%
+    arrange(num_sequences) %>%
+    pull(num_sequences_display)
+  stat_tbl$num_sequences_display <- factor(
+    stat_tbl$num_sequences_display, levels = ns_levels_stat, ordered = TRUE
+  )
+}
+
+stat_col_names <- c()
+if ("ct" %in% swept_params) stat_col_names <- c(stat_col_names, "CT")
+if ("hybridization_temperature" %in% swept_params) stat_col_names <- c(stat_col_names, "Hyb Temp (°C)")
+if ("capture_fraction" %in% swept_params) stat_col_names <- c(stat_col_names, "Capture Fraction")
+if ("num_sequences" %in% swept_params) stat_col_names <- c(stat_col_names, "Num Sequences")
+stat_col_names <- c(stat_col_names, "Target", "Probes on Target", "Probes in Reads", "Total Reads", "Reads Mapped", "Avg Depth", "% ≥5X", "% ≥20X")
+
+if (nrow(stat_tbl) > 20) {
+  datatable(
+    stat_tbl,
+    colnames = stat_col_names,
+    options = list(pageLength = 25, scrollX = TRUE),
+    rownames = FALSE,
+    filter = if (nrow(stat_tbl) > 50) "top" else "none"
+  ) %>%
+    formatRound(c("avg_depth", "pct_covered_5x", "pct_covered_20x"), 2) %>%
+    formatRound(c("probes_mapped", "probes_contributing", "total_reads", "reads_mapped"), 0)
+} else {
+  knitr::kable(
+    stat_tbl,
+    digits = c(rep(0, length(stat_display_cols)), 0, 0, 0, 0, 0, 2, 2, 2),
+    col.names = stat_col_names,
+    align = c(rep("l", length(stat_id_cols)), rep("r", 7))
+  )
+}
+```
+
+```{r stats-missing, eval=!has_summary, results='asis'}
+cat("*Summary statistics file not available.*\n")
 ```
 
 ---

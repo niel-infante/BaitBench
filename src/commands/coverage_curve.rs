@@ -1,7 +1,7 @@
 use anyhow::{bail, Context, Result};
 use std::collections::{HashMap, HashSet};
 use std::fs::{self, File};
-use std::io::{BufWriter, Write};
+use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::{Path, PathBuf};
 
 use crate::alignment::coverage;
@@ -10,6 +10,7 @@ use crate::cli::ReportMode;
 use crate::commands::{filter, map_reads, prepare, sequence, simulate};
 use crate::commands::report::{substitute_rmd_params, rmd_output_path};
 use crate::external::{minimap2, rscript};
+use crate::fasta;
 use crate::io_utils;
 use crate::io_utils::prefixed_join;
 use crate::sampling::thermo_sim::SimulateMode;
@@ -57,6 +58,28 @@ struct DepthCurveRow {
     reference_id: String,
     depth_threshold: usize,
     pct_covered: f64,
+}
+
+struct ComboSummaryRow {
+    ct: f64,
+    hybridization_temperature: f64,
+    capture_fraction: f64,
+    num_sequences: usize,
+    reference_id: String,
+    probes_mapped: usize,
+    probes_contributing: usize,
+    total_reads: usize,
+    reads_mapped: usize,
+    avg_depth: f64,
+    pct_covered_5x: f64,
+    pct_covered_20x: f64,
+}
+
+struct ProbeAln {
+    probe_name: String,
+    target: String,
+    ref_start: usize,
+    ref_end: usize,
 }
 
 /// Build a directory name for a parameter combo, using only swept params.
@@ -177,8 +200,14 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
     log::info!("=============================================");
 
     let pfx = &args.output_prefix;
+    let num_probes = fasta::count_sequences(args.probes)?;
+    log::info!("Probes         : {} probes in {}", num_probes, args.probes.display());
     let mut all_curves: Vec<DepthCurveRow> = Vec::new();
+    let mut all_summary: Vec<ComboSummaryRow> = Vec::new();
     let mut combo_idx = 0usize;
+    // Computed once after the first prepare step; reused for all combos.
+    let mut probes_per_target: Option<HashMap<String, usize>> = None;
+    let mut probe_alignments: Option<Vec<ProbeAln>> = None;
 
     // In genome mode, coverage curves track sample *targets* (derived from mapping),
     // not sample genome IDs. Resolved after first prepare step.
@@ -236,6 +265,33 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
         } else {
             prefixed_join(&prep_dir, pfx, "combined_reference.fa")
         };
+
+        // Align probes to mapping reference once (independent of sweep params).
+        if probes_per_target.is_none() {
+            log::info!("  Aligning probes to reference to count probes per target...");
+            let probe_sam = prefixed_join(&prep_dir, pfx, "probe_coverage.sam");
+            let probe_log = prefixed_join(&prep_dir, pfx, "probe_coverage.log");
+            match minimap2::probe_align(
+                args.minimap_preset,
+                &mapping_reference,
+                args.probes,
+                &probe_sam,
+                &probe_log,
+                args.threads,
+                1000,
+            ) {
+                Ok(()) => {
+                    let (counts, alns) = load_probe_info(&probe_sam)?;
+                    probes_per_target = Some(counts);
+                    probe_alignments = Some(alns);
+                }
+                Err(e) => {
+                    log::warn!("Probe alignment for counts failed (non-fatal): {}", e);
+                    probes_per_target = Some(HashMap::new());
+                    probe_alignments = Some(Vec::new());
+                }
+            }
+        }
 
         // Middle loop: hybridization temperature (affects simulate)
         for &temp in &args.temp_values {
@@ -320,6 +376,8 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
                     log_file: &prefixed_join(&combo_dir, pfx, "mapping.log"),
                 })?;
 
+                let total_reads = fasta::count_reads(&reads_for_mapping).unwrap_or(0);
+
                 // Compute coverage
                 let sam_path = prefixed_join(&combo_dir, pfx, "mapped.sam");
                 let coverage_result = coverage::compute_coverage(&sam_path)?;
@@ -327,14 +385,15 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
                 let ns_tsv = ns_val.unwrap_or(0);
 
                 for target_id in tracking_ids {
-                    let curves = match coverage_result.coverage.get(target_id) {
+                    let (curves, stats) = match coverage_result.coverage.get(target_id) {
                         Some(depths) => {
                             let ref_len = coverage_result
                                 .ref_lengths
                                 .get(target_id)
                                 .copied()
                                 .unwrap_or(depths.len());
-                            compute_depth_curve(depths, ref_len)
+                            let s = coverage::calculate_stats(depths, ref_len);
+                            (compute_depth_curve(depths, ref_len), s)
                         }
                         None => {
                             log::warn!(
@@ -342,9 +401,47 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
                                 target_id,
                                 dir_name
                             );
-                            vec![(1, 0.0)]
+                            (vec![(1, 0.0)], coverage::calculate_stats(&[], 0))
                         }
                     };
+
+                    let reads_mapped = coverage_result
+                        .reads_per_ref
+                        .get(target_id)
+                        .copied()
+                        .unwrap_or(0);
+
+                    let probes_mapped = probes_per_target
+                        .as_ref()
+                        .and_then(|m| m.get(target_id))
+                        .copied()
+                        .unwrap_or(0);
+
+                    let empty_depths: &[u32] = &[];
+                    let target_depths = coverage_result
+                        .coverage
+                        .get(target_id)
+                        .map(|v| v.as_slice())
+                        .unwrap_or(empty_depths);
+                    let probes_contributing = probe_alignments
+                        .as_deref()
+                        .map(|alns| count_contributing_probes(alns, target_id, target_depths))
+                        .unwrap_or(0);
+
+                    all_summary.push(ComboSummaryRow {
+                        ct: ct_display,
+                        hybridization_temperature: temp,
+                        capture_fraction: cf,
+                        num_sequences: ns_tsv,
+                        reference_id: target_id.clone(),
+                        probes_mapped,
+                        probes_contributing,
+                        total_reads,
+                        reads_mapped,
+                        avg_depth: stats.avg_coverage,
+                        pct_covered_5x: stats.pct_covered_5x,
+                        pct_covered_20x: stats.pct_covered_20x,
+                    });
 
                     for (threshold, pct) in curves {
                         all_curves.push(DepthCurveRow {
@@ -368,9 +465,14 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
     write_depth_curves_tsv(&curves_path, &all_curves)?;
     log::info!("Depth curves written to {}", curves_path.display());
 
+    // Write per-combo summary TSV
+    let summary_path = prefixed_join(&args.outdir, pfx, "coverage_curve_summary.tsv");
+    write_summary_tsv(&summary_path, &all_summary)?;
+    log::info!("Summary stats written to {}", summary_path.display());
+
     // Write run_params.tsv
     let params_path = prefixed_join(&args.outdir, pfx, "run_params.tsv");
-    write_run_params(&params_path, args)?;
+    write_run_params(&params_path, args, num_probes)?;
 
     // Generate report
     let tracking_ids = curve_target_ids.as_ref().unwrap_or(&sample_ids);
@@ -382,7 +484,7 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
             if rscript::check_available() {
                 let report_path = prefixed_join(&args.outdir, pfx, "coverage_curve_report.html");
                 log::info!("Generating coverage curve report...");
-                match generate_report(&curves_path, tracking_ids, &args.swept_params, &params_path, &report_path) {
+                match generate_report(&curves_path, &summary_path, tracking_ids, &args.swept_params, &params_path, &report_path) {
                     Ok(()) => log::info!(
                         "Report generated: {}",
                         report_path.display()
@@ -396,7 +498,7 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
         ReportMode::Rmd => {
             let report_path = prefixed_join(&args.outdir, pfx, "coverage_curve_report.html");
             log::info!("Generating coverage curve RMarkdown file...");
-            match write_coverage_curve_rmd(&curves_path, tracking_ids, &args.swept_params, &params_path, &report_path) {
+            match write_coverage_curve_rmd(&curves_path, &summary_path, tracking_ids, &args.swept_params, &params_path, &report_path) {
                 Ok(()) => {}
                 Err(e) => log::warn!("RMarkdown generation failed (non-fatal): {}", e),
             }
@@ -404,13 +506,13 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
         ReportMode::BothR => {
             let report_path = prefixed_join(&args.outdir, pfx, "coverage_curve_report.html");
             log::info!("Generating coverage curve RMarkdown file...");
-            match write_coverage_curve_rmd(&curves_path, tracking_ids, &args.swept_params, &params_path, &report_path) {
+            match write_coverage_curve_rmd(&curves_path, &summary_path, tracking_ids, &args.swept_params, &params_path, &report_path) {
                 Ok(()) => {}
                 Err(e) => log::warn!("RMarkdown generation failed (non-fatal): {}", e),
             }
             if rscript::check_available() {
                 log::info!("Generating coverage curve HTML report...");
-                match generate_report(&curves_path, tracking_ids, &args.swept_params, &params_path, &report_path) {
+                match generate_report(&curves_path, &summary_path, tracking_ids, &args.swept_params, &params_path, &report_path) {
                     Ok(()) => log::info!("Report generated: {}", report_path.display()),
                     Err(e) => log::warn!("Report generation failed (non-fatal): {}", e),
                 }
@@ -554,8 +656,10 @@ fn write_depth_curves_tsv(path: &Path, rows: &[DepthCurveRow]) -> Result<()> {
     for row in rows {
         writeln!(
             w,
-            "{}\t{:.1}\t{:.4}\t{}\t{}\t{}\t{:.2}",
-            row.ct, row.hybridization_temperature, row.capture_fraction, row.num_sequences,
+            "{}\t{:.1}\t{}\t{}\t{}\t{}\t{:.2}",
+            row.ct, row.hybridization_temperature,
+            format_capture_fraction(row.capture_fraction),
+            row.num_sequences,
             row.reference_id, row.depth_threshold, row.pct_covered
         )?;
     }
@@ -564,7 +668,129 @@ fn write_depth_curves_tsv(path: &Path, rows: &[DepthCurveRow]) -> Result<()> {
     Ok(())
 }
 
-fn write_run_params(path: &Path, args: &CoverageCurveArgs) -> Result<()> {
+/// Format capture_fraction with enough precision to avoid trailing-zero truncation.
+/// Uses up to 6 significant digits, stripping unnecessary trailing zeros.
+fn format_capture_fraction(cf: f64) -> String {
+    // Use enough decimal places that values like 0.02 or 0.005 are not lost.
+    format!("{:.6}", cf)
+        .trim_end_matches('0')
+        .trim_end_matches('.')
+        .to_string()
+}
+
+/// Parse a probe-alignment SAM once, returning both per-target probe counts and
+/// the full list of probe alignments (reference spans) for per-combo overlap queries.
+fn load_probe_info(sam_path: &Path) -> Result<(HashMap<String, usize>, Vec<ProbeAln>)> {
+    let file = File::open(sam_path)
+        .with_context(|| format!("Cannot open probe SAM: {}", sam_path.display()))?;
+    let reader = BufReader::new(file);
+
+    let mut seen: HashSet<(String, String)> = HashSet::new();
+    let mut alignments: Vec<ProbeAln> = Vec::new();
+
+    for line in reader.lines() {
+        let line = line?;
+        if line.starts_with('@') {
+            continue;
+        }
+        let fields: Vec<&str> = line.splitn(12, '\t').collect();
+        if fields.len() < 6 {
+            continue;
+        }
+        let probe_name = fields[0].to_string();
+        let flag: u16 = fields[1].parse().unwrap_or(0);
+        let rname = fields[2].to_string();
+        let pos: usize = fields[3].parse().unwrap_or(0); // 1-based
+        let cigar = fields[5];
+
+        if rname == "*" || cigar == "*" || flag & 0x800 != 0 {
+            continue;
+        }
+
+        seen.insert((rname.clone(), probe_name.clone()));
+
+        let ref_start = pos.saturating_sub(1); // 0-based
+        let ref_end = ref_start + cigar_ref_len(cigar);
+        alignments.push(ProbeAln { probe_name, target: rname, ref_start, ref_end });
+    }
+
+    let mut counts: HashMap<String, usize> = HashMap::new();
+    for (target, _) in seen {
+        *counts.entry(target).or_insert(0) += 1;
+    }
+    Ok((counts, alignments))
+}
+
+/// Sum of reference-consuming CIGAR operations (M, D, N, =, X).
+fn cigar_ref_len(cigar: &str) -> usize {
+    let mut total = 0usize;
+    let mut num_start = 0;
+    for (i, c) in cigar.char_indices() {
+        if c.is_ascii_alphabetic() || c == '=' {
+            let len: usize = cigar[num_start..i].parse().unwrap_or(0);
+            match c {
+                'M' | 'D' | 'N' | '=' | 'X' => total += len,
+                _ => {}
+            }
+            num_start = i + 1;
+        }
+    }
+    total
+}
+
+/// Count distinct probes whose aligned reference span overlaps any position with read coverage > 0.
+/// Uses a prefix sum for O(1) range queries so this is cheap to call per combo.
+fn count_contributing_probes(probe_alns: &[ProbeAln], target_id: &str, coverage: &[u32]) -> usize {
+    if coverage.is_empty() {
+        return 0;
+    }
+    // prefix[i] = number of covered positions in coverage[0..i]
+    let mut prefix = vec![0usize; coverage.len() + 1];
+    for (i, &d) in coverage.iter().enumerate() {
+        prefix[i + 1] = prefix[i] + (d > 0) as usize;
+    }
+
+    let mut contributing: HashSet<&str> = HashSet::new();
+    for aln in probe_alns {
+        if aln.target != target_id {
+            continue;
+        }
+        let start = aln.ref_start.min(coverage.len());
+        let end = aln.ref_end.min(coverage.len());
+        if start < end && prefix[end] > prefix[start] {
+            contributing.insert(&aln.probe_name);
+        }
+    }
+    contributing.len()
+}
+
+fn write_summary_tsv(path: &Path, rows: &[ComboSummaryRow]) -> Result<()> {
+    let file = File::create(path)
+        .with_context(|| format!("Cannot create summary file: {}", path.display()))?;
+    let mut w = BufWriter::new(file);
+
+    writeln!(
+        w,
+        "ct\thybridization_temperature\tcapture_fraction\tnum_sequences\treference_id\tprobes_mapped\tprobes_contributing\ttotal_reads\treads_mapped\tavg_depth\tpct_covered_5x\tpct_covered_20x"
+    )?;
+    for row in rows {
+        writeln!(
+            w,
+            "{}\t{:.1}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{:.2}\t{:.2}\t{:.2}",
+            row.ct, row.hybridization_temperature,
+            format_capture_fraction(row.capture_fraction),
+            row.num_sequences,
+            row.reference_id, row.probes_mapped, row.probes_contributing,
+            row.total_reads, row.reads_mapped,
+            row.avg_depth, row.pct_covered_5x, row.pct_covered_20x
+        )?;
+    }
+
+    w.flush()?;
+    Ok(())
+}
+
+fn write_run_params(path: &Path, args: &CoverageCurveArgs, num_probes: usize) -> Result<()> {
     let sim_mode_str = match args.simulate_mode {
         SimulateMode::Thermodynamic => "thermodynamic",
         SimulateMode::Simple => "simple",
@@ -583,6 +809,7 @@ fn write_run_params(path: &Path, args: &CoverageCurveArgs) -> Result<()> {
         writeln!(w, "distractors\t--distractors\t{}", d.display())?;
     }
     writeln!(w, "probes\t--probes\t{}", args.probes.display())?;
+    writeln!(w, "num_probes\t(info)\t{}", num_probes)?;
     writeln!(w, "sample\t--sample\t{}", io_utils::format_sample_display(args.sample))?;
     writeln!(w, "num_fragments\t--num-fragments\t{}", args.num_fragments)?;
     writeln!(w, "read_length\t--read-length\t{}", args.read_length)?;
@@ -611,6 +838,7 @@ fn write_run_params(path: &Path, args: &CoverageCurveArgs) -> Result<()> {
 
 fn write_coverage_curve_rmd(
     sweep_tsv: &Path,
+    summary_tsv: &Path,
     sample_ids: &HashSet<String>,
     swept_params: &[String],
     params_path: &Path,
@@ -649,10 +877,13 @@ fn write_coverage_curve_rmd(
         )
     };
 
+    let summary_abs = fs::canonicalize(summary_tsv)?;
     let params_abs = fs::canonicalize(params_path)?;
 
+    let summary_str = summary_abs.to_str().unwrap_or("").to_string();
     let params = vec![
         ("sweep_file", sweep_abs.to_str().unwrap_or("")),
+        ("summary_file", &summary_str),
         ("sample_ids", &ids_r),
         ("swept_params", &swept_r),
         ("params_file", params_abs.to_str().unwrap_or("")),
@@ -682,6 +913,7 @@ fn write_coverage_curve_rmd(
 
 fn generate_report(
     sweep_tsv: &Path,
+    summary_tsv: &Path,
     sample_ids: &HashSet<String>,
     swept_params: &[String],
     params_path: &Path,
@@ -699,6 +931,7 @@ fn generate_report(
     }
 
     let sweep_abs = fs::canonicalize(sweep_tsv)?;
+    let summary_abs = fs::canonicalize(summary_tsv)?;
     let params_abs = fs::canonicalize(params_path)?;
     let output_abs = if output_path.is_absolute() {
         output_path.to_path_buf()
@@ -707,6 +940,7 @@ fn generate_report(
     };
 
     let sweep_str = sweep_abs.to_str().unwrap_or("");
+    let summary_str = summary_abs.to_str().unwrap_or("");
     let params_str = params_abs.to_str().unwrap_or("");
     let output_str = output_abs.to_str().unwrap_or("");
 
@@ -725,6 +959,8 @@ fn generate_report(
         &[
             "--sweep",
             sweep_str,
+            "--summary",
+            summary_str,
             "--sample-ids",
             &ids_str,
             "--swept-params",
