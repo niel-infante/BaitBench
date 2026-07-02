@@ -322,24 +322,23 @@ Results are written to `<outdir>/<run_name>/` and include:
 
 ## Documentation
 
-See [MANUAL.md](docs/MANUAL.md) for complete documentation including:
-
-- Detailed explanations of every parameter
-- CT score calculation and calibration
-- Pipeline flowcharts
-- Genome mode walkthrough
-- All output file formats
-- Coverage curve analysis guide
+| Section | Contents |
+|---------|----------|
+| [Tutorials](docs/tutorials/index.md) | Step-by-step walkthroughs: installation, first simulation, genome mode |
+| [How-To Guides](docs/how-to/index.md) | Task-oriented guides: input files, parameters, interpreting results, probe design, troubleshooting |
+| [Reference](docs/reference/index.md) | Complete parameter tables, command reference, input/output format specs, report sections |
+| [Explanation](docs/explanation/index.md) | Concepts: pipeline architecture, simulation modes, thermodynamic scoring, CT scores, metrics |
 
 ## Dependencies
 
-- [minimap2](https://github.com/lh3/minimap2) -- alignment
-- [BLAST+](https://blast.ncbi.nlm.nih.gov/) -- alternative capture method
-- [cd-hit](https://github.com/weizhongli/cdhit) -- sequence clustering (used by build-probes)
+- [BLAST+](https://blast.ncbi.nlm.nih.gov/) -- cross-reactivity analysis (`xreact`)
+- [cd-hit](https://github.com/weizhongli/cdhit) -- sequence clustering (used by `build-probes`)
 - [CATCH](https://github.com/broadinstitute/catch) -- optimization-based probe design (optional; required for `build-probes --method catch`)
 - [R](https://www.r-project.org/) with ggplot2, rmarkdown -- report generation (optional)
 
-All installable via `conda env create -f environment.yml`.
+Alignment is handled by the rammap library compiled into the BaitBench binary — no external alignment tool required.
+
+All other dependencies are installable via `conda env create -f environment.yml`.
 
 ## License
 

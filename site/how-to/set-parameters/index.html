@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="In-silico probe capture simulation and evaluation">
+    
+    <link rel="canonical" href="https://niel-infante.github.io/BaitBench/how-to/set-parameters/">
+    <link rel="shortcut icon" href="../../img/favicon.ico">
+
+    
+    <title>Set Parameters - BaitBench</title>
+    
+
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.12.0/css/all.css">
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.12.0/css/v4-shims.css">
+    <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/hack-font@3.3.0/build/web/hack.min.css">
+    <link href='//rsms.me/inter/inter.css' rel='stylesheet' type='text/css'>
+    <link href='//fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,700italic,400,300,600,700&subset=latin-ext,latin' rel='stylesheet' type='text/css'>
+    <link href="../../css/bootstrap-custom.min.css" rel="stylesheet">
+    <link href="../../css/base.min.css" rel="stylesheet">
+    <link href="../../css/cinder.min.css" rel="stylesheet">
+
+    
+        
+        <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/highlightjs/cdn-release@9.18.0/build/styles/github.min.css">
+        
+    
+
+    <!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+            <script src="https://cdn.jsdelivr.net/npm/html5shiv@3.7.3/dist/html5shiv.min.js"></script>
+            <script src="https://cdn.jsdelivr.net/npm/respond.js@1.4.2/dest/respond.min.js"></script>
+        <![endif]-->
+
+    
+
+     
+</head>
+
+<body>
+
+    <div class="navbar navbar-default navbar-fixed-top" role="navigation">
+    <div class="container">
+
+        <!-- Collapsed navigation -->
+        <div class="navbar-header">
+            <!-- Expander button -->
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            
+
+            <!-- Main title -->
+
+            
+              <a class="navbar-brand" href="../..">BaitBench</a>
+            
+        </div>
+
+        <!-- Expanded navigation -->
+        <div class="navbar-collapse collapse">
+                <!-- Main navigation -->
+                <ul class="nav navbar-nav">
+                
+                
+                    <li >
+                        <a href="../..">Home</a>
+                    </li>
+                
+                
+                
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">Tutorials <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="../../tutorials/">Tutorials</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../tutorials/installation/">Installation</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../tutorials/first-run/">Your First Simulation</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../tutorials/genome-mode/">Genome Mode (Bacteria)</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                
+                    <li class="dropdown active">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">How-To Guides <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="../">How-To Guides</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../prepare-input-files/">Prepare Input Files</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../choose-simulation-mode/">Choose a Simulation Mode</a>
+</li>
+
+                        
+                            
+<li class="active">
+    <a href="./">Set Parameters</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../interpret-results/">Interpret Results</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../design-and-assess-probes/">Design and Assess Probes</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../analyze-cross-reactivity/">Analyze Cross-Reactivity</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../troubleshoot/">Troubleshoot</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">Reference <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="../../reference/">Reference</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../reference/commands/">Commands</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../reference/parameters/">Parameters</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../reference/input-formats/">Input Formats</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../reference/output-formats/">Output Formats</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../reference/reports/">Reports</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">Explanation <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="../../explanation/">Explanation</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../explanation/what-is-probe-capture/">What Is Probe Capture?</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../explanation/pipeline-overview/">Pipeline Overview</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../explanation/simulation-modes/">Simulation Modes</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../explanation/metrics-and-classification/">Metrics and Classification</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../explanation/thermodynamic-scoring/">Thermodynamic Scoring</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../explanation/ct-scores/">CT Scores</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                </ul>
+
+            <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="#" data-toggle="modal" data-target="#mkdocs_search_modal">
+                            <i class="fas fa-search"></i> Search
+                        </a>
+                    </li>
+                    <li >
+                        <a rel="prev" href="../choose-simulation-mode/">
+                            <i class="fas fa-arrow-left"></i> Previous
+                        </a>
+                    </li>
+                    <li >
+                        <a rel="next" href="../interpret-results/">
+                            Next <i class="fas fa-arrow-right"></i>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="https://github.com/niel-infante/BaitBench/edit/master/docs/how-to/set-parameters.md">Edit on niel-infante/BaitBench</a>
+                    </li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+    <div class="container">
+        
+        
+        <div class="col-md-3"><div class="bs-sidebar hidden-print affix well" role="complementary">
+    <ul class="nav bs-sidenav">
+        <li class="first-level active"><a href="#set-parameters">Set Parameters</a></li>
+            <li class="second-level"><a href="#capture-fraction-capture-fraction-default-05">Capture fraction (--capture-fraction, default 0.5)</a></li>
+                
+            <li class="second-level"><a href="#distractor-fraction-distractor-fraction-default-09">Distractor fraction (--distractor-fraction, default 0.9)</a></li>
+                
+            <li class="second-level"><a href="#hybridization-temperature-hybridization-temperature-default-70c">Hybridization temperature (--hybridization-temperature, default 70°C)</a></li>
+                
+            <li class="second-level"><a href="#number-of-fragments-num-fragments-default-10000">Number of fragments (--num-fragments, default 10000)</a></li>
+                
+            <li class="second-level"><a href="#read-length-read-length-default-120">Read length (--read-length, default 120)</a></li>
+                
+            <li class="second-level"><a href="#number-of-sequences-num-sequences">Number of sequences (--num-sequences)</a></li>
+                
+            <li class="second-level"><a href="#fragment-length-fragment-length-mean-fragment-length-min-fragment-length-max">Fragment length (--fragment-length-mean, --fragment-length-min, --fragment-length-max)</a></li>
+                
+            <li class="second-level"><a href="#random-seed-seed">Random seed (--seed)</a></li>
+                
+            <li class="second-level"><a href="#threads-threads-default-1">Threads (--threads, default 1)</a></li>
+                
+            <li class="second-level"><a href="#parameter-combinations-to-avoid">Parameter combinations to avoid</a></li>
+                
+    </ul>
+</div></div>
+        <div class="col-md-9" role="main">
+
+<h1 id="set-parameters">Set Parameters<a class="headerlink" href="#set-parameters" title="Permanent link">&para;</a></h1>
+<p>This guide explains the practical effect of the main tunable parameters and when to change them. For a complete list of every flag see the <a href="../../reference/parameters/">Parameters reference</a>.</p>
+<hr />
+<h2 id="capture-fraction-capture-fraction-default-05">Capture fraction (<code>--capture-fraction</code>, default 0.5)<a class="headerlink" href="#capture-fraction-capture-fraction-default-05" title="Permanent link">&para;</a></h2>
+<p>Controls the fraction of simulated fragments that come from probe binding sites (the rest are background fragments drawn proportionally by sequence weight and length).</p>
+<pre><code class="language-bash">--capture-fraction 0.5   # 50% from probe sites, 50% background (default)
+--capture-fraction 0.8   # 80% from probe sites — models highly efficient capture
+--capture-fraction 0.2   # 20% from probe sites — models poor probe efficiency
+</code></pre>
+<p><strong>Effect:</strong> Higher values concentrate reads on probe-covered regions and improve sensitivity. Lower values add more background noise, making discrimination harder.</p>
+<p><strong>When to change it:</strong></p>
+<ul>
+<li>Increase toward 0.7–0.9 to model a well-optimised capture panel</li>
+<li>Decrease toward 0.1–0.3 to stress-test whether probes can work in a noisy background</li>
+<li>Sweep with <code>--capture-fraction-values 0.3 0.5 0.7</code> in <code>coverage-curve</code> to find the threshold where your panel breaks down</li>
+</ul>
+<hr />
+<h2 id="distractor-fraction-distractor-fraction-default-09">Distractor fraction (<code>--distractor-fraction</code>, default 0.9)<a class="headerlink" href="#distractor-fraction-distractor-fraction-default-09" title="Permanent link">&para;</a></h2>
+<p>Fraction of total fragments from distractor sequences. The default (0.9) represents 10% target DNA — a challenging but realistic clinical specimen.</p>
+<pre><code class="language-bash">--distractor-fraction 0.9    # 10% target (default)
+--distractor-fraction 0.5    # 50% target — more target-rich
+--distractor-fraction 0.999  # 0.1% target — near limit of detection
+</code></pre>
+<p>Alternatively use <code>--ct</code> to express abundance as a qPCR CT score. See <a href="../choose-simulation-mode/">Choose a Simulation Mode</a> for the trade-offs.</p>
+<p><strong>Effect on weights:</strong> The weight assigned to each distractor sequence is derived from this fraction and the total sample weight. With more distractor sequences or lower sample weight, each distractor sequence gets a smaller weight per-sequence. See the <a href="../../explanation/simulation-modes/">Simulation Modes explanation</a> for the formula.</p>
+<hr />
+<h2 id="hybridization-temperature-hybridization-temperature-default-70c">Hybridization temperature (<code>--hybridization-temperature</code>, default 70°C)<a class="headerlink" href="#hybridization-temperature-hybridization-temperature-default-70c" title="Permanent link">&para;</a></h2>
+<p>Temperature in °C used in the SantaLucia thermodynamic model. Affects how strongly Boltzmann weighting biases fragment sampling toward high-affinity probe sites.</p>
+<pre><code class="language-bash">--hybridization-temperature 65   # lower temp — stronger binding bias, higher enrichment
+--hybridization-temperature 70   # default — standard hybridization conditions
+--hybridization-temperature 75   # higher temp — weaker binding, more selective
+</code></pre>
+<p><strong>Effect:</strong> Lower temperatures increase Boltzmann weights, biasing sampling more strongly toward high-affinity sites. Higher temperatures flatten the weights, making sampling more uniform.</p>
+<p><strong>When to change it:</strong> Match your actual hybridization conditions. A typical probe capture protocol uses 65–72°C. Only applies in <code>--simulate-mode thermodynamic</code> (the default).</p>
+<hr />
+<h2 id="number-of-fragments-num-fragments-default-10000">Number of fragments (<code>--num-fragments</code>, default 10000)<a class="headerlink" href="#number-of-fragments-num-fragments-default-10000" title="Permanent link">&para;</a></h2>
+<p>Total fragments to simulate before sequencing.</p>
+<pre><code class="language-bash">--num-fragments 2000    # fast, less statistical power
+--num-fragments 10000   # default
+--num-fragments 50000   # slower, more stable metrics
+</code></pre>
+<p><strong>Effect:</strong> More fragments give smoother coverage profiles and more stable sensitivity/specificity estimates. For quick tests or parameter sweeps, 2000–5000 is usually sufficient. For final evaluations, 10000–50000 gives better confidence.</p>
+<p><strong>Trade-off:</strong> Runtime scales roughly linearly with fragment count.</p>
+<hr />
+<h2 id="read-length-read-length-default-120">Read length (<code>--read-length</code>, default 120)<a class="headerlink" href="#read-length-read-length-default-120" title="Permanent link">&para;</a></h2>
+<p>Trims simulated fragments to this length in base pairs (for the <code>perfect</code> and <code>art</code> simulators).</p>
+<pre><code class="language-bash">--read-length 120   # default, suitable for most Illumina short-read panels
+--read-length 150   # longer Illumina reads
+--read-length 75    # shorter reads, e.g. miRNA panels
+</code></pre>
+<p><strong>When to change it:</strong> Match your sequencing platform. This parameter affects mapping uniqueness — shorter reads are harder to map unambiguously, especially in repetitive probe-target regions.</p>
+<hr />
+<h2 id="number-of-sequences-num-sequences">Number of sequences (<code>--num-sequences</code>)<a class="headerlink" href="#number-of-sequences-num-sequences" title="Permanent link">&para;</a></h2>
+<p>Subsamples the captured reads after sequencing. Models a fixed sequencing depth budget shared across all captured fragments.</p>
+<pre><code class="language-bash"># Default: all captured fragments become reads
+# Override:
+--num-sequences 5000   # subsample to 5000 reads regardless of how many were captured
+</code></pre>
+<p><strong>When to use it:</strong> You want to compare panels at a fixed sequencing cost. Without this flag, panels with more fragments get proportionally more reads.</p>
+<p>Sweep with <code>--num-sequences-values 500 1000 5000</code> in <code>coverage-curve</code> to find the minimum sequencing depth needed for adequate coverage.</p>
+<hr />
+<h2 id="fragment-length-fragment-length-mean-fragment-length-min-fragment-length-max">Fragment length (<code>--fragment-length-mean</code>, <code>--fragment-length-min</code>, <code>--fragment-length-max</code>)<a class="headerlink" href="#fragment-length-fragment-length-mean-fragment-length-min-fragment-length-max" title="Permanent link">&para;</a></h2>
+<p>Fragment lengths follow a truncated normal distribution:</p>
+<pre><code class="language-bash">--fragment-length-mean 175   # default
+--fragment-length-min  150   # default
+--fragment-length-max  200   # default
+</code></pre>
+<p><strong>When to change it:</strong> Match your library preparation protocol. Sonication typically gives 150–300 bp; enzymatic fragmentation may give 100–200 bp. Fragment length affects how much of a probe binding site ends up in each read.</p>
+<hr />
+<h2 id="random-seed-seed">Random seed (<code>--seed</code>)<a class="headerlink" href="#random-seed-seed" title="Permanent link">&para;</a></h2>
+<p>Sets the random seed for reproducibility. Without <code>--seed</code>, each run uses a different seed and results will vary slightly.</p>
+<pre><code class="language-bash">--seed 42    # any integer works; results identical on re-run
+</code></pre>
+<p>Always use <code>--seed</code> when:</p>
+<ul>
+<li>Comparing two parameter settings (you want variation from the parameter, not from sampling noise)</li>
+<li>Generating results for a report or publication</li>
+<li>Debugging unexpected output</li>
+</ul>
+<hr />
+<h2 id="threads-threads-default-1">Threads (<code>--threads</code>, default 1)<a class="headerlink" href="#threads-threads-default-1" title="Permanent link">&para;</a></h2>
+<p>Number of threads for BLAST and cd-hit. Does not affect the main pipeline (alignment is single-threaded via the embedded rammap library).</p>
+<pre><code class="language-bash">--threads 8   # use 8 threads for xreact and build-probes
+</code></pre>
+<p>Only relevant when running <code>baitbench xreact</code> or <code>baitbench build-probes</code>.</p>
+<hr />
+<h2 id="parameter-combinations-to-avoid">Parameter combinations to avoid<a class="headerlink" href="#parameter-combinations-to-avoid" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Combination</th>
+<th>Problem</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--ct</code> and <code>--distractor-fraction</code> together</td>
+<td>Mutually exclusive — BaitBench will error</td>
+</tr>
+<tr>
+<td><code>--ct-values</code> and <code>--distractor-fraction</code> in <code>coverage-curve</code></td>
+<td>Mutually exclusive</td>
+</tr>
+<tr>
+<td><code>--capture-fraction</code> very close to 0</td>
+<td>Almost no probe-biased fragments; sensitivity will be poor regardless of probe quality</td>
+</tr>
+<tr>
+<td><code>--num-fragments</code> very low (&lt; 500) with many targets</td>
+<td>Some targets may receive zero fragments by chance, producing spurious FN</td>
+</tr>
+<tr>
+<td><code>--read-length</code> &gt; <code>--fragment-length-min</code></td>
+<td>Fragments shorter than <code>--read-length</code> are used as-is; reads will not all be the same length</td>
+</tr>
+</tbody>
+</table></div>
+        
+        
+    </div>
+
+    
+      <footer class="col-md-12 text-center">
+          
+          
+            <hr>
+            <p>
+            <small>Documentation built with <a href="http://www.mkdocs.org/">MkDocs</a>.</small>
+            </p>
+          
+
+          
+          
+      </footer>
+    
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+    <script src="../../js/bootstrap-3.0.3.min.js"></script>
+
+    
+    <script src="//cdn.jsdelivr.net/gh/highlightjs/cdn-release@9.18.0/build/highlight.min.js"></script>
+        
+    <script>hljs.initHighlightingOnLoad();</script>
+    
+
+    <script>var base_url = "../.."</script>
+    
+    <script src="../../js/base.js"></script>
+    <script src="../../search/main.js"></script>
+
+    <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">
+                    <span aria-hidden="true">&times;</span>
+                    <span class="sr-only">Close</span>
+                </button>
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
+            </div>
+            <div class="modal-body">
+                <p>
+                    From here you can search these documents. Enter
+                    your search terms below.
+                </p>
+                <form>
+                    <div class="form-group">
+                        <input type="text" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+    </body>
+
+</html>

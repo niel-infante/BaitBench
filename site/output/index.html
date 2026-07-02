@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="In-silico probe capture simulation and evaluation">
+    
+    <link rel="canonical" href="https://niel-infante.github.io/BaitBench/output/">
+    <link rel="shortcut icon" href="../img/favicon.ico">
+
+    
+    <title>Output Files - BaitBench</title>
+    
+
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.12.0/css/all.css">
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.12.0/css/v4-shims.css">
+    <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/hack-font@3.3.0/build/web/hack.min.css">
+    <link href='//rsms.me/inter/inter.css' rel='stylesheet' type='text/css'>
+    <link href='//fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,700italic,400,300,600,700&subset=latin-ext,latin' rel='stylesheet' type='text/css'>
+    <link href="../css/bootstrap-custom.min.css" rel="stylesheet">
+    <link href="../css/base.min.css" rel="stylesheet">
+    <link href="../css/cinder.min.css" rel="stylesheet">
+
+    
+        
+        <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/highlightjs/cdn-release@9.18.0/build/styles/github.min.css">
+        
+    
+
+    <!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+            <script src="https://cdn.jsdelivr.net/npm/html5shiv@3.7.3/dist/html5shiv.min.js"></script>
+            <script src="https://cdn.jsdelivr.net/npm/respond.js@1.4.2/dest/respond.min.js"></script>
+        <![endif]-->
+
+    
+
+     
+</head>
+
+<body>
+
+    <div class="navbar navbar-default navbar-fixed-top" role="navigation">
+    <div class="container">
+
+        <!-- Collapsed navigation -->
+        <div class="navbar-header">
+            <!-- Expander button -->
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            
+
+            <!-- Main title -->
+
+            
+              <a class="navbar-brand" href="..">BaitBench</a>
+            
+        </div>
+
+        <!-- Expanded navigation -->
+        <div class="navbar-collapse collapse">
+                <!-- Main navigation -->
+                <ul class="nav navbar-nav">
+                
+                
+                    <li >
+                        <a href="..">Home</a>
+                    </li>
+                
+                
+                
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">Tutorials <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="../tutorials/">Tutorials</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../tutorials/installation/">Installation</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../tutorials/first-run/">Your First Simulation</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../tutorials/genome-mode/">Genome Mode (Bacteria)</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">How-To Guides <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="../how-to/">How-To Guides</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../how-to/prepare-input-files/">Prepare Input Files</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../how-to/choose-simulation-mode/">Choose a Simulation Mode</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../how-to/set-parameters/">Set Parameters</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../how-to/interpret-results/">Interpret Results</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../how-to/design-and-assess-probes/">Design and Assess Probes</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../how-to/analyze-cross-reactivity/">Analyze Cross-Reactivity</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../how-to/troubleshoot/">Troubleshoot</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">Reference <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="../reference/">Reference</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../reference/commands/">Commands</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../reference/parameters/">Parameters</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../reference/input-formats/">Input Formats</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../reference/output-formats/">Output Formats</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../reference/reports/">Reports</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">Explanation <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="../explanation/">Explanation</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../explanation/what-is-probe-capture/">What Is Probe Capture?</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../explanation/pipeline-overview/">Pipeline Overview</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../explanation/simulation-modes/">Simulation Modes</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../explanation/metrics-and-classification/">Metrics and Classification</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../explanation/thermodynamic-scoring/">Thermodynamic Scoring</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../explanation/ct-scores/">CT Scores</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                </ul>
+
+            <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="#" data-toggle="modal" data-target="#mkdocs_search_modal">
+                            <i class="fas fa-search"></i> Search
+                        </a>
+                    </li>
+                    <li>
+                        <a href="https://github.com/niel-infante/BaitBench/edit/master/docs/output.md">Edit on niel-infante/BaitBench</a>
+                    </li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+    <div class="container">
+        
+        
+        <div class="col-md-3"><div class="bs-sidebar hidden-print affix well" role="complementary">
+    <ul class="nav bs-sidenav">
+        <li class="first-level active"><a href="#output-files">Output Files</a></li>
+            <li class="second-level"><a href="#run-output-directory">Run Output Directory</a></li>
+                
+            <li class="second-level"><a href="#resultstsv-columns">results.tsv Columns</a></li>
+                
+            <li class="second-level"><a href="#detected_detailtsv-columns">detected_detail.tsv Columns</a></li>
+                
+            <li class="second-level"><a href="#group_detailtsv-columns">group_detail.tsv Columns</a></li>
+                
+            <li class="second-level"><a href="#resultsjson-structure">results.json Structure</a></li>
+                
+            <li class="second-level"><a href="#coveragetsv-format">coverage.tsv Format</a></li>
+                
+    </ul>
+</div></div>
+        <div class="col-md-9" role="main">
+
+<h1 id="output-files">Output Files<a class="headerlink" href="#output-files" title="Permanent link">&para;</a></h1>
+<h2 id="run-output-directory">Run Output Directory<a class="headerlink" href="#run-output-directory" title="Permanent link">&para;</a></h2>
+<p>Each <code>baitbench run</code> creates a timestamped subdirectory:</p>
+<pre><code>results/run_20250101_120000/
+├── combined_reference.fa       # All sequences merged for fragment generation
+├── mapping_reference.fa        # Targets + distractors for mapping (genome mode only)
+├── weights.txt                 # Per-sequence sampling weights
+├── targets.txt                 # Target sequence IDs
+├── distractors.txt             # Distractor sequence IDs
+├── sample.txt                  # Sample sequence IDs
+├── genomes.txt                 # Genome IDs (genome mode only)
+├── sample_target_map.txt       # Genome-to-target mapping (genome mode only)
+├── fragments.fa                # Simulated DNA fragments (probe-biased + background)
+├── reads.fa                    # Sequencing reads (trimmed to read length)
+├── filtered.fa                 # Host-filtered reads (if --host-fasta)
+├── mapped.sam                  # Read alignments to reference
+├── detected.list               # Read counts per reference
+├── run_params.tsv              # Run configuration (used by report)
+├── target_groups.tsv           # Target group assignments (if --groups)
+├── distractor_groups.tsv       # Distractor group assignments (always; auto or from --distractor-groups)
+├── results.tsv                 # Summary metrics
+├── detected_detail.tsv         # Per-reference detection and coverage detail
+├── group_detail.tsv            # Per-group summary (if groups are present)
+├── results.json                # Machine-readable JSON metrics
+├── coverage.tsv                # Run-length encoded read depth intervals
+├── report.html                 # HTML report (--report full, requires R)
+├── report.Rmd                  # Editable RMarkdown (--report rmd)
+├── species_calls.tsv           # Species-level calls (if --identify)
+├── species_calls.json          # Species calls JSON (if --identify)
+├── target_similarity.tsv       # Target pairwise similarity (if --identify)
+├── capture.log                 # Capture alignment log
+├── mapping.log                 # Read mapping log
+└── host_filter.log             # Host filtering log (if --host-fasta)
+</code></pre>
+<h2 id="resultstsv-columns">results.tsv Columns<a class="headerlink" href="#resultstsv-columns" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>run_name</code></td>
+<td>Run identifier</td>
+</tr>
+<tr>
+<td><code>timestamp</code></td>
+<td>Completion time</td>
+</tr>
+<tr>
+<td><code>num_fragments</code></td>
+<td>Fragments requested</td>
+</tr>
+<tr>
+<td><code>seed</code></td>
+<td>Random seed (or "NA")</td>
+</tr>
+<tr>
+<td><code>fragments_generated</code></td>
+<td>Fragments actually generated</td>
+</tr>
+<tr>
+<td><code>fragments_captured</code></td>
+<td>Fragments passing capture</td>
+</tr>
+<tr>
+<td><code>capture_rate</code></td>
+<td>fragments_captured / fragments_generated</td>
+</tr>
+<tr>
+<td><code>sample_captured</code></td>
+<td>Captured fragments from sample targets</td>
+</tr>
+<tr>
+<td><code>nonsample_target_captured</code></td>
+<td>Captured fragments from non-sample targets</td>
+</tr>
+<tr>
+<td><code>distractor_captured</code></td>
+<td>Captured fragments from distractors</td>
+</tr>
+<tr>
+<td><code>untargeted_captured</code></td>
+<td>Captured fragments from untargeted genomes (genome mode)</td>
+</tr>
+<tr>
+<td><code>reads_correctly_mapped</code></td>
+<td>Reads mapping to their source reference</td>
+</tr>
+<tr>
+<td><code>reads_incorrectly_mapped</code></td>
+<td>Reads mapping to a different reference</td>
+</tr>
+<tr>
+<td><code>sample_total</code></td>
+<td>Number of distinct sample targets</td>
+</tr>
+<tr>
+<td><code>nonsample_target_total</code></td>
+<td>Number of non-sample targets</td>
+</tr>
+<tr>
+<td><code>distractors_total</code></td>
+<td>Number of distractor sequences</td>
+</tr>
+<tr>
+<td><code>tp_count</code></td>
+<td>True Positives: sample targets detected</td>
+</tr>
+<tr>
+<td><code>fn_count</code></td>
+<td>False Negatives: sample targets not detected</td>
+</tr>
+<tr>
+<td><code>fp_target_count</code></td>
+<td>False Positives: non-sample targets detected</td>
+</tr>
+<tr>
+<td><code>fp_distractor_count</code></td>
+<td>False Positives: distractors detected</td>
+</tr>
+<tr>
+<td><code>fp_total</code></td>
+<td>fp_target_count + fp_distractor_count</td>
+</tr>
+<tr>
+<td><code>tn_target_count</code></td>
+<td>True Negatives: non-sample targets not detected</td>
+</tr>
+<tr>
+<td><code>tn_distractor_count</code></td>
+<td>True Negatives: distractors not detected</td>
+</tr>
+<tr>
+<td><code>tn_total</code></td>
+<td>tn_target_count + tn_distractor_count</td>
+</tr>
+<tr>
+<td><code>sensitivity</code></td>
+<td>TP / (TP + FN)</td>
+</tr>
+<tr>
+<td><code>specificity</code></td>
+<td>TN_total / (TN_total + FP_total)</td>
+</tr>
+<tr>
+<td><code>precision</code></td>
+<td>TP / (TP + FP_total)</td>
+</tr>
+<tr>
+<td><code>f1_score</code></td>
+<td>2 * (precision * sensitivity) / (precision + sensitivity)</td>
+</tr>
+<tr>
+<td><code>reads_sequenced</code></td>
+<td>Number of reads after the sequencing step (0 if not tracked)</td>
+</tr>
+<tr>
+<td><code>reads_after_filter</code></td>
+<td>Number of reads after host filtering (0 if filter not applied)</td>
+</tr>
+<tr>
+<td><code>reads_mapped</code></td>
+<td>reads_correctly_mapped + reads_incorrectly_mapped</td>
+</tr>
+<tr>
+<td><code>reads_unmapped</code></td>
+<td>Reads that entered mapping but did not map to any reference</td>
+</tr>
+</tbody>
+</table>
+<h2 id="detected_detailtsv-columns">detected_detail.tsv Columns<a class="headerlink" href="#detected_detailtsv-columns" title="Permanent link">&para;</a></h2>
+<p>One row per reference sequence:</p>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>reference_id</code></td>
+<td>Sequence ID</td>
+</tr>
+<tr>
+<td><code>group</code></td>
+<td>Group name this sequence belongs to (sequence's own ID if no groups file provided)</td>
+</tr>
+<tr>
+<td><code>category</code></td>
+<td><code>sample</code>, <code>nonsample_target</code>, <code>distractor</code>, or <code>untargeted</code></td>
+</tr>
+<tr>
+<td><code>expected</code></td>
+<td>1 if expected to be detected (sample target), 0 otherwise</td>
+</tr>
+<tr>
+<td><code>detected</code></td>
+<td>1 if at least one read maps to this reference, 0 otherwise</td>
+</tr>
+<tr>
+<td><code>fragments_generated</code></td>
+<td>Number of fragments generated from this sequence</td>
+</tr>
+<tr>
+<td><code>fragments_captured</code></td>
+<td>Number of fragments captured by probes</td>
+</tr>
+<tr>
+<td><code>reads_assigned</code></td>
+<td>Number of reads mapped to this reference</td>
+</tr>
+<tr>
+<td><code>classification</code></td>
+<td><code>TP</code>, <code>FN</code>, <code>FP_target</code>, <code>FP_distractor</code>, <code>TN_target</code>, <code>TN_distractor</code>, or <code>untargeted</code></td>
+</tr>
+<tr>
+<td><code>ref_length</code></td>
+<td>Reference sequence length (bp)</td>
+</tr>
+<tr>
+<td><code>avg_coverage</code></td>
+<td>Average read depth across reference</td>
+</tr>
+<tr>
+<td><code>pct_covered_5x</code></td>
+<td>% positions with &gt;= 5x depth</td>
+</tr>
+<tr>
+<td><code>pct_covered_20x</code></td>
+<td>% positions with &gt;= 20x depth</td>
+</tr>
+</tbody>
+</table>
+<h2 id="group_detailtsv-columns">group_detail.tsv Columns<a class="headerlink" href="#group_detailtsv-columns" title="Permanent link">&para;</a></h2>
+<p>Written when group files are present (<code>target_groups.tsv</code> or <code>distractor_groups.tsv</code>). One row per group:</p>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>group_name</code></td>
+<td>Group identifier</td>
+</tr>
+<tr>
+<td><code>category</code></td>
+<td><code>sample</code>, <code>nonsample_target</code>, or <code>distractor</code></td>
+</tr>
+<tr>
+<td><code>expected</code></td>
+<td><code>true</code> if the group is expected to be detected (sample group)</td>
+</tr>
+<tr>
+<td><code>detected</code></td>
+<td><code>true</code> if at least one member sequence has reads mapped to it</td>
+</tr>
+<tr>
+<td><code>classification</code></td>
+<td><code>TP</code>, <code>FN</code>, <code>FP_target</code>, <code>FP_distractor</code>, <code>TN_target</code>, or <code>TN_distractor</code></td>
+</tr>
+<tr>
+<td><code>member_count</code></td>
+<td>Number of sequences in this group</td>
+</tr>
+<tr>
+<td><code>detected_member_count</code></td>
+<td>Number of member sequences individually detected</td>
+</tr>
+<tr>
+<td><code>total_reads</code></td>
+<td>Sum of reads assigned to all members of this group</td>
+</tr>
+</tbody>
+</table>
+<h2 id="resultsjson-structure">results.json Structure<a class="headerlink" href="#resultsjson-structure" title="Permanent link">&para;</a></h2>
+<p>Structured JSON output with nested sections:</p>
+<pre><code class="language-json">{
+  &quot;run_info&quot;: {
+    &quot;run_name&quot;: &quot;...&quot;,
+    &quot;timestamp&quot;: &quot;...&quot;,
+    &quot;num_fragments&quot;: 10000,
+    &quot;seed&quot;: &quot;42&quot;
+  },
+  &quot;capture_stats&quot;: {
+    &quot;fragments_generated&quot;: 10000,
+    &quot;fragments_captured&quot;: 3500,
+    &quot;capture_rate&quot;: 0.35
+  },
+  &quot;read_level&quot;: {
+    &quot;reads_correctly_mapped&quot;: 3400,
+    &quot;reads_incorrectly_mapped&quot;: 100,
+    &quot;reads_mapped&quot;: 3500,
+    &quot;reads_unmapped&quot;: 0,
+    &quot;reads_sequenced&quot;: 3500,
+    &quot;reads_after_filter&quot;: 0
+  },
+  &quot;metrics&quot;: {
+    &quot;sensitivity&quot;: 1.0,
+    &quot;specificity&quot;: 0.95,
+    &quot;precision&quot;: 0.8,
+    &quot;f1_score&quot;: 0.89,
+    &quot;tp&quot;: 5, &quot;fn&quot;: 0,
+    &quot;fp_target&quot;: 2, &quot;fp_distractor&quot;: 1,
+    &quot;tn_target&quot;: 10, &quot;tn_distractor&quot;: 50
+  },
+  &quot;details&quot;: [ ... ]
+}
+</code></pre>
+<h2 id="coveragetsv-format">coverage.tsv Format<a class="headerlink" href="#coveragetsv-format" title="Permanent link">&para;</a></h2>
+<p>Run-length encoded read depth intervals. Consecutive positions with the same depth are collapsed into a single interval (1-based inclusive coordinates):</p>
+<pre><code>reference_id    start   end depth
+dengue_1    1   50  0
+dengue_1    51  100 3
+dengue_1    101 200 5
+...
+</code></pre>
+<p>This format is typically 100-1000x smaller than per-position output, making it feasible for large target panels.</p></div>
+        
+        
+    </div>
+
+    
+      <footer class="col-md-12 text-center">
+          
+          
+            <hr>
+            <p>
+            <small>Documentation built with <a href="http://www.mkdocs.org/">MkDocs</a>.</small>
+            </p>
+          
+
+          
+          
+      </footer>
+    
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+    <script src="../js/bootstrap-3.0.3.min.js"></script>
+
+    
+    <script src="//cdn.jsdelivr.net/gh/highlightjs/cdn-release@9.18.0/build/highlight.min.js"></script>
+        
+    <script>hljs.initHighlightingOnLoad();</script>
+    
+
+    <script>var base_url = ".."</script>
+    
+    <script src="../js/base.js"></script>
+    <script src="../search/main.js"></script>
+
+    <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">
+                    <span aria-hidden="true">&times;</span>
+                    <span class="sr-only">Close</span>
+                </button>
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
+            </div>
+            <div class="modal-body">
+                <p>
+                    From here you can search these documents. Enter
+                    your search terms below.
+                </p>
+                <form>
+                    <div class="form-group">
+                        <input type="text" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+    </body>
+
+</html>

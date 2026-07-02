@@ -120,7 +120,7 @@ genomes.fa + targets.fa + distractors.fa [+ sample.tsv] [+ mapping.tsv]
 | `R/build_probes.Rmd` | RMarkdown template for probe building pipeline stats |
 | `R/assess_probes.R` | R script entry point for combined probe assessment report |
 | `R/assess_probes.Rmd` | RMarkdown template: build stats (optional) + probe coverage (incl. individual target coverage section) + cross-reactivity |
-| `environment.yml` | Conda environment (minimap2, blast, cd-hit, R packages) |
+| `environment.yml` | Conda environment (blast, cd-hit, R packages; alignment is embedded via rammap) |
 
 ### Metrics Definitions
 
@@ -211,7 +211,19 @@ Use `--distractor-groups` when multiple organisms are mixed into one FASTA file 
 
 - **Read `ARCHITECTURE.md` first.** Before exploring the codebase, read `ARCHITECTURE.md` for a complete map of every source file, its public types/functions, data flow between modules, and intermediate file formats. This avoids redundant exploration.
 - **Keep `ARCHITECTURE.md` up to date.** After adding, removing, or modifying source files, structs, public functions, intermediate files, or report sections, update `ARCHITECTURE.md` to reflect the changes.
-- **Always update documentation when making changes.** When adding, removing, or modifying CLI flags, subcommands, metrics, output files, or any user-facing behavior, update the relevant documentation files: `README.md`, `ARCHITECTURE.md`, `MANUAL.md`, this file (`CLAUDE.md`), and CLI help text in `src/cli.rs`.
+- **Always update documentation when making changes.** When adding, removing, or modifying any user-facing behavior, update the relevant files per the table below. The reference docs (`docs/reference/`) must be kept accurate on every change. How-to guides and tutorials should be reviewed for accuracy but may be deferred to the release checklist if the change is minor.
+
+| Change type | Files to update |
+|-------------|-----------------|
+| New or modified CLI flag | `src/cli.rs` (help text) · `docs/reference/parameters.md` · `docs/reference/commands.md` · `README.md` Key Parameters table (if prominent) · `CLAUDE.md` (if flag affects pipeline flow) |
+| New subcommand | `src/cli.rs` · `src/main.rs` · `docs/reference/commands.md` · `ARCHITECTURE.md` · `CLAUDE.md` pipeline overview · `README.md` |
+| New or changed output column / file | `docs/reference/output-formats.md` · `docs/reference/reports.md` (if report section changes) · `ARCHITECTURE.md` |
+| New metric or classification change | `docs/reference/output-formats.md` · `docs/explanation/metrics-and-classification.md` · `CLAUDE.md` Metrics Definitions |
+| Pipeline flow change | `ARCHITECTURE.md` · `docs/explanation/pipeline-overview.md` · `CLAUDE.md` pipeline diagram |
+| Thermodynamic model change | `docs/explanation/thermodynamic-scoring.md` · `CLAUDE.md` |
+| CT score / calibration change | `docs/explanation/ct-scores.md` · `docs/reference/parameters.md` · `CLAUDE.md` CT Score Support |
+| New report section | `docs/reference/reports.md` · `ARCHITECTURE.md` |
+| New input file format | `docs/reference/input-formats.md` · `docs/reference/parameters.md` |
 
 ## Development Guidelines
 
@@ -219,7 +231,7 @@ Use `--distractor-groups` when multiple organisms are mixed into one FASTA file 
 ```bash
 conda activate baitbench
 ```
-This ensures pandoc and other dependencies (R, minimap2, blast) are available for report generation.
+This ensures pandoc and other dependencies (R, blast) are available for report generation.
 
 Cargo is located at `/Users/niel/.cargo/bin/cargo` — ensure it's on `PATH` before building.
 
@@ -388,10 +400,11 @@ The sidecar binary must be rebuilt and copied any time the Rust CLI changes: `ma
 ## Dependencies
 
 ### External (installed via conda)
-- minimap2 (alignment)
-- blastn (alternative capture)
+- blastn (cross-reactivity analysis)
 - cd-hit (sequence clustering, used by build-probes)
 - R + ggplot2 + rmarkdown (report generation, optional)
+
+Alignment is handled by the rammap library compiled into the BaitBench binary (no external minimap2 install required).
 
 ### Rust (managed by Cargo)
 - clap (CLI), anyhow (errors), serde/serde_json (serialization)

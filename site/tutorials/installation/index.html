@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="In-silico probe capture simulation and evaluation">
+    
+    <link rel="canonical" href="https://niel-infante.github.io/BaitBench/tutorials/installation/">
+    <link rel="shortcut icon" href="../../img/favicon.ico">
+
+    
+    <title>Installation - BaitBench</title>
+    
+
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.12.0/css/all.css">
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.12.0/css/v4-shims.css">
+    <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/hack-font@3.3.0/build/web/hack.min.css">
+    <link href='//rsms.me/inter/inter.css' rel='stylesheet' type='text/css'>
+    <link href='//fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,700italic,400,300,600,700&subset=latin-ext,latin' rel='stylesheet' type='text/css'>
+    <link href="../../css/bootstrap-custom.min.css" rel="stylesheet">
+    <link href="../../css/base.min.css" rel="stylesheet">
+    <link href="../../css/cinder.min.css" rel="stylesheet">
+
+    
+        
+        <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/highlightjs/cdn-release@9.18.0/build/styles/github.min.css">
+        
+    
+
+    <!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+            <script src="https://cdn.jsdelivr.net/npm/html5shiv@3.7.3/dist/html5shiv.min.js"></script>
+            <script src="https://cdn.jsdelivr.net/npm/respond.js@1.4.2/dest/respond.min.js"></script>
+        <![endif]-->
+
+    
+
+     
+</head>
+
+<body>
+
+    <div class="navbar navbar-default navbar-fixed-top" role="navigation">
+    <div class="container">
+
+        <!-- Collapsed navigation -->
+        <div class="navbar-header">
+            <!-- Expander button -->
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            
+
+            <!-- Main title -->
+
+            
+              <a class="navbar-brand" href="../..">BaitBench</a>
+            
+        </div>
+
+        <!-- Expanded navigation -->
+        <div class="navbar-collapse collapse">
+                <!-- Main navigation -->
+                <ul class="nav navbar-nav">
+                
+                
+                    <li >
+                        <a href="../..">Home</a>
+                    </li>
+                
+                
+                
+                    <li class="dropdown active">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">Tutorials <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="../">Tutorials</a>
+</li>
+
+                        
+                            
+<li class="active">
+    <a href="./">Installation</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../first-run/">Your First Simulation</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../genome-mode/">Genome Mode (Bacteria)</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">How-To Guides <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="../../how-to/">How-To Guides</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/prepare-input-files/">Prepare Input Files</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/choose-simulation-mode/">Choose a Simulation Mode</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/set-parameters/">Set Parameters</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/interpret-results/">Interpret Results</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/design-and-assess-probes/">Design and Assess Probes</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/analyze-cross-reactivity/">Analyze Cross-Reactivity</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/troubleshoot/">Troubleshoot</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">Reference <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="../../reference/">Reference</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../reference/commands/">Commands</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../reference/parameters/">Parameters</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../reference/input-formats/">Input Formats</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../reference/output-formats/">Output Formats</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../reference/reports/">Reports</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">Explanation <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="../../explanation/">Explanation</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../explanation/what-is-probe-capture/">What Is Probe Capture?</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../explanation/pipeline-overview/">Pipeline Overview</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../explanation/simulation-modes/">Simulation Modes</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../explanation/metrics-and-classification/">Metrics and Classification</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../explanation/thermodynamic-scoring/">Thermodynamic Scoring</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../explanation/ct-scores/">CT Scores</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                </ul>
+
+            <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="#" data-toggle="modal" data-target="#mkdocs_search_modal">
+                            <i class="fas fa-search"></i> Search
+                        </a>
+                    </li>
+                    <li >
+                        <a rel="prev" href="../">
+                            <i class="fas fa-arrow-left"></i> Previous
+                        </a>
+                    </li>
+                    <li >
+                        <a rel="next" href="../first-run/">
+                            Next <i class="fas fa-arrow-right"></i>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="https://github.com/niel-infante/BaitBench/edit/master/docs/tutorials/installation.md">Edit on niel-infante/BaitBench</a>
+                    </li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+    <div class="container">
+        
+        
+        <div class="col-md-3"><div class="bs-sidebar hidden-print affix well" role="complementary">
+    <ul class="nav bs-sidenav">
+        <li class="first-level active"><a href="#installation">Installation</a></li>
+            <li class="second-level"><a href="#prerequisites">Prerequisites</a></li>
+                
+            <li class="second-level"><a href="#1-get-the-code">1. Get the code</a></li>
+                
+            <li class="second-level"><a href="#2-install-runtime-dependencies">2. Install runtime dependencies</a></li>
+                
+            <li class="second-level"><a href="#3-build">3. Build</a></li>
+                
+            <li class="second-level"><a href="#4-verify">4. Verify</a></li>
+                
+            <li class="second-level"><a href="#add-to-path-optional">Add to PATH (optional)</a></li>
+                
+            <li class="second-level"><a href="#reports-optional">Reports (optional)</a></li>
+                
+            <li class="second-level"><a href="#desktop-gui-optional">Desktop GUI (optional)</a></li>
+                
+            <li class="second-level"><a href="#next-step">Next step</a></li>
+                
+    </ul>
+</div></div>
+        <div class="col-md-9" role="main">
+
+<h1 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h1>
+<p>This tutorial walks you through installing BaitBench from source. By the end you will have a working <code>baitbench</code> binary and all runtime dependencies ready to use.</p>
+<h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
+<p>You will need two tools before starting:</p>
+<p><strong><a href="https://docs.conda.io/">Conda</a> or <a href="https://mamba.readthedocs.io/">Mamba</a></strong> — manages the runtime dependencies (BLAST, R, read simulators). If you do not have either installed, Mamba is recommended for faster environment creation.</p>
+<p><strong><a href="https://rustup.rs/">Rust toolchain</a></strong> — compiles the BaitBench binary. Install it with:</p>
+<pre><code class="language-bash">curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+</code></pre>
+<p>After the installer completes, open a new terminal (or run <code>source ~/.cargo/env</code>) so that <code>cargo</code> is on your PATH.</p>
+<hr />
+<h2 id="1-get-the-code">1. Get the code<a class="headerlink" href="#1-get-the-code" title="Permanent link">&para;</a></h2>
+<pre><code class="language-bash">git clone https://github.com/niel-infante/BaitBench.git
+cd BaitBench
+</code></pre>
+<hr />
+<h2 id="2-install-runtime-dependencies">2. Install runtime dependencies<a class="headerlink" href="#2-install-runtime-dependencies" title="Permanent link">&para;</a></h2>
+<pre><code class="language-bash">conda env create -f environment.yml
+</code></pre>
+<p>This creates a conda environment named <code>baitbench</code> containing:</p>
+<table>
+<thead>
+<tr>
+<th>Package</th>
+<th>Purpose</th>
+<th>Required?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>BLAST+</td>
+<td>Cross-reactivity analysis (<code>xreact</code>)</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>cd-hit</td>
+<td>Sequence clustering (<code>build-probes</code>)</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>R + packages</td>
+<td>HTML report generation</td>
+<td>Optional</td>
+</tr>
+<tr>
+<td>pandoc</td>
+<td>HTML report rendering</td>
+<td>Optional</td>
+</tr>
+<tr>
+<td>art_modern</td>
+<td>Read error simulation (<code>--read-simulator art</code>)</td>
+<td>Optional</td>
+</tr>
+<tr>
+<td>badread</td>
+<td>Nanopore read simulation (<code>--read-simulator badread</code>)</td>
+<td>Optional</td>
+</tr>
+<tr>
+<td>catch</td>
+<td>CATCH probe design (<code>build-probes --method catch</code>)</td>
+<td>Optional</td>
+</tr>
+</tbody>
+</table>
+<p>Alignment is handled by the <a href="https://github.com/lh3/rammap">rammap</a> library compiled into the BaitBench binary — no external alignment tool required.</p>
+<hr />
+<h2 id="3-build">3. Build<a class="headerlink" href="#3-build" title="Permanent link">&para;</a></h2>
+<p>Activate the conda environment first so the build can find any needed system libraries, then compile:</p>
+<pre><code class="language-bash">conda activate baitbench
+cargo build --release
+</code></pre>
+<p>The first build downloads and compiles Rust dependencies, which takes a few minutes. Subsequent builds are much faster.</p>
+<p>The binary is produced at <code>target/release/baitbench</code>.</p>
+<hr />
+<h2 id="4-verify">4. Verify<a class="headerlink" href="#4-verify" title="Permanent link">&para;</a></h2>
+<pre><code class="language-bash">./target/release/baitbench --version
+./target/release/baitbench --help
+</code></pre>
+<p>You should see the version string and the list of subcommands. If you see a "command not found" error, check that you are in the BaitBench directory.</p>
+<hr />
+<h2 id="add-to-path-optional">Add to PATH (optional)<a class="headerlink" href="#add-to-path-optional" title="Permanent link">&para;</a></h2>
+<p>To run <code>baitbench</code> from anywhere without the <code>./target/release/</code> prefix, choose one of these approaches:</p>
+<p><strong>Symlink into a directory already on your PATH:</strong></p>
+<pre><code class="language-bash">ln -s &quot;$(pwd)/target/release/baitbench&quot; ~/.local/bin/baitbench
+</code></pre>
+<p><strong>Copy the binary:</strong></p>
+<pre><code class="language-bash">cp target/release/baitbench ~/.local/bin/
+</code></pre>
+<p><strong>Add the build directory to your PATH</strong> (in <code>~/.bashrc</code> or <code>~/.zshrc</code>):</p>
+<pre><code class="language-bash">export PATH=&quot;$HOME/path/to/BaitBench/target/release:$PATH&quot;
+</code></pre>
+<p>After adding to PATH, restart your shell or run <code>source ~/.bashrc</code>.</p>
+<div class="admonition note">
+<p class="admonition-title">Always activate the conda environment</p>
+<p>Whatever method you choose for PATH, remember to run <code>conda activate baitbench</code>
+before using BaitBench. The conda environment provides BLAST, cd-hit, R, and other
+runtime dependencies that the binary calls out to.</p>
+</div>
+<hr />
+<h2 id="reports-optional">Reports (optional)<a class="headerlink" href="#reports-optional" title="Permanent link">&para;</a></h2>
+<p>HTML reports require R and pandoc, which are included in <code>environment.yml</code>. They are generated automatically when you run <code>baitbench run</code> (or any report-producing command) with the conda environment active.</p>
+<p>To skip report generation entirely, add <code>--report none</code> to any command:</p>
+<pre><code class="language-bash">baitbench run ... --report none
+</code></pre>
+<hr />
+<h2 id="desktop-gui-optional">Desktop GUI (optional)<a class="headerlink" href="#desktop-gui-optional" title="Permanent link">&para;</a></h2>
+<p>A desktop GUI is available for macOS and Windows. See the <a href="https://github.com/niel-infante/BaitBench/releases/latest">GUI installer page</a> for pre-built downloads, or the developer guide in <code>gui/README.md</code> if you want to build it from source.</p>
+<hr />
+<h2 id="next-step">Next step<a class="headerlink" href="#next-step" title="Permanent link">&para;</a></h2>
+<p>Continue to <a href="../first-run/">Your First Simulation</a> to run BaitBench on the included tutorial dataset.</p></div>
+        
+        
+    </div>
+
+    
+      <footer class="col-md-12 text-center">
+          
+          
+            <hr>
+            <p>
+            <small>Documentation built with <a href="http://www.mkdocs.org/">MkDocs</a>.</small>
+            </p>
+          
+
+          
+          
+      </footer>
+    
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+    <script src="../../js/bootstrap-3.0.3.min.js"></script>
+
+    
+    <script src="//cdn.jsdelivr.net/gh/highlightjs/cdn-release@9.18.0/build/highlight.min.js"></script>
+        
+    <script>hljs.initHighlightingOnLoad();</script>
+    
+
+    <script>var base_url = "../.."</script>
+    
+    <script src="../../js/base.js"></script>
+    <script src="../../search/main.js"></script>
+
+    <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">
+                    <span aria-hidden="true">&times;</span>
+                    <span class="sr-only">Close</span>
+                </button>
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
+            </div>
+            <div class="modal-body">
+                <p>
+                    From here you can search these documents. Enter
+                    your search terms below.
+                </p>
+                <form>
+                    <div class="form-group">
+                        <input type="text" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+    </body>
+
+</html>

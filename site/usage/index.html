@@ -1,0 +1,1063 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="In-silico probe capture simulation and evaluation">
+    
+    <link rel="canonical" href="https://niel-infante.github.io/BaitBench/usage/">
+    <link rel="shortcut icon" href="../img/favicon.ico">
+
+    
+    <title>BaitBench Usage Guide - BaitBench</title>
+    
+
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.12.0/css/all.css">
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.12.0/css/v4-shims.css">
+    <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/hack-font@3.3.0/build/web/hack.min.css">
+    <link href='//rsms.me/inter/inter.css' rel='stylesheet' type='text/css'>
+    <link href='//fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,700italic,400,300,600,700&subset=latin-ext,latin' rel='stylesheet' type='text/css'>
+    <link href="../css/bootstrap-custom.min.css" rel="stylesheet">
+    <link href="../css/base.min.css" rel="stylesheet">
+    <link href="../css/cinder.min.css" rel="stylesheet">
+
+    
+        
+        <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/highlightjs/cdn-release@9.18.0/build/styles/github.min.css">
+        
+    
+
+    <!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+            <script src="https://cdn.jsdelivr.net/npm/html5shiv@3.7.3/dist/html5shiv.min.js"></script>
+            <script src="https://cdn.jsdelivr.net/npm/respond.js@1.4.2/dest/respond.min.js"></script>
+        <![endif]-->
+
+    
+
+     
+</head>
+
+<body>
+
+    <div class="navbar navbar-default navbar-fixed-top" role="navigation">
+    <div class="container">
+
+        <!-- Collapsed navigation -->
+        <div class="navbar-header">
+            <!-- Expander button -->
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            
+
+            <!-- Main title -->
+
+            
+              <a class="navbar-brand" href="..">BaitBench</a>
+            
+        </div>
+
+        <!-- Expanded navigation -->
+        <div class="navbar-collapse collapse">
+                <!-- Main navigation -->
+                <ul class="nav navbar-nav">
+                
+                
+                    <li >
+                        <a href="..">Home</a>
+                    </li>
+                
+                
+                
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">Tutorials <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="../tutorials/">Tutorials</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../tutorials/installation/">Installation</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../tutorials/first-run/">Your First Simulation</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../tutorials/genome-mode/">Genome Mode (Bacteria)</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">How-To Guides <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="../how-to/">How-To Guides</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../how-to/prepare-input-files/">Prepare Input Files</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../how-to/choose-simulation-mode/">Choose a Simulation Mode</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../how-to/set-parameters/">Set Parameters</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../how-to/interpret-results/">Interpret Results</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../how-to/design-and-assess-probes/">Design and Assess Probes</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../how-to/analyze-cross-reactivity/">Analyze Cross-Reactivity</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../how-to/troubleshoot/">Troubleshoot</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">Reference <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="../reference/">Reference</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../reference/commands/">Commands</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../reference/parameters/">Parameters</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../reference/input-formats/">Input Formats</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../reference/output-formats/">Output Formats</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../reference/reports/">Reports</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">Explanation <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="../explanation/">Explanation</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../explanation/what-is-probe-capture/">What Is Probe Capture?</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../explanation/pipeline-overview/">Pipeline Overview</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../explanation/simulation-modes/">Simulation Modes</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../explanation/metrics-and-classification/">Metrics and Classification</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../explanation/thermodynamic-scoring/">Thermodynamic Scoring</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../explanation/ct-scores/">CT Scores</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                </ul>
+
+            <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="#" data-toggle="modal" data-target="#mkdocs_search_modal">
+                            <i class="fas fa-search"></i> Search
+                        </a>
+                    </li>
+                    <li>
+                        <a href="https://github.com/niel-infante/BaitBench/edit/master/docs/usage.md">Edit on niel-infante/BaitBench</a>
+                    </li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+    <div class="container">
+        
+        
+        <div class="col-md-3"><div class="bs-sidebar hidden-print affix well" role="complementary">
+    <ul class="nav bs-sidenav">
+        <li class="first-level active"><a href="#baitbench-usage-guide">BaitBench Usage Guide</a></li>
+            <li class="second-level"><a href="#installation">Installation</a></li>
+                
+                <li class="third-level"><a href="#1-install-runtime-dependencies">1. Install runtime dependencies</a></li>
+                <li class="third-level"><a href="#2-build-the-binary">2. Build the binary</a></li>
+            <li class="second-level"><a href="#quick-start">Quick Start</a></li>
+                
+            <li class="second-level"><a href="#input-files">Input Files</a></li>
+                
+                <li class="third-level"><a href="#targetsfa">targets.fa</a></li>
+                <li class="third-level"><a href="#distractorsfa">distractors.fa</a></li>
+                <li class="third-level"><a href="#probesfa">probes.fa</a></li>
+                <li class="third-level"><a href="#sampletsv-optional">sample.tsv (optional)</a></li>
+            <li class="second-level"><a href="#parameters-reference">Parameters Reference</a></li>
+                
+                <li class="third-level"><a href="#required-parameters">Required Parameters</a></li>
+                <li class="third-level"><a href="#sample-selection">Sample Selection</a></li>
+                <li class="third-level"><a href="#simulation-parameters">Simulation Parameters</a></li>
+                <li class="third-level"><a href="#host-filtering-optional">Host Filtering (Optional)</a></li>
+                <li class="third-level"><a href="#output">Output</a></li>
+            <li class="second-level"><a href="#output-files">Output Files</a></li>
+                
+            <li class="second-level"><a href="#resultstsv-column-reference">results.tsv Column Reference</a></li>
+                
+                <li class="third-level"><a href="#run-information">Run Information</a></li>
+                <li class="third-level"><a href="#fragment-and-read-counts">Fragment and Read Counts</a></li>
+                <li class="third-level"><a href="#reference-counts">Reference Counts</a></li>
+                <li class="third-level"><a href="#detection-classification-genome-level">Detection Classification (Genome-Level)</a></li>
+                <li class="third-level"><a href="#performance-metrics">Performance Metrics</a></li>
+            <li class="second-level"><a href="#detected_detailtsv-column-reference">detected_detail.tsv Column Reference</a></li>
+                
+            <li class="second-level"><a href="#coveragetsv">coverage.tsv</a></li>
+                
+            <li class="second-level"><a href="#understanding-the-metrics">Understanding the Metrics</a></li>
+                
+                <li class="third-level"><a href="#3-way-classification">3-way classification</a></li>
+                <li class="third-level"><a href="#genome-level-vs-read-level-metrics">Genome-level vs read-level metrics</a></li>
+                <li class="third-level"><a href="#sensitivity-true-positive-rate">Sensitivity (True Positive Rate)</a></li>
+                <li class="third-level"><a href="#specificity-true-negative-rate">Specificity (True Negative Rate)</a></li>
+                <li class="third-level"><a href="#precision">Precision</a></li>
+                <li class="third-level"><a href="#f1-score">F1 Score</a></li>
+            <li class="second-level"><a href="#individual-steps">Individual Steps</a></li>
+                
+            <li class="second-level"><a href="#example-workflow">Example Workflow</a></li>
+                
+            <li class="second-level"><a href="#troubleshooting">Troubleshooting</a></li>
+                
+                <li class="third-level"><a href="#sample-id-x-not-found-in-targets-fasta">"Sample ID 'X' not found in targets FASTA"</a></li>
+                <li class="third-level"><a href="#cannot-find-r-scripts-directory">"Cannot find R scripts directory"</a></li>
+                <li class="third-level"><a href="#low-capture-rate">Low capture rate</a></li>
+                <li class="third-level"><a href="#high-false-positive-rate">High false positive rate</a></li>
+    </ul>
+</div></div>
+        <div class="col-md-9" role="main">
+
+<h1 id="baitbench-usage-guide">BaitBench Usage Guide<a class="headerlink" href="#baitbench-usage-guide" title="Permanent link">&para;</a></h1>
+<h2 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h2>
+<h3 id="1-install-runtime-dependencies">1. Install runtime dependencies<a class="headerlink" href="#1-install-runtime-dependencies" title="Permanent link">&para;</a></h3>
+<pre><code class="language-bash">conda env create -f environment.yml
+conda activate baitbench
+</code></pre>
+<p>This installs BLAST, R, and required R packages. Alignment is handled by the rammap library compiled into the BaitBench binary — no external minimap2 installation required.</p>
+<h3 id="2-build-the-binary">2. Build the binary<a class="headerlink" href="#2-build-the-binary" title="Permanent link">&para;</a></h3>
+<p>Requires the <a href="https://rustup.rs/">Rust toolchain</a>.</p>
+<pre><code class="language-bash">cargo build --release
+</code></pre>
+<p>The binary is at <code>target/release/baitbench</code>. Add it to your PATH or symlink it somewhere convenient.</p>
+<h2 id="quick-start">Quick Start<a class="headerlink" href="#quick-start" title="Permanent link">&para;</a></h2>
+<pre><code class="language-bash">baitbench run \
+  --targets targets.fa \
+  --distractors distractors.fa \
+  --probes probes.fa \
+  --num-fragments 10000 \
+  --outdir results
+</code></pre>
+<h2 id="input-files">Input Files<a class="headerlink" href="#input-files" title="Permanent link">&para;</a></h2>
+<h3 id="targetsfa">targets.fa<a class="headerlink" href="#targetsfa" title="Permanent link">&para;</a></h3>
+<p>FASTA file containing sequences your probes are designed to capture. These are your positive controls — you expect these to be detected.</p>
+<pre><code class="language-fasta">&gt;virus_A Complete genome
+ATGCGTACGT...
+&gt;virus_B Partial sequence
+GCTAGCTAG...
+</code></pre>
+<h3 id="distractorsfa">distractors.fa<a class="headerlink" href="#distractorsfa" title="Permanent link">&para;</a></h3>
+<p>FASTA file(s) containing background sequences that should NOT be captured. These serve as negative controls to test specificity. You can specify multiple distractor files.</p>
+<p>Common choices for distractors:
+- Host genome sequences
+- Related but non-target organisms
+- Environmental/metagenomic background</p>
+<h3 id="probesfa">probes.fa<a class="headerlink" href="#probesfa" title="Permanent link">&para;</a></h3>
+<p>FASTA file containing your probe sequences to test.</p>
+<pre><code class="language-fasta">&gt;probe_001 Target: virus_A position 100-180
+ATGCGTACGTACGTACGTACGTACGTACGTACGTACGTACG
+&gt;probe_002 Target: virus_A position 500-580
+GCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAG
+</code></pre>
+<h3 id="sampletsv-optional">sample.tsv (optional)<a class="headerlink" href="#sampletsv-optional" title="Permanent link">&para;</a></h3>
+<p>A TSV file listing which target IDs are present in the simulated sample. Each ID must match a FASTA header in the targets file.</p>
+<p><strong>Important:</strong> Sequence IDs are derived from the first whitespace-delimited word of each FASTA header (everything after <code>&gt;</code> up to the first space). <strong>Sequence names must not contain spaces.</strong> Use underscores or other delimiters instead (e.g. <code>&gt;Zika_virus</code>, not <code>&gt;Zika virus</code>). This applies to all FASTA input files.</p>
+<p>The weight column is optional (default: 1.0) and controls relative read abundance:</p>
+<table>
+<thead>
+<tr>
+<th>id</th>
+<th>weight</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>dengue_1</code></td>
+<td><code>5.0</code></td>
+</tr>
+<tr>
+<td><code>zika_virus</code></td>
+<td><code>1.0</code></td>
+</tr>
+<tr>
+<td><code>chikungunya</code></td>
+<td><code>0.5</code></td>
+</tr>
+</tbody>
+</table>
+<p>Example <code>sample.tsv</code>:</p>
+<pre><code># id    weight
+dengue_1    5.0
+zika_virus  1.0
+chikungunya 0.5
+</code></pre>
+<p>Without <code>--sample</code>, all targets are treated as present with equal weight. When <code>--sample</code> is provided, only the listed targets generate fragments; remaining targets become "non-sample targets" and are treated as negatives alongside distractors (see <a href="#3-way-classification">3-way classification</a>).</p>
+<h2 id="parameters-reference">Parameters Reference<a class="headerlink" href="#parameters-reference" title="Permanent link">&para;</a></h2>
+<h3 id="required-parameters">Required Parameters<a class="headerlink" href="#required-parameters" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--targets</code></td>
+<td>Path to target genomes FASTA</td>
+</tr>
+<tr>
+<td><code>--distractors</code></td>
+<td>Path to distractor genomes FASTA (can be specified multiple times)</td>
+</tr>
+<tr>
+<td><code>--probes</code></td>
+<td>Path to probe sequences FASTA</td>
+</tr>
+</tbody>
+</table>
+<h3 id="sample-selection">Sample Selection<a class="headerlink" href="#sample-selection" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--sample</code></td>
+<td>none</td>
+<td>Sample manifest TSV (id and optional weight)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="simulation-parameters">Simulation Parameters<a class="headerlink" href="#simulation-parameters" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--num-fragments</code></td>
+<td>10000</td>
+<td>Number of fragments to simulate</td>
+</tr>
+<tr>
+<td><code>--fragment-length-mean</code></td>
+<td>175</td>
+<td>Mean fragment length (bp)</td>
+</tr>
+<tr>
+<td><code>--fragment-length-min</code></td>
+<td>150</td>
+<td>Minimum fragment length (bp)</td>
+</tr>
+<tr>
+<td><code>--fragment-length-max</code></td>
+<td>200</td>
+<td>Maximum fragment length (bp)</td>
+</tr>
+<tr>
+<td><code>--read-length</code></td>
+<td>120</td>
+<td>Sequencing read length (trim captured fragments to this)</td>
+</tr>
+<tr>
+<td><code>--distractor-fraction</code></td>
+<td>0.9</td>
+<td>Fraction of fragments from distractors (0-1)</td>
+</tr>
+<tr>
+<td><code>--seed</code></td>
+<td>random</td>
+<td>Random seed for reproducibility</td>
+</tr>
+</tbody>
+</table>
+<h3 id="host-filtering-optional">Host Filtering (Optional)<a class="headerlink" href="#host-filtering-optional" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--host-fasta</code></td>
+<td>none</td>
+<td>Host genome for filtering captured reads</td>
+</tr>
+</tbody>
+</table>
+<h3 id="output">Output<a class="headerlink" href="#output" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--outdir</code></td>
+<td>./results</td>
+<td>Output directory</td>
+</tr>
+<tr>
+<td><code>--run-name</code></td>
+<td>auto</td>
+<td>Run name (auto-generated timestamp if not specified)</td>
+</tr>
+<tr>
+<td><code>--report</code></td>
+<td>full</td>
+<td>Report output: <code>full</code> (HTML), <code>none</code> (skip), <code>rmd</code> (editable RMarkdown)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="output-files">Output Files<a class="headerlink" href="#output-files" title="Permanent link">&para;</a></h2>
+<pre><code>results/&lt;run_name&gt;/
+├── combined_reference.fa   # Merged targets + distractors (+ genomes in genome mode)
+├── weights.txt             # Sampling weights
+├── targets.txt             # Target IDs
+├── distractors.txt         # Distractor IDs
+├── sample.txt              # Sample IDs (subset of targets)
+├── distractor_groups.tsv   # Distractor group assignments (always written)
+├── target_groups.tsv       # Target group assignments (if --groups)
+├── fragments.fa            # Simulated fragments (probe-biased + background)
+├── reads.fa                # Sequencing reads
+├── mapped.sam              # Alignments to references
+├── detected.list           # Reference IDs and read counts
+├── results.tsv             # Summary metrics
+├── detected_detail.tsv     # Per-reference breakdown (with group and coverage stats)
+├── group_detail.tsv        # Per-group summary (if groups are present)
+├── coverage.tsv            # Run-length encoded read depth intervals
+├── results.json            # Machine-readable metrics
+└── report.html             # HTML report with figures (if R available)
+</code></pre>
+<h2 id="resultstsv-column-reference">results.tsv Column Reference<a class="headerlink" href="#resultstsv-column-reference" title="Permanent link">&para;</a></h2>
+<p>The <code>results.tsv</code> file contains one row with all summary metrics.</p>
+<h3 id="run-information">Run Information<a class="headerlink" href="#run-information" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>run_name</code></td>
+<td>Name of this pipeline run (auto-generated or user-specified)</td>
+</tr>
+<tr>
+<td><code>timestamp</code></td>
+<td>ISO 8601 timestamp when metrics were calculated</td>
+</tr>
+<tr>
+<td><code>num_fragments</code></td>
+<td>Number of fragments requested to be generated</td>
+</tr>
+<tr>
+<td><code>seed</code></td>
+<td>Random seed used for reproducibility (or "NA" if random)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="fragment-and-read-counts">Fragment and Read Counts<a class="headerlink" href="#fragment-and-read-counts" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>fragments_generated</code></td>
+<td>Total number of fragments actually generated from reference sequences</td>
+</tr>
+<tr>
+<td><code>fragments_captured</code></td>
+<td>Number of fragments that passed the capture filter (matched probes)</td>
+</tr>
+<tr>
+<td><code>capture_rate</code></td>
+<td>Fraction of generated fragments that were captured (<code>fragments_captured / fragments_generated</code>)</td>
+</tr>
+<tr>
+<td><code>sample_captured</code></td>
+<td>Captured fragments originating from <strong>sample target</strong> sequences</td>
+</tr>
+<tr>
+<td><code>nonsample_target_captured</code></td>
+<td>Captured fragments originating from <strong>non-sample target</strong> sequences (cross-reactivity within the target panel)</td>
+</tr>
+<tr>
+<td><code>distractor_captured</code></td>
+<td>Captured fragments originating from <strong>distractor</strong> sequences (off-target capture)</td>
+</tr>
+<tr>
+<td><code>reads_correctly_mapped</code></td>
+<td>Reads that map back to their source reference</td>
+</tr>
+<tr>
+<td><code>reads_incorrectly_mapped</code></td>
+<td>Reads that map to a different reference than their source</td>
+</tr>
+</tbody>
+</table>
+<h3 id="reference-counts">Reference Counts<a class="headerlink" href="#reference-counts" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>sample_total</code></td>
+<td>Number of distinct sample genomes</td>
+</tr>
+<tr>
+<td><code>nonsample_target_total</code></td>
+<td>Number of distinct non-sample target genomes</td>
+</tr>
+<tr>
+<td><code>distractors_total</code></td>
+<td>Number of distinct distractor genomes</td>
+</tr>
+</tbody>
+</table>
+<h3 id="detection-classification-genome-level">Detection Classification (Genome-Level)<a class="headerlink" href="#detection-classification-genome-level" title="Permanent link">&para;</a></h3>
+<p>These metrics count <strong>distinct genomes/references</strong>, not reads. A genome is "detected" if at least one read maps back to it after capture.</p>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tp_count</code></td>
+<td><strong>True Positives</strong> — sample target genomes detected</td>
+</tr>
+<tr>
+<td><code>fn_count</code></td>
+<td><strong>False Negatives</strong> — sample target genomes NOT detected</td>
+</tr>
+<tr>
+<td><code>fp_target_count</code></td>
+<td><strong>False Positives (target)</strong> — non-sample target genomes detected</td>
+</tr>
+<tr>
+<td><code>fp_distractor_count</code></td>
+<td><strong>False Positives (distractor)</strong> — distractor genomes detected</td>
+</tr>
+<tr>
+<td><code>fp_total</code></td>
+<td>Total false positives (<code>fp_target_count + fp_distractor_count</code>)</td>
+</tr>
+<tr>
+<td><code>tn_target_count</code></td>
+<td><strong>True Negatives (target)</strong> — non-sample target genomes NOT detected</td>
+</tr>
+<tr>
+<td><code>tn_distractor_count</code></td>
+<td><strong>True Negatives (distractor)</strong> — distractor genomes NOT detected</td>
+</tr>
+<tr>
+<td><code>tn_total</code></td>
+<td>Total true negatives (<code>tn_target_count + tn_distractor_count</code>)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="performance-metrics">Performance Metrics<a class="headerlink" href="#performance-metrics" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>sensitivity</code></td>
+<td><code>TP / (TP + FN)</code> — fraction of sample genomes detected. Range: 0–1.</td>
+</tr>
+<tr>
+<td><code>specificity</code></td>
+<td><code>TN_total / (TN_total + FP_total)</code> — fraction of non-sample genomes correctly rejected. Range: 0–1.</td>
+</tr>
+<tr>
+<td><code>precision</code></td>
+<td><code>TP / (TP + FP_total)</code> — of detected genomes, fraction that are sample targets. Range: 0–1.</td>
+</tr>
+<tr>
+<td><code>f1_score</code></td>
+<td><code>2 * (precision * sensitivity) / (precision + sensitivity)</code> — harmonic mean. Range: 0–1.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="detected_detailtsv-column-reference">detected_detail.tsv Column Reference<a class="headerlink" href="#detected_detailtsv-column-reference" title="Permanent link">&para;</a></h2>
+<p>The <code>detected_detail.tsv</code> file contains one row per reference (target or distractor) with detection status and coverage statistics.</p>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>reference_id</code></td>
+<td>Reference sequence ID</td>
+</tr>
+<tr>
+<td><code>group</code></td>
+<td>Group name this sequence belongs to (sequence's own ID if no groups file provided)</td>
+</tr>
+<tr>
+<td><code>category</code></td>
+<td><code>sample</code>, <code>nonsample_target</code>, <code>distractor</code>, or <code>untargeted</code></td>
+</tr>
+<tr>
+<td><code>expected</code></td>
+<td>1 if expected to be detected (sample target), 0 otherwise</td>
+</tr>
+<tr>
+<td><code>detected</code></td>
+<td>1 if at least one read maps to this reference, 0 otherwise</td>
+</tr>
+<tr>
+<td><code>fragments_generated</code></td>
+<td>Number of fragments generated from this reference</td>
+</tr>
+<tr>
+<td><code>fragments_captured</code></td>
+<td>Number of fragments captured by probes</td>
+</tr>
+<tr>
+<td><code>reads_assigned</code></td>
+<td>Number of reads mapped to this reference</td>
+</tr>
+<tr>
+<td><code>classification</code></td>
+<td><code>TP</code>, <code>FN</code>, <code>FP_target</code>, <code>FP_distractor</code>, <code>TN_target</code>, <code>TN_distractor</code>, or <code>untargeted</code></td>
+</tr>
+<tr>
+<td><code>ref_length</code></td>
+<td>Reference sequence length (bp)</td>
+</tr>
+<tr>
+<td><code>avg_coverage</code></td>
+<td>Average read depth across reference</td>
+</tr>
+<tr>
+<td><code>pct_covered_5x</code></td>
+<td>% positions with &gt;= 5x depth</td>
+</tr>
+<tr>
+<td><code>pct_covered_20x</code></td>
+<td>% positions with &gt;= 20x depth</td>
+</tr>
+</tbody>
+</table>
+<h2 id="coveragetsv">coverage.tsv<a class="headerlink" href="#coveragetsv" title="Permanent link">&para;</a></h2>
+<p>The <code>coverage.tsv</code> file contains run-length encoded read depth intervals for each reference. Consecutive positions with the same depth are collapsed into a single interval (1-based inclusive coordinates). This file is used by the HTML report for coverage profile plots.</p>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>reference_id</code></td>
+<td>Reference sequence ID</td>
+</tr>
+<tr>
+<td><code>start</code></td>
+<td>1-based start position of the interval (inclusive)</td>
+</tr>
+<tr>
+<td><code>end</code></td>
+<td>1-based end position of the interval (inclusive)</td>
+</tr>
+<tr>
+<td><code>depth</code></td>
+<td>Coverage depth for this interval</td>
+</tr>
+</tbody>
+</table>
+<h2 id="understanding-the-metrics">Understanding the Metrics<a class="headerlink" href="#understanding-the-metrics" title="Permanent link">&para;</a></h2>
+<h3 id="3-way-classification">3-way classification<a class="headerlink" href="#3-way-classification" title="Permanent link">&para;</a></h3>
+<p>BaitBench uses a 3-way genome classification:</p>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Detected</th>
+<th>Classification</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Sample target</td>
+<td>Yes</td>
+<td>TP</td>
+</tr>
+<tr>
+<td>Sample target</td>
+<td>No</td>
+<td>FN</td>
+</tr>
+<tr>
+<td>Non-sample target</td>
+<td>Yes</td>
+<td>FP_target</td>
+</tr>
+<tr>
+<td>Non-sample target</td>
+<td>No</td>
+<td>TN_target</td>
+</tr>
+<tr>
+<td>Distractor</td>
+<td>Yes</td>
+<td>FP_distractor</td>
+</tr>
+<tr>
+<td>Distractor</td>
+<td>No</td>
+<td>TN_distractor</td>
+</tr>
+</tbody>
+</table>
+<p>This distinguishes between two types of false positives:
+- <strong>FP_target</strong>: detecting a non-sample target (cross-reactivity within the target panel)
+- <strong>FP_distractor</strong>: detecting a distractor (off-target capture)</p>
+<p>Without <code>--sample</code>, all targets are in the sample, so there are no non-sample targets and the classification reduces to the traditional 2-way TP/FP/FN/TN.</p>
+<h3 id="genome-level-vs-read-level-metrics">Genome-level vs read-level metrics<a class="headerlink" href="#genome-level-vs-read-level-metrics" title="Permanent link">&para;</a></h3>
+<p>BaitBench reports two levels of metrics:</p>
+<ul>
+<li>
+<p><strong>Genome-level</strong> (<code>tp_count</code>, <code>fp_*</code>, <code>fn_count</code>, <code>tn_*</code>, and derived rates): Was each genome detected at all? A genome is detected if at least one read maps to it after capture and mapping.</p>
+</li>
+<li>
+<p><strong>Fragment/Read-level</strong> (<code>sample_captured</code>, <code>nonsample_target_captured</code>, <code>distractor_captured</code>, <code>reads_correctly_mapped</code>, <code>reads_incorrectly_mapped</code>): Since each simulated fragment is labeled with its source genome, these columns track how fragments and reads flow through the pipeline. Capture counts are at the fragment level; mapping counts are at the read level (post-sequencing). A read from virus A that maps to virus B is counted as incorrectly mapped — this catches cross-reactivity even when genome-level metrics look perfect.</p>
+</li>
+</ul>
+<p><strong>Example:</strong> If you have 2 sample genomes and 1000 fragments are captured from them:
+- <code>sample_captured</code> = 1000 (fragments)
+- <code>tp_count</code> = 2 (genomes), assuming both were detected</p>
+<h3 id="sensitivity-true-positive-rate">Sensitivity (True Positive Rate)<a class="headerlink" href="#sensitivity-true-positive-rate" title="Permanent link">&para;</a></h3>
+<pre><code>Sensitivity = TP / (TP + FN)
+</code></pre>
+<p>Measures what fraction of sample genomes were successfully detected. High sensitivity means the probes are capturing most of their intended targets.</p>
+<h3 id="specificity-true-negative-rate">Specificity (True Negative Rate)<a class="headerlink" href="#specificity-true-negative-rate" title="Permanent link">&para;</a></h3>
+<pre><code>Specificity = TN_total / (TN_total + FP_total)
+</code></pre>
+<p>Measures what fraction of non-sample genomes (both non-sample targets and distractors) were correctly NOT captured. High specificity means the probes are avoiding off-target capture.</p>
+<h3 id="precision">Precision<a class="headerlink" href="#precision" title="Permanent link">&para;</a></h3>
+<pre><code>Precision = TP / (TP + FP_total)
+</code></pre>
+<p>Of all detected genomes, what fraction were actual sample targets? High precision means most detections are real targets, not false positives.</p>
+<h3 id="f1-score">F1 Score<a class="headerlink" href="#f1-score" title="Permanent link">&para;</a></h3>
+<pre><code>F1 = 2 * (Precision * Sensitivity) / (Precision + Sensitivity)
+</code></pre>
+<p>Harmonic mean of precision and sensitivity. A balanced measure of overall performance.</p>
+<h2 id="individual-steps">Individual Steps<a class="headerlink" href="#individual-steps" title="Permanent link">&para;</a></h2>
+<p>Each pipeline step is available as a subcommand:</p>
+<pre><code class="language-bash">baitbench prepare   # Combine FASTAs, generate weights
+baitbench simulate  # Probe alignment + thermodynamic scoring + fragment generation
+baitbench sequence  # Simulate sequencing (trim/error-model fragments to reads)
+baitbench filter    # Optional host read filtering
+baitbench map       # Map reads back to reference
+baitbench list      # Count reads per reference from SAM
+baitbench metrics   # Calculate TP/FP/FN/TN
+baitbench report    # Generate HTML report (requires R)
+</code></pre>
+<p>Run <code>baitbench &lt;command&gt; --help</code> for full options.</p>
+<h2 id="example-workflow">Example Workflow<a class="headerlink" href="#example-workflow" title="Permanent link">&para;</a></h2>
+<pre><code class="language-bash"># 1. Basic run (all targets in sample)
+baitbench run \
+  --targets targets.fa \
+  --distractors distractors.fa \
+  --probes probes.fa \
+  --num-fragments 10000 \
+  --seed 42 \
+  --outdir results
+
+# 2. With sample manifest (subset of targets, custom weights)
+baitbench run \
+  --targets all_viruses.fa \
+  --distractors bacteria.fa --distractors fungi.fa \
+  --probes probes.fa \
+  --sample sample.tsv \
+  --num-fragments 10000 \
+  --seed 42 \
+  --outdir results
+
+# 3. With CT score simulation (low viral load at CT 30)
+baitbench run \
+  --targets targets.fa \
+  --distractors distractors.fa \
+  --probes probes.fa \
+  --num-fragments 10000 \
+  --ct 30 \
+  --seed 42 \
+  --outdir results/ct30
+
+# 4. Compare results
+cat results/*/results.tsv
+</code></pre>
+<h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">&para;</a></h2>
+<h3 id="sample-id-x-not-found-in-targets-fasta">"Sample ID 'X' not found in targets FASTA"<a class="headerlink" href="#sample-id-x-not-found-in-targets-fasta" title="Permanent link">&para;</a></h3>
+<p>The IDs in your sample manifest don't match the FASTA headers. Sequence IDs are the first word of each FASTA header (after <code>&gt;</code>), so names with spaces are truncated. For example, <code>&gt;Zika virus</code> becomes ID <code>Zika</code>. Use underscores: <code>&gt;Zika_virus</code>.</p>
+<h3 id="cannot-find-r-scripts-directory">"Cannot find R scripts directory"<a class="headerlink" href="#cannot-find-r-scripts-directory" title="Permanent link">&para;</a></h3>
+<p>The HTML report requires R and the <code>R/</code> directory. Options:
+- Run from the project root directory
+- Set <code>BAITBENCH_R_DIR</code> to the path of the <code>R/</code> directory
+- Use <code>--report none</code> to skip report generation</p>
+<h3 id="low-capture-rate">Low capture rate<a class="headerlink" href="#low-capture-rate" title="Permanent link">&para;</a></h3>
+<p>If very few reads are being captured:
+- Check that probes actually match your target sequences
+- Try increasing <code>--capture-fraction</code> to generate more probe-biased fragments
+- Verify your probes FASTA is in the correct format with unique IDs</p>
+<h3 id="high-false-positive-rate">High false positive rate<a class="headerlink" href="#high-false-positive-rate" title="Permanent link">&para;</a></h3>
+<p>If many distractors or non-sample targets are being captured:
+- Try lowering <code>--capture-fraction</code> to reduce probe-biased fragments and rely more on background
+- Consider adding host filtering with <code>--host-fasta</code>
+- Review which genomes appear in the <code>detected_detail.tsv</code> to distinguish FP_target from FP_distractor</p></div>
+        
+        
+    </div>
+
+    
+      <footer class="col-md-12 text-center">
+          
+          
+            <hr>
+            <p>
+            <small>Documentation built with <a href="http://www.mkdocs.org/">MkDocs</a>.</small>
+            </p>
+          
+
+          
+          
+      </footer>
+    
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+    <script src="../js/bootstrap-3.0.3.min.js"></script>
+
+    
+    <script src="//cdn.jsdelivr.net/gh/highlightjs/cdn-release@9.18.0/build/highlight.min.js"></script>
+        
+    <script>hljs.initHighlightingOnLoad();</script>
+    
+
+    <script>var base_url = ".."</script>
+    
+    <script src="../js/base.js"></script>
+    <script src="../search/main.js"></script>
+
+    <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">
+                    <span aria-hidden="true">&times;</span>
+                    <span class="sr-only">Close</span>
+                </button>
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
+            </div>
+            <div class="modal-body">
+                <p>
+                    From here you can search these documents. Enter
+                    your search terms below.
+                </p>
+                <form>
+                    <div class="form-group">
+                        <input type="text" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+    </body>
+
+</html>

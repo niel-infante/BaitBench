@@ -9,14 +9,35 @@ theme:
 
 nav:
   - Home: index.md
-  - Documentation:
-    - Concepts: concepts.md
-    - Commands: commands.md
-    - Parameters: parameters.md
-    - Output Files: output.md
-    - Examples: examples.md
-    - Reports: reports.md
-    - Reference: reference.md
+  - Tutorials:
+    - tutorials/index.md
+    - Installation: tutorials/installation.md
+    - Your First Simulation: tutorials/first-run.md
+    - Genome Mode (Bacteria): tutorials/genome-mode.md
+  - How-To Guides:
+    - how-to/index.md
+    - Prepare Input Files: how-to/prepare-input-files.md
+    - Choose a Simulation Mode: how-to/choose-simulation-mode.md
+    - Set Parameters: how-to/set-parameters.md
+    - Interpret Results: how-to/interpret-results.md
+    - Design and Assess Probes: how-to/design-and-assess-probes.md
+    - Analyze Cross-Reactivity: how-to/analyze-cross-reactivity.md
+    - Troubleshoot: how-to/troubleshoot.md
+  - Reference:
+    - reference/index.md
+    - Commands: reference/commands.md
+    - Parameters: reference/parameters.md
+    - Input Formats: reference/input-formats.md
+    - Output Formats: reference/output-formats.md
+    - Reports: reference/reports.md
+  - Explanation:
+    - explanation/index.md
+    - What Is Probe Capture?: explanation/what-is-probe-capture.md
+    - Pipeline Overview: explanation/pipeline-overview.md
+    - Simulation Modes: explanation/simulation-modes.md
+    - Metrics and Classification: explanation/metrics-and-classification.md
+    - Thermodynamic Scoring: explanation/thermodynamic-scoring.md
+    - CT Scores: explanation/ct-scores.md
 
 markdown_extensions:
   - admonition

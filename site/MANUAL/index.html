@@ -1,0 +1,4696 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="In-silico probe capture simulation and evaluation">
+    
+    <link rel="canonical" href="https://niel-infante.github.io/BaitBench/MANUAL/">
+    <link rel="shortcut icon" href="../img/favicon.ico">
+
+    
+    <title>BaitBench Manual - BaitBench</title>
+    
+
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.12.0/css/all.css">
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.12.0/css/v4-shims.css">
+    <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/hack-font@3.3.0/build/web/hack.min.css">
+    <link href='//rsms.me/inter/inter.css' rel='stylesheet' type='text/css'>
+    <link href='//fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,700italic,400,300,600,700&subset=latin-ext,latin' rel='stylesheet' type='text/css'>
+    <link href="../css/bootstrap-custom.min.css" rel="stylesheet">
+    <link href="../css/base.min.css" rel="stylesheet">
+    <link href="../css/cinder.min.css" rel="stylesheet">
+
+    
+        
+        <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/highlightjs/cdn-release@9.18.0/build/styles/github.min.css">
+        
+    
+
+    <!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+            <script src="https://cdn.jsdelivr.net/npm/html5shiv@3.7.3/dist/html5shiv.min.js"></script>
+            <script src="https://cdn.jsdelivr.net/npm/respond.js@1.4.2/dest/respond.min.js"></script>
+        <![endif]-->
+
+    
+
+     
+</head>
+
+<body>
+
+    <div class="navbar navbar-default navbar-fixed-top" role="navigation">
+    <div class="container">
+
+        <!-- Collapsed navigation -->
+        <div class="navbar-header">
+            <!-- Expander button -->
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            
+
+            <!-- Main title -->
+
+            
+              <a class="navbar-brand" href="..">BaitBench</a>
+            
+        </div>
+
+        <!-- Expanded navigation -->
+        <div class="navbar-collapse collapse">
+                <!-- Main navigation -->
+                <ul class="nav navbar-nav">
+                
+                
+                    <li >
+                        <a href="..">Home</a>
+                    </li>
+                
+                
+                
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">Tutorials <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="../tutorials/">Tutorials</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../tutorials/installation/">Installation</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../tutorials/first-run/">Your First Simulation</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../tutorials/genome-mode/">Genome Mode (Bacteria)</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">How-To Guides <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="../how-to/">How-To Guides</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../how-to/prepare-input-files/">Prepare Input Files</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../how-to/choose-simulation-mode/">Choose a Simulation Mode</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../how-to/set-parameters/">Set Parameters</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../how-to/interpret-results/">Interpret Results</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../how-to/design-and-assess-probes/">Design and Assess Probes</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../how-to/analyze-cross-reactivity/">Analyze Cross-Reactivity</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../how-to/troubleshoot/">Troubleshoot</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">Reference <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="../reference/">Reference</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../reference/commands/">Commands</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../reference/parameters/">Parameters</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../reference/input-formats/">Input Formats</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../reference/output-formats/">Output Formats</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../reference/reports/">Reports</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">Explanation <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="../explanation/">Explanation</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../explanation/what-is-probe-capture/">What Is Probe Capture?</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../explanation/pipeline-overview/">Pipeline Overview</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../explanation/simulation-modes/">Simulation Modes</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../explanation/metrics-and-classification/">Metrics and Classification</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../explanation/thermodynamic-scoring/">Thermodynamic Scoring</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../explanation/ct-scores/">CT Scores</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                </ul>
+
+            <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="#" data-toggle="modal" data-target="#mkdocs_search_modal">
+                            <i class="fas fa-search"></i> Search
+                        </a>
+                    </li>
+                    <li>
+                        <a href="https://github.com/niel-infante/BaitBench/edit/master/docs/MANUAL.md">Edit on niel-infante/BaitBench</a>
+                    </li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+    <div class="container">
+        
+        
+        <div class="col-md-3"><div class="bs-sidebar hidden-print affix well" role="complementary">
+    <ul class="nav bs-sidenav">
+        <li class="first-level active"><a href="#baitbench-manual">BaitBench Manual</a></li>
+            <li class="second-level"><a href="#table-of-contents">Table of Contents</a></li>
+                
+            <li class="second-level"><a href="#overview">Overview</a></li>
+                
+            <li class="second-level"><a href="#installation">Installation</a></li>
+                
+                <li class="third-level"><a href="#prerequisites">Prerequisites</a></li>
+                <li class="third-level"><a href="#steps">Steps</a></li>
+                <li class="third-level"><a href="#runtime-dependencies">Runtime Dependencies</a></li>
+            <li class="second-level"><a href="#concepts">Concepts</a></li>
+                
+                <li class="third-level"><a href="#pipeline-overview">Pipeline Overview</a></li>
+                <li class="third-level"><a href="#standard-mode-vs-genome-mode">Standard Mode vs Genome Mode</a></li>
+                <li class="third-level"><a href="#sample-manifest">Sample Manifest</a></li>
+                <li class="third-level"><a href="#3-way-classification">3-Way Classification</a></li>
+                <li class="third-level"><a href="#group-level-metrics">Group-Level Metrics</a></li>
+                <li class="third-level"><a href="#ct-scores">CT Scores</a></li>
+                <li class="third-level"><a href="#capture-fraction-and-thermodynamic-simulation">Capture Fraction and Thermodynamic Simulation</a></li>
+                <li class="third-level"><a href="#weight-calculation">Weight Calculation</a></li>
+                <li class="third-level"><a href="#sequence-id-conventions">Sequence ID Conventions</a></li>
+            <li class="second-level"><a href="#pipeline-flowcharts">Pipeline Flowcharts</a></li>
+                
+                <li class="third-level"><a href="#standard-mode-flowchart">Standard Mode Flowchart</a></li>
+                <li class="third-level"><a href="#genome-mode-flowchart">Genome Mode Flowchart</a></li>
+            <li class="second-level"><a href="#commands">Commands</a></li>
+                
+                <li class="third-level"><a href="#run">run</a></li>
+                <li class="third-level"><a href="#prepare">prepare</a></li>
+                <li class="third-level"><a href="#simulate">simulate</a></li>
+                <li class="third-level"><a href="#sequence">sequence</a></li>
+                <li class="third-level"><a href="#filter">filter</a></li>
+                <li class="third-level"><a href="#map">map</a></li>
+                <li class="third-level"><a href="#list">list</a></li>
+                <li class="third-level"><a href="#metrics">metrics</a></li>
+                <li class="third-level"><a href="#report">report</a></li>
+                <li class="third-level"><a href="#probe-coverage">probe-coverage</a></li>
+                <li class="third-level"><a href="#xreact">xreact</a></li>
+                <li class="third-level"><a href="#coverage-curve">coverage-curve</a></li>
+                <li class="third-level"><a href="#panel-qc">panel-qc</a></li>
+                <li class="third-level"><a href="#identify">identify</a></li>
+                <li class="third-level"><a href="#build-probes">build-probes</a></li>
+                <li class="third-level"><a href="#tool">tool</a></li>
+                <li class="third-level"><a href="#assess-probes">assess-probes</a></li>
+            <li class="second-level"><a href="#parameter-reference">Parameter Reference</a></li>
+                
+                <li class="third-level"><a href="#input-files">Input Files</a></li>
+                <li class="third-level"><a href="#fragment-generation">Fragment Generation</a></li>
+                <li class="third-level"><a href="#target-abundance">Target Abundance</a></li>
+                <li class="third-level"><a href="#ct-score-parameters">CT Score Parameters</a></li>
+                <li class="third-level"><a href="#simulation-parameters">Simulation Parameters</a></li>
+                <li class="third-level"><a href="#sequencing-parameters">Sequencing Parameters</a></li>
+                <li class="third-level"><a href="#execution-parameters">Execution Parameters</a></li>
+            <li class="second-level"><a href="#ct-score-calculation">CT Score Calculation</a></li>
+                
+                <li class="third-level"><a href="#the-formula">The Formula</a></li>
+                <li class="third-level"><a href="#default-calibration">Default Calibration</a></li>
+                <li class="third-level"><a href="#ct-reference-table">CT Reference Table</a></li>
+                <li class="third-level"><a href="#pcr-efficiency">PCR Efficiency</a></li>
+                <li class="third-level"><a href="#one-point-calibration">One-Point Calibration</a></li>
+                <li class="third-level"><a href="#two-point-calibration">Two-Point Calibration</a></li>
+                <li class="third-level"><a href="#tips-for-using-ct-scores">Tips for Using CT Scores</a></li>
+            <li class="second-level"><a href="#output-files">Output Files</a></li>
+                
+                <li class="third-level"><a href="#run-output-directory">Run Output Directory</a></li>
+                <li class="third-level"><a href="#resultstsv-columns">results.tsv Columns</a></li>
+                <li class="third-level"><a href="#detected_detailtsv-columns">detected_detail.tsv Columns</a></li>
+                <li class="third-level"><a href="#group_detailtsv-columns">group_detail.tsv Columns</a></li>
+                <li class="third-level"><a href="#resultsjson-structure">results.json Structure</a></li>
+                <li class="third-level"><a href="#coveragetsv-format">coverage.tsv Format</a></li>
+            <li class="second-level"><a href="#usage-examples">Usage Examples</a></li>
+                
+                <li class="third-level"><a href="#basic-probe-evaluation">Basic Probe Evaluation</a></li>
+                <li class="third-level"><a href="#sample-discrimination-testing">Sample Discrimination Testing</a></li>
+                <li class="third-level"><a href="#clinical-specimen-simulation-with-ct">Clinical Specimen Simulation with CT</a></li>
+                <li class="third-level"><a href="#genome-mode-for-bacteria">Genome Mode for Bacteria</a></li>
+                <li class="third-level"><a href="#mixed-panels-virus-bacteria">Mixed Panels (Virus + Bacteria)</a></li>
+                <li class="third-level"><a href="#multiple-distractor-sources">Multiple Distractor Sources</a></li>
+                <li class="third-level"><a href="#group-level-grouping">Group-Level Grouping</a></li>
+                <li class="third-level"><a href="#capture-fraction-sweep">Capture Fraction Sweep</a></li>
+                <li class="third-level"><a href="#sequencing-depth-control">Sequencing Depth Control</a></li>
+                <li class="third-level"><a href="#host-filtering">Host Filtering</a></li>
+                <li class="third-level"><a href="#coverage-curve-analysis">Coverage Curve Analysis</a></li>
+                <li class="third-level"><a href="#probe-design-qc">Probe Design QC</a></li>
+                <li class="third-level"><a href="#cross-reactivity-analysis">Cross-Reactivity Analysis</a></li>
+                <li class="third-level"><a href="#target-panel-qc">Target Panel QC</a></li>
+                <li class="third-level"><a href="#species-identification">Species Identification</a></li>
+                <li class="third-level"><a href="#probe-assessment">Probe Assessment</a></li>
+                <li class="third-level"><a href="#running-individual-steps">Running Individual Steps</a></li>
+                <li class="third-level"><a href="#reproducible-runs">Reproducible Runs</a></li>
+                <li class="third-level"><a href="#batch-comparisons">Batch Comparisons</a></li>
+            <li class="second-level"><a href="#report-guide">Report Guide</a></li>
+                
+                <li class="third-level"><a href="#report-modes">Report Modes</a></li>
+                <li class="third-level"><a href="#html-report-sections">HTML Report Sections</a></li>
+                <li class="third-level"><a href="#coverage-curve-report">Coverage Curve Report</a></li>
+                <li class="third-level"><a href="#probe-coverage-report">Probe Coverage Report</a></li>
+                <li class="third-level"><a href="#panel-qc-report">Panel QC Report</a></li>
+                <li class="third-level"><a href="#species-identification-in-main-report">Species Identification in Main Report</a></li>
+                <li class="third-level"><a href="#probe-assessment-report">Probe Assessment Report</a></li>
+            <li class="second-level"><a href="#metrics-definitions">Metrics Definitions</a></li>
+                
+                <li class="third-level"><a href="#genome-level-metrics">Genome-Level Metrics</a></li>
+                <li class="third-level"><a href="#read-level-metrics">Read-Level Metrics</a></li>
+            <li class="second-level"><a href="#input-file-formats">Input File Formats</a></li>
+                
+                <li class="third-level"><a href="#fasta-files">FASTA Files</a></li>
+                <li class="third-level"><a href="#sample-manifest-format">Sample Manifest Format</a></li>
+                <li class="third-level"><a href="#sample-target-map-format">Sample-Target Map Format</a></li>
+                <li class="third-level"><a href="#groups-file-format">Groups File Format</a></li>
+            <li class="second-level"><a href="#dependencies">Dependencies</a></li>
+                
+                <li class="third-level"><a href="#rust-build-time-managed-by-cargo">Rust (build-time, managed by Cargo)</a></li>
+                <li class="third-level"><a href="#external-runtime-installed-via-conda">External (runtime, installed via conda)</a></li>
+    </ul>
+</div></div>
+        <div class="col-md-9" role="main">
+
+<h1 id="baitbench-manual">BaitBench Manual<a class="headerlink" href="#baitbench-manual" title="Permanent link">&para;</a></h1>
+<p>Complete reference for BaitBench, an in-silico probe capture simulation tool.</p>
+<h2 id="table-of-contents">Table of Contents<a class="headerlink" href="#table-of-contents" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="#overview">Overview</a></li>
+<li><a href="#installation">Installation</a></li>
+<li><a href="#concepts">Concepts</a></li>
+<li><a href="#pipeline-overview">Pipeline Overview</a></li>
+<li><a href="#standard-mode-vs-genome-mode">Standard Mode vs Genome Mode</a></li>
+<li><a href="#sample-manifest">Sample Manifest</a></li>
+<li><a href="#3-way-classification">3-Way Classification</a></li>
+<li><a href="#ct-scores">CT Scores</a></li>
+<li><a href="#capture-fraction-and-thermodynamic-simulation">Capture Fraction and Thermodynamic Simulation</a></li>
+<li><a href="#weight-calculation">Weight Calculation</a></li>
+<li><a href="#sequence-id-conventions">Sequence ID Conventions</a></li>
+<li><a href="#pipeline-flowcharts">Pipeline Flowcharts</a></li>
+<li><a href="#standard-mode-flowchart">Standard Mode Flowchart</a></li>
+<li><a href="#genome-mode-flowchart">Genome Mode Flowchart</a></li>
+<li><a href="#commands">Commands</a></li>
+<li><a href="#run">run</a></li>
+<li><a href="#prepare">prepare</a></li>
+<li><a href="#simulate">simulate</a></li>
+<li><a href="#sequence">sequence</a></li>
+<li><a href="#filter">filter</a></li>
+<li><a href="#map">map</a></li>
+<li><a href="#list">list</a></li>
+<li><a href="#metrics">metrics</a></li>
+<li><a href="#report">report</a></li>
+<li><a href="#probe-coverage">probe-coverage</a></li>
+<li><a href="#xreact">xreact</a></li>
+<li><a href="#coverage-curve">coverage-curve</a></li>
+<li><a href="#panel-qc">panel-qc</a></li>
+<li><a href="#identify">identify</a></li>
+<li><a href="#build-probes">build-probes</a></li>
+<li><a href="#tool">tool</a></li>
+<li><a href="#assess-probes">assess-probes</a></li>
+<li><a href="#parameter-reference">Parameter Reference</a></li>
+<li><a href="#input-files">Input Files</a></li>
+<li><a href="#fragment-generation">Fragment Generation</a></li>
+<li><a href="#target-abundance">Target Abundance</a></li>
+<li><a href="#ct-score-parameters">CT Score Parameters</a></li>
+<li><a href="#simulation-parameters">Simulation Parameters</a></li>
+<li><a href="#sequencing-parameters">Sequencing Parameters</a></li>
+<li><a href="#execution-parameters">Execution Parameters</a></li>
+<li><a href="#ct-score-calculation">CT Score Calculation</a></li>
+<li><a href="#the-formula">The Formula</a></li>
+<li><a href="#default-calibration">Default Calibration</a></li>
+<li><a href="#custom-calibration">Custom Calibration</a></li>
+<li><a href="#ct-reference-table">CT Reference Table</a></li>
+<li><a href="#output-files">Output Files</a></li>
+<li><a href="#run-output-directory">Run Output Directory</a></li>
+<li><a href="#resultstsv-columns">results.tsv Columns</a></li>
+<li><a href="#detected_detailtsv-columns">detected_detail.tsv Columns</a></li>
+<li><a href="#group_detailtsv-columns">group_detail.tsv Columns</a></li>
+<li><a href="#resultsjson-structure">results.json Structure</a></li>
+<li><a href="#coveragetsv-format">coverage.tsv Format</a></li>
+<li><a href="#usage-examples">Usage Examples</a></li>
+<li><a href="#basic-probe-evaluation">Basic Probe Evaluation</a></li>
+<li><a href="#sample-discrimination-testing">Sample Discrimination Testing</a></li>
+<li><a href="#clinical-specimen-simulation-with-ct">Clinical Specimen Simulation with CT</a></li>
+<li><a href="#genome-mode-for-bacteria">Genome Mode for Bacteria</a></li>
+<li><a href="#mixed-panels-virus--bacteria">Mixed Panels (Virus + Bacteria)</a></li>
+<li><a href="#multiple-distractor-sources">Multiple Distractor Sources</a></li>
+<li><a href="#group-level-grouping">Group-Level Grouping</a></li>
+<li><a href="#capture-fraction-sweep">Capture Fraction Sweep</a></li>
+<li><a href="#sequencing-depth-control">Sequencing Depth Control</a></li>
+<li><a href="#host-filtering">Host Filtering</a></li>
+<li><a href="#coverage-curve-analysis">Coverage Curve Analysis</a></li>
+<li><a href="#probe-design-qc">Probe Design QC</a></li>
+<li><a href="#cross-reactivity-analysis">Cross-Reactivity Analysis</a></li>
+<li><a href="#target-panel-qc">Target Panel QC</a></li>
+<li><a href="#species-identification">Species Identification</a></li>
+<li><a href="#probe-assessment">Probe Assessment</a></li>
+<li><a href="#running-individual-steps">Running Individual Steps</a></li>
+<li><a href="#reproducible-runs">Reproducible Runs</a></li>
+<li><a href="#batch-comparisons">Batch Comparisons</a></li>
+<li><a href="#report-guide">Report Guide</a></li>
+<li><a href="#html-report-sections">HTML Report Sections</a></li>
+<li><a href="#coverage-curve-report">Coverage Curve Report</a></li>
+<li><a href="#probe-coverage-report">Probe Coverage Report</a></li>
+<li><a href="#panel-qc-report">Panel QC Report</a></li>
+<li><a href="#species-identification-in-main-report">Species Identification in Main Report</a></li>
+<li><a href="#probe-assessment-report">Probe Assessment Report</a></li>
+<li><a href="#metrics-definitions">Metrics Definitions</a></li>
+<li><a href="#genome-level-metrics">Genome-Level Metrics</a></li>
+<li><a href="#read-level-metrics">Read-Level Metrics</a></li>
+<li><a href="#input-file-formats">Input File Formats</a></li>
+<li><a href="#fasta-files">FASTA Files</a></li>
+<li><a href="#sample-manifest-format">Sample Manifest</a></li>
+<li><a href="#sample-target-map-format">Sample-Target Map</a></li>
+<li><a href="#groups-file-format">Groups File Format</a></li>
+<li><a href="#dependencies">Dependencies</a></li>
+</ul>
+<hr />
+<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
+<p>BaitBench simulates a probe capture and sequencing workflow to evaluate how well a probe set performs. It answers questions like:</p>
+<ul>
+<li>Does the probe set capture all target sequences?</li>
+<li>Does it reject background (distractor) sequences?</li>
+<li>Can it discriminate between organisms within the target panel?</li>
+<li>How does performance change at different target abundances (CT values)?</li>
+<li>What sequencing depth is needed for adequate genome coverage?</li>
+</ul>
+<p>The tool aligns probes to reference sequences, scores each binding site using thermodynamic nearest-neighbor free energy (SantaLucia 1998), and generates fragments biased toward high-affinity binding sites. Background fragments fill the remainder. Reads are then mapped back to references and detection metrics are computed.</p>
+<h2 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h2>
+<h3 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h3>
+<ul>
+<li><a href="https://rustup.rs/">Rust toolchain</a> (for building)</li>
+<li><a href="https://docs.conda.io/">Conda</a> or <a href="https://mamba.readthedocs.io/">Mamba</a> (for runtime dependencies)</li>
+</ul>
+<h3 id="steps">Steps<a class="headerlink" href="#steps" title="Permanent link">&para;</a></h3>
+<pre><code class="language-bash"># 1. Install runtime dependencies
+conda env create -f environment.yml
+conda activate baitbench
+
+# 2. Build
+cargo build --release
+
+# 3. Verify
+./target/release/baitbench --help
+</code></pre>
+<p>The binary is at <code>target/release/baitbench</code>. Copy it to a location on your PATH or use the full path.</p>
+<h3 id="runtime-dependencies">Runtime Dependencies<a class="headerlink" href="#runtime-dependencies" title="Permanent link">&para;</a></h3>
+<p>Installed via <code>environment.yml</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Version</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>minimap2</td>
+<td>&gt;= 2.24</td>
+<td>Sequence alignment (simulate, mapping, filtering)</td>
+</tr>
+<tr>
+<td>BLAST+</td>
+<td>&gt;= 2.12</td>
+<td>Cross-reactivity analysis (xreact)</td>
+</tr>
+<tr>
+<td>R</td>
+<td>&gt;= 4.2</td>
+<td>Report generation (optional)</td>
+</tr>
+<tr>
+<td>r-ggplot2</td>
+<td>&gt;= 3.4</td>
+<td>Figures</td>
+</tr>
+<tr>
+<td>r-rmarkdown</td>
+<td>&gt;= 2.20</td>
+<td>HTML report rendering</td>
+</tr>
+<tr>
+<td>r-dplyr</td>
+<td>&gt;= 1.1</td>
+<td>Data manipulation</td>
+</tr>
+<tr>
+<td>r-tidyr</td>
+<td>&gt;= 1.3</td>
+<td>Data reshaping</td>
+</tr>
+<tr>
+<td>r-scales</td>
+<td>&gt;= 1.2</td>
+<td>Axis formatting</td>
+</tr>
+<tr>
+<td>r-knitr</td>
+<td>&gt;= 1.40</td>
+<td>Report rendering</td>
+</tr>
+<tr>
+<td>r-optparse</td>
+<td>&gt;= 1.7</td>
+<td>R script CLI parsing</td>
+</tr>
+<tr>
+<td>r-DT</td>
+<td>&gt;= 0.27</td>
+<td>Interactive tables</td>
+</tr>
+<tr>
+<td>pandoc</td>
+<td>&gt;= 2.19</td>
+<td>Document conversion</td>
+</tr>
+</tbody>
+</table>
+<p>R and its packages are only required for full HTML report generation (<code>--report full</code>). Use <code>--report none</code> to skip report generation entirely, or <code>--report rmd</code> to produce an editable RMarkdown file that can be rendered later without requiring R at pipeline run time.</p>
+<hr />
+<h2 id="concepts">Concepts<a class="headerlink" href="#concepts" title="Permanent link">&para;</a></h2>
+<h3 id="pipeline-overview">Pipeline Overview<a class="headerlink" href="#pipeline-overview" title="Permanent link">&para;</a></h3>
+<p>BaitBench runs a multi-step simulation pipeline:</p>
+<ol>
+<li><strong>Prepare</strong> -- Combine target and distractor sequences; generate sampling weights</li>
+<li><strong>Simulate</strong> -- Align probes to reference; score binding sites by TNN thermodynamics; generate probe-biased fragments + background (controlled by <code>--capture-fraction</code>)</li>
+<li><strong>Sequence</strong> -- Trim fragments to read length; optionally sample to model sequencing depth</li>
+<li><strong>Filter</strong> (optional) -- Remove reads mapping to a host genome</li>
+<li><strong>Map</strong> -- Align reads back to reference sequences</li>
+<li><strong>List</strong> -- Count reads per reference</li>
+<li><strong>Metrics</strong> -- Classify each reference as TP/FP/FN/TN; compute summary statistics</li>
+<li><strong>Report</strong> (optional) -- Generate HTML report with figures</li>
+</ol>
+<p>The <code>baitbench run</code> command chains all steps automatically. Each step is also available as a standalone subcommand for custom workflows.</p>
+<h3 id="standard-mode-vs-genome-mode">Standard Mode vs Genome Mode<a class="headerlink" href="#standard-mode-vs-genome-mode" title="Permanent link">&para;</a></h3>
+<p><strong>Standard mode</strong> (default): Fragments are generated from target sequences and distractors. Reads are mapped back to the same sequences. Use this for viruses and other small genomes where the probe target IS the genome.</p>
+<p><strong>Genome mode</strong> (<code>--genomes</code>): Fragments are generated from full genome sequences, but reads are mapped back to probe target subsequences. Use this for bacteria and other large pathogens where probes target specific gene regions (e.g., 16S rRNA) rather than the whole genome. A <code>--sample-target-map</code> links genome IDs to their target IDs.</p>
+<h3 id="sample-manifest">Sample Manifest<a class="headerlink" href="#sample-manifest" title="Permanent link">&para;</a></h3>
+<p>The <code>--sample</code> flag specifies which targets (or genomes) are "present" in the simulated specimen. Only sample entries generate fragments; non-sample targets become negatives that should NOT be detected.</p>
+<p>Without <code>--sample</code>, all targets (or genomes) are treated as present with equal weight. This tests basic capture efficiency. With <code>--sample</code>, the tool tests discrimination -- can the probes detect sample targets while rejecting non-sample targets within the same panel?</p>
+<p>See <a href="#sample-manifest-format">Sample Manifest Format</a> for syntax details.</p>
+<h3 id="3-way-classification">3-Way Classification<a class="headerlink" href="#3-way-classification" title="Permanent link">&para;</a></h3>
+<p>BaitBench classifies each reference sequence into one of three categories, then evaluates detection:</p>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Detected</th>
+<th>Classification</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Sample target</td>
+<td>Yes</td>
+<td><strong>TP</strong></td>
+<td>Correctly detected</td>
+</tr>
+<tr>
+<td>Sample target</td>
+<td>No</td>
+<td><strong>FN</strong></td>
+<td>Missed detection</td>
+</tr>
+<tr>
+<td>Non-sample target</td>
+<td>Yes</td>
+<td><strong>FP_target</strong></td>
+<td>Cross-reactive within panel</td>
+</tr>
+<tr>
+<td>Non-sample target</td>
+<td>No</td>
+<td><strong>TN_target</strong></td>
+<td>Correctly rejected</td>
+</tr>
+<tr>
+<td>Distractor</td>
+<td>Yes</td>
+<td><strong>FP_distractor</strong></td>
+<td>Off-target capture</td>
+</tr>
+<tr>
+<td>Distractor</td>
+<td>No</td>
+<td><strong>TN_distractor</strong></td>
+<td>Correctly rejected</td>
+</tr>
+<tr>
+<td>Untargeted genome</td>
+<td>--</td>
+<td><strong>untargeted</strong></td>
+<td>No expected target (genome mode only)</td>
+</tr>
+</tbody>
+</table>
+<p>This distinguishes two types of false positives:
+- <strong>FP_target</strong>: Cross-reactivity within the target panel (e.g., probe for virus A captures virus B)
+- <strong>FP_distractor</strong>: True off-target capture (e.g., probe captures bacterial DNA)</p>
+<p>Without <code>--sample</code>, all targets are in the sample, reducing to a 2-way classification (TP/FP/FN/TN with no FP_target).</p>
+<h3 id="group-level-metrics">Group-Level Metrics<a class="headerlink" href="#group-level-metrics" title="Permanent link">&para;</a></h3>
+<p>When a target panel contains multiple sequence variants of the same organism (e.g., <code>West_Nile_virus_0001</code>, <code>West_Nile_virus_0002</code>, <code>West_Nile_virus_0003</code>), it may be desirable to treat all variants as a single entity for metrics purposes. Similarly, a distractor FASTA with thousands of contigs (e.g., host genome) should count as a single FP entity rather than thousands.</p>
+<p>BaitBench supports <strong>group-level metrics</strong> via two optional flags:</p>
+<ul>
+<li><code>--groups &lt;groups.tsv&gt;</code> -- maps target sequence IDs to group names. Sequences not mentioned form singleton groups using their own ID. When absent, each target sequence is its own group (backward-compatible behavior).</li>
+<li><code>--distractor-groups &lt;distractor_groups.tsv&gt;</code> -- explicit distractor grouping. When absent (default), all contigs from each <code>--distractors</code> FASTA file are automatically grouped under the file stem name (e.g., all contigs in <code>Aaegypti.fa</code> → group <code>"Aaegypti"</code>).</li>
+</ul>
+<p>A group is <strong>detected</strong> if any member sequence has at least one read mapped to it. Classification (TP/FN/FP/TN) operates on groups rather than individual sequences. A read mapping from a sequence in group A to any other sequence in group A is counted as <strong>correctly mapped</strong> (not as a cross-mapping error).</p>
+<p>Results include a <code>group_detail.tsv</code> file with one row per group, showing group name, category, detection status, member count, detected member count, and total reads. The <code>detected_detail.tsv</code> gains a <code>group</code> column showing each sequence's group assignment.</p>
+<p>See <a href="#groups-file-format">Groups File Format</a> for syntax. See <a href="#group-level-grouping">Group-Level Grouping Example</a> for a complete usage example.</p>
+<h3 id="ct-scores">CT Scores<a class="headerlink" href="#ct-scores" title="Permanent link">&para;</a></h3>
+<p>CT (cycle threshold) scores from qPCR provide a natural way to express target abundance. BaitBench converts CT values to distractor fractions using a calibrated exponential formula. Lower CT = more target DNA = easier to detect.</p>
+<p>See <a href="#ct-score-calculation">CT Score Calculation</a> for the formula, default calibration, and how to customize it.</p>
+<h3 id="capture-fraction-and-thermodynamic-simulation">Capture Fraction and Thermodynamic Simulation<a class="headerlink" href="#capture-fraction-and-thermodynamic-simulation" title="Permanent link">&para;</a></h3>
+<p><code>--capture-fraction</code> (default 0.5) controls what fraction of simulated fragments come from probe binding sites. The remaining fraction are background fragments drawn uniformly by sequence weight × length.</p>
+<p>Probe binding sites are scored using the SantaLucia (1998) nearest-neighbor thermodynamic model: ΔG is computed from consecutive Watson-Crick stacking interactions along each probe-reference alignment, and the Boltzmann factor <code>exp(-ΔG / RT)</code> weights sampling toward high-affinity sites. Use <code>--simulate-mode simple</code> to skip TNN scoring and use uniform weights instead (no temperature required).</p>
+<p>Target enrichment is emergent from TNN affinity × sequence weights rather than being imposed post-hoc — sequences with weight 0.0 (non-sample targets) never generate probe-biased fragments. Fold enrichment is no longer a parameter.</p>
+<h3 id="weight-calculation">Weight Calculation<a class="headerlink" href="#weight-calculation" title="Permanent link">&para;</a></h3>
+<p>Sampling weights determine how many fragments each sequence generates. The number of fragments from a sequence is proportional to <code>weight * sequence_length</code>.</p>
+<p><strong>Standard mode:</strong>
+- Sample targets: weight from sample manifest (default 1.0)
+- Non-sample targets: weight = 0 (no fragments)
+- Distractors: calculated to achieve the requested distractor fraction</p>
+<p><strong>Genome mode:</strong>
+- Sample genomes: weight from sample manifest (default 1.0)
+- Non-sample genomes: weight = 0
+- Distractors: same formula as standard mode</p>
+<p>The distractor weight formula ensures the requested fraction of total fragments come from distractors:</p>
+<pre><code>distractor_weight = (distractor_fraction * total_sample_weight) / (n_distractors * (1 - distractor_fraction))
+</code></pre>
+<h3 id="sequence-id-conventions">Sequence ID Conventions<a class="headerlink" href="#sequence-id-conventions" title="Permanent link">&para;</a></h3>
+<p>Sequence IDs are taken from the first whitespace-delimited word of each FASTA header (everything after <code>&gt;</code> up to the first space). These IDs must be unique within each file and consistent across input files.</p>
+<p><strong>Sequence names must not contain spaces.</strong> Use underscores or other delimiters: <code>&gt;Zika_virus</code> not <code>&gt;Zika virus</code>.</p>
+<p>Fragment names follow the pattern <code>{seq_id}_fragment_{n}</code>, using the last occurrence of <code>_fragment_</code> as the delimiter. This allows sequence IDs to contain the substring <code>_fragment_</code> without ambiguity.</p>
+<hr />
+<h2 id="pipeline-flowcharts">Pipeline Flowcharts<a class="headerlink" href="#pipeline-flowcharts" title="Permanent link">&para;</a></h2>
+<h3 id="standard-mode-flowchart">Standard Mode Flowchart<a class="headerlink" href="#standard-mode-flowchart" title="Permanent link">&para;</a></h3>
+<pre><code>INPUT FILES                    STEP                          OUTPUT FILES
+=============                  ====                          ============
+
+targets.fa ──────────┐
+                     │
+distractors.fa ──────┤
+                     ├──── 1. PREPARE ──────────────────── combined_reference.fa
+sample (optional) ───┤         │                            weights.txt
+                     │         │                            targets.txt
+--distractor-fraction│         │                            distractors.txt
+  or --ct ───────────┘         │                            sample.txt
+                               │
+                               ▼
+combined_reference.fa ──┐
+probes.fa ──────────────┤
+weights.txt ────────────┤ 2. SIMULATE ────────────────── fragments.fa
+--num-fragments ────────┤      │      (probe-biased + background)
+--capture-fraction ─────┤      │
+--simulate-mode ────────┤      │
+--hybridization-temp ───┤      │
+--fragment-length-* ────┤      │
+--seed ─────────────────┘      │
+                               │
+                               ▼
+fragments.fa ───────────┐
+                        ├─ 3. SEQUENCE ──────────────────── reads.fa
+--read-length ──────────┤      │
+--num-sequences ────────┤      │
+--seed ─────────────────┘      │
+                             │
+                    ┌────────┴────────┐
+                    │  --host-fasta   │
+                    │   specified?    │
+                    └──┬──────────┬───┘
+                   yes │          │ no
+                       ▼          │
+reads.fa ───────┐                 │
+host.fa ────────┤ 4. FILTER       │
+--host-minimap- ┤    │            │
+  preset ───────┘    │            │
+                     ▼            │
+              filtered.fa         │
+                     │            │
+                     ▼            ▼
+              (filtered or reads).fa
+                     │
+combined_            ├─ 5. MAP ────────────────────────── mapped.sam
+  reference.fa ──────┤      │
+--minimap-preset ────┘      │
+                            │
+                            ▼
+mapped.sam ──────────── 6. LIST ───────────────────────── detected.list
+                            │
+                            ▼
+targets.txt ─────────┐
+distractors.txt ─────┤
+sample.txt ──────────┤
+detected.list ───────┤ 7. METRICS ────────────────────── results.tsv
+fragments.fa ────────┤                                    detected_detail.tsv
+fragments.fa ────────┤                                    results.json
+mapped.sam ──────────┘                                    coverage.tsv
+                            │
+                            ▼
+results.tsv ─────────┐
+detected_detail.tsv ─┤ 8. REPORT (optional) ──────────── report.html
+run_params.tsv ──────┤
+coverage.tsv ────────┘
+</code></pre>
+<h3 id="genome-mode-flowchart">Genome Mode Flowchart<a class="headerlink" href="#genome-mode-flowchart" title="Permanent link">&para;</a></h3>
+<p>Genome mode adds a separate mapping reference and genome-aware classification:</p>
+<pre><code>INPUT FILES                    STEP                          OUTPUT FILES
+=============                  ====                          ============
+
+targets.fa ──────────┐
+                     │
+genomes.fa ──────────┤
+                     │
+distractors.fa ──────┤
+                     ├──── 1. PREPARE ──────────────────── combined_reference.fa
+sample ──────────────┤                                        (genomes + distractors)
+                     │                                      mapping_reference.fa
+sample-target-map ───┤                                        (targets + distractors)
+                     │                                      weights.txt
+--distractor-fraction│                                      targets.txt
+  or --ct ───────────┘                                      distractors.txt
+                                                            genomes.txt
+                                                            sample.txt
+                                                            sample_target_map.txt
+
+    Steps 2-4 are identical to standard mode:
+      - Simulate uses combined_reference.fa (genomes + distractors); probes align to genomes
+
+                     ... (steps 2-4) ...
+
+              (filtered or reads).fa
+                     │
+mapping_             ├─ 5. MAP ────────────────────────── mapped.sam
+  reference.fa ──────┤       (targets + distractors)
+                     │
+                            │
+                            ▼
+                     ... (step 6 same) ...
+                            │
+                            ▼
+targets.txt ─────────┐
+distractors.txt ─────┤
+sample.txt ──────────┤
+sample_target_map ───┤ 7. METRICS ────────────────────── results.tsv
+detected.list ───────┤   (genome-aware classification)    detected_detail.tsv
+fragments.fa ────────┤                                    results.json
+fragments.fa ────────┤                                    coverage.tsv
+mapped.sam ──────────┘
+
+                     ... (step 8 same) ...
+</code></pre>
+<p>Key differences in genome mode:
+- <strong>combined_reference.fa</strong> = genomes + distractors (fragments generated from full genomes)
+- <strong>mapping_reference.fa</strong> = targets + distractors (reads mapped to target regions)
+- A read from genome G mapping to target T is correct if T is linked to G in the sample-target-map
+- Untargeted genomes (no target mapping) are tracked separately and do not affect TP/FP/FN/TN</p>
+<hr />
+<h2 id="commands">Commands<a class="headerlink" href="#commands" title="Permanent link">&para;</a></h2>
+<h3 id="run">run<a class="headerlink" href="#run" title="Permanent link">&para;</a></h3>
+<p>Runs the complete pipeline from input files to metrics and report.</p>
+<pre><code class="language-bash">baitbench run [OPTIONS]
+</code></pre>
+<p>This is the primary command for most use cases. It chains all pipeline steps (prepare through report) automatically. Use <code>--cleanup</code> to delete intermediate files (FASTA, SAM, logs) after completion, keeping only report inputs and final outputs. See <a href="#parameter-reference">Parameter Reference</a> for all options.</p>
+<p>In genome mode with <code>--sample-target-map</code>, use <code>--identify</code> to add species-level calling after metrics. This computes target similarity, calls species PRESENT/ABSENT/AMBIGUOUS, and includes the results in the HTML report with ground-truth comparison against the <code>--sample</code> manifest.</p>
+<h3 id="prepare">prepare<a class="headerlink" href="#prepare" title="Permanent link">&para;</a></h3>
+<p>Combines target and distractor sequences into a single reference, generates sampling weights, and writes ID lists.</p>
+<pre><code class="language-bash">baitbench prepare \
+  --targets targets.fa \
+  --distractors distractors.fa \
+  [--genomes genomes.fa] \
+  [--sample manifest.tsv] \
+  [--sample-target-map mapping.tsv] \
+  [--groups target_groups.tsv] \
+  [--distractor-groups distractor_groups.tsv] \
+  [--distractor-fraction 0.9 | --ct 25] \
+  [--ct-baseline 20.0] \
+  [--ct-baseline-fraction 0.01] \
+  --outdir prep_output
+</code></pre>
+<p><strong>Output files:</strong>
+- <code>combined_reference.fa</code> -- merged sequences for fragment generation
+- <code>weights.txt</code> -- per-sequence sampling weights (TSV: <code>id\tweight</code>)
+- <code>targets.txt</code> -- target sequence IDs (one per line)
+- <code>distractors.txt</code> -- distractor sequence IDs (one per line)
+- <code>sample.txt</code> -- sample sequence IDs (one per line)
+- <code>target_groups.tsv</code> -- target group assignments (written only if <code>--groups</code> provided)
+- <code>distractor_groups.tsv</code> -- distractor group assignments (always written; from <code>--distractor-groups</code> or auto-generated from FASTA file stems)
+- <code>mapping_reference.fa</code> -- targets + distractors for read mapping (genome mode only)
+- <code>genomes.txt</code> -- genome IDs (genome mode only)
+- <code>sample_target_map.txt</code> -- genome-to-target mapping (genome mode only)</p>
+<h3 id="simulate">simulate<a class="headerlink" href="#simulate" title="Permanent link">&para;</a></h3>
+<p>Generates weighted random fragments from a reference.</p>
+<pre><code class="language-bash">baitbench simulate \
+  --reference combined_reference.fa \
+  --weights weights.txt \
+  --num-fragments 10000 \
+  --output fragments.fa \
+  [--fragment-length-mean 175] \
+  [--fragment-length-min 150] \
+  [--fragment-length-max 200] \
+  [--seed 42]
+</code></pre>
+<p>Fragment lengths follow a truncated normal distribution clamped to [min, max]. Fragments are named <code>{seq_id}_fragment_{n} start={pos} length={len}</code>.</p>
+<p><strong>Output files:</strong>
+- <code>fragments.fa</code> -- simulated DNA fragments</p>
+<h3 id="sequence">sequence<a class="headerlink" href="#sequence" title="Permanent link">&para;</a></h3>
+<p>Simulates sequencing of captured fragments. Three modes are available:</p>
+<h4 id="perfect-default">Perfect (default)<a class="headerlink" href="#perfect-default" title="Permanent link">&para;</a></h4>
+<p>Trims each fragment to <code>--read-length</code> bp. No errors. One read per fragment.</p>
+<pre><code class="language-bash">baitbench sequence \
+  --input fragments.fa \
+  --output reads.fa \
+  [--read-length 120] \
+  [--num-sequences 5000] \
+  [--seed 42]
+</code></pre>
+<p>Fragments shorter than <code>--read-length</code> are kept as-is. With <code>--num-sequences</code>, reads are sampled with replacement from the fragment pool.</p>
+<h4 id="illumina-art-modern">Illumina (ART-modern)<a class="headerlink" href="#illumina-art-modern" title="Permanent link">&para;</a></h4>
+<p>Generates error-realistic Illumina reads using <a href="https://github.com/YU-Zhejian/art_modern">ART-modern</a>. Requires <code>art_modern</code> on PATH (<code>conda install -c bioconda art_modern</code>).</p>
+<pre><code class="language-bash">baitbench sequence \
+  --input fragments.fa \
+  --output reads.fa \
+  --read-simulator art \
+  --sequencer-profile HiSeq2500_150bp \
+  --read-length 150 \
+  [--coverage-depth 1.0] \
+  [--paired-end] \
+  [--pe-frag-len-mean 200 --pe-frag-len-sd 50]
+</code></pre>
+<p>Common profiles: <code>HiSeq2500_150bp</code> (default), <code>HiSeq2500_100bp</code>, <code>MiSeq_250bp</code>. Run <code>art_modern --list-profiles</code> for the full list. <code>--coverage-depth</code> controls how many reads are generated per fragment (total reads ≈ num_fragments × mean_fragment_len / read_length × coverage_depth). <code>--paired-end</code> produces both <code>reads.fa</code> (R1) and <code>reads_R2.fa</code> (R2).</p>
+<h4 id="long-reads-badread">Long reads (badread)<a class="headerlink" href="#long-reads-badread" title="Permanent link">&para;</a></h4>
+<p>Generates ONT or PacBio CLR long reads using <a href="https://github.com/rrwick/Badread">badread</a>. Requires <code>badread</code> on PATH (<code>conda install -c conda-forge badread</code>).</p>
+<pre><code class="language-bash">baitbench sequence \
+  --input fragments.fa \
+  --output reads.fa \
+  --read-simulator badread \
+  --sequencer-profile ont \
+  [--coverage-depth 1.0]
+</code></pre>
+<p><code>--sequencer-profile</code> selects the chemistry:</p>
+<table>
+<thead>
+<tr>
+<th>Profile</th>
+<th>Platform / Chemistry</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ont</code> (default)</td>
+<td>ONT R10.4.1 / Kit14</td>
+<td>nanopore2023 error model</td>
+</tr>
+<tr>
+<td><code>ont-2020</code></td>
+<td>ONT R9.4.1</td>
+<td>nanopore2020 error model</td>
+</tr>
+<tr>
+<td><code>pacbio</code></td>
+<td>PacBio CLR</td>
+<td>pacbio2016 error model</td>
+</tr>
+</tbody>
+</table>
+<p><code>--read-length</code> is not used — read length is bounded by fragment length. <code>--coverage-depth 1</code> produces approximately one read per captured fragment. Paired-end is not supported for long reads.</p>
+<h4 id="choosing-a-simulator">Choosing a simulator<a class="headerlink" href="#choosing-a-simulator" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Recommended simulator</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fast development / debugging</td>
+<td><code>perfect</code></td>
+</tr>
+<tr>
+<td>Comparing against Illumina data</td>
+<td><code>art</code> with matching profile</td>
+</tr>
+<tr>
+<td>Comparing against ONT data</td>
+<td><code>badread --sequencer-profile ont</code> or <code>ont-2020</code></td>
+</tr>
+<tr>
+<td>Comparing against PacBio CLR data</td>
+<td><code>badread --sequencer-profile pacbio</code></td>
+</tr>
+<tr>
+<td>Paired-end Illumina panel evaluation</td>
+<td><code>art --paired-end</code></td>
+</tr>
+</tbody>
+</table>
+<p>When <code>--num-sequences</code> is set, the final read count is capped by sampling, regardless of simulator. This lets you model a fixed sequencing depth even when <code>art</code>/<code>badread</code> generate more reads than needed.</p>
+<p>When using <code>baitbench run</code>, <code>--minimap-preset</code> and <code>--host-minimap-preset</code> are auto-selected to match the simulator: <code>sr</code> for <code>perfect</code>/<code>art</code>, <code>map-ont</code> for badread <code>ont</code>/<code>ont-2020</code>, <code>map-pb</code> for badread <code>pacbio</code>. Pass either flag explicitly to override.</p>
+<h4 id="output-format">Output format<a class="headerlink" href="#output-format" title="Permanent link">&para;</a></h4>
+<p>Add <code>--output-format fastq</code> to preserve quality scores from <code>art</code>/<code>badread</code>. The <code>perfect</code> simulator writes dummy Q40 (<code>I</code>) quality for all bases. Default is <code>fasta</code> (quality scores discarded).</p>
+<h4 id="underlying-tool-parameter-mapping">Underlying tool parameter mapping<a class="headerlink" href="#underlying-tool-parameter-mapping" title="Permanent link">&para;</a></h4>
+<p><strong>ART-modern</strong> (<code>--read-simulator art</code>):</p>
+<table>
+<thead>
+<tr>
+<th>BaitBench flag</th>
+<th>ART-modern flag</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--read-length</code></td>
+<td><code>--read_len</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>--sequencer-profile</code></td>
+<td><code>--builtin_qual_file</code></td>
+<td>Same value string</td>
+</tr>
+<tr>
+<td><code>--coverage-depth</code></td>
+<td><code>--i-fcov</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>--paired-end</code></td>
+<td><code>--lc pe</code> vs <code>--lc se</code></td>
+<td>Boolean → string enum</td>
+</tr>
+<tr>
+<td><code>--pe-frag-len-mean</code></td>
+<td><code>--pe_frag_dist_mean</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>--pe-frag-len-sd</code></td>
+<td><code>--pe_frag_dist_std_dev</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>--seed</code></td>
+<td><em>(not passed)</em></td>
+<td>ART uses its own internal seed</td>
+</tr>
+<tr>
+<td><code>--num-sequences</code></td>
+<td><em>(not passed)</em></td>
+<td>Applied as a post-processing sampling step</td>
+</tr>
+</tbody>
+</table>
+<p><strong>badread</strong> (<code>--read-simulator badread</code>):</p>
+<table>
+<thead>
+<tr>
+<th>BaitBench flag</th>
+<th>badread flag</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--coverage-depth</code></td>
+<td><code>--quantity</code></td>
+<td>Formatted as <code>{depth}x</code></td>
+</tr>
+<tr>
+<td><code>--sequencer-profile ont</code></td>
+<td><code>--error_model nanopore2023 --qscore_model nanopore2023 --length 9000,7000</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>--sequencer-profile ont-2020</code></td>
+<td><code>--error_model nanopore2020 --qscore_model nanopore2020 --length 9000,7000</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>--sequencer-profile pacbio</code></td>
+<td><code>--error_model pacbio2016 --qscore_model pacbio2016 --length 15000,13000</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>--seed</code></td>
+<td><code>--seed</code></td>
+<td>Same value</td>
+</tr>
+<tr>
+<td><code>--read-length</code></td>
+<td><em>(not passed)</em></td>
+<td>Length set per-profile (see above); bounded by fragment length</td>
+</tr>
+<tr>
+<td><code>--paired-end</code></td>
+<td><em>(not supported)</em></td>
+<td>badread does not produce paired-end reads</td>
+</tr>
+<tr>
+<td><code>--num-sequences</code></td>
+<td><em>(not passed)</em></td>
+<td>Applied as a post-processing sampling step</td>
+</tr>
+<tr>
+<td><code>--long-read-length-mean</code></td>
+<td><code>--length mean,sd</code> (mean)</td>
+<td>Overrides profile default (9000 for ont/ont-2020, 15000 for pacbio). When absent, profile default is used.</td>
+</tr>
+<tr>
+<td><code>--long-read-length-sd</code></td>
+<td><code>--length mean,sd</code> (SD)</td>
+<td>Overrides profile default (7000 for ont/ont-2020, 13000 for pacbio). When absent, profile default is used.</td>
+</tr>
+<tr>
+<td><code>--badread-glitches</code></td>
+<td><code>--glitches</code></td>
+<td>String <code>"rate,size,skips"</code> e.g. <code>"10000,100,25"</code>. When absent, badread default applies.</td>
+</tr>
+<tr>
+<td><code>--badread-junk-reads</code></td>
+<td><code>--junk_reads</code></td>
+<td>Percentage 0–100. When absent, badread default (1%) applies.</td>
+</tr>
+<tr>
+<td><code>--badread-random-reads</code></td>
+<td><code>--random_reads</code></td>
+<td>Percentage 0–100. When absent, badread default (1%) applies.</td>
+</tr>
+<tr>
+<td><code>--badread-chimeras</code></td>
+<td><code>--chimeras</code></td>
+<td>Percentage 0–100. When absent, badread default (1%) applies.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Output files:</strong>
+- <code>reads.fa</code> / <code>reads.fq</code> -- sequencing reads (R1 for paired-end); extension matches <code>--output-format</code>
+- <code>reads_R2.fa</code> / <code>reads_R2.fq</code> -- R2 reads (paired-end only)</p>
+<h3 id="filter">filter<a class="headerlink" href="#filter" title="Permanent link">&para;</a></h3>
+<p>Removes reads that map to a host genome.</p>
+<pre><code class="language-bash">baitbench filter \
+  --host host_genome.fa \
+  --reads reads.fa \
+  --output filtered.fa \
+  [--minimap-preset sr]
+</code></pre>
+<p>Uses minimap2 to align reads against the host genome. Reads that map are removed; unmapped reads are kept.</p>
+<p><strong>Output files:</strong>
+- <code>filtered.fa</code> -- reads after host depletion</p>
+<h3 id="map">map<a class="headerlink" href="#map" title="Permanent link">&para;</a></h3>
+<p>Maps reads back to a reference using minimap2.</p>
+<pre><code class="language-bash">baitbench map \
+  --reference combined_reference.fa \
+  --reads reads.fa \
+  --output mapped.sam \
+  [--minimap-preset sr]
+</code></pre>
+<p>In standard mode, reads are mapped to <code>combined_reference.fa</code>. In genome mode, reads are mapped to <code>mapping_reference.fa</code> (targets + distractors).</p>
+<p><strong>Output files:</strong>
+- <code>mapped.sam</code> -- SAM alignment file</p>
+<h3 id="list">list<a class="headerlink" href="#list" title="Permanent link">&para;</a></h3>
+<p>Counts reads per reference from a SAM file.</p>
+<pre><code class="language-bash">baitbench list \
+  --sam mapped.sam \
+  --output detected.list
+</code></pre>
+<p><strong>Output files:</strong>
+- <code>detected.list</code> -- TSV: <code>reference_id\tcount</code> (sorted ascending by count)</p>
+<h3 id="metrics">metrics<a class="headerlink" href="#metrics" title="Permanent link">&para;</a></h3>
+<p>Computes classification metrics and coverage statistics.</p>
+<pre><code class="language-bash">baitbench metrics \
+  --targets targets.txt \
+  --distractors distractors.txt \
+  --sample sample.txt \
+  --detected detected.list \
+  --fragments fragments.fa \
+  --captured fragments.fa \
+  --sam mapped.sam \
+  --run-name &quot;my_run&quot; \
+  --num-fragments 10000 \
+  --output-summary results.tsv \
+  --output-detail detected_detail.tsv \
+  [--output-json results.json] \
+  [--output-coverage coverage.tsv] \
+  [--sample-target-map sample_target_map.txt] \
+  [--target-groups target_groups.tsv] \
+  [--distractor-groups distractor_groups.tsv] \
+  [--seed 42]
+</code></pre>
+<p><strong>Output files:</strong>
+- <code>results.tsv</code> -- genome-level summary metrics (group-level if groups provided)
+- <code>detected_detail.tsv</code> -- per-reference detection and coverage detail (includes <code>group</code> column)
+- <code>group_detail.tsv</code> -- per-group summary (written when group files are provided)
+- <code>results.json</code> -- structured JSON output (optional)
+- <code>coverage.tsv</code> -- run-length encoded read depth intervals (optional)</p>
+<h3 id="report">report<a class="headerlink" href="#report" title="Permanent link">&para;</a></h3>
+<p>Generates an HTML report with figures, or outputs an editable RMarkdown file.</p>
+<pre><code class="language-bash">baitbench report \
+  --summary results.tsv \
+  --detail detected_detail.tsv \
+  --params run_params.tsv \
+  --output report.html \
+  [--coverage coverage.tsv] \
+  [--run-name &quot;BaitBench Run&quot;] \
+  [--report full|rmd]
+</code></pre>
+<p><strong>Output files:</strong>
+- <code>report.html</code> -- HTML report with ggplot2 visualizations (<code>--report full</code>)
+- <code>report.Rmd</code> -- editable RMarkdown file with parameters pre-filled (<code>--report rmd</code>)</p>
+<h3 id="probe-coverage">probe-coverage<a class="headerlink" href="#probe-coverage" title="Permanent link">&para;</a></h3>
+<p>Standalone probe design QC tool. Not part of the main simulation pipeline.</p>
+<pre><code class="language-bash">baitbench probe-coverage \
+  --targets targets.fa \
+  --probes probes.fa \
+  [--outdir probe_coverage] \
+  [--minimap-preset sr] \
+  [--proximity 50] \
+  [--report full|none|rmd]
+</code></pre>
+<p>Maps probes to targets and computes per-target tiling statistics.</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--targets</code></td>
+<td>required</td>
+<td>Target sequences FASTA</td>
+</tr>
+<tr>
+<td><code>--probes</code></td>
+<td>required</td>
+<td>Probe sequences FASTA</td>
+</tr>
+<tr>
+<td><code>--outdir</code></td>
+<td>./probe_coverage</td>
+<td>Output directory</td>
+</tr>
+<tr>
+<td><code>--minimap-preset</code></td>
+<td>sr</td>
+<td>Minimap2 alignment preset</td>
+</tr>
+<tr>
+<td><code>--proximity</code></td>
+<td>50</td>
+<td>Pull-down zone distance in bp</td>
+</tr>
+<tr>
+<td><code>--report</code></td>
+<td>full</td>
+<td>Report mode: <code>full</code> (HTML), <code>none</code> (skip), <code>rmd</code> (editable RMarkdown)</td>
+</tr>
+<tr>
+<td><code>--cleanup</code></td>
+<td>false</td>
+<td>Delete intermediate files (SAM, logs) after completion</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Output files:</strong>
+- <code>probe_depth.tsv</code> -- run-length encoded probe depth intervals (TSV: <code>reference_id\tstart\tend\tdepth</code>)
+- <code>probe_coverage_summary.tsv</code> -- per-target coverage statistics
+- <code>multi_mapping_probes.tsv</code> -- probes mapping to multiple targets
+- <code>probe_coverage_report.html</code> -- HTML report (<code>--report full</code>, requires R)
+- <code>probe_coverage_report.Rmd</code> -- editable RMarkdown file (<code>--report rmd</code>)</p>
+<p><strong>Coverage summary columns:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>reference_id</code></td>
+<td>Target sequence ID</td>
+</tr>
+<tr>
+<td><code>pct_covered_1x</code></td>
+<td>% bases with &gt;= 1 probe</td>
+</tr>
+<tr>
+<td><code>pct_covered_2x</code></td>
+<td>% bases with &gt;= 2 probes</td>
+</tr>
+<tr>
+<td><code>pct_covered_5x</code></td>
+<td>% bases with &gt;= 5 probes</td>
+</tr>
+<tr>
+<td><code>pct_covered_10x</code></td>
+<td>% bases with &gt;= 10 probes</td>
+</tr>
+<tr>
+<td><code>mean_depth</code></td>
+<td>Average probe depth across target</td>
+</tr>
+<tr>
+<td><code>median_depth</code></td>
+<td>Median probe depth</td>
+</tr>
+<tr>
+<td><code>max_gap_length</code></td>
+<td>Longest uncovered stretch (bp)</td>
+</tr>
+<tr>
+<td><code>num_gaps</code></td>
+<td>Number of gaps with no probe coverage</td>
+</tr>
+<tr>
+<td><code>pct_near_probe</code></td>
+<td>% bases within <code>--proximity</code> distance of a probe alignment</td>
+</tr>
+</tbody>
+</table>
+<h3 id="xreact">xreact<a class="headerlink" href="#xreact" title="Permanent link">&para;</a></h3>
+<p>Standalone cross-reactivity analysis tool. Checks whether probes have high homology to off-target genomes or to each other. Not part of the main simulation pipeline.</p>
+<pre><code class="language-bash">baitbench xreact \
+  --probes probes.fa \
+  [--against genome1.fa genome2.fa ...] \
+  [--self] \
+  [--threshold 80.0] \
+  [--minimap-preset sr] \
+  [--outdir xreact_results]
+</code></pre>
+<p>At least one of <code>--against</code> or <code>--self</code> must be specified; both can be used together.</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--probes</code></td>
+<td>required</td>
+<td>Probe sequences FASTA</td>
+</tr>
+<tr>
+<td><code>--against</code></td>
+<td>none</td>
+<td>Reference genome FASTA(s) to check cross-reactivity against (repeatable)</td>
+</tr>
+<tr>
+<td><code>--self</code></td>
+<td>false</td>
+<td>Check probe-vs-probe cross-reactivity (self-hits excluded)</td>
+</tr>
+<tr>
+<td><code>--threshold</code></td>
+<td>80.0</td>
+<td>Minimum homology % to report: <code>matching_bases / probe_length * 100</code></td>
+</tr>
+<tr>
+<td><code>--minimap-preset</code></td>
+<td>sr</td>
+<td>Minimap2 alignment preset</td>
+</tr>
+<tr>
+<td><code>--outdir</code></td>
+<td>./xreact_results</td>
+<td>Output directory</td>
+</tr>
+<tr>
+<td><code>--cleanup</code></td>
+<td>false</td>
+<td>Delete intermediate files (logs) after completion</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Homology metric:</strong> <code>matching_bases / probe_length * 100</code>. This single number captures both alignment identity and query coverage -- a probe with 90% identity over 90% of its length scores ~81%.</p>
+<p><strong>Self-mode filtering:</strong> In <code>--self</code> mode, self-hits (probeA mapping to probeA) are excluded from all output. Only cross-probe hits (probeA mapping to probeB where A != B) are reported.</p>
+<p><strong>Output files:</strong></p>
+<ul>
+<li><code>hits.tsv</code> -- All alignments above the threshold</li>
+<li><code>summary.tsv</code> -- Per-probe summary (every probe gets a row, even with zero hits)</li>
+</ul>
+<p><strong>hits.tsv columns:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>probe_id</code></td>
+<td>Query probe ID</td>
+</tr>
+<tr>
+<td><code>target_id</code></td>
+<td>Reference sequence the probe maps to (genome ID or other probe ID)</td>
+</tr>
+<tr>
+<td><code>homology_pct</code></td>
+<td><code>matching_bases / probe_length * 100</code></td>
+</tr>
+<tr>
+<td><code>identity_pct</code></td>
+<td><code>matching_bases / alignment_block_length * 100</code></td>
+</tr>
+<tr>
+<td><code>query_coverage_pct</code></td>
+<td><code>aligned_query_span / probe_length * 100</code></td>
+</tr>
+<tr>
+<td><code>matching_bases</code></td>
+<td>Number of matching bases in the alignment</td>
+</tr>
+<tr>
+<td><code>alignment_length</code></td>
+<td>Alignment block length</td>
+</tr>
+<tr>
+<td><code>probe_length</code></td>
+<td>Total probe sequence length</td>
+</tr>
+<tr>
+<td><code>mode</code></td>
+<td><code>against</code> (probe-to-genome) or <code>self</code> (probe-to-probe)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>summary.tsv columns:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>probe_id</code></td>
+<td>Probe ID</td>
+</tr>
+<tr>
+<td><code>mode</code></td>
+<td><code>against</code> or <code>self</code></td>
+</tr>
+<tr>
+<td><code>max_homology_pct</code></td>
+<td>Highest homology % across all hits (0.0 if no hits)</td>
+</tr>
+<tr>
+<td><code>best_hit</code></td>
+<td>Target ID with highest homology (NA if no hits)</td>
+</tr>
+<tr>
+<td><code>num_hits_above_threshold</code></td>
+<td>Number of distinct alignments above threshold</td>
+</tr>
+</tbody>
+</table>
+<h3 id="coverage-curve">coverage-curve<a class="headerlink" href="#coverage-curve" title="Permanent link">&para;</a></h3>
+<p>Runs the pipeline at multiple parameter combinations and generates coverage depth curves.</p>
+<pre><code class="language-bash">baitbench coverage-curve \
+  --targets targets.fa \
+  --distractors distractors.fa \
+  --probes probes.fa \
+  --sample dengue_1 zika_virus \
+  [--ct-values 20 25 30 | --ct 25] \
+  [--hybridization-temperature-values 55 65 70 75 | --hybridization-temperature 70] \
+  [--capture-fraction-values 0.3 0.5 0.8 | --capture-fraction 0.5] \
+  [--num-sequences-values 100 500 | --num-sequences 500] \
+  [--outdir coverage_curve_results] \
+  [--cleanup] \
+  [... other pipeline parameters ...]
+</code></pre>
+<p>Four parameters can be swept (each has a singular fixed form and a plural sweep form):</p>
+<table>
+<thead>
+<tr>
+<th>Sweep flag</th>
+<th>Fixed flag</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--ct-values 20 25 30</code></td>
+<td><code>--ct 25</code></td>
+<td>—</td>
+<td>CT values (converted to distractor fractions)</td>
+</tr>
+<tr>
+<td><code>--hybridization-temperature-values 55 65 70 75</code></td>
+<td><code>--hybridization-temperature 70</code></td>
+<td>70 °C</td>
+<td>Hybridization temperature; thermodynamic mode only</td>
+</tr>
+<tr>
+<td><code>--capture-fraction-values 0.3 0.5 0.8</code></td>
+<td><code>--capture-fraction 0.5</code></td>
+<td>0.5</td>
+<td>Capture fraction (probe-biased fragment proportion)</td>
+</tr>
+<tr>
+<td><code>--num-sequences-values 100 500</code></td>
+<td><code>--num-sequences 500</code></td>
+<td>all</td>
+<td>Number of sequences to sample</td>
+</tr>
+</tbody>
+</table>
+<p>Sweep and fixed forms of the same parameter are mutually exclusive. <code>--ct-values</code> and <code>--distractor-fraction</code> are also mutually exclusive.</p>
+<p><code>--sample</code> is <strong>required</strong> for coverage-curve (must specify which targets to track).</p>
+<p>The pipeline shares intermediate files across combinations for efficiency: prepare is shared per CT value; simulate is shared per CT × temperature × capture-fraction combination.</p>
+<p><strong>Output files:</strong>
+- Combo subdirectories named by swept params (e.g., <code>ct_20/</code>, <code>ct_20_temp_65_cf_0.50/</code>, <code>ct_20_temp_65_cf_0.50_ns_500/</code>)
+- <code>coverage_curve_depth_curves.tsv</code> -- aggregated depth data (columns: ct, hybridization_temperature, capture_fraction, num_sequences, ...)
+- <code>coverage_curve_report.html</code> -- HTML report with depth curves (<code>--report full</code>)
+- <code>coverage_curve_report.Rmd</code> -- editable RMarkdown file (<code>--report rmd</code>)</p>
+<h3 id="panel-qc">panel-qc<a class="headerlink" href="#panel-qc" title="Permanent link">&para;</a></h3>
+<p>Standalone pre-experiment QC tool that assesses whether a target panel can discriminate between species. This evaluates target uniqueness before running simulations.</p>
+<pre><code class="language-bash">baitbench panel-qc \
+  --targets gene_targets.fa \
+  --sample-target-map mapping.tsv \
+  [--identity-threshold 90.0] \
+  [--minimap-preset sr] \
+  [--outdir panel_qc_results] \
+  [--report full] \
+  [--cleanup]
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--targets</code></td>
+<td>required</td>
+<td>Target sequences FASTA</td>
+</tr>
+<tr>
+<td><code>--sample-target-map</code></td>
+<td>required</td>
+<td>Mapping TSV linking species/genome IDs to target IDs</td>
+</tr>
+<tr>
+<td><code>--identity-threshold</code></td>
+<td>90.0</td>
+<td>Minimum sequence identity % to consider two targets "similar"</td>
+</tr>
+<tr>
+<td><code>--minimap-preset</code></td>
+<td>sr</td>
+<td>Minimap2 alignment preset for target-vs-target comparison</td>
+</tr>
+<tr>
+<td><code>--outdir</code></td>
+<td>./panel_qc_results</td>
+<td>Output directory</td>
+</tr>
+<tr>
+<td><code>--report</code></td>
+<td>full</td>
+<td>Report mode: <code>full</code> (HTML), <code>none</code> (skip), <code>rmd</code> (editable RMarkdown)</td>
+</tr>
+<tr>
+<td><code>--cleanup</code></td>
+<td>false</td>
+<td>Delete intermediate files after completion</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Algorithm:</strong></p>
+<ol>
+<li>All targets are aligned against all targets using minimap2 (<code>--minimap-preset</code>)</li>
+<li>Pairwise similarity is computed as <code>matching_bases / min(len_a, len_b) * 100</code></li>
+<li>Pairs above <code>--identity-threshold</code> are reported as similar</li>
+<li>Using the sample-target-map, targets are classified as "unique" (no cross-species similarity) or "shared" (has similar targets in other species)</li>
+<li>Per-species discriminability score is <code>unique_targets / total_targets</code></li>
+<li>A species confusion matrix shows which species pairs share similar targets</li>
+</ol>
+<p><strong>Interpreting results:</strong></p>
+<ul>
+<li>A species with discriminability score 0.0 has <strong>zero</strong> unique targets -- it cannot be reliably distinguished from other species. Consider adding more targets.</li>
+<li>The confusion matrix highlights species pairs that share similar targets, indicating potential cross-reactivity in identification.</li>
+<li>High discriminability (close to 1.0) means most targets are unique to that species -- identification should be reliable.</li>
+</ul>
+<p><strong>Output files:</strong></p>
+<ul>
+<li><code>target_similarity.tsv</code> -- pairwise target similarities above threshold</li>
+<li><code>species_discriminability.tsv</code> -- per-species discriminability scores</li>
+<li><code>species_confusion_matrix.tsv</code> -- species-by-species shared target counts</li>
+<li><code>panel_qc_report.html</code> -- HTML report with heatmap and discriminability charts (<code>--report full</code>)</li>
+<li><code>panel_qc_report.Rmd</code> -- editable RMarkdown file (<code>--report rmd</code>)</li>
+</ul>
+<p><strong>target_similarity.tsv columns:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>target_a</code></td>
+<td>First target ID</td>
+</tr>
+<tr>
+<td><code>target_b</code></td>
+<td>Second target ID</td>
+</tr>
+<tr>
+<td><code>identity_pct</code></td>
+<td><code>matching_bases / min(len_a, len_b) * 100</code></td>
+</tr>
+<tr>
+<td><code>matching_bases</code></td>
+<td>Number of matching bases</td>
+</tr>
+<tr>
+<td><code>len_a</code></td>
+<td>Length of target A</td>
+</tr>
+<tr>
+<td><code>len_b</code></td>
+<td>Length of target B</td>
+</tr>
+</tbody>
+</table>
+<p><strong>species_discriminability.tsv columns:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>species_id</code></td>
+<td>Species/genome ID</td>
+</tr>
+<tr>
+<td><code>total_targets</code></td>
+<td>Total targets assigned to this species</td>
+</tr>
+<tr>
+<td><code>unique_targets</code></td>
+<td>Targets with no cross-species similarity</td>
+</tr>
+<tr>
+<td><code>shared_targets</code></td>
+<td>Targets similar to targets in other species</td>
+</tr>
+<tr>
+<td><code>discriminability_score</code></td>
+<td><code>unique_targets / total_targets</code> (0.0–1.0)</td>
+</tr>
+<tr>
+<td><code>confusable_species</code></td>
+<td>Comma-separated species IDs with shared targets</td>
+</tr>
+</tbody>
+</table>
+<h3 id="identify">identify<a class="headerlink" href="#identify" title="Permanent link">&para;</a></h3>
+<p>Call species presence/absence from multi-target detection patterns. Can be run standalone on existing pipeline results or integrated into <code>baitbench run</code> with <code>--identify</code>.</p>
+<pre><code class="language-bash"># Using pre-computed similarity from panel-qc
+baitbench identify \
+  --detected-detail results/run/detected_detail.tsv \
+  --sample-target-map mapping.tsv \
+  --target-similarity panel_qc/target_similarity.tsv \
+  [--min-unique-targets 1] \
+  [--outdir identify_results]
+
+# Computing similarity on-the-fly
+baitbench identify \
+  --detected-detail results/run/detected_detail.tsv \
+  --sample-target-map mapping.tsv \
+  --targets gene_targets.fa \
+  [--identity-threshold 90.0] \
+  [--minimap-preset sr] \
+  [--min-unique-targets 1] \
+  [--outdir identify_results]
+</code></pre>
+<p>Either <code>--target-similarity</code> or <code>--targets</code> must be provided (not both).</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--detected-detail</code></td>
+<td>required</td>
+<td><code>detected_detail.tsv</code> from metrics step</td>
+</tr>
+<tr>
+<td><code>--sample-target-map</code></td>
+<td>required</td>
+<td>Mapping TSV linking species/genome IDs to target IDs</td>
+</tr>
+<tr>
+<td><code>--target-similarity</code></td>
+<td>none</td>
+<td>Pre-computed similarity TSV from <code>panel-qc</code></td>
+</tr>
+<tr>
+<td><code>--targets</code></td>
+<td>none</td>
+<td>Target sequences FASTA (computes similarity on-the-fly)</td>
+</tr>
+<tr>
+<td><code>--identity-threshold</code></td>
+<td>90.0</td>
+<td>Similarity threshold (only with <code>--targets</code>)</td>
+</tr>
+<tr>
+<td><code>--minimap-preset</code></td>
+<td>sr</td>
+<td>Minimap2 preset (only with <code>--targets</code>)</td>
+</tr>
+<tr>
+<td><code>--min-unique-targets</code></td>
+<td>1</td>
+<td>Minimum unique target detections to call a species PRESENT</td>
+</tr>
+<tr>
+<td><code>--outdir</code></td>
+<td>./identify_results</td>
+<td>Output directory</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Calling algorithm (ordered-explanation approach):</strong></p>
+<ol>
+<li>
+<p><strong>Classify targets</strong>: Each target is labeled "unique" (no similar targets in other species) or "shared" (has cross-species similarity), using the similarity data.</p>
+</li>
+<li>
+<p><strong>Collect evidence</strong>: For each species, count how many unique vs shared targets were detected, and how many total reads were observed.</p>
+</li>
+<li>
+<p><strong>Sort by evidence strength</strong>: Species are ranked by <code>(unique_detected DESC, total_reads DESC)</code>.</p>
+</li>
+<li>
+<p><strong>Process in order</strong>: Each species is assigned one of three calls:</p>
+</li>
+<li><strong>PRESENT</strong>: <code>≥ min_unique_targets</code> unique targets detected</li>
+<li><strong>ABSENT</strong> (no detections): zero targets detected for this species</li>
+<li><strong>ABSENT</strong> (cross-reactivity explained): all detected targets are "shared" AND every one can be explained by a species already called PRESENT earlier in the ordered processing</li>
+<li><strong>AMBIGUOUS</strong> (no unique markers): species has zero unique targets in the panel -- cannot confirm or deny</li>
+<li><strong>AMBIGUOUS</strong> (insufficient evidence): species has some unique targets but not enough detected (&lt; <code>min_unique_targets</code>), and not all shared detections are explained</li>
+</ol>
+<p>This creates a natural parsimony effect: the species with the strongest unique evidence is called first, then its presence "explains away" shared target hits in subsequent species.</p>
+<p><strong>Output files:</strong></p>
+<ul>
+<li><code>species_calls.tsv</code> -- per-species call with evidence breakdown</li>
+<li><code>species_calls.json</code> -- structured JSON format</li>
+</ul>
+<p><strong>species_calls.tsv columns:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>species_id</code></td>
+<td>Species/genome ID</td>
+</tr>
+<tr>
+<td><code>call</code></td>
+<td>PRESENT, ABSENT, or AMBIGUOUS</td>
+</tr>
+<tr>
+<td><code>total_targets</code></td>
+<td>Total targets for this species in the panel</td>
+</tr>
+<tr>
+<td><code>unique_targets</code></td>
+<td>Targets unique to this species</td>
+</tr>
+<tr>
+<td><code>shared_targets</code></td>
+<td>Targets shared with other species</td>
+</tr>
+<tr>
+<td><code>unique_detected</code></td>
+<td>Unique targets that were detected</td>
+</tr>
+<tr>
+<td><code>shared_detected</code></td>
+<td>Shared targets that were detected</td>
+</tr>
+<tr>
+<td><code>total_detected</code></td>
+<td>Total targets detected</td>
+</tr>
+<tr>
+<td><code>total_reads</code></td>
+<td>Total reads across all detected targets</td>
+</tr>
+<tr>
+<td><code>explained_by</code></td>
+<td>Comma-separated species IDs that explain shared hits</td>
+</tr>
+<tr>
+<td><code>reason</code></td>
+<td>Call reason: <code>unique_markers_detected</code>, <code>no_detections</code>, <code>cross_reactivity_explained</code>, <code>no_unique_markers</code>, <code>insufficient_unique_evidence</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Integration with <code>baitbench run</code>:</strong></p>
+<p>When <code>--identify</code> is passed to <code>baitbench run</code> (genome mode with <code>--sample-target-map</code> required), species identification runs automatically after the metrics step. The species calls are included in the HTML report and compared against ground truth (the <code>--sample</code> manifest) to compute species-level sensitivity and specificity.</p>
+<h3 id="build-probes">build-probes<a class="headerlink" href="#build-probes" title="Permanent link">&para;</a></h3>
+<p>Build a probe set from target sequences. Runs a multi-step pipeline: collapse redundant targets, construct probes, filter by GC content and sequence complexity, and deduplicate. After building, automatically chains into probe assessment (probe coverage + cross-reactivity analysis) unless <code>--skip-assess</code> is specified.</p>
+<p>Five probe construction methods are available: <code>tile</code> (sliding window, default), <code>catch-lite</code> (native Rust reimplementation of CATCH optimization-based design), <code>catch</code> (external CATCH tool from the Broad Institute; requires the <code>catch</code> conda package), <code>syotti-lite</code> (native Rust reimplementation of Syotti greedy set-cover design), and <code>probetools-lite</code> (native Rust reimplementation of ProbeTools iterative k-mer clustering design; requires cd-hit-est).</p>
+<pre><code class="language-bash">baitbench build-probes \
+  --targets targets.fa \
+  [--method tile|catch-lite|syotti-lite|catch|probetools-lite] \
+  [--probe-length 120] \
+  [--step -60] \
+  [--catch-probe-stride 60] \
+  [--catch-mismatches 5] \
+  [--catch-extension 0] \
+  [--catch-coverage 1.0] \
+  [--catch-minhash-threshold 0.6] \
+  [--syotti-mismatches 40] \
+  [--syotti-seed-len 20] \
+  [--pt-step 1] \
+  [--pt-identity 0.9] \
+  [--pt-coverage 0.9] \
+  [--pt-batch-size 100] \
+  [--pt-max-panel-size N] \
+  [--pt-min-depth 1] \
+  [--pt-max-iterations 20] \
+  [--pt-min-coverage-gain 0.001] \
+  [--min-gc 0.20] \
+  [--max-gc 0.80] \
+  [--max-n-frac 0.05] \
+  [--dust-threshold 2.0] \
+  [--dust-window 64] \
+  [--max-masked-frac 0.25] \
+  [--collapse-threshold 0.95] \
+  [--dedup-threshold 0.95] \
+  [--threads 5] \
+  [--genomes genome1.fa genome2.fa ...] \
+  [--threshold 80.0] \
+  [--minimap-preset sr] \
+  [--proximity 50] \
+  [--skip-assess] \
+  [--outdir build_probes_results] \
+  [--report full|none|rmd] \
+  [--refine-iterations N | --refine-until-stable] \
+  [--refine-threshold 80.0]
+</code></pre>
+<p><strong>Pipeline steps:</strong></p>
+<ol>
+<li><strong>N filter</strong>: Remove target sequences with more than <code>--max-n-frac</code> fraction of ambiguous (non-ACGT) bases. Sequences with excessive N content are poor probe sources and would generate uninformative probes.</li>
+<li><strong>Collapse</strong>: cd-hit-est clusters targets at <code>--collapse-threshold</code> identity to remove near-duplicates</li>
+<li><strong>Build</strong>: Construct probes from collapsed sequences. Method <code>tile</code> generates sliding-window probes of <code>--probe-length</code> bp across each sequence with <code>--step</code> controlling overlap/gap. A final probe is anchored to the end of each sequence to ensure full coverage. Method <code>catch-lite</code> uses BaitBench's native Rust reimplementation of the CATCH algorithm. Method <code>catch</code> calls the external CATCH tool (<code>design_probes.py</code>; requires <code>catch</code> conda package). Method <code>syotti-lite</code> uses BaitBench's native Rust reimplementation of the Syotti greedy set-cover algorithm. Method <code>probetools-lite</code> uses BaitBench's native Rust reimplementation of the ProbeTools iterative k-mer clustering algorithm (requires cd-hit-est).
+3b. <strong>N fix</strong> <em>(optional, <code>--no-n-in-probes</code>)</em>: Replace any remaining N bases in designed probes with a real nucleotide. T is preferred; if T would be immediately adjacent to an existing T on either side, the algorithm tries A, then C, then G. This step preserves panel coverage rather than discarding probes that contain N bases.</li>
+<li><strong>GC filter</strong>: Remove probes with GC content outside <code>--min-gc</code> to <code>--max-gc</code> range</li>
+<li><strong>Complexity filter</strong>: Remove low-complexity probes using the sDUST algorithm (Morgulis et al. 2006). Probes where more than <code>--max-masked-frac</code> of bases are identified as low-complexity (e.g., homopolymers, dinucleotide repeats) are removed. Set <code>--max-masked-frac 1.0</code> to disable.</li>
+<li><strong>Deduplicate</strong>: cd-hit-est clusters probes at <code>--dedup-threshold</code> identity to remove redundant probes</li>
+</ol>
+<p><strong>Tiling geometry (<code>--step</code>):</strong></p>
+<p>The stride between consecutive probes is <code>probe_length + step</code>. The step is measured from the end of the previous probe:</p>
+<ul>
+<li><code>--step -60</code> (default): stride = 60, probes overlap by 60bp (50% overlap with 120bp probes)</li>
+<li><code>--step 0</code>: stride = 120, probes are perfectly tiled (no overlap, no gap)</li>
+<li><code>--step 10</code>: stride = 130, 10bp gap between probes</li>
+</ul>
+<p>Probes are named <code>probe_{target_id}|tile_{n}</code>. A final probe is always placed at the sequence end regardless of overlap.</p>
+<p><strong>catch-lite method (<code>--method catch-lite</code>):</strong></p>
+<p>BaitBench includes a native Rust reimplementation of the CATCH algorithm (Metsky et al. 2019, Nature Biotechnology). Unlike tiling, CATCH minimizes the number of probes needed while guaranteeing a configurable fraction of each target sequence is covered. The algorithm tiles candidate probes at a configurable stride, removes near-duplicates via MinHash LSH, then runs a greedy set-cover to select the minimum probe set that covers all targets to the required depth.</p>
+<p>Parameters:</p>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--catch-probe-stride</code></td>
+<td>60</td>
+<td>Step between candidate probes (bp)</td>
+</tr>
+<tr>
+<td><code>--catch-mismatches</code></td>
+<td>5</td>
+<td>Mismatches tolerated for a probe to cover a target window</td>
+</tr>
+<tr>
+<td><code>--catch-extension</code></td>
+<td>0</td>
+<td>Flanking bp beyond probe boundaries counted as covered</td>
+</tr>
+<tr>
+<td><code>--catch-coverage</code></td>
+<td>1.0</td>
+<td>Fraction of each target that must be covered (0.0–1.0)</td>
+</tr>
+<tr>
+<td><code>--catch-minhash-threshold</code></td>
+<td>0.6</td>
+<td>Jaccard similarity threshold for near-deduplication; set to 0.0 to disable</td>
+</tr>
+</tbody>
+</table>
+<p>Probes are named <code>probe_{source_id}|catch_{n}</code>.</p>
+<p>Example with custom parameters:</p>
+<pre><code class="language-bash">baitbench build-probes \
+  --targets targets.fa \
+  --method catch-lite \
+  --probe-length 120 \
+  --catch-probe-stride 30 \
+  --catch-mismatches 3 \
+  --catch-extension 10 \
+  --catch-coverage 0.95 \
+  --outdir probes_output
+</code></pre>
+<h4 id="differences-from-external-catch">Differences from external CATCH<a class="headerlink" href="#differences-from-external-catch" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>Aspect</th>
+<th>External CATCH</th>
+<th>catch-lite (native)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Coverage model</td>
+<td>LCF-k (full algorithm)</td>
+<td>Hamming distance (= LCF-k at default threshold); LCF-k planned</td>
+</tr>
+<tr>
+<td>Greedy tie-breaking</td>
+<td>Python dict order</td>
+<td>Rust iteration order (different, equally valid)</td>
+</tr>
+<tr>
+<td>MinHash hash functions</td>
+<td>Python random</td>
+<td>Fixed-seed RNG (deterministic)</td>
+</tr>
+<tr>
+<td>Multi-taxa optimization</td>
+<td>Supported</td>
+<td>Not implemented (not needed by BaitBench)</td>
+</tr>
+<tr>
+<td>Blacklisting</td>
+<td>Supported</td>
+<td>Planned extension</td>
+</tr>
+<tr>
+<td>Probe output</td>
+<td>Equivalent coverage</td>
+<td>Equivalent coverage; specific probes may differ</td>
+</tr>
+</tbody>
+</table>
+<p><strong>catch method (<code>--method catch</code>):</strong></p>
+<p>Calls the external CATCH tool (<code>design.py</code>) from the Broad Institute. Requires the <code>catch</code> conda package (<code>conda install -c bioconda catch</code>). All <code>--catch-*</code> flags apply.</p>
+<p>Example:</p>
+<pre><code class="language-bash">baitbench build-probes \
+  --targets targets.fa \
+  --method catch \
+  --probe-length 120 \
+  --catch-probe-stride 30 \
+  --catch-mismatches 3 \
+  --outdir probes_output
+</code></pre>
+<p><strong>syotti-lite method (<code>--method syotti-lite</code>):</strong></p>
+<p><a href="https://github.com/jnalanko/syotti">Syotti</a> (Alanko et al. 2022) is a greedy set-cover bait designer. It scans the input sequences; at every uncovered position, it extracts a bait of <code>--probe-length</code> bp and marks all reference windows within <code>--syotti-mismatches</code> Hamming distance as covered (checking both strands). This is more targeted than tiling — probes are only generated where coverage is not already achieved by an earlier probe, yielding a smaller set while guaranteeing full coverage. Probes are named <code>probe_{target_id}|syotti_{n}</code>.</p>
+<p>The BaitBench implementation replaces the original FM-index (SDSL/Divsufsort C++ libraries) with a k-mer hash index, which is well-suited to the MB-scale inputs typical in BaitBench and requires no additional dependencies.</p>
+<p>Key design decisions:</p>
+<table>
+<thead>
+<tr>
+<th>Decision</th>
+<th>Choice</th>
+<th>Rationale</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Index type</td>
+<td>k-mer HashMap</td>
+<td>No external dependencies; correct and fast for MB-scale inputs</td>
+</tr>
+<tr>
+<td>N handling</td>
+<td>N always mismatches (not even N≡N)</td>
+<td>Matches Syotti paper semantics</td>
+</tr>
+<tr>
+<td>RC matching</td>
+<td>Query RC of bait against forward index</td>
+<td>Equivalent to bidirectional index; simpler</td>
+</tr>
+<tr>
+<td>Seed guarantee</td>
+<td>All overlapping seeds checked</td>
+<td>Correct for mismatches ≤ probe_length − seed_len; robust beyond that</td>
+</tr>
+<tr>
+<td>Output format</td>
+<td><code>probe_{id}\|syotti_{n}</code></td>
+<td>Consistent with tile format; compatible with downstream pipeline</td>
+</tr>
+</tbody>
+</table>
+<p>Example:</p>
+<pre><code class="language-bash">baitbench build-probes \
+  --targets targets.fa \
+  --method syotti-lite \
+  --probe-length 120 \
+  --syotti-mismatches 40 \
+  --syotti-seed-len 20 \
+  --outdir probes_output
+</code></pre>
+<p>Memory note: the k-mer index stores one entry per seed position per input base. For a 10 MB input with seed_len=20, expect ~500 MB peak memory. For very large inputs, reduce <code>--syotti-seed-len</code> (shorter seeds use more memory) or pre-filter with collapse.</p>
+<blockquote>
+<p>Alanko JN, Slizovskiy IB, Lokshtanov D, Gagie T, Noyes NR, Boucher C. "Syotti: scalable bait design for DNA enrichment." <em>Bioinformatics.</em> 2022;38(Supplement_1):i177–i184. doi:10.1093/bioinformatics/btac226</p>
+</blockquote>
+<p><strong>probetools-lite method (<code>--method probetools-lite</code>):</strong></p>
+<p>BaitBench includes a native Rust reimplementation of the ProbeTools algorithm (Kuchinski et al. 2022, BMC Genomics). ProbeTools takes a coverage-first, diversity-aware approach: rather than starting from every position and pruning (tiling, Syotti) or optimizing a coverage model (CATCH), it identifies which k-mers in the target space are the most <em>representative</em> of sequence diversity — then greedily builds a panel that iterates on remaining coverage gaps.</p>
+<p>This makes it well-suited for highly variable targets (e.g., diverse virus families) where each probe needs to cover many slightly different sequence variants.</p>
+<p><strong>Algorithm:</strong></p>
+<ol>
+<li>
+<p><strong>K-mer enumeration</strong> — Extract all k-mers of length <code>--probe-length</code> from the input sequences using a sliding window with step <code>--pt-step</code>. K-mers with more than 50% N bases are discarded. With the default <code>--pt-step 1</code>, every overlapping window is enumerated; larger values reduce candidates and run time.</p>
+</li>
+<li>
+<p><strong>Clustering</strong> — Cluster all k-mers by sequence identity using cd-hit-est at <code>--pt-identity</code> threshold. Each cluster groups similar k-mers together; the centroid represents the most "central" sequence in that cluster.</p>
+</li>
+<li>
+<p><strong>Ranking</strong> — Sort cluster centroids by cluster size (number of members) in descending order. A large cluster means many similar k-mers exist across the input, so its centroid is a highly representative probe candidate that will hybridize broadly across variants.</p>
+</li>
+<li>
+<p><strong>Batch selection</strong> — Add the top <code>--pt-batch-size</code> ranked centroids to the probe panel.</p>
+</li>
+<li>
+<p><strong>Coverage assessment</strong> — Align the full accumulated panel against all original targets using minimap2 (<code>probe_align</code>), then compute per-position depth from the SAM output. For each target, calculate the fraction of positions with depth ≥ <code>--pt-min-depth</code>. The stopping metric is the <strong>10th-percentile</strong> of these fractions across all targets — meaning 90% of targets must reach the coverage goal before the algorithm considers itself done.</p>
+</li>
+<li>
+<p><strong>Low-coverage extraction</strong> — Find runs of positions where depth &lt; <code>--pt-min-depth</code>. Expand any run shorter than <code>--probe-length</code> bp bidirectionally to exactly <code>--probe-length</code> bp (centred on the run, clipped to sequence boundaries). Merge overlapping expanded regions. Write these sub-sequences to a new FASTA.</p>
+</li>
+<li>
+<p><strong>Iterate</strong> — Repeat steps 1–6 on the under-covered sub-sequences. In each subsequent iteration the k-mer pool is drawn only from remaining problem regions, so probes become progressively more targeted to gaps.</p>
+</li>
+</ol>
+<p><strong>Algorithm substitutions vs. original ProbeTools:</strong></p>
+<p>The original ProbeTools tool uses VSEARCH for k-mer clustering and BLAST+ for coverage assessment. BaitBench replaces both with tools already integrated into the binary:</p>
+<table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Original ProbeTools</th>
+<th>probetools-lite</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>K-mer clustering</td>
+<td>VSEARCH (<code>--cluster_fast</code>)</td>
+<td>cd-hit-est (equivalent identity-based clustering; already used by build-probes)</td>
+</tr>
+<tr>
+<td>Coverage assessment</td>
+<td>blastn (<code>-task blastn-short</code>)</td>
+<td>minimap2 (<code>probe_align</code>, via the embedded rammap library; no external process needed)</td>
+</tr>
+</tbody>
+</table>
+<p>Both substitutions produce equivalent results for probe design. cd-hit-est and VSEARCH use the same sequence identity model. minimap2 and BLAST both produce ungapped short-read alignments against targets of this size, and minimap2 is already embedded in the BaitBench binary as a compiled library (no external <code>minimap2</code> process is spawned).</p>
+<p><strong>Termination conditions:</strong></p>
+<p>The iterative loop exits as soon as <em>any</em> of the following six conditions is met:</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Condition</th>
+<th>Log level</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>10th-pct coverage ≥ <code>--pt-coverage</code></td>
+<td>INFO</td>
+<td>Normal success path</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Panel size ≥ <code>--pt-max-panel-size</code></td>
+<td>INFO</td>
+<td>Only applies when <code>--pt-max-panel-size</code> is set</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Iteration count ≥ <code>--pt-max-iterations</code></td>
+<td>WARN</td>
+<td>Hard safety cap; default 20 iterations</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Coverage gain &lt; <code>--pt-min-coverage-gain</code></td>
+<td>WARN</td>
+<td>Stagnation: each new batch adds negligible coverage</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Low-coverage extraction yields no sequences</td>
+<td>INFO</td>
+<td>All targets fully covered before goal was reached</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Under-covered regions too short or all-N to yield k-mers</td>
+<td>INFO</td>
+<td>Rare; happens with very short or degenerate gap regions</td>
+</tr>
+</tbody>
+</table>
+<p>Conditions 3 and 4 are safety guards against non-termination. If the loop exits with a stagnation warning on real data, it typically means the remaining under-covered regions are too divergent from each other to form clusters at the current <code>--pt-identity</code> threshold. Solutions: lower <code>--pt-identity</code>, lower <code>--pt-coverage</code>, or increase <code>--pt-batch-size</code>.</p>
+<p><strong>Parameters:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--pt-step</code></td>
+<td>1</td>
+<td>Sliding window step between consecutive k-mers during enumeration. <code>1</code> = every position (densest, matching original ProbeTools default). Increasing to <code>30</code> or <code>60</code> speeds up clustering significantly and is reasonable for lower-diversity panels.</td>
+</tr>
+<tr>
+<td><code>--pt-identity</code></td>
+<td>0.9</td>
+<td>cd-hit-est sequence identity threshold for k-mer clustering (0.0–1.0). Lower values merge more divergent k-mers into fewer, broader clusters, producing probes with wider cross-variant coverage. Higher values keep clusters tighter, preserving probe specificity.</td>
+</tr>
+<tr>
+<td><code>--pt-coverage</code></td>
+<td>0.9</td>
+<td>Coverage goal (0.0–1.0). The loop continues until the 10th-percentile of per-target coverage fractions reaches this value. Setting 0.9 means the loop stops when 90% of targets have ≥ 90% of their positions covered at depth ≥ <code>--pt-min-depth</code>.</td>
+</tr>
+<tr>
+<td><code>--pt-batch-size</code></td>
+<td>100</td>
+<td>Probes added per iteration. Larger batches converge faster but may overshoot the goal; smaller batches are more precise but require more iterations and minimap2 alignments. For large, diverse panels a value of 200–500 is practical.</td>
+</tr>
+<tr>
+<td><code>--pt-max-panel-size</code></td>
+<td>(none)</td>
+<td>Hard cap on total probes. Stops once this many probes are selected even if the coverage goal is not met. Use when targeting a fixed array format with a known probe budget.</td>
+</tr>
+<tr>
+<td><code>--pt-min-depth</code></td>
+<td>1</td>
+<td>Minimum per-position depth to count a position as covered. <code>1</code> (default) counts any alignment as sufficient. Set to <code>2</code> or higher to require redundant probe coverage at every position.</td>
+</tr>
+<tr>
+<td><code>--pt-max-iterations</code></td>
+<td>20</td>
+<td>Hard iteration cap. Always terminates after this many iterations regardless of coverage progress. Prevents infinite loops on pathological inputs such as highly repetitive regions or very divergent outlier sequences. A WARN is logged when this limit fires.</td>
+</tr>
+<tr>
+<td><code>--pt-min-coverage-gain</code></td>
+<td>0.001</td>
+<td>Stagnation threshold (0.0–1.0). The loop stops if the 10th-percentile coverage improves by less than this fraction between two consecutive iterations. At the default of <code>0.001</code>, the loop stops if a full batch of probes moves coverage by less than 0.1 percentage points. A WARN is logged when stagnation is detected.</td>
+</tr>
+</tbody>
+</table>
+<p>Example for a diverse viral panel (dense enumeration, lower identity threshold):</p>
+<pre><code class="language-bash">baitbench build-probes \
+  --targets targets.fa \
+  --method probetools-lite \
+  --probe-length 120 \
+  --pt-step 1 \
+  --pt-identity 0.85 \
+  --pt-coverage 0.9 \
+  --pt-batch-size 200 \
+  --pt-max-panel-size 5000 \
+  --pt-max-iterations 15 \
+  --outdir probes_output
+</code></pre>
+<p>Example for a lower-diversity panel (sparser enumeration, faster):</p>
+<pre><code class="language-bash">baitbench build-probes \
+  --targets targets.fa \
+  --method probetools-lite \
+  --probe-length 120 \
+  --pt-step 30 \
+  --pt-identity 0.9 \
+  --pt-coverage 0.95 \
+  --pt-batch-size 50 \
+  --outdir probes_output
+</code></pre>
+<p>Temporary working files are written to <code>&lt;outdir&gt;/probetools_work/</code> during the run and are removed automatically if <code>--cleanup</code> is specified.</p>
+<blockquote>
+<p>Kuchinski KS, Christropher-Hennings J, Bhide K, Bhide M. "ProbeTools: designing hybridization probes for targeted genomic sequencing of diverse and hypervariable viral taxa." <em>BMC Genomics.</em> 2022;23(1):579. doi:10.1186/s12864-022-08790-4</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--targets</code></td>
+<td>required</td>
+<td>Input target sequences FASTA</td>
+</tr>
+<tr>
+<td><code>--method</code></td>
+<td>tile</td>
+<td>Probe construction method: <code>tile</code>, <code>catch-lite</code>, <code>syotti-lite</code>, <code>catch</code>, or <code>probetools-lite</code></td>
+</tr>
+<tr>
+<td><code>--probe-length</code></td>
+<td>120</td>
+<td>Probe length in bp</td>
+</tr>
+<tr>
+<td><code>--step</code></td>
+<td>-60</td>
+<td>Step from end of previous probe. Negative = overlap, 0 = tiled, positive = gap. Only used with <code>--method tile</code>.</td>
+</tr>
+<tr>
+<td><code>--catch-probe-stride</code></td>
+<td>60</td>
+<td>Step between candidate probes (bp). Used with <code>--method catch-lite</code> and <code>--method catch</code>.</td>
+</tr>
+<tr>
+<td><code>--catch-mismatches</code></td>
+<td>5</td>
+<td>Mismatches tolerated for a probe to cover a target window. Used with <code>--method catch-lite</code> and <code>--method catch</code>.</td>
+</tr>
+<tr>
+<td><code>--catch-extension</code></td>
+<td>0</td>
+<td>Flanking bp beyond probe boundaries counted as covered. Used with <code>--method catch-lite</code> and <code>--method catch</code>.</td>
+</tr>
+<tr>
+<td><code>--catch-coverage</code></td>
+<td>1.0</td>
+<td>Fraction of each target that must be covered (0.0–1.0). Used with <code>--method catch-lite</code> and <code>--method catch</code>.</td>
+</tr>
+<tr>
+<td><code>--catch-minhash-threshold</code></td>
+<td>0.6</td>
+<td>Jaccard similarity threshold for near-deduplication; 0.0 disables. Used with <code>--method catch-lite</code> and <code>--method catch</code>.</td>
+</tr>
+<tr>
+<td><code>--syotti-mismatches</code></td>
+<td>40</td>
+<td>Maximum Hamming distance for a bait to cover a reference window. Only used with <code>--method syotti-lite</code>.</td>
+</tr>
+<tr>
+<td><code>--syotti-seed-len</code></td>
+<td>20</td>
+<td>K-mer seed length for Syotti approximate matching. Only used with <code>--method syotti-lite</code>.</td>
+</tr>
+<tr>
+<td><code>--pt-step</code></td>
+<td>1</td>
+<td>Sliding window step between k-mer enumeration windows. Only used with <code>--method probetools-lite</code>.</td>
+</tr>
+<tr>
+<td><code>--pt-identity</code></td>
+<td>0.9</td>
+<td>cd-hit-est identity threshold for k-mer clustering (0.0–1.0). Only used with <code>--method probetools-lite</code>.</td>
+</tr>
+<tr>
+<td><code>--pt-coverage</code></td>
+<td>0.9</td>
+<td>10th-percentile coverage goal (0.0–1.0). Only used with <code>--method probetools-lite</code>.</td>
+</tr>
+<tr>
+<td><code>--pt-batch-size</code></td>
+<td>100</td>
+<td>Probes added per iteration. Only used with <code>--method probetools-lite</code>.</td>
+</tr>
+<tr>
+<td><code>--pt-max-panel-size</code></td>
+<td>(none)</td>
+<td>Hard cap on total probes; no limit if omitted. Only used with <code>--method probetools-lite</code>.</td>
+</tr>
+<tr>
+<td><code>--pt-min-depth</code></td>
+<td>1</td>
+<td>Minimum per-position depth to count as covered. Only used with <code>--method probetools-lite</code>.</td>
+</tr>
+<tr>
+<td><code>--pt-max-iterations</code></td>
+<td>20</td>
+<td>Hard iteration cap (termination guard). Only used with <code>--method probetools-lite</code>.</td>
+</tr>
+<tr>
+<td><code>--pt-min-coverage-gain</code></td>
+<td>0.001</td>
+<td>Stagnation threshold; stops if coverage improvement per iteration falls below this (termination guard). Only used with <code>--method probetools-lite</code>.</td>
+</tr>
+<tr>
+<td><code>--min-gc</code></td>
+<td>0.20</td>
+<td>Minimum GC fraction (0–1)</td>
+</tr>
+<tr>
+<td><code>--max-gc</code></td>
+<td>0.80</td>
+<td>Maximum GC fraction (0–1)</td>
+</tr>
+<tr>
+<td><code>--max-n-frac</code></td>
+<td>0.05</td>
+<td>Maximum fraction of ambiguous (non-ACGT) bases in a target sequence (0–1). Targets exceeding this are removed before collapse.</td>
+</tr>
+<tr>
+<td><code>--no-n-in-probes</code></td>
+<td>false</td>
+<td>Replace N bases in designed probes with a real nucleotide (T preferred; falls back to A, C, or G if T would be immediately adjacent to an existing T). Runs after probe construction and before GC filtering.</td>
+</tr>
+<tr>
+<td><code>--dust-threshold</code></td>
+<td>2.0</td>
+<td>sDUST score threshold <em>T</em> for low-complexity detection</td>
+</tr>
+<tr>
+<td><code>--dust-window</code></td>
+<td>64</td>
+<td>sDUST window size <em>W</em> in bases</td>
+</tr>
+<tr>
+<td><code>--max-masked-frac</code></td>
+<td>0.25</td>
+<td>Maximum fraction of bases masked by sDUST to keep a probe (0–1). Set to 1.0 to disable.</td>
+</tr>
+<tr>
+<td><code>--collapse-threshold</code></td>
+<td>0.95</td>
+<td>cd-hit-est identity threshold for initial collapse</td>
+</tr>
+<tr>
+<td><code>--dedup-threshold</code></td>
+<td>0.95</td>
+<td>cd-hit-est identity threshold for final dedup</td>
+</tr>
+<tr>
+<td><code>--threads</code></td>
+<td>5</td>
+<td>Threads for cd-hit-est</td>
+</tr>
+<tr>
+<td><code>--genomes</code></td>
+<td>none</td>
+<td>Genome FASTA(s) to check cross-reactivity against (assessment step)</td>
+</tr>
+<tr>
+<td><code>--threshold</code></td>
+<td>80.0</td>
+<td>Homology threshold for cross-reactivity (assessment step)</td>
+</tr>
+<tr>
+<td><code>--minimap-preset</code></td>
+<td>sr</td>
+<td>Minimap2 alignment preset (assessment step)</td>
+</tr>
+<tr>
+<td><code>--proximity</code></td>
+<td>50</td>
+<td>Pull-down zone distance in bp (assessment step)</td>
+</tr>
+<tr>
+<td><code>--skip-assess</code></td>
+<td>false</td>
+<td>Skip automatic probe assessment after building</td>
+</tr>
+<tr>
+<td><code>--outdir</code></td>
+<td>./build_probes_results</td>
+<td>Output directory</td>
+</tr>
+<tr>
+<td><code>--report</code></td>
+<td>full</td>
+<td>Report mode (full, none, rmd)</td>
+</tr>
+<tr>
+<td><code>--cleanup</code></td>
+<td>false</td>
+<td>Delete intermediate files</td>
+</tr>
+<tr>
+<td><code>--refine-iterations</code></td>
+<td>none</td>
+<td>Number of refinement iterations on low-coverage targets (assessment step; mutually exclusive with <code>--refine-until-stable</code>)</td>
+</tr>
+<tr>
+<td><code>--refine-until-stable</code></td>
+<td>false</td>
+<td>Repeat refinement until no targets remain below the threshold or set stabilizes (assessment step; mutually exclusive with <code>--refine-iterations</code>)</td>
+</tr>
+<tr>
+<td><code>--refine-threshold</code></td>
+<td>80.0</td>
+<td>1X coverage threshold (%) for refinement iterations (assessment step)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Auto-assessment:</strong></p>
+<p>After building probes, <code>build-probes</code> automatically chains into <code>assess-probes</code> which runs probe coverage analysis and self-homology cross-reactivity. If <code>--genomes</code> is specified, cross-reactivity is also checked against those genomes. The combined report includes both build pipeline statistics and assessment results. Use <code>--skip-assess</code> to produce only the build pipeline output.</p>
+<p><strong>Complexity filtering (sDUST):</strong></p>
+<p>Low-complexity sequences (homopolymer runs, dinucleotide repeats, etc.) make poor probes because they hybridize non-specifically. The sDUST algorithm identifies low-complexity regions by computing a score based on triplet (3-mer) frequencies within sliding windows. Regions where a single triplet dominates receive high scores. The <code>--dust-threshold</code> parameter controls the sensitivity (lower = more aggressive masking). The default threshold of 2.0 and window size of 64 match NCBI's dustmasker defaults.</p>
+<blockquote>
+<p>Morgulis A, Gertz EM, Schäffer AA, Agarwala R. "A Fast and Symmetric DUST Implementation to Mask Low-Complexity DNA Sequences." <em>J Comput Biol.</em> 2006;13(5):1028-1040. doi:10.1089/cmb.2006.13.1028</p>
+</blockquote>
+<p><strong>Output files:</strong></p>
+<ul>
+<li><code>probes_final.fa</code> -- final deduplicated probe set</li>
+<li><code>build_probes_stats.tsv</code> -- sequence/base counts at each pipeline step</li>
+<li><code>assess_probes_report.html</code> -- combined HTML report with build stats + assessment (unless <code>--skip-assess</code>)</li>
+<li><code>cov_probe_coverage_summary.tsv</code> -- per-target coverage statistics (from assessment)</li>
+<li><code>cov_probe_depth.tsv</code> -- probe depth intervals (from assessment)</li>
+<li><code>xreact_hits.tsv</code> -- cross-reactivity hits (from assessment)</li>
+<li><code>xreact_summary.tsv</code> -- cross-reactivity summary (from assessment)</li>
+</ul>
+<p>With <code>--skip-assess</code>, only produces <code>probes_final.fa</code>, <code>build_probes_stats.tsv</code>, and optionally <code>build_probes_report.html</code>.</p>
+<h3 id="tool">tool<a class="headerlink" href="#tool" title="Permanent link">&para;</a></h3>
+<p>Standalone utility tools grouped under a single subcommand. Run <code>baitbench tool --help</code> to list available tools.</p>
+<pre><code class="language-bash">baitbench tool &lt;TOOL&gt; [OPTIONS]
+</code></pre>
+<h4 id="tool-syotti">tool syotti<a class="headerlink" href="#tool-syotti" title="Permanent link">&para;</a></h4>
+<p>Run the Syotti greedy bait design algorithm directly, without the <code>build-probes</code> pipeline (no collapse, GC filter, complexity filter, or deduplication). Useful for testing Syotti parameters in isolation or when you want to bypass the pipeline.</p>
+<pre><code class="language-bash">baitbench tool syotti \
+  --targets targets.fa \
+  --output probes.fa \
+  [--probe-length 120] \
+  [--mismatches 40] \
+  [--seed-len 20]
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--targets</code></td>
+<td>required</td>
+<td>Input target sequences FASTA</td>
+</tr>
+<tr>
+<td><code>--output</code></td>
+<td>required</td>
+<td>Output probe sequences FASTA</td>
+</tr>
+<tr>
+<td><code>--probe-length</code></td>
+<td>120</td>
+<td>Probe (bait) length in bp</td>
+</tr>
+<tr>
+<td><code>--mismatches</code></td>
+<td>40</td>
+<td>Maximum Hamming distance for a bait to cover a reference window. N never matches.</td>
+</tr>
+<tr>
+<td><code>--seed-len</code></td>
+<td>20</td>
+<td>K-mer seed length for approximate matching. Matching is guaranteed correct when mismatches ≤ probe_length − seed_len.</td>
+</tr>
+</tbody>
+</table>
+<h4 id="tool-catch">tool catch<a class="headerlink" href="#tool-catch" title="Permanent link">&para;</a></h4>
+<p>Run the CATCH optimization probe design algorithm directly, without the <code>build-probes</code> pipeline.</p>
+<pre><code class="language-bash">baitbench tool catch \
+  --targets targets.fa \
+  --output probes.fa \
+  [--probe-length 120] \
+  [--stride 60] \
+  [--mismatches 5] \
+  [--extension 0] \
+  [--coverage 1.0] \
+  [--minhash-threshold 0.6]
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--targets</code></td>
+<td>required</td>
+<td>Input target sequences FASTA</td>
+</tr>
+<tr>
+<td><code>--output</code></td>
+<td>required</td>
+<td>Output probe sequences FASTA</td>
+</tr>
+<tr>
+<td><code>--probe-length</code></td>
+<td>120</td>
+<td>Probe (bait) length in bp</td>
+</tr>
+<tr>
+<td><code>--stride</code></td>
+<td>60</td>
+<td>Tiling step in bp</td>
+</tr>
+<tr>
+<td><code>--mismatches</code></td>
+<td>5</td>
+<td>Maximum mismatches for a probe to cover a window</td>
+</tr>
+<tr>
+<td><code>--extension</code></td>
+<td>0</td>
+<td>Extension length on each side of candidate probes</td>
+</tr>
+<tr>
+<td><code>--coverage</code></td>
+<td>1.0</td>
+<td>Fraction of each target that must be covered</td>
+</tr>
+<tr>
+<td><code>--minhash-threshold</code></td>
+<td>0.6</td>
+<td>MinHash Jaccard similarity threshold for deduplication</td>
+</tr>
+</tbody>
+</table>
+<h4 id="tool-dustview">tool dustview<a class="headerlink" href="#tool-dustview" title="Permanent link">&para;</a></h4>
+<p>Visualize sDUST low-complexity masking on FASTA sequences. Outputs to stdout: original sequence, masked sequence (X marks low-complexity regions), and per-sequence statistics.</p>
+<pre><code class="language-bash">baitbench tool dustview [input.fa] [--dust-threshold 2.0] [--dust-window 64]
+# or from stdin:
+cat sequences.fa | baitbench tool dustview
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>input</code></td>
+<td>stdin</td>
+<td>Input FASTA file (positional, optional)</td>
+</tr>
+<tr>
+<td><code>--dust-threshold</code></td>
+<td>2.0</td>
+<td>DUST score threshold — positions above this are masked</td>
+</tr>
+<tr>
+<td><code>--dust-window</code></td>
+<td>64</td>
+<td>DUST sliding window size in bases</td>
+</tr>
+</tbody>
+</table>
+<h4 id="tool-collapse">tool collapse<a class="headerlink" href="#tool-collapse" title="Permanent link">&para;</a></h4>
+<p>Cluster near-duplicate sequences using cd-hit-est and write cluster representatives to a FASTA file.</p>
+<pre><code class="language-bash">baitbench tool collapse \
+  --input sequences.fa \
+  --output collapsed.fa \
+  [--threshold 0.95] \
+  [--threads 1] \
+  [--log-file cdhit.log]
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--input</code></td>
+<td>required</td>
+<td>Input FASTA file</td>
+</tr>
+<tr>
+<td><code>--output</code></td>
+<td>required</td>
+<td>Output FASTA file (cluster representatives)</td>
+</tr>
+<tr>
+<td><code>--threshold</code></td>
+<td>0.95</td>
+<td>Sequence identity threshold for clustering</td>
+</tr>
+<tr>
+<td><code>--threads</code></td>
+<td>1</td>
+<td>Number of threads for cd-hit-est</td>
+</tr>
+<tr>
+<td><code>--log-file</code></td>
+<td>cdhit.log</td>
+<td>Path to write cd-hit-est log output</td>
+</tr>
+</tbody>
+</table>
+<h3 id="assess-probes">assess-probes<a class="headerlink" href="#assess-probes" title="Permanent link">&para;</a></h3>
+<p>Standalone combined probe assessment. Runs probe coverage analysis and cross-reactivity analysis (self-homology always; against genomes if <code>--genomes</code> provided), producing a single combined HTML report.</p>
+<pre><code class="language-bash">baitbench assess-probes \
+  --targets targets.fa \
+  --probes probes.fa \
+  [--genomes genome1.fa genome2.fa ...] \
+  [--threshold 80.0] \
+  [--minimap-preset sr] \
+  [--proximity 50] \
+  [--outdir assess_probes_results] \
+  [--output-prefix &quot;&quot;] \
+  [--report full|none|rmd] \
+  [--cleanup] \
+  [--all-individual-targets] \
+  [--refine-iterations N | --refine-until-stable] \
+  [--refine-threshold 80.0]
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--targets</code></td>
+<td>required</td>
+<td>Target sequences FASTA</td>
+</tr>
+<tr>
+<td><code>--probes</code></td>
+<td>required</td>
+<td>Probe sequences FASTA</td>
+</tr>
+<tr>
+<td><code>--genomes</code></td>
+<td>none</td>
+<td>Genome FASTA(s) to check cross-reactivity against (repeatable)</td>
+</tr>
+<tr>
+<td><code>--threshold</code></td>
+<td>80.0</td>
+<td>Minimum homology % to report cross-reactive hits</td>
+</tr>
+<tr>
+<td><code>--minimap-preset</code></td>
+<td>sr</td>
+<td>Minimap2 alignment preset</td>
+</tr>
+<tr>
+<td><code>--proximity</code></td>
+<td>50</td>
+<td>Pull-down zone distance in bp</td>
+</tr>
+<tr>
+<td><code>--outdir</code></td>
+<td>./assess_probes_results</td>
+<td>Output directory</td>
+</tr>
+<tr>
+<td><code>--output-prefix</code></td>
+<td>(empty)</td>
+<td>String prepended to every output filename</td>
+</tr>
+<tr>
+<td><code>--report</code></td>
+<td>full</td>
+<td>Report mode: <code>full</code> (HTML), <code>none</code> (skip), <code>rmd</code> (editable RMarkdown)</td>
+</tr>
+<tr>
+<td><code>--cleanup</code></td>
+<td>false</td>
+<td>Delete intermediate files (SAM, logs) after completion</td>
+</tr>
+<tr>
+<td><code>--all-individual-targets</code></td>
+<td>false</td>
+<td>Also compute probe coverage for each target individually. Runs minimap2 once per target against that target alone, eliminating all probe competition from similar targets. Produces <code>individual_target_coverage_summary.tsv</code> and adds an <strong>Individual Target Coverage</strong> section to the report.</td>
+</tr>
+<tr>
+<td><code>--refine-iterations</code></td>
+<td>none</td>
+<td>Number of refinement iterations (mutually exclusive with <code>--refine-until-stable</code>)</td>
+</tr>
+<tr>
+<td><code>--refine-until-stable</code></td>
+<td>false</td>
+<td>Repeat refinement until no targets remain below the threshold or the set stops changing (mutually exclusive with <code>--refine-iterations</code>)</td>
+</tr>
+<tr>
+<td><code>--refine-threshold</code></td>
+<td>80.0</td>
+<td>1X coverage threshold (%) used to identify low-coverage targets for refinement</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Output files:</strong></p>
+<ul>
+<li><code>cov_probe_coverage_summary.tsv</code> -- per-target coverage statistics (pangenome alignment)</li>
+<li><code>cov_probe_depth.tsv</code> -- run-length encoded probe depth intervals</li>
+<li><code>cov_multi_mapping_probes.tsv</code> -- probes mapping to multiple targets</li>
+<li><code>xreact_hits.tsv</code> -- cross-reactivity hits above threshold</li>
+<li><code>xreact_summary.tsv</code> -- per-probe cross-reactivity summary</li>
+<li><code>assess_run_params.tsv</code> -- run parameters</li>
+<li><code>individual_target_coverage_summary.tsv</code> -- per-target coverage without probe competition (only with <code>--all-individual-targets</code>)</li>
+<li><code>assess_probes_report.html</code> -- combined HTML report (<code>--report full</code>)</li>
+<li><code>assess_probes_report.Rmd</code> -- editable RMarkdown file (<code>--report rmd</code>)</li>
+<li><code>refine_N_targets.fa</code> -- filtered targets for refinement iteration N (when <code>--refine-iterations</code> or <code>--refine-until-stable</code>)</li>
+<li><code>refine_N_cov_probe_coverage_summary.tsv</code> -- coverage statistics for refinement iteration N</li>
+<li><code>refine_N_probe_coverage_report.html</code> -- probe coverage report for refinement iteration N</li>
+</ul>
+<p><strong>Report sections:</strong></p>
+<ol>
+<li><strong>Probe Coverage</strong> -- summary table, coverage breadth bar charts, individual target coverage (if <code>--all-individual-targets</code>), tiered coverage, gap analysis, pangenome depth (subtitle shows % pangenome ≥1X), depth profiles, proximity coverage, multi-mapping probes</li>
+<li><strong>Self-Homology</strong> -- heatmap (≤1000 probes), density plots, hits table</li>
+<li><strong>Cross-Reactivity vs Genomes</strong> (if <code>--genomes</code> provided) -- heatmap, per-genome bar chart, density plots, hits table</li>
+<li><strong>Parameters</strong> -- run configuration under a collapsible fold</li>
+</ol>
+<p><strong>Refinement iterations:</strong></p>
+<p>Many target panels contain highly similar sequences (e.g. closely related viruses or gene variants) that are unlikely to occur together in the same sample. When all targets are assessed together, probe coverage for any one target may appear low because the probes covering it also tile many similar targets — but those similar targets would not be present in real samples. Refinement iterations address this by re-running probe coverage on only the targets that showed poor coverage (below <code>--refine-threshold</code>), so you can assess how well the probes cover each subset in isolation.</p>
+<ul>
+<li><strong><code>--refine-iterations N</code></strong> runs exactly N additional probe-coverage-only analyses after the initial full assessment. Each iteration filters to targets with <code>pct_covered_1x &lt; --refine-threshold</code> from the previous iteration's summary, runs probe coverage on that subset, and produces a separate <code>refine_N_probe_coverage_report.html</code>. Stops early if no targets remain below the threshold.</li>
+<li><strong><code>--refine-until-stable</code></strong> repeats automatically until no targets fall below the threshold, or until the set of low-coverage targets stops changing between iterations (indicating no further improvement is possible).</li>
+<li><strong><code>--refine-threshold</code></strong> (default 80.0) sets the 1X coverage percentage below which a target is considered poorly covered and included in the next refinement iteration. Applies to both modes.</li>
+</ul>
+<p>The refinement reports are probe-coverage-only (no cross-reactivity re-analysis, since that does not depend on the target subset).</p>
+<hr />
+<h2 id="parameter-reference">Parameter Reference<a class="headerlink" href="#parameter-reference" title="Permanent link">&para;</a></h2>
+<h3 id="input-files">Input Files<a class="headerlink" href="#input-files" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Flag</th>
+<th>Default</th>
+<th>Applies to</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Targets</td>
+<td><code>--targets</code>, <code>-t</code></td>
+<td>required</td>
+<td>run, prepare, probe-coverage, coverage-curve</td>
+<td>FASTA of target sequences the probes are designed to capture</td>
+</tr>
+<tr>
+<td>Genomes</td>
+<td><code>--genomes</code>, <code>-g</code></td>
+<td>none</td>
+<td>run, prepare, coverage-curve</td>
+<td>FASTA of full genomes for fragment generation (genome mode)</td>
+</tr>
+<tr>
+<td>Distractors</td>
+<td><code>--distractors</code>, <code>-d</code></td>
+<td>required</td>
+<td>run, prepare, coverage-curve</td>
+<td>FASTA of background sequences that should not be captured. Can be specified multiple times to provide multiple distractor files</td>
+</tr>
+<tr>
+<td>Probes</td>
+<td><code>--probes</code>, <code>-p</code></td>
+<td>required</td>
+<td>run, capture, probe-coverage, coverage-curve</td>
+<td>FASTA of probe sequences</td>
+</tr>
+<tr>
+<td>Sample</td>
+<td><code>--sample</code></td>
+<td>all targets</td>
+<td>run, coverage-curve</td>
+<td>Sample targets or genomes: TSV file path OR inline IDs with optional weights. See <a href="#sample-manifest-format">Sample Manifest Format</a></td>
+</tr>
+<tr>
+<td>Sample-target map</td>
+<td><code>--sample-target-map</code></td>
+<td>none</td>
+<td>run, prepare, coverage-curve</td>
+<td>TSV mapping genome IDs to target IDs (genome mode). See <a href="#sample-target-map-format">Sample-Target Map Format</a></td>
+</tr>
+<tr>
+<td>Groups</td>
+<td><code>--groups</code></td>
+<td>none</td>
+<td>run, prepare</td>
+<td>TSV mapping target sequence IDs to group names for group-level metrics. See <a href="#groups-file-format">Groups File Format</a></td>
+</tr>
+<tr>
+<td>Distractor groups</td>
+<td><code>--distractor-groups</code></td>
+<td>none</td>
+<td>run, prepare</td>
+<td>TSV mapping distractor sequence IDs to group names (overrides default file-stem grouping). See <a href="#groups-file-format">Groups File Format</a></td>
+</tr>
+<tr>
+<td>Host FASTA</td>
+<td><code>--host-fasta</code></td>
+<td>none</td>
+<td>run, coverage-curve</td>
+<td>Host genome for read filtering</td>
+</tr>
+</tbody>
+</table>
+<h3 id="fragment-generation">Fragment Generation<a class="headerlink" href="#fragment-generation" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Flag</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Num fragments</td>
+<td><code>--num-fragments</code></td>
+<td>10000</td>
+<td>Number of fragments to generate. More fragments = better statistical power but slower</td>
+</tr>
+<tr>
+<td>Fragment length mean</td>
+<td><code>--fragment-length-mean</code></td>
+<td>175</td>
+<td>Mean fragment length in bp. Center of the normal distribution</td>
+</tr>
+<tr>
+<td>Fragment length min</td>
+<td><code>--fragment-length-min</code></td>
+<td>150</td>
+<td>Minimum fragment length in bp. Fragments shorter than this are discarded</td>
+</tr>
+<tr>
+<td>Fragment length max</td>
+<td><code>--fragment-length-max</code></td>
+<td>200</td>
+<td>Maximum fragment length in bp. Fragments longer than this are truncated</td>
+</tr>
+</tbody>
+</table>
+<h3 id="target-abundance">Target Abundance<a class="headerlink" href="#target-abundance" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Flag</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Distractor fraction</td>
+<td><code>--distractor-fraction</code>, <code>-f</code></td>
+<td>0.9</td>
+<td>Fraction of fragments from distractor sequences (0-1). Higher = lower target abundance. <strong>Mutually exclusive with <code>--ct</code></strong></td>
+</tr>
+<tr>
+<td>CT score</td>
+<td><code>--ct</code></td>
+<td>none</td>
+<td>qPCR CT (cycle threshold) score. Converted to distractor fraction via calibration formula. Lower CT = more target. <strong>Mutually exclusive with <code>--distractor-fraction</code></strong></td>
+</tr>
+</tbody>
+</table>
+<p>If neither <code>--distractor-fraction</code> nor <code>--ct</code> is specified, defaults to a distractor fraction of 0.9 (10% target).</p>
+<h3 id="ct-score-parameters">CT Score Parameters<a class="headerlink" href="#ct-score-parameters" title="Permanent link">&para;</a></h3>
+<p>These parameters calibrate the CT-to-fraction conversion. Only relevant when using <code>--ct</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Flag</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CT baseline</td>
+<td><code>--ct-baseline</code></td>
+<td>20.0</td>
+<td>The CT value at which the target fraction equals the baseline fraction. Blocked by <code>--ct-calibration</code></td>
+</tr>
+<tr>
+<td>CT baseline fraction</td>
+<td><code>--ct-baseline-fraction</code></td>
+<td>0.01</td>
+<td>The target fraction at the baseline CT value. Blocked by <code>--ct-calibration</code></td>
+</tr>
+<tr>
+<td>CT efficiency</td>
+<td><code>--ct-efficiency</code></td>
+<td>1.0</td>
+<td>PCR amplification efficiency (0–1). 1.0 = perfect doubling per cycle; typical assays run at 0.90–0.98. Blocked by <code>--ct-calibration</code></td>
+</tr>
+<tr>
+<td>CT calibration</td>
+<td><code>--ct-calibration</code></td>
+<td>—</td>
+<td>Two <code>"CT,fraction"</code> reference points (e.g. <code>"20.0,0.01" "30.0,0.00001"</code>). Derives efficiency automatically from the slope; replaces <code>--ct-baseline</code>, <code>--ct-baseline-fraction</code>, and <code>--ct-efficiency</code></td>
+</tr>
+</tbody>
+</table>
+<p>See <a href="#ct-score-calculation">CT Score Calculation</a> for details.</p>
+<h3 id="simulation-parameters">Simulation Parameters<a class="headerlink" href="#simulation-parameters" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Flag</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Simulate mode</td>
+<td><code>--simulate-mode</code></td>
+<td>thermodynamic</td>
+<td><code>thermodynamic</code> (TNN Boltzmann weighting) or <code>simple</code> (uniform probe-site weights)</td>
+</tr>
+<tr>
+<td>Hybridization temperature</td>
+<td><code>--hybridization-temperature</code></td>
+<td>70.0</td>
+<td>Fixed hybridization temperature in °C; only used in thermodynamic mode. Use <code>--hybridization-temperature-values</code> to sweep</td>
+</tr>
+<tr>
+<td>Hybridization temperature sweep</td>
+<td><code>--hybridization-temperature-values</code></td>
+<td>—</td>
+<td>Space-separated temperatures to sweep in <code>coverage-curve</code> (e.g. <code>55 65 70 75</code>). Conflicts with <code>--hybridization-temperature</code>. Thermodynamic mode only</td>
+</tr>
+<tr>
+<td>Capture fraction</td>
+<td><code>--capture-fraction</code></td>
+<td>0.5</td>
+<td>Fraction of fragments from probe binding sites (0.0–1.0); remainder are background</td>
+</tr>
+</tbody>
+</table>
+<h3 id="sequencing-parameters">Sequencing Parameters<a class="headerlink" href="#sequencing-parameters" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Flag</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Read length</td>
+<td><code>--read-length</code></td>
+<td>120</td>
+<td>Trim fragments to this length (bp). Used by <code>perfect</code> and <code>art</code>. Not applicable for <code>badread</code></td>
+</tr>
+<tr>
+<td>Num sequences</td>
+<td><code>--num-sequences</code></td>
+<td>all</td>
+<td>Number of reads to sample with replacement. If not set, all fragments become reads. Models sequencing depth control</td>
+</tr>
+<tr>
+<td>Read simulator</td>
+<td><code>--read-simulator</code></td>
+<td><code>perfect</code></td>
+<td><code>perfect</code> (trim, no errors), <code>art</code> (Illumina via ART-modern), <code>badread</code> (long reads — ONT or PacBio CLR)</td>
+</tr>
+<tr>
+<td>Sequencer profile</td>
+<td><code>--sequencer-profile</code></td>
+<td><code>HiSeq2500_150bp</code> / <code>ont</code></td>
+<td>Chemistry / error model. Required for <code>art</code> and <code>badread</code>. See <a href="#sequence">sequence command docs</a> for details</td>
+</tr>
+<tr>
+<td>Coverage depth</td>
+<td><code>--coverage-depth</code></td>
+<td>1.0</td>
+<td>Reads generated per fragment for <code>art</code>/<code>badread</code>. With <code>badread</code>, depth=1 ≈ 1 read per captured fragment</td>
+</tr>
+<tr>
+<td>Paired-end</td>
+<td><code>--paired-end</code></td>
+<td>false</td>
+<td>Paired-end output (art only). Produces reads.fa + reads_R2.fa</td>
+</tr>
+<tr>
+<td>PE fragment mean</td>
+<td><code>--pe-frag-len-mean</code></td>
+<td>200</td>
+<td>Mean insert size for paired-end (<code>art</code> + <code>--paired-end</code>)</td>
+</tr>
+<tr>
+<td>PE fragment SD</td>
+<td><code>--pe-frag-len-sd</code></td>
+<td>50</td>
+<td>Insert size std-dev for paired-end (<code>art</code> + <code>--paired-end</code>)</td>
+</tr>
+<tr>
+<td>Output format</td>
+<td><code>--output-format</code></td>
+<td><code>fasta</code></td>
+<td>Output format for reads: <code>fasta</code> (quality discarded) or <code>fastq</code> (quality preserved). <code>perfect</code> writes dummy Q40 when <code>fastq</code> is selected</td>
+</tr>
+<tr>
+<td>Long-read length mean</td>
+<td><code>--long-read-length-mean</code></td>
+<td>profile default</td>
+<td>Override badread read length mean (bp). Profile defaults: 9000 (ont/ont-2020), 15000 (pacbio)</td>
+</tr>
+<tr>
+<td>Long-read length SD</td>
+<td><code>--long-read-length-sd</code></td>
+<td>profile default</td>
+<td>Override badread read length SD (bp). Profile defaults: 7000 (ont/ont-2020), 13000 (pacbio)</td>
+</tr>
+<tr>
+<td>Badread glitches</td>
+<td><code>--badread-glitches</code></td>
+<td>badread default</td>
+<td><code>"rate,size,skips"</code> string, e.g. <code>"10000,100,25"</code>. Set to <code>"0,0,0"</code> to disable</td>
+</tr>
+<tr>
+<td>Badread junk reads</td>
+<td><code>--badread-junk-reads</code></td>
+<td>badread default (1%)</td>
+<td>Percentage (0–100) of reads that are junk sequence</td>
+</tr>
+<tr>
+<td>Badread random reads</td>
+<td><code>--badread-random-reads</code></td>
+<td>badread default (1%)</td>
+<td>Percentage (0–100) of reads that are random noise</td>
+</tr>
+<tr>
+<td>Badread chimeras</td>
+<td><code>--badread-chimeras</code></td>
+<td>badread default (1%)</td>
+<td>Percentage (0–100) of reads that are chimeric</td>
+</tr>
+</tbody>
+</table>
+<h4 id="minimap2-preset-auto-selection">Minimap2 Preset Auto-Selection<a class="headerlink" href="#minimap2-preset-auto-selection" title="Permanent link">&para;</a></h4>
+<p>When <code>--minimap-preset</code> (and <code>--host-minimap-preset</code>) are not specified, <code>baitbench run</code> automatically picks the appropriate preset based on <code>--read-simulator</code> and <code>--sequencer-profile</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Simulator</th>
+<th>Profile</th>
+<th>Auto preset</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>perfect</code></td>
+<td>—</td>
+<td><code>sr</code></td>
+</tr>
+<tr>
+<td><code>art</code></td>
+<td>any</td>
+<td><code>sr</code></td>
+</tr>
+<tr>
+<td><code>badread</code></td>
+<td><code>ont</code>, <code>ont-2020</code></td>
+<td><code>map-ont</code></td>
+</tr>
+<tr>
+<td><code>badread</code></td>
+<td><code>pacbio</code></td>
+<td><code>map-pb</code></td>
+</tr>
+</tbody>
+</table>
+<p>You can always override by passing <code>--minimap-preset</code> explicitly.</p>
+<h3 id="execution-parameters">Execution Parameters<a class="headerlink" href="#execution-parameters" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Flag</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Threads</td>
+<td><code>--threads</code></td>
+<td>1</td>
+<td>Number of threads for external tools (minimap2, BLAST)</td>
+</tr>
+<tr>
+<td>Output dir</td>
+<td><code>--outdir</code>, <code>-o</code></td>
+<td>./results</td>
+<td>Output directory. A timestamped subdirectory is created for each run</td>
+</tr>
+<tr>
+<td>Output prefix</td>
+<td><code>--output-prefix</code></td>
+<td>(empty)</td>
+<td>String prepended to every auto-generated output filename. Available on <code>run</code>, <code>prepare</code>, <code>probe-coverage</code>, <code>coverage-curve</code>, <code>xreact</code>, <code>panel-qc</code>, <code>identify</code>. E.g., <code>--output-prefix myrun_</code> produces <code>myrun_results.tsv</code> instead of <code>results.tsv</code></td>
+</tr>
+<tr>
+<td>Run name</td>
+<td><code>--run-name</code></td>
+<td>auto</td>
+<td>Custom name for the run. Default: <code>run_YYYYMMDD_HHMMSS</code></td>
+</tr>
+<tr>
+<td>Report mode</td>
+<td><code>--report</code></td>
+<td>full</td>
+<td>Report output: <code>full</code> (render HTML), <code>none</code> (skip), <code>rmd</code> (editable RMarkdown file)</td>
+</tr>
+<tr>
+<td>Seed</td>
+<td><code>--seed</code>, <code>-s</code></td>
+<td>random</td>
+<td>Random seed for reproducibility. If not set, results vary between runs</td>
+</tr>
+<tr>
+<td>Verbose</td>
+<td><code>--verbose</code></td>
+<td>false</td>
+<td>Enable debug logging (global flag)</td>
+</tr>
+<tr>
+<td>Minimap preset</td>
+<td><code>--minimap-preset</code></td>
+<td>auto</td>
+<td>Minimap2 preset for read mapping. Auto-selected based on <code>--read-simulator</code> and <code>--sequencer-profile</code> (see below)</td>
+</tr>
+<tr>
+<td>Host minimap preset</td>
+<td><code>--host-minimap-preset</code></td>
+<td>auto</td>
+<td>Minimap2 preset for host read filtering. Same auto-selection as <code>--minimap-preset</code></td>
+</tr>
+<tr>
+<td>Cleanup</td>
+<td><code>--cleanup</code></td>
+<td>false</td>
+<td>Delete intermediate files after completion, keeping only report inputs and final outputs. Available on <code>run</code>, <code>coverage-curve</code>, <code>probe-coverage</code>, and <code>xreact</code></td>
+</tr>
+<tr>
+<td>Identify</td>
+<td><code>--identify</code></td>
+<td>false</td>
+<td>Enable species-level identification after metrics (genome mode only, requires <code>--sample-target-map</code>). Available on <code>run</code></td>
+</tr>
+<tr>
+<td>Identity threshold</td>
+<td><code>--identity-threshold</code></td>
+<td>90.0</td>
+<td>Minimum sequence identity % to consider targets "similar" for species identification. Available on <code>run</code>, <code>panel-qc</code>, <code>identify</code></td>
+</tr>
+<tr>
+<td>Min unique targets</td>
+<td><code>--min-unique-targets</code></td>
+<td>1</td>
+<td>Minimum unique target detections required to call a species PRESENT. Available on <code>run</code>, <code>identify</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="ct-score-calculation">CT Score Calculation<a class="headerlink" href="#ct-score-calculation" title="Permanent link">&para;</a></h2>
+<p>CT (cycle threshold) scores from qPCR provide an intuitive way to express target abundance. In qPCR, each cycle amplifies the DNA by a factor of <code>(1 + E)</code>, where E is the amplification efficiency. At 100% efficiency, each cycle doubles the DNA. Lower CT = more target DNA.</p>
+<h3 id="the-formula">The Formula<a class="headerlink" href="#the-formula" title="Permanent link">&para;</a></h3>
+<pre><code>target_fraction = ct_baseline_fraction * (1 + efficiency)^(ct_baseline - ct)
+distractor_fraction = 1 - target_fraction
+</code></pre>
+<p>Where:
+- <code>ct_baseline</code> is a known CT value (default: 20.0)
+- <code>ct_baseline_fraction</code> is the target fraction at that CT (default: 0.01)
+- <code>efficiency</code> is the PCR amplification efficiency (default: 1.0 = 100%)
+- <code>ct</code> is the CT value you want to simulate</p>
+<h3 id="default-calibration">Default Calibration<a class="headerlink" href="#default-calibration" title="Permanent link">&para;</a></h3>
+<p>With defaults (<code>--ct-baseline 20.0</code>, <code>--ct-baseline-fraction 0.01</code>, <code>--ct-efficiency 1.0</code>), the interpretation is: "at CT 20, 1% of DNA is from targets, assuming 100% PCR efficiency."</p>
+<h3 id="ct-reference-table">CT Reference Table<a class="headerlink" href="#ct-reference-table" title="Permanent link">&para;</a></h3>
+<p>Values below use default parameters (efficiency = 1.0, baseline CT 20 = 1% target):</p>
+<table>
+<thead>
+<tr>
+<th>CT</th>
+<th>Target fraction</th>
+<th>Distractor fraction</th>
+<th>Interpretation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>10</td>
+<td>100%*</td>
+<td>0%</td>
+<td>Pure target (capped at 100%)</td>
+</tr>
+<tr>
+<td>15</td>
+<td>32%</td>
+<td>68%</td>
+<td>Very high abundance</td>
+</tr>
+<tr>
+<td>18</td>
+<td>4%</td>
+<td>96%</td>
+<td>High abundance</td>
+</tr>
+<tr>
+<td>20</td>
+<td>1%</td>
+<td>99%</td>
+<td>Moderate (baseline)</td>
+</tr>
+<tr>
+<td>22</td>
+<td>0.25%</td>
+<td>99.75%</td>
+<td>Low-moderate</td>
+</tr>
+<tr>
+<td>25</td>
+<td>0.031%</td>
+<td>99.97%</td>
+<td>Low abundance</td>
+</tr>
+<tr>
+<td>28</td>
+<td>0.004%</td>
+<td>99.996%</td>
+<td>Very low</td>
+</tr>
+<tr>
+<td>30</td>
+<td>0.001%</td>
+<td>99.999%</td>
+<td>Near limit of detection</td>
+</tr>
+<tr>
+<td>35</td>
+<td>0.00003%</td>
+<td>~100%</td>
+<td>Extremely low</td>
+</tr>
+<tr>
+<td>40</td>
+<td>0.000001%</td>
+<td>~100%</td>
+<td>At qPCR detection limit</td>
+</tr>
+</tbody>
+</table>
+<p>*Target fractions above 100% are capped at 100% (distractor fraction = 0).</p>
+<p>At lower efficiency (e.g. 95%), the same CT maps to a slightly higher target fraction because each cycle amplifies less — reaching CT 25 requires more starting material.</p>
+<h3 id="pcr-efficiency">PCR Efficiency<a class="headerlink" href="#pcr-efficiency" title="Permanent link">&para;</a></h3>
+<p>Real qPCR assays typically run at 90–98% efficiency. The default assumption of 100% efficiency (<code>--ct-efficiency 1.0</code>) is an idealisation that can overestimate how much the target is diluted. Specify a measured efficiency with <code>--ct-efficiency</code>:</p>
+<pre><code class="language-bash">baitbench run \
+  --targets targets.fa \
+  --distractors distractors.fa \
+  --probes probes.fa \
+  --ct 25 \
+  --ct-efficiency 0.95 \
+  --num-fragments 10000 \
+  --outdir results
+</code></pre>
+<p>Assay efficiency is usually reported in kit documentation or can be measured from a standard curve: <code>E = 10^(-1/slope) - 1</code>, where slope is the slope of CT vs. log10(concentration).</p>
+<h3 id="one-point-calibration">One-Point Calibration<a class="headerlink" href="#one-point-calibration" title="Permanent link">&para;</a></h3>
+<p>The default calibration assumes CT 20 = 1% target. Shift the entire curve with <code>--ct-baseline</code> and <code>--ct-baseline-fraction</code>:</p>
+<p><strong>Example: Your lab data shows CT 25 = 0.1% target reads:</strong></p>
+<pre><code class="language-bash">baitbench run \
+  --targets targets.fa \
+  --distractors distractors.fa \
+  --probes probes.fa \
+  --ct 30 \
+  --ct-baseline 25 \
+  --ct-baseline-fraction 0.001 \
+  --num-fragments 10000 \
+  --outdir results
+</code></pre>
+<p>This shifts the entire curve:
+- CT 25 = 0.1% target (your calibration point)
+- CT 30 = 0.003% target (5 CT higher = 32× less)
+- CT 20 = 3.2% target (5 CT lower = 32× more)</p>
+<h3 id="two-point-calibration">Two-Point Calibration<a class="headerlink" href="#two-point-calibration" title="Permanent link">&para;</a></h3>
+<p>If you have two reference samples with known target fractions and their CT values (e.g. from ddPCR-quantified standards), use <code>--ct-calibration</code> to derive the efficiency automatically. This eliminates all modelling assumptions about efficiency and the baseline:</p>
+<pre><code class="language-bash">baitbench run \
+  --targets targets.fa \
+  --distractors distractors.fa \
+  --probes probes.fa \
+  --ct 25 \
+  --ct-calibration &quot;20.0,0.01&quot; &quot;30.0,0.00001&quot; \
+  --num-fragments 10000 \
+  --outdir results
+</code></pre>
+<p>The formula used to derive efficiency from the two points is:</p>
+<pre><code>E = (f1 / f2)^(1 / (ct2 - ct1)) - 1
+</code></pre>
+<p>Where <code>(ct1, f1)</code> and <code>(ct2, f2)</code> are the two calibration points. The first point also serves as the baseline. The derived efficiency is logged at run time so you can inspect it.</p>
+<p><code>--ct-calibration</code> conflicts with <code>--ct-baseline</code>, <code>--ct-baseline-fraction</code>, and <code>--ct-efficiency</code> (it replaces all three).</p>
+<p><strong>Which calibration method to use:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Situation</th>
+<th>Recommended approach</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Quick simulation with reasonable defaults</td>
+<td><code>--ct</code> only</td>
+</tr>
+<tr>
+<td>Known assay efficiency from kit docs</td>
+<td><code>--ct --ct-efficiency 0.95</code></td>
+</tr>
+<tr>
+<td>One reference sample with known fraction</td>
+<td><code>--ct --ct-baseline</code> + <code>--ct-baseline-fraction</code></td>
+</tr>
+<tr>
+<td>Two ddPCR-quantified reference standards</td>
+<td><code>--ct --ct-calibration "CT1,frac1" "CT2,frac2"</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="tips-for-using-ct-scores">Tips for Using CT Scores<a class="headerlink" href="#tips-for-using-ct-scores" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Match your experimental system.</strong> If you have empirical data linking CT to target fraction, use calibration flags to match your curve rather than relying on defaults.</li>
+<li><strong>Use coverage-curve to sweep.</strong> The <code>coverage-curve</code> command with <code>--ct-values</code> lets you visualize performance across a range of CT values in a single analysis. Calibration flags apply to every value in the sweep.</li>
+<li><strong>Remember the log scale.</strong> Each CT unit represents a <code>(1 + E)</code>-fold change. At 100% efficiency a 10-CT range spans ~1000-fold differences in abundance; at 95% efficiency it spans ~614-fold.</li>
+</ul>
+<hr />
+<h2 id="output-files">Output Files<a class="headerlink" href="#output-files" title="Permanent link">&para;</a></h2>
+<h3 id="run-output-directory">Run Output Directory<a class="headerlink" href="#run-output-directory" title="Permanent link">&para;</a></h3>
+<p>Each <code>baitbench run</code> creates a timestamped subdirectory:</p>
+<pre><code>results/run_20250101_120000/
+├── combined_reference.fa       # All sequences merged for fragment generation
+├── mapping_reference.fa        # Targets + distractors for mapping (genome mode only)
+├── weights.txt                 # Per-sequence sampling weights
+├── targets.txt                 # Target sequence IDs
+├── distractors.txt             # Distractor sequence IDs
+├── sample.txt                  # Sample sequence IDs
+├── genomes.txt                 # Genome IDs (genome mode only)
+├── sample_target_map.txt       # Genome-to-target mapping (genome mode only)
+├── fragments.fa                # Simulated DNA fragments (probe-biased + background)
+├── reads.fa                    # Sequencing reads (trimmed to read length)
+├── filtered.fa                 # Host-filtered reads (if --host-fasta)
+├── mapped.sam                  # Read alignments to reference
+├── detected.list               # Read counts per reference
+├── run_params.tsv              # Run configuration (used by report)
+├── target_groups.tsv           # Target group assignments (if --groups)
+├── distractor_groups.tsv       # Distractor group assignments (always; auto or from --distractor-groups)
+├── results.tsv                 # Summary metrics
+├── detected_detail.tsv         # Per-reference detection and coverage detail
+├── group_detail.tsv            # Per-group summary (if groups are present)
+├── results.json                # Machine-readable JSON metrics
+├── coverage.tsv                # Run-length encoded read depth intervals
+├── report.html                 # HTML report (--report full, requires R)
+├── report.Rmd                  # Editable RMarkdown (--report rmd)
+├── species_calls.tsv           # Species-level calls (if --identify)
+├── species_calls.json          # Species calls JSON (if --identify)
+├── target_similarity.tsv       # Target pairwise similarity (if --identify)
+├── capture.log                 # Capture alignment log
+├── mapping.log                 # Read mapping log
+└── host_filter.log             # Host filtering log (if --host-fasta)
+</code></pre>
+<h3 id="resultstsv-columns">results.tsv Columns<a class="headerlink" href="#resultstsv-columns" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>run_name</code></td>
+<td>Run identifier</td>
+</tr>
+<tr>
+<td><code>timestamp</code></td>
+<td>Completion time</td>
+</tr>
+<tr>
+<td><code>num_fragments</code></td>
+<td>Fragments requested</td>
+</tr>
+<tr>
+<td><code>seed</code></td>
+<td>Random seed (or "NA")</td>
+</tr>
+<tr>
+<td><code>fragments_generated</code></td>
+<td>Fragments actually generated</td>
+</tr>
+<tr>
+<td><code>fragments_captured</code></td>
+<td>Fragments passing capture</td>
+</tr>
+<tr>
+<td><code>capture_rate</code></td>
+<td>fragments_captured / fragments_generated</td>
+</tr>
+<tr>
+<td><code>sample_captured</code></td>
+<td>Captured fragments from sample targets</td>
+</tr>
+<tr>
+<td><code>nonsample_target_captured</code></td>
+<td>Captured fragments from non-sample targets</td>
+</tr>
+<tr>
+<td><code>distractor_captured</code></td>
+<td>Captured fragments from distractors</td>
+</tr>
+<tr>
+<td><code>untargeted_captured</code></td>
+<td>Captured fragments from untargeted genomes (genome mode)</td>
+</tr>
+<tr>
+<td><code>reads_correctly_mapped</code></td>
+<td>Reads mapping to their source reference</td>
+</tr>
+<tr>
+<td><code>reads_incorrectly_mapped</code></td>
+<td>Reads mapping to a different reference</td>
+</tr>
+<tr>
+<td><code>sample_total</code></td>
+<td>Number of distinct sample targets</td>
+</tr>
+<tr>
+<td><code>nonsample_target_total</code></td>
+<td>Number of non-sample targets</td>
+</tr>
+<tr>
+<td><code>distractors_total</code></td>
+<td>Number of distractor sequences</td>
+</tr>
+<tr>
+<td><code>tp_count</code></td>
+<td>True Positives: sample targets detected</td>
+</tr>
+<tr>
+<td><code>fn_count</code></td>
+<td>False Negatives: sample targets not detected</td>
+</tr>
+<tr>
+<td><code>fp_target_count</code></td>
+<td>False Positives: non-sample targets detected</td>
+</tr>
+<tr>
+<td><code>fp_distractor_count</code></td>
+<td>False Positives: distractors detected</td>
+</tr>
+<tr>
+<td><code>fp_total</code></td>
+<td>fp_target_count + fp_distractor_count</td>
+</tr>
+<tr>
+<td><code>tn_target_count</code></td>
+<td>True Negatives: non-sample targets not detected</td>
+</tr>
+<tr>
+<td><code>tn_distractor_count</code></td>
+<td>True Negatives: distractors not detected</td>
+</tr>
+<tr>
+<td><code>tn_total</code></td>
+<td>tn_target_count + tn_distractor_count</td>
+</tr>
+<tr>
+<td><code>sensitivity</code></td>
+<td>TP / (TP + FN)</td>
+</tr>
+<tr>
+<td><code>specificity</code></td>
+<td>TN_total / (TN_total + FP_total)</td>
+</tr>
+<tr>
+<td><code>precision</code></td>
+<td>TP / (TP + FP_total)</td>
+</tr>
+<tr>
+<td><code>f1_score</code></td>
+<td>2 * (precision * sensitivity) / (precision + sensitivity)</td>
+</tr>
+<tr>
+<td><code>reads_sequenced</code></td>
+<td>Number of reads after the sequencing step (0 if not tracked)</td>
+</tr>
+<tr>
+<td><code>reads_after_filter</code></td>
+<td>Number of reads after host filtering (0 if filter not applied)</td>
+</tr>
+<tr>
+<td><code>reads_mapped</code></td>
+<td>reads_correctly_mapped + reads_incorrectly_mapped</td>
+</tr>
+<tr>
+<td><code>reads_unmapped</code></td>
+<td>Reads that entered mapping but did not map to any reference</td>
+</tr>
+</tbody>
+</table>
+<h3 id="detected_detailtsv-columns">detected_detail.tsv Columns<a class="headerlink" href="#detected_detailtsv-columns" title="Permanent link">&para;</a></h3>
+<p>One row per reference sequence:</p>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>reference_id</code></td>
+<td>Sequence ID</td>
+</tr>
+<tr>
+<td><code>group</code></td>
+<td>Group name this sequence belongs to (sequence's own ID if no groups file provided)</td>
+</tr>
+<tr>
+<td><code>category</code></td>
+<td><code>sample</code>, <code>nonsample_target</code>, <code>distractor</code>, or <code>untargeted</code></td>
+</tr>
+<tr>
+<td><code>expected</code></td>
+<td>1 if expected to be detected (sample target), 0 otherwise</td>
+</tr>
+<tr>
+<td><code>detected</code></td>
+<td>1 if at least one read maps to this reference, 0 otherwise</td>
+</tr>
+<tr>
+<td><code>fragments_generated</code></td>
+<td>Number of fragments generated from this sequence</td>
+</tr>
+<tr>
+<td><code>fragments_captured</code></td>
+<td>Number of fragments captured by probes</td>
+</tr>
+<tr>
+<td><code>reads_assigned</code></td>
+<td>Number of reads mapped to this reference</td>
+</tr>
+<tr>
+<td><code>classification</code></td>
+<td><code>TP</code>, <code>FN</code>, <code>FP_target</code>, <code>FP_distractor</code>, <code>TN_target</code>, <code>TN_distractor</code>, or <code>untargeted</code></td>
+</tr>
+<tr>
+<td><code>ref_length</code></td>
+<td>Reference sequence length (bp)</td>
+</tr>
+<tr>
+<td><code>avg_coverage</code></td>
+<td>Average read depth across reference</td>
+</tr>
+<tr>
+<td><code>pct_covered_5x</code></td>
+<td>% positions with &gt;= 5x depth</td>
+</tr>
+<tr>
+<td><code>pct_covered_20x</code></td>
+<td>% positions with &gt;= 20x depth</td>
+</tr>
+</tbody>
+</table>
+<h3 id="group_detailtsv-columns">group_detail.tsv Columns<a class="headerlink" href="#group_detailtsv-columns" title="Permanent link">&para;</a></h3>
+<p>Written when group files are present (<code>target_groups.tsv</code> or <code>distractor_groups.tsv</code>). One row per group:</p>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>group_name</code></td>
+<td>Group identifier</td>
+</tr>
+<tr>
+<td><code>category</code></td>
+<td><code>sample</code>, <code>nonsample_target</code>, or <code>distractor</code></td>
+</tr>
+<tr>
+<td><code>expected</code></td>
+<td><code>true</code> if the group is expected to be detected (sample group)</td>
+</tr>
+<tr>
+<td><code>detected</code></td>
+<td><code>true</code> if at least one member sequence has reads mapped to it</td>
+</tr>
+<tr>
+<td><code>classification</code></td>
+<td><code>TP</code>, <code>FN</code>, <code>FP_target</code>, <code>FP_distractor</code>, <code>TN_target</code>, or <code>TN_distractor</code></td>
+</tr>
+<tr>
+<td><code>member_count</code></td>
+<td>Number of sequences in this group</td>
+</tr>
+<tr>
+<td><code>detected_member_count</code></td>
+<td>Number of member sequences individually detected</td>
+</tr>
+<tr>
+<td><code>total_reads</code></td>
+<td>Sum of reads assigned to all members of this group</td>
+</tr>
+</tbody>
+</table>
+<h3 id="resultsjson-structure">results.json Structure<a class="headerlink" href="#resultsjson-structure" title="Permanent link">&para;</a></h3>
+<p>Structured JSON output with nested sections:</p>
+<pre><code class="language-json">{
+  &quot;run_info&quot;: {
+    &quot;run_name&quot;: &quot;...&quot;,
+    &quot;timestamp&quot;: &quot;...&quot;,
+    &quot;num_fragments&quot;: 10000,
+    &quot;seed&quot;: &quot;42&quot;
+  },
+  &quot;capture_stats&quot;: {
+    &quot;fragments_generated&quot;: 10000,
+    &quot;fragments_captured&quot;: 3500,
+    &quot;capture_rate&quot;: 0.35
+  },
+  &quot;read_level&quot;: {
+    &quot;reads_correctly_mapped&quot;: 3400,
+    &quot;reads_incorrectly_mapped&quot;: 100,
+    &quot;reads_mapped&quot;: 3500,
+    &quot;reads_unmapped&quot;: 0,
+    &quot;reads_sequenced&quot;: 3500,
+    &quot;reads_after_filter&quot;: 0
+  },
+  &quot;metrics&quot;: {
+    &quot;sensitivity&quot;: 1.0,
+    &quot;specificity&quot;: 0.95,
+    &quot;precision&quot;: 0.8,
+    &quot;f1_score&quot;: 0.89,
+    &quot;tp&quot;: 5, &quot;fn&quot;: 0,
+    &quot;fp_target&quot;: 2, &quot;fp_distractor&quot;: 1,
+    &quot;tn_target&quot;: 10, &quot;tn_distractor&quot;: 50
+  },
+  &quot;details&quot;: [ ... ]
+}
+</code></pre>
+<h3 id="coveragetsv-format">coverage.tsv Format<a class="headerlink" href="#coveragetsv-format" title="Permanent link">&para;</a></h3>
+<p>Run-length encoded read depth intervals. Consecutive positions with the same depth are collapsed into a single interval (1-based inclusive coordinates):</p>
+<pre><code>reference_id    start   end depth
+dengue_1    1   50  0
+dengue_1    51  100 3
+dengue_1    101 200 5
+...
+</code></pre>
+<p>This format is typically 100-1000x smaller than per-position output, making it feasible for large target panels.</p>
+<hr />
+<h2 id="usage-examples">Usage Examples<a class="headerlink" href="#usage-examples" title="Permanent link">&para;</a></h2>
+<h3 id="basic-probe-evaluation">Basic Probe Evaluation<a class="headerlink" href="#basic-probe-evaluation" title="Permanent link">&para;</a></h3>
+<p>Test whether probes capture all targets and reject distractors:</p>
+<pre><code class="language-bash">baitbench run \
+  --targets targets.fa \
+  --distractors distractors.fa \
+  --probes probes.fa \
+  --num-fragments 10000 \
+  --seed 42 \
+  --outdir results
+</code></pre>
+<p>All targets are treated as "present" (no <code>--sample</code>). The default distractor fraction is 0.9 (90% background, 10% target).</p>
+<h3 id="sample-discrimination-testing">Sample Discrimination Testing<a class="headerlink" href="#sample-discrimination-testing" title="Permanent link">&para;</a></h3>
+<p>Test whether probes can detect specific targets while rejecting others in the panel:</p>
+<pre><code class="language-bash"># Inline sample IDs
+baitbench run \
+  --targets all_viruses.fa \
+  --distractors bacteria.fa \
+  --probes probes.fa \
+  --sample dengue_1 zika_virus \
+  --num-fragments 10000 \
+  --outdir results
+
+# With custom weights (dengue at 5x abundance)
+baitbench run \
+  --targets all_viruses.fa \
+  --distractors bacteria.fa \
+  --probes probes.fa \
+  --sample dengue_1 5 zika_virus \
+  --num-fragments 10000 \
+  --outdir results
+
+# Using a TSV manifest file
+baitbench run \
+  --targets all_viruses.fa \
+  --distractors bacteria.fa \
+  --probes probes.fa \
+  --sample sample.tsv \
+  --num-fragments 10000 \
+  --outdir results
+</code></pre>
+<p>Non-sample targets will have FP_target classification if detected, testing cross-reactivity within the panel.</p>
+<h3 id="clinical-specimen-simulation-with-ct">Clinical Specimen Simulation with CT<a class="headerlink" href="#clinical-specimen-simulation-with-ct" title="Permanent link">&para;</a></h3>
+<p>Simulate specimens at different viral loads:</p>
+<pre><code class="language-bash"># High viral load (CT 20)
+baitbench run \
+  --targets targets.fa \
+  --distractors distractors.fa \
+  --probes probes.fa \
+  --ct 20 \
+  --num-fragments 10000 \
+  --outdir results_ct20
+
+# Low viral load (CT 30)
+baitbench run \
+  --targets targets.fa \
+  --distractors distractors.fa \
+  --probes probes.fa \
+  --ct 30 \
+  --num-fragments 10000 \
+  --outdir results_ct30
+</code></pre>
+<h3 id="genome-mode-for-bacteria">Genome Mode for Bacteria<a class="headerlink" href="#genome-mode-for-bacteria" title="Permanent link">&para;</a></h3>
+<p>When probe targets are sub-regions of large genomes:</p>
+<pre><code class="language-bash"># targets.fa: 16S gene sequences
+# genomes.fa: full bacterial genomes
+# mapping.tsv links genome IDs to target gene IDs
+
+baitbench run \
+  --targets 16S_targets.fa \
+  --genomes bacteria_genomes.fa \
+  --distractors human.fa \
+  --probes probes.fa \
+  --sample-target-map mapping.tsv \
+  --sample e_coli s_aureus \
+  --num-fragments 50000 \
+  --outdir results
+</code></pre>
+<p>Use higher <code>--num-fragments</code> for bacteria since genomes are much larger than target regions, requiring more fragments to achieve adequate target coverage.</p>
+<h3 id="mixed-panels-virus-bacteria">Mixed Panels (Virus + Bacteria)<a class="headerlink" href="#mixed-panels-virus-bacteria" title="Permanent link">&para;</a></h3>
+<p>Genome mode handles mixed panels naturally. Virus genomes that match their target IDs auto-link:</p>
+<pre><code class="language-bash"># genomes.fa: influenza_a (13kb), e_coli (5Mb)
+# targets.fa: influenza_a (same seq), e_coli_16S (1.5kb subsequence)
+# mapping.tsv only needs the e_coli entry (influenza_a auto-links)
+
+baitbench run \
+  --targets targets.fa \
+  --genomes genomes.fa \
+  --distractors human.fa \
+  --probes probes.fa \
+  --sample-target-map mapping.tsv \
+  --sample influenza_a e_coli \
+  --num-fragments 50000 \
+  --outdir results
+</code></pre>
+<h3 id="multiple-distractor-sources">Multiple Distractor Sources<a class="headerlink" href="#multiple-distractor-sources" title="Permanent link">&para;</a></h3>
+<p>Provide multiple distractor FASTA files:</p>
+<pre><code class="language-bash">baitbench run \
+  --targets targets.fa \
+  --distractors bacteria.fa \
+  --distractors fungi.fa \
+  --distractors protozoa.fa \
+  --probes probes.fa \
+  --num-fragments 10000 \
+  --outdir results
+</code></pre>
+<p>All distractor sequences are concatenated and share the same per-sequence weight. Each distinct <code>--distractors</code> file automatically forms its own distractor group (by file stem), so multiple distractor files are still counted separately in the group-level metrics.</p>
+<h3 id="group-level-grouping">Group-Level Grouping<a class="headerlink" href="#group-level-grouping" title="Permanent link">&para;</a></h3>
+<p>When your target panel contains multiple sequence variants of the same organism, use <code>--groups</code> to collapse them into a single entity for metrics:</p>
+<pre><code class="language-bash"># Create groups file
+cat &gt; groups.tsv &lt;&lt;'EOF'
+West_Nile_virus_0001    West_Nile_virus
+West_Nile_virus_0002    West_Nile_virus
+West_Nile_virus_0003    West_Nile_virus
+Dengue_virus_1_6275 Dengue_virus_1
+Dengue_virus_1_2274 Dengue_virus_1
+Dengue_virus_2_8773 Dengue_virus_2
+Dengue_virus_2_1822 Dengue_virus_2
+EOF
+
+baitbench run \
+  --targets all_variants.fa \
+  --distractors Aaegypti.fa \
+  --probes probes.fa \
+  --sample West_Nile_virus_0001 \
+  --groups groups.tsv \
+  --num-fragments 10000 \
+  --outdir results
+</code></pre>
+<p>With this configuration:
+- Detection of <strong>any</strong> WNV variant counts as a TP for the <code>West_Nile_virus</code> group
+- <code>Dengue_virus_1_6275</code> and <code>Dengue_virus_1_2274</code> are grouped as <code>Dengue_virus_1</code> (one entity for FP/TN counting)
+- <code>Dengue_virus_2_*</code> is a separate group
+- All ~2300 Aaegypti contigs are automatically grouped as <code>"Aaegypti"</code> (one FP_distractor)
+- Cross-mapping between variants of the same group (e.g., WNV_0001 reads mapping to WNV_0002) is counted as <strong>correctly mapped</strong></p>
+<p>For distractors, the default file-stem grouping is automatic. To override it (e.g., if multiple organisms share one FASTA file), provide an explicit distractor groups file:</p>
+<pre><code class="language-bash"># Override automatic distractor grouping
+cat &gt; distractor_groups.tsv &lt;&lt;'EOF'
+# seq_id    group_name
+contig_001  Aedes_aegypti
+contig_002  Aedes_aegypti
+bacterial_16S_1 E_coli
+bacterial_16S_2 E_coli
+EOF
+
+baitbench run \
+  --targets targets.fa \
+  --distractors mixed_distractors.fa \
+  --probes probes.fa \
+  --distractor-groups distractor_groups.tsv \
+  --num-fragments 10000 \
+  --outdir results
+</code></pre>
+<h3 id="capture-fraction-sweep">Capture Fraction Sweep<a class="headerlink" href="#capture-fraction-sweep" title="Permanent link">&para;</a></h3>
+<p>Control what fraction of simulated fragments come from probe binding sites. With thermodynamic mode (default), high-affinity probe-reference alignments receive higher weight.</p>
+<pre><code class="language-bash"># Default: 50% probe-biased, 50% background (thermodynamic mode)
+baitbench run \
+  --targets targets.fa \
+  --distractors distractors.fa \
+  --probes probes.fa \
+  --num-fragments 10000 \
+  --capture-fraction 0.5 \
+  --outdir results_thermo
+
+# High capture fraction with simple (uniform) weighting
+baitbench run \
+  --targets targets.fa \
+  --distractors distractors.fa \
+  --probes probes.fa \
+  --simulate-mode simple \
+  --capture-fraction 0.8 \
+  --num-fragments 10000 \
+  --outdir results_simple
+
+# Sweep capture fractions with coverage-curve
+baitbench coverage-curve \
+  --targets targets.fa \
+  --distractors distractors.fa \
+  --probes probes.fa \
+  --sample target_1 target_2 \
+  --capture-fraction-values 0.2 0.4 0.6 0.8 \
+  --ct 25 \
+  --outdir cf_sweep
+</code></pre>
+<h3 id="sequencing-depth-control">Sequencing Depth Control<a class="headerlink" href="#sequencing-depth-control" title="Permanent link">&para;</a></h3>
+<p>Control the number of reads output by the sequencing step:</p>
+<pre><code class="language-bash"># Sample 5000 reads with replacement (models limited sequencing)
+baitbench run \
+  --targets targets.fa \
+  --distractors distractors.fa \
+  --probes probes.fa \
+  --num-fragments 50000 \
+  --num-sequences 5000 \
+  --seed 42 \
+  --outdir results
+</code></pre>
+<h3 id="host-filtering">Host Filtering<a class="headerlink" href="#host-filtering" title="Permanent link">&para;</a></h3>
+<p>Remove host reads before mapping:</p>
+<pre><code class="language-bash">baitbench run \
+  --targets targets.fa \
+  --distractors distractors.fa \
+  --probes probes.fa \
+  --host-fasta human_genome.fa \
+  --num-fragments 10000 \
+  --outdir results
+</code></pre>
+<h3 id="coverage-curve-analysis">Coverage Curve Analysis<a class="headerlink" href="#coverage-curve-analysis" title="Permanent link">&para;</a></h3>
+<p>Sweep parameters to understand how conditions affect coverage:</p>
+<pre><code class="language-bash"># Sweep CT values only
+baitbench coverage-curve \
+  --targets targets.fa \
+  --distractors distractors.fa \
+  --probes probes.fa \
+  --sample dengue_1 zika_virus \
+  --ct-values 20 25 30 35 \
+  --num-fragments 10000 \
+  --seed 42 \
+  --outdir coverage_ct
+
+# Sweep CT and capture fraction (combinatorial)
+baitbench coverage-curve \
+  --targets targets.fa \
+  --distractors distractors.fa \
+  --probes probes.fa \
+  --sample dengue_1 \
+  --ct-values 20 25 30 \
+  --capture-fraction-values 0.3 0.5 0.7 \
+  --num-fragments 10000 \
+  --outdir coverage_ct_cf
+
+# Sweep hybridization temperature (thermodynamic mode)
+baitbench coverage-curve \
+  --targets targets.fa \
+  --distractors distractors.fa \
+  --probes probes.fa \
+  --sample dengue_1 \
+  --ct 25 \
+  --hybridization-temperature-values 55 60 65 70 75 \
+  --num-fragments 10000 \
+  --outdir coverage_temp
+
+# Sweep all four parameters
+baitbench coverage-curve \
+  --targets targets.fa \
+  --distractors distractors.fa \
+  --probes probes.fa \
+  --sample dengue_1 \
+  --ct-values 20 25 30 \
+  --hybridization-temperature-values 65 70 75 \
+  --capture-fraction-values 0.3 0.5 0.7 \
+  --num-sequences-values 500 1000 5000 \
+  --num-fragments 10000 \
+  --outdir coverage_full
+
+# Fixed CT with capture fraction sweep
+baitbench coverage-curve \
+  --targets targets.fa \
+  --distractors distractors.fa \
+  --probes probes.fa \
+  --sample dengue_1 \
+  --ct 25 \
+  --capture-fraction-values 0.1 0.3 0.5 0.7 0.9 \
+  --num-fragments 10000 \
+  --outdir coverage_cf
+</code></pre>
+<h3 id="probe-design-qc">Probe Design QC<a class="headerlink" href="#probe-design-qc" title="Permanent link">&para;</a></h3>
+<p>Evaluate probe tiling independently of the simulation:</p>
+<pre><code class="language-bash">baitbench probe-coverage \
+  --targets targets.fa \
+  --probes probes.fa \
+  --proximity 100 \
+  --outdir probe_qc
+</code></pre>
+<h3 id="cross-reactivity-analysis">Cross-Reactivity Analysis<a class="headerlink" href="#cross-reactivity-analysis" title="Permanent link">&para;</a></h3>
+<p>Check whether probes have off-target homology to specific genomes:</p>
+<pre><code class="language-bash"># Probe-to-genome: which probes match the human genome?
+baitbench xreact \
+  --probes probes.fa \
+  --against human_genome.fa \
+  --threshold 80 \
+  --outdir xreact_human
+
+# Probe-to-genome: check against multiple references
+baitbench xreact \
+  --probes probes.fa \
+  --against human_genome.fa mouse_genome.fa \
+  --threshold 80 \
+  --outdir xreact_hosts
+
+# Probe-to-probe: find probes that are too similar to each other
+baitbench xreact \
+  --probes probes.fa \
+  --self \
+  --threshold 80 \
+  --outdir xreact_self
+
+# Both modes together
+baitbench xreact \
+  --probes probes.fa \
+  --against human_genome.fa \
+  --self \
+  --threshold 80 \
+  --outdir xreact_full
+</code></pre>
+<h3 id="target-panel-qc">Target Panel QC<a class="headerlink" href="#target-panel-qc" title="Permanent link">&para;</a></h3>
+<p>Assess whether a target panel can distinguish between species before running simulations:</p>
+<pre><code class="language-bash"># Basic panel QC
+baitbench panel-qc \
+  --targets gene_targets.fa \
+  --sample-target-map mapping.tsv \
+  --outdir panel_qc_results
+
+# Stricter similarity threshold (95% instead of default 90%)
+baitbench panel-qc \
+  --targets gene_targets.fa \
+  --sample-target-map mapping.tsv \
+  --identity-threshold 95 \
+  --outdir panel_qc_strict
+
+# Skip HTML report (just produce TSV files)
+baitbench panel-qc \
+  --targets gene_targets.fa \
+  --sample-target-map mapping.tsv \
+  --report none \
+  --outdir panel_qc_tsv
+</code></pre>
+<p>The HTML report includes a species discriminability chart, confusion matrix heatmap, and target composition breakdown.</p>
+<h3 id="species-identification">Species Identification<a class="headerlink" href="#species-identification" title="Permanent link">&para;</a></h3>
+<p>Call species from existing pipeline results or as part of <code>baitbench run</code>:</p>
+<pre><code class="language-bash"># Standalone: using pre-computed similarity from panel-qc
+baitbench identify \
+  --detected-detail results/run/detected_detail.tsv \
+  --sample-target-map mapping.tsv \
+  --target-similarity panel_qc_results/target_similarity.tsv \
+  --outdir identify_results
+
+# Standalone: compute similarity on-the-fly from target FASTA
+baitbench identify \
+  --detected-detail results/run/detected_detail.tsv \
+  --sample-target-map mapping.tsv \
+  --targets gene_targets.fa \
+  --outdir identify_results
+
+# Integrated into pipeline (genome mode)
+baitbench run \
+  --targets gene_targets.fa \
+  --genomes full_genomes.fa \
+  --distractors human.fa \
+  --probes probes.fa \
+  --sample-target-map mapping.tsv \
+  --sample e_coli influenza_a \
+  --identify \
+  --num-fragments 50000 \
+  --outdir results
+
+# With stricter calling threshold (require 2 unique markers)
+baitbench run \
+  --targets gene_targets.fa \
+  --genomes full_genomes.fa \
+  --distractors human.fa \
+  --probes probes.fa \
+  --sample-target-map mapping.tsv \
+  --sample e_coli influenza_a \
+  --identify \
+  --min-unique-targets 2 \
+  --num-fragments 50000 \
+  --outdir results
+</code></pre>
+<p>When <code>--identify</code> is used with <code>baitbench run</code>, the species calls are compared against the ground-truth <code>--sample</code> manifest and included in the HTML report.</p>
+<h3 id="probe-assessment">Probe Assessment<a class="headerlink" href="#probe-assessment" title="Permanent link">&para;</a></h3>
+<p>Run combined probe coverage + cross-reactivity analysis on an existing probe set:</p>
+<pre><code class="language-bash"># Basic assessment (probe coverage + self-homology)
+baitbench assess-probes \
+  --targets targets.fa \
+  --probes probes.fa \
+  --outdir assess_results
+
+# With cross-reactivity against genomes
+baitbench assess-probes \
+  --targets targets.fa \
+  --probes probes.fa \
+  --genomes human_genome.fa other_genomes.fa \
+  --threshold 80 \
+  --outdir assess_results
+
+# Skip HTML report (produce only TSV outputs)
+baitbench assess-probes \
+  --targets targets.fa \
+  --probes probes.fa \
+  --report none \
+  --outdir assess_results
+
+# Refinement: re-run coverage on low-coverage targets 3 times
+baitbench assess-probes \
+  --targets targets.fa \
+  --probes probes.fa \
+  --refine-iterations 3 \
+  --refine-threshold 80 \
+  --outdir assess_results
+
+# Refinement: repeat until no targets remain below 80% 1X coverage
+baitbench assess-probes \
+  --targets targets.fa \
+  --probes probes.fa \
+  --refine-until-stable \
+  --refine-threshold 80 \
+  --outdir assess_results
+</code></pre>
+<p>Build probes and automatically assess them:</p>
+<pre><code class="language-bash"># Build + assess (default behavior)
+baitbench build-probes \
+  --targets targets.fa \
+  --outdir probes_output
+
+# Build + assess with cross-reactivity against genomes
+baitbench build-probes \
+  --targets targets.fa \
+  --genomes human_genome.fa \
+  --outdir probes_output
+
+# Build only, skip assessment
+baitbench build-probes \
+  --targets targets.fa \
+  --skip-assess \
+  --outdir probes_output
+
+# Build using external CATCH tool (requires catch conda package)
+baitbench build-probes \
+  --targets targets.fa \
+  --method catch \
+  --probe-length 120 \
+  --outdir probes_output
+
+# Build using catch-lite (native) with custom parameters
+baitbench build-probes \
+  --targets targets.fa \
+  --method catch-lite \
+  --catch-probe-stride 30 \
+  --catch-mismatches 3 \
+  --catch-extension 10 \
+  --outdir probes_output
+</code></pre>
+<h3 id="running-individual-steps">Running Individual Steps<a class="headerlink" href="#running-individual-steps" title="Permanent link">&para;</a></h3>
+<p>Run pipeline steps independently for custom workflows:</p>
+<pre><code class="language-bash"># 1. Prepare
+baitbench prepare \
+  --targets targets.fa \
+  --distractors distractors.fa \
+  --distractor-fraction 0.95 \
+  --outdir prep
+
+# 2. Simulate (probe alignment + TNN scoring + multinomial sampling)
+baitbench simulate \
+  --reference prep/combined_reference.fa \
+  --weights prep/weights.txt \
+  --probes probes.fa \
+  --num-fragments 50000 \
+  --capture-fraction 0.5 \
+  --seed 42 \
+  --output prep/fragments.fa
+
+# 3. Sequence
+baitbench sequence \
+  --input prep/fragments.fa \
+  --read-length 150 \
+  --output prep/reads.fa
+
+# 4. Map
+baitbench map \
+  --reference prep/combined_reference.fa \
+  --reads prep/reads.fa \
+  --output prep/mapped.sam
+
+# 5. List
+baitbench list \
+  --sam prep/mapped.sam \
+  --output prep/detected.list
+
+# 6. Metrics
+baitbench metrics \
+  --targets prep/targets.txt \
+  --distractors prep/distractors.txt \
+  --sample prep/sample.txt \
+  --detected prep/detected.list \
+  --fragments prep/fragments.fa \
+  --captured prep/fragments.fa \
+  --sam prep/mapped.sam \
+  --run-name custom_run \
+  --num-fragments 50000 \
+  --output-summary prep/results.tsv \
+  --output-detail prep/detected_detail.tsv
+</code></pre>
+<h3 id="reproducible-runs">Reproducible Runs<a class="headerlink" href="#reproducible-runs" title="Permanent link">&para;</a></h3>
+<p>Use <code>--seed</code> for reproducibility. The same seed with the same inputs produces identical results:</p>
+<pre><code class="language-bash">baitbench run \
+  --targets targets.fa \
+  --distractors distractors.fa \
+  --probes probes.fa \
+  --num-fragments 10000 \
+  --seed 42 \
+  --outdir results
+</code></pre>
+<h3 id="batch-comparisons">Batch Comparisons<a class="headerlink" href="#batch-comparisons" title="Permanent link">&para;</a></h3>
+<p>Run multiple configurations and compare results:</p>
+<pre><code class="language-bash"># Compare different CT values
+for ct in 20 25 30 35; do
+  baitbench run \
+    --targets targets.fa \
+    --distractors distractors.fa \
+    --probes probes.fa \
+    --ct $ct \
+    --num-fragments 10000 \
+    --seed 42 \
+    --report none \
+    --outdir &quot;results_ct${ct}&quot;
+done
+
+# Aggregate results
+head -1 results_ct20/*/results.tsv &gt; comparison.tsv
+for ct in 20 25 30 35; do
+  tail -1 &quot;results_ct${ct}&quot;/*/results.tsv &gt;&gt; comparison.tsv
+done
+</code></pre>
+<hr />
+<h2 id="report-guide">Report Guide<a class="headerlink" href="#report-guide" title="Permanent link">&para;</a></h2>
+<h3 id="report-modes">Report Modes<a class="headerlink" href="#report-modes" title="Permanent link">&para;</a></h3>
+<p>The <code>--report</code> flag controls report output for <code>run</code>, <code>probe-coverage</code>, <code>coverage-curve</code>, and <code>report</code> commands:</p>
+<table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>full</code> (default)</td>
+<td>Render the full HTML report using R/rmarkdown. Requires R and pandoc.</td>
+</tr>
+<tr>
+<td><code>none</code></td>
+<td>Skip report generation entirely. All other outputs (TSV, JSON) are still produced.</td>
+</tr>
+<tr>
+<td><code>rmd</code></td>
+<td>Write a parameterized RMarkdown (<code>.Rmd</code>) file with all file paths and parameters pre-filled. Does not require R at run time.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Using <code>--report rmd</code>:</strong></p>
+<p>The <code>rmd</code> mode produces an <code>.Rmd</code> file in the output directory with all parameters baked in. You can then:</p>
+<ol>
+<li>Open the <code>.Rmd</code> file in RStudio or any text editor</li>
+<li>Customize the report -- add sections, change figures, adjust formatting</li>
+<li>Render it when ready:</li>
+</ol>
+<pre><code class="language-bash">Rscript -e 'rmarkdown::render(&quot;results/run_20250101_120000/report.Rmd&quot;)'
+</code></pre>
+<p>This is useful when you want to:
+- Customize the report before rendering
+- Render on a different machine that has R installed
+- Add project-specific analysis sections
+- Iterate on the report without re-running the pipeline</p>
+<h3 id="html-report-sections">HTML Report Sections<a class="headerlink" href="#html-report-sections" title="Permanent link">&para;</a></h3>
+<p>The main pipeline report (<code>report.html</code>) includes:</p>
+<ol>
+<li>
+<p><strong>Run Parameters</strong> -- Table of all configuration values. Also shows the reconstructed command line for reproducibility.</p>
+</li>
+<li>
+<p><strong>Capture Summary</strong> -- Bar chart comparing fragments generated vs captured, broken down by source (sample, non-sample target, distractor, untargeted).</p>
+</li>
+<li>
+<p><strong>Detection Performance</strong> -- Bar chart of sensitivity, specificity, precision, and F1 score.</p>
+</li>
+<li>
+<p><strong>Read Mapping Accuracy</strong> -- Correctly vs incorrectly mapped reads. Incorrect mapping indicates cross-reactivity (e.g., virus A reads mapping to virus B).</p>
+</li>
+<li>
+<p><strong>Confusion Matrix</strong> -- Heatmap showing TP, FN, FP, and TN counts.</p>
+</li>
+<li>
+<p><strong>Detection Detail</strong> -- Table of every reference sequence with detection status, fragment counts, read counts, and coverage statistics.</p>
+</li>
+<li>
+<p><strong>Detection Lollipop</strong> -- Reads per detected reference, colored by classification (TP, FP_target, FP_distractor).</p>
+</li>
+<li>
+<p><strong>Coverage Plots</strong> (if coverage data available) -- Per-position read depth plots for each detected reference, with faceted overview and expandable per-reference detail views.</p>
+</li>
+</ol>
+<h3 id="coverage-curve-report">Coverage Curve Report<a class="headerlink" href="#coverage-curve-report" title="Permanent link">&para;</a></h3>
+<p>The coverage curve report (<code>coverage_curve_report.html</code>) shows:</p>
+<ul>
+<li><strong>Depth curves</strong> -- % genome covered (Y-axis) vs depth of coverage threshold on log10 scale (X-axis), with one line per parameter combination</li>
+<li><strong>Faceting</strong> -- With &lt; 10 combinations, all lines on one plot. With &gt;= 10 combinations, faceted by the parameter with the fewest levels</li>
+<li><strong>Per-target panels</strong> -- If the sample contains multiple targets, each gets its own panel</li>
+<li><strong>Summary table</strong> -- Key depth thresholds (1x, 5x, 10x, 20x, 50x, 100x) for each combination</li>
+</ul>
+<h3 id="probe-coverage-report">Probe Coverage Report<a class="headerlink" href="#probe-coverage-report" title="Permanent link">&para;</a></h3>
+<p>The probe coverage report (<code>probe_coverage_report.html</code>) shows:</p>
+<ul>
+<li><strong>Summary table</strong> -- Per-target coverage statistics (adapts to dataset size: simple table for &lt;= 20 targets, interactive DT table for &gt; 20)</li>
+<li><strong>Coverage bar charts</strong> -- Per-target 1x/2x/5x/10x coverage (switches to histograms/boxplots for &gt; 100 targets)</li>
+<li><strong>Depth profiles</strong> -- Per-position probe depth plots for each target (omitted for &gt; 100 targets)</li>
+<li><strong>Gap analysis</strong> -- Uncovered regions and gap statistics</li>
+<li><strong>Multi-mapping probes</strong> -- Probes that align to multiple targets (specificity concerns)</li>
+</ul>
+<h3 id="panel-qc-report">Panel QC Report<a class="headerlink" href="#panel-qc-report" title="Permanent link">&para;</a></h3>
+<p>The panel QC report (<code>panel_qc_report.html</code>) shows:</p>
+<ul>
+<li><strong>Panel Summary</strong> -- Total species, targets, similar pairs, and species with zero unique targets</li>
+<li><strong>Species Discriminability</strong> -- Bar chart (≤50 species) or histogram (&gt;50) of discriminability scores</li>
+<li><strong>Target Composition</strong> -- Stacked bar chart of unique vs shared targets per species</li>
+<li><strong>Species Confusion Matrix</strong> -- Heatmap (≤30 species) or distribution statistics (&gt;30) of shared target counts</li>
+<li><strong>Discriminability Table</strong> -- Full per-species discriminability data (simple table ≤20, interactive DT table &gt;20)</li>
+<li><strong>Target Similarity Pairs</strong> -- All pairwise target similarities above the threshold</li>
+</ul>
+<h3 id="species-identification-in-main-report">Species Identification in Main Report<a class="headerlink" href="#species-identification-in-main-report" title="Permanent link">&para;</a></h3>
+<p>When species calls are available (from <code>--identify</code> or standalone <code>baitbench identify</code>), the main HTML report includes a "Species Identification" section with:</p>
+<ul>
+<li><strong>Summary table</strong> -- Species-level sensitivity and specificity (when ground truth is available via <code>--sample</code>)</li>
+<li><strong>Species call chart</strong> -- Bar chart of PRESENT/ABSENT/AMBIGUOUS calls per species</li>
+<li><strong>Evidence detail table</strong> -- Full breakdown with unique/shared detected counts, reads, and explanation</li>
+</ul>
+<h3 id="probe-assessment-report">Probe Assessment Report<a class="headerlink" href="#probe-assessment-report" title="Permanent link">&para;</a></h3>
+<p>The probe assessment report (<code>assess_probes_report.html</code>) combines coverage and cross-reactivity analysis into a single document:</p>
+<ul>
+<li><strong>Build Pipeline</strong> (conditional, when chained from build-probes) -- Pipeline stats table, sequence/base count bar charts</li>
+<li><strong>Probe Coverage</strong> -- Summary table, coverage breadth bar charts, individual target coverage (conditional, when <code>--all-individual-targets</code> was used), tiered coverage, gap analysis, pangenome depth (subtitle includes % pangenome ≥1X), per-target depth profiles, proximity coverage, multi-mapping probes</li>
+<li><strong>Self-Homology</strong> -- Plotly heatmap (≤1000 probes), density plots, hits table</li>
+<li><strong>Cross-Reactivity vs Genomes</strong> (conditional, when <code>--genomes</code> provided) -- Plotly heatmap, per-genome bar chart, density plots, hits table</li>
+<li><strong>Parameters</strong> -- Run configuration under a collapsible fold</li>
+</ul>
+<hr />
+<h2 id="metrics-definitions">Metrics Definitions<a class="headerlink" href="#metrics-definitions" title="Permanent link">&para;</a></h2>
+<h3 id="genome-level-metrics">Genome-Level Metrics<a class="headerlink" href="#genome-level-metrics" title="Permanent link">&para;</a></h3>
+<p>These answer: "Was each genome detected?"</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Formula</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Sensitivity</strong></td>
+<td>TP / (TP + FN)</td>
+<td>Fraction of sample targets that were detected</td>
+</tr>
+<tr>
+<td><strong>Specificity</strong></td>
+<td>TN / (TN + FP)</td>
+<td>Fraction of non-sample references correctly not detected</td>
+</tr>
+<tr>
+<td><strong>Precision</strong></td>
+<td>TP / (TP + FP)</td>
+<td>Of detected references, fraction that are sample targets</td>
+</tr>
+<tr>
+<td><strong>F1 Score</strong></td>
+<td>2 * (Precision * Sensitivity) / (Precision + Sensitivity)</td>
+<td>Harmonic mean of precision and sensitivity</td>
+</tr>
+</tbody>
+</table>
+<p>Where:
+- <strong>TP</strong> = sample targets detected (at least one read maps)
+- <strong>FN</strong> = sample targets not detected
+- <strong>FP</strong> = FP_target + FP_distractor (non-sample references incorrectly detected)
+- <strong>TN</strong> = TN_target + TN_distractor (non-sample references correctly not detected)</p>
+<h3 id="read-level-metrics">Read-Level Metrics<a class="headerlink" href="#read-level-metrics" title="Permanent link">&para;</a></h3>
+<p>These track how fragments and reads flow through the pipeline:</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>sample_captured</code></td>
+<td>Fragments from sample targets that were captured by probes</td>
+</tr>
+<tr>
+<td><code>nonsample_target_captured</code></td>
+<td>Fragments from non-sample targets that were captured</td>
+</tr>
+<tr>
+<td><code>distractor_captured</code></td>
+<td>Fragments from distractors that were captured</td>
+</tr>
+<tr>
+<td><code>untargeted_captured</code></td>
+<td>Fragments from untargeted genomes that were captured (genome mode)</td>
+</tr>
+<tr>
+<td><code>reads_correctly_mapped</code></td>
+<td>Reads that map back to their source reference</td>
+</tr>
+<tr>
+<td><code>reads_incorrectly_mapped</code></td>
+<td>Reads that map to a different reference than their source</td>
+</tr>
+<tr>
+<td><code>reads_sequenced</code></td>
+<td>Number of reads after the sequencing step (may differ from captured if <code>--num-sequences</code> is used)</td>
+</tr>
+<tr>
+<td><code>reads_after_filter</code></td>
+<td>Number of reads after host filtering (0 if <code>--host-fasta</code> not provided)</td>
+</tr>
+<tr>
+<td><code>reads_mapped</code></td>
+<td>Total reads that mapped to any reference (= correctly + incorrectly mapped)</td>
+</tr>
+<tr>
+<td><code>reads_unmapped</code></td>
+<td>Reads that entered the mapping step but did not map to any reference</td>
+</tr>
+</tbody>
+</table>
+<p>In genome mode, a read from genome G mapping to target T is considered correctly mapped if T is linked to G in the sample-target-map.</p>
+<p>Read source is determined from the fragment naming pattern <code>{seq_id}_fragment_{n}</code>, using the last <code>_fragment_</code> occurrence as the delimiter.</p>
+<hr />
+<h2 id="input-file-formats">Input File Formats<a class="headerlink" href="#input-file-formats" title="Permanent link">&para;</a></h2>
+<h3 id="fasta-files">FASTA Files<a class="headerlink" href="#fasta-files" title="Permanent link">&para;</a></h3>
+<p>Standard FASTA format. Sequence IDs are the first whitespace-delimited word of the header:</p>
+<pre><code>&gt;dengue_1 Dengue virus type 1
+ATGCTAGCTAGCTAGC...
+&gt;zika_virus
+GCTAGCTAGCTAGCTA...
+</code></pre>
+<p><strong>Requirements:</strong>
+- Sequence IDs must be unique within each file
+- Sequence IDs must not contain spaces (use underscores)
+- IDs must be consistent across input files (sample manifest IDs must match FASTA headers)</p>
+<h3 id="sample-manifest-format">Sample Manifest Format<a class="headerlink" href="#sample-manifest-format" title="Permanent link">&para;</a></h3>
+<p>The <code>--sample</code> flag accepts two formats:</p>
+<p><strong>Inline IDs</strong> (on the command line):</p>
+<pre><code class="language-bash">--sample id1 id2 id3
+</code></pre>
+<p>All IDs default to weight 1.0. A number following an ID sets that ID's weight:</p>
+<pre><code class="language-bash">--sample dengue_1 5 zika_virus chikungunya 0.5
+# Result: dengue_1=5.0, zika_virus=1.0, chikungunya=0.5
+</code></pre>
+<p><strong>TSV file</strong> (if a single argument that is an existing file):</p>
+<pre><code># Optional comment lines starting with #
+dengue_1    5.0
+zika_virus
+chikungunya 0.5
+</code></pre>
+<ul>
+<li>First column: sequence ID (required)</li>
+<li>Second column: weight (optional, defaults to 1.0)</li>
+<li>Empty lines and lines starting with <code>#</code> are ignored</li>
+</ul>
+<p>In standard mode, IDs must match target FASTA headers. In genome mode, IDs must match genome FASTA headers.</p>
+<h3 id="sample-target-map-format">Sample-Target Map Format<a class="headerlink" href="#sample-target-map-format" title="Permanent link">&para;</a></h3>
+<p>TSV file mapping genome IDs to target IDs (used with <code>--genomes</code> via <code>--sample-target-map</code>):</p>
+<pre><code># genome_id target_id
+e_coli  e_coli_16S
+e_coli  e_coli_gyrB
+influenza_a influenza_a
+</code></pre>
+<ul>
+<li>One mapping per line: <code>genome_id&lt;TAB&gt;target_id</code></li>
+<li>Multiple targets per genome supported (one line per mapping)</li>
+<li>Lines starting with <code>#</code> are ignored</li>
+<li>Empty lines are ignored</li>
+</ul>
+<p><strong>Auto-linking:</strong> When <code>--sample-target-map</code> is omitted (or for genomes not listed in the map), BaitBench auto-links genomes to targets by:</p>
+<ol>
+<li><strong>Exact match</strong>: genome ID equals a target ID (e.g., genome <code>influenza_a</code> → target <code>influenza_a</code>)</li>
+<li><strong>Prefix match</strong>: target ID starts with <code>{genome_id}|</code> (e.g., genome <code>Bartonella_grahamii</code> → targets <code>Bartonella_grahamii|ompB</code>, <code>Bartonella_grahamii|16S</code>)</li>
+</ol>
+<p>This means you can name targets using the <code>organism|gene</code> convention and genomes using just <code>organism</code>, and they will auto-link without needing an explicit map file:</p>
+<pre><code># genomes.fa
+&gt;Bartonella_grahamii
+ATGC...
+&gt;Rickettsia_montanensis
+ATGC...
+
+# targets.fa (organism|gene naming)
+&gt;Bartonella_grahamii|ompB
+ATGC...
+&gt;Rickettsia_montanensis|ompA
+ATGC...
+&gt;Rickettsia_montanensis|gltA
+ATGC...
+</code></pre>
+<p>With this naming, <code>Bartonella_grahamii</code> auto-links to <code>Bartonella_grahamii|ompB</code>, and <code>Rickettsia_montanensis</code> auto-links to both <code>Rickettsia_montanensis|ompA</code> and <code>Rickettsia_montanensis|gltA</code>.</p>
+<p><strong>Using <code>--sample-target-map</code> for non-standard naming:</strong> If your genome and target IDs don't follow either naming convention (exact match or <code>organism|gene</code>), provide an explicit mapping file:</p>
+<pre><code># mapping.tsv — needed when genome IDs don't match target IDs
+NC_012846.1 bartonella_ompB
+NC_012846.1 bartonella_16S
+GCF_000022725.1 rickettsia_gltA
+</code></pre>
+<p>Explicit mappings take precedence over auto-linking for the same genome ID.</p>
+<p><strong>Untargeted genomes:</strong> Sample genomes with no target mapping (explicit or auto-linked) become "untargeted" -- they generate fragments but have no expected target to detect. This models unknown organisms.</p>
+<p><strong>Validation:</strong> BaitBench errors if the map references genome or target IDs not found in their respective FASTA files.</p>
+<h3 id="groups-file-format">Groups File Format<a class="headerlink" href="#groups-file-format" title="Permanent link">&para;</a></h3>
+<p>TSV file mapping sequence IDs to group names. Used by <code>--groups</code> (target grouping) and <code>--distractor-groups</code> (distractor grouping):</p>
+<pre><code># Optional comment lines starting with #
+# seq_id    group_name
+West_Nile_virus_0001    West_Nile_virus
+West_Nile_virus_0002    West_Nile_virus
+West_Nile_virus_0003    West_Nile_virus
+Dengue_virus_1_6275 Dengue_virus_1
+Dengue_virus_1_2274 Dengue_virus_1
+Dengue_virus_2_8773 Dengue_virus_2
+</code></pre>
+<ul>
+<li>One mapping per line: <code>seq_id&lt;TAB&gt;group_name</code></li>
+<li>Lines starting with <code>#</code> are ignored</li>
+<li>Empty lines are ignored</li>
+<li>Leading <code>&gt;</code> characters on sequence IDs are stripped automatically</li>
+</ul>
+<p><strong>Target groups (<code>--groups</code>):</strong>
+- Sequence IDs must exist in the targets FASTA (BaitBench errors on unknown IDs)
+- Sequences not listed in the file form singleton groups (their own ID = their group name)
+- Without <code>--groups</code>, each target sequence is its own singleton group (no behavioral change)</p>
+<p><strong>Distractor groups (<code>--distractor-groups</code>):</strong>
+- Overrides the default automatic grouping by FASTA file stem
+- Sequence IDs must exist in the distractor sequences (BaitBench errors on unknown IDs)
+- Without <code>--distractor-groups</code>, all contigs from each <code>--distractors</code> FASTA file are automatically grouped together using the file stem as the group name (e.g., all contigs in <code>Aaegypti.fa</code> → group <code>"Aaegypti"</code>)</p>
+<hr />
+<h2 id="dependencies">Dependencies<a class="headerlink" href="#dependencies" title="Permanent link">&para;</a></h2>
+<h3 id="rust-build-time-managed-by-cargo">Rust (build-time, managed by Cargo)<a class="headerlink" href="#rust-build-time-managed-by-cargo" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Crate</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>clap</td>
+<td>CLI argument parsing (derive macros)</td>
+</tr>
+<tr>
+<td>anyhow</td>
+<td>Error handling</td>
+</tr>
+<tr>
+<td>serde, serde_json</td>
+<td>Serialization (JSON output)</td>
+</tr>
+<tr>
+<td>rand, rand_distr</td>
+<td>Random sampling and normal distribution</td>
+</tr>
+<tr>
+<td>chrono</td>
+<td>Timestamps</td>
+</tr>
+<tr>
+<td>log, env_logger</td>
+<td>Logging</td>
+</tr>
+</tbody>
+</table>
+<h3 id="external-runtime-installed-via-conda">External (runtime, installed via conda)<a class="headerlink" href="#external-runtime-installed-via-conda" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Purpose</th>
+<th>Required?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>minimap2</td>
+<td>Alignment (simulate, mapping, filtering)</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>BLAST+</td>
+<td>Cross-reactivity analysis (xreact)</td>
+<td>Only if <code>baitbench xreact</code> is used</td>
+</tr>
+<tr>
+<td>R + packages</td>
+<td>HTML report generation</td>
+<td>Only if reports are enabled</td>
+</tr>
+</tbody>
+</table>
+<p>Install all via:</p>
+<pre><code class="language-bash">conda env create -f environment.yml
+conda activate baitbench
+</code></pre></div>
+        
+        
+    </div>
+
+    
+      <footer class="col-md-12 text-center">
+          
+          
+            <hr>
+            <p>
+            <small>Documentation built with <a href="http://www.mkdocs.org/">MkDocs</a>.</small>
+            </p>
+          
+
+          
+          
+      </footer>
+    
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+    <script src="../js/bootstrap-3.0.3.min.js"></script>
+
+    
+    <script src="//cdn.jsdelivr.net/gh/highlightjs/cdn-release@9.18.0/build/highlight.min.js"></script>
+        
+    <script>hljs.initHighlightingOnLoad();</script>
+    
+
+    <script>var base_url = ".."</script>
+    
+    <script src="../js/base.js"></script>
+    <script src="../search/main.js"></script>
+
+    <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">
+                    <span aria-hidden="true">&times;</span>
+                    <span class="sr-only">Close</span>
+                </button>
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
+            </div>
+            <div class="modal-body">
+                <p>
+                    From here you can search these documents. Enter
+                    your search terms below.
+                </p>
+                <form>
+                    <div class="form-group">
+                        <input type="text" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+    </body>
+
+</html>
