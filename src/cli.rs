@@ -242,7 +242,7 @@ pub enum Commands {
         min_unique_targets: usize,
 
         /// Report output mode: full (HTML report), none (skip), rmd (editable RMarkdown file), both-r (HTML + RMarkdown)
-        #[arg(long, default_value = "full")]
+        #[arg(long, default_value = "both-r")]
         report: ReportMode,
 
         /// Delete intermediate files after pipeline completes, keeping only report inputs and final outputs
@@ -625,7 +625,7 @@ pub enum Commands {
         output_prefix: String,
 
         /// Report output mode: full (HTML report), none (skip), rmd (editable RMarkdown file), both-r (HTML + RMarkdown)
-        #[arg(long, default_value = "full")]
+        #[arg(long, default_value = "both-r")]
         report: ReportMode,
 
         /// Delete intermediate files after completion, keeping only report inputs and final outputs
@@ -660,7 +660,7 @@ pub enum Commands {
         output: PathBuf,
 
         /// Report output mode: full (HTML report), rmd (editable RMarkdown file), both-r (HTML + RMarkdown)
-        #[arg(long, default_value = "full")]
+        #[arg(long, default_value = "both-r")]
         report: ReportMode,
     },
 
@@ -695,7 +695,7 @@ pub enum Commands {
         output_prefix: String,
 
         /// Report output mode: full (HTML report), none (skip), rmd (editable RMarkdown file), both-r (HTML + RMarkdown)
-        #[arg(long, default_value = "full")]
+        #[arg(long, default_value = "both-r")]
         report: ReportMode,
 
         /// Delete intermediate files after completion, keeping only report inputs and final outputs
@@ -731,7 +731,7 @@ pub enum Commands {
         output_prefix: String,
 
         /// Report output mode: full (HTML report), none (skip), rmd (editable RMarkdown file), both-r (HTML + RMarkdown)
-        #[arg(long, default_value = "full")]
+        #[arg(long, default_value = "both-r")]
         report: ReportMode,
 
         /// Delete intermediate files after completion
@@ -897,7 +897,7 @@ pub enum Commands {
         output_prefix: String,
 
         /// Report output mode: full (HTML report), none (skip), rmd (editable RMarkdown file), both-r (HTML + RMarkdown)
-        #[arg(long, default_value = "full")]
+        #[arg(long, default_value = "both-r")]
         report: ReportMode,
 
         /// Delete intermediate files after completion
@@ -1009,7 +1009,7 @@ pub enum Commands {
         output_prefix: String,
 
         /// Report output mode: full (HTML report), none (skip), rmd (editable RMarkdown file), both-r (HTML + RMarkdown)
-        #[arg(long, default_value = "full")]
+        #[arg(long, default_value = "both-r")]
         report: ReportMode,
 
         /// Delete intermediate files after completion
@@ -1193,7 +1193,7 @@ pub enum Commands {
         output_prefix: String,
 
         /// Report output mode: full (HTML report), none (skip), rmd (editable RMarkdown file), both-r (HTML + RMarkdown)
-        #[arg(long, default_value = "full")]
+        #[arg(long, default_value = "both-r")]
         report: ReportMode,
 
         /// Delete intermediate files after completion, keeping only report inputs and final outputs
