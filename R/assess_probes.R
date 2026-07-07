@@ -29,11 +29,14 @@ option_list <- list(
   make_option("--params", type = "character", default = NULL,
               help = "Overall run parameters TSV"),
   make_option("--indiv-cov-summary", type = "character", default = NULL,
-              help = paste("Individual target coverage summary TSV",
-                           "(optional, from --all-individual-targets)")),
+              help = "Individual target coverage summary TSV (always generated unless --no-individual-targets)"),
   make_option("--refine-summary", type = "character", default = NULL,
               help = paste("Refinement summary TSV (optional,",
                            "from --refine-iterations/--refine-until-stable)")),
+  make_option("--gap-details", type = "character", default = NULL,
+              help = "Gap detail TSV (gap sequences, GC, DUST, type)"),
+  make_option("--gap-min-length", type = "integer", default = 120,
+              help = "Minimum gap length shown in gap details [default %default]"),
   make_option("--output", type = "character",
               help = "Output HTML file")
 )
@@ -74,7 +77,10 @@ rmarkdown::render(
     individual_coverage_file = if (!is.null(opt$`indiv-cov-summary`))
       normalizePath(opt$`indiv-cov-summary`) else "",
     refine_summary_file = if (!is.null(opt$`refine-summary`))
-      normalizePath(opt$`refine-summary`) else ""
+      normalizePath(opt$`refine-summary`) else "",
+    gap_details_file = if (!is.null(opt$`gap-details`))
+      normalizePath(opt$`gap-details`) else "",
+    gap_min_length = opt$`gap-min-length`
   ),
   quiet = TRUE
 )

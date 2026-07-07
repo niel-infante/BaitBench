@@ -19,6 +19,8 @@ params:
   params_file: ""
   individual_coverage_file: ""
   refine_summary_file: ""
+  gap_details_file: ""
+  gap_min_length: 120
 ---
 
 <style>
@@ -364,7 +366,7 @@ cat(paste0(
 ```
 
 ```{r indiv-cov-absent, eval=!has_individual_cov, results='asis'}
-cat("*Individual target coverage not computed. Re-run with `--all-individual-targets` to enable.*\n")
+cat("*Individual target coverage not computed. Re-run without `--no-individual-targets` to enable.*\n")
 ```
 
 ```{r indiv-cov-breadth, eval=has_individual_cov, fig.height=if (is_small) max(3, n_targets * 0.4) else if (is_medium) 6 else 5, fig.width=if (is_large) 10 else 8}
@@ -558,6 +560,119 @@ if (nrow(gap_data) == 0) {
           axis.ticks.y = element_blank(),
           panel.grid.major.y = element_blank())
 }
+```
+
+## Gap Details
+
+```{r gap-details-load, include=FALSE}
+has_gap_details <- nchar(params$gap_details_file) > 0 &&
+  file.exists(params$gap_details_file)
+gap_min_bp <- as.integer(params$gap_min_length)
+if (has_gap_details) {
+  gap_df <- read.delim(params$gap_details_file, stringsAsFactors = FALSE,
+                       colClasses = c(gap_sequence = "character"))
+  has_indiv_gap_cols <- "gap_type" %in% names(gap_df) &&
+    any(nchar(gap_df$gap_type) > 0)
+}
+```
+
+```{r gap-details-summary, results='asis'}
+if (!has_gap_details || nrow(gap_df) == 0) {
+  cat(sprintf("*No gaps ≥ %d bp found.*\n", gap_min_bp))
+} else {
+  n_gaps <- nrow(gap_df)
+  n_targets_with_gaps <- length(unique(gap_df$target_id))
+  cat(sprintf(
+    "**%d gaps ≥ %d bp** across **%d targets**.\n\n",
+    n_gaps, gap_min_bp, n_targets_with_gaps
+  ))
+  if (has_indiv_gap_cols) {
+    n_true <- sum(gap_df$gap_type == "true_gap", na.rm = TRUE)
+    n_mm   <- sum(gap_df$gap_type == "multimapper_gap", na.rm = TRUE)
+    cat(sprintf(
+      "- **%d true gaps** — no probe aligns to this region even in isolation\n",
+      n_true
+    ))
+    cat(sprintf(
+      "- **%d multi-mapper gaps** — a probe exists but was outcompeted in combined mapping\n\n",
+      n_mm
+    ))
+  }
+  gap_filename <- basename(params$gap_details_file)
+  cat(sprintf(
+    "*Full gap details (including sequences): [%s](%s)*\n\n",
+    gap_filename, gap_filename
+  ))
+}
+```
+
+```{r gap-details-table, eval=has_gap_details && nrow(gap_df) > 0}
+display_cols <- c("target_id", "gap_start", "gap_end", "gap_length",
+                  "is_terminal", "gc_content", "dust_score")
+if (has_indiv_gap_cols) {
+  display_cols <- c(display_cols, "gap_type", "individual_coverage")
+}
+
+top_gaps <- gap_df[seq_len(min(20, nrow(gap_df))), display_cols, drop = FALSE]
+top_gaps$gc_content <- round(top_gaps$gc_content, 3)
+top_gaps$dust_score <- round(top_gaps$dust_score, 3)
+if ("individual_coverage" %in% names(top_gaps)) {
+  top_gaps$individual_coverage <- round(top_gaps$individual_coverage, 3)
+}
+
+dt <- DT::datatable(
+  top_gaps,
+  caption = sprintf(
+    "Top %d gaps by length (full file includes gap sequences)",
+    nrow(top_gaps)
+  ),
+  rownames = FALSE,
+  options = list(scrollX = TRUE, pageLength = 20, dom = "t"),
+  class = "compact"
+)
+
+if (has_indiv_gap_cols && "gap_type" %in% names(top_gaps)) {
+  type_col_idx <- which(names(top_gaps) == "gap_type") - 1L
+  dt <- DT::formatStyle(
+    dt, "gap_type",
+    backgroundColor = DT::styleEqual(
+      c("true_gap", "multimapper_gap"),
+      c("#f9cece", "#fde9cc")
+    )
+  )
+}
+dt
+```
+
+```{r gap-combined-vs-individual, eval=has_gap_details && has_individual_cov && has_indiv_gap_cols && nrow(gap_df) > 0, fig.height=4, fig.width=7}
+scatter_df <- cov_summary_df %>%
+  inner_join(
+    indiv_cov_df %>% select(reference_id, individual = pct_covered_1x),
+    by = "reference_id"
+  ) %>%
+  mutate(
+    has_large_gap = reference_id %in% gap_df$target_id,
+    label = if_else(has_large_gap, reference_id, NA_character_)
+  )
+
+lim <- c(0, 100)
+ggplot(scatter_df, aes(x = pct_covered_1x, y = individual, color = has_large_gap)) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey60") +
+  geom_point(alpha = 0.7, size = 2.5) +
+  ggrepel::geom_text_repel(aes(label = label), size = 3, max.overlaps = 15,
+                            na.rm = TRUE) +
+  scale_color_manual(
+    values = c("FALSE" = "#3498db", "TRUE" = "#e74c3c"),
+    labels = c("No large gap", "Has large gap"),
+    name = NULL
+  ) +
+  coord_fixed(xlim = lim, ylim = lim) +
+  labs(
+    x = "Combined coverage (%) — real-assay behavior",
+    y = "Individual coverage (%) — best possible",
+    title = "Combined vs. Individual Target Coverage",
+    subtitle = "Points above the diagonal: probes exist but are outcompeted in combined mapping"
+  )
 ```
 
 ## Pangenome Probe Depth

@@ -738,8 +738,13 @@ fn main() -> Result<()> {
             refine_threshold,
             refine_iterations,
             refine_until_stable,
-            all_individual_targets,
+            gap_min_length,
+            no_individual_targets,
+            threads,
         } => {
+            let threads = threads.unwrap_or_else(|| {
+                std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4)
+            });
             assess_probes::execute(&assess_probes::AssessProbesArgs {
                 targets: &targets,
                 probes: &probes,
@@ -756,7 +761,9 @@ fn main() -> Result<()> {
                 refine_threshold,
                 refine_iterations,
                 refine_until_stable,
-                all_individual_targets,
+                no_individual_targets,
+                gap_min_length,
+                threads,
             })?;
         }
 

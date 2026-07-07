@@ -1028,12 +1028,22 @@ pub enum Commands {
         #[arg(long, conflicts_with = "refine_iterations")]
         refine_until_stable: bool,
 
-        /// Compute probe coverage for each target individually (eliminates probe competition).
-        /// Useful when targets are highly similar (e.g., hundreds of strain variants).
-        /// Runs alignment once per target against that target alone, so probe competition
-        /// from other similar targets is entirely eliminated.
+        /// Minimum gap size (bp) to include in gap detail output.
+        /// Defaults to the median probe length auto-computed from the probe FASTA.
         #[arg(long)]
-        all_individual_targets: bool,
+        gap_min_length: Option<usize>,
+
+        /// Skip per-target individual coverage mapping.
+        /// Use for very large panels (e.g. >10 000 targets) where per-target alignment
+        /// would be too slow. When skipped, gap_type and individual_coverage columns are
+        /// omitted from the gap details file.
+        #[arg(long)]
+        no_individual_targets: bool,
+
+        /// Number of threads for probe mapping within each per-target alignment.
+        /// Defaults to the number of logical CPUs.
+        #[arg(long)]
+        threads: Option<usize>,
     },
 
     /// Generate coverage depth curves, optionally sweeping CT, capture-fraction, and/or num-sequences

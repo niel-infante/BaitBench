@@ -22,10 +22,61 @@ pub struct CoverageResult {
     pub reads_per_ref: HashMap<String, usize>,
 }
 
+/// A consecutive zero-depth region in a coverage vector (0-based, end is exclusive).
+pub struct GapRegion {
+    pub start: usize,
+    pub end: usize,
+}
+
+impl GapRegion {
+    pub fn length(&self) -> usize {
+        self.end - self.start
+    }
+    pub fn is_terminal(&self, ref_len: usize) -> bool {
+        self.start == 0 || self.end >= ref_len
+    }
+    /// Fraction of this gap covered (depth > 0) in another coverage vector.
+    pub fn coverage_fraction(&self, other: &[u32]) -> f64 {
+        let len = self.length();
+        if len == 0 {
+            return 0.0;
+        }
+        let end = self.end.min(other.len());
+        let start = self.start.min(end);
+        let covered = other[start..end].iter().filter(|&&d| d > 0).count();
+        covered as f64 / len as f64
+    }
+}
+
+/// Collect all zero-depth runs longer than `min_length` from a coverage vector.
+/// Returns gaps in position order.
+pub fn collect_gaps(coverage: &[u32], min_length: usize) -> Vec<GapRegion> {
+    let mut gaps = Vec::new();
+    let mut gap_start: Option<usize> = None;
+    for (i, &d) in coverage.iter().enumerate() {
+        if d == 0 {
+            if gap_start.is_none() {
+                gap_start = Some(i);
+            }
+        } else if let Some(s) = gap_start.take() {
+            if i - s >= min_length {
+                gaps.push(GapRegion { start: s, end: i });
+            }
+        }
+    }
+    if let Some(s) = gap_start {
+        let end = coverage.len();
+        if end - s >= min_length {
+            gaps.push(GapRegion { start: s, end });
+        }
+    }
+    gaps
+}
+
 /// Parse CIGAR string into (length, operation) pairs.
 ///
 /// E.g. "50M2I3D10M" -> [(50, 'M'), (2, 'I'), (3, 'D'), (10, 'M')]
-fn parse_cigar(cigar: &str) -> Vec<(u32, char)> {
+pub fn parse_cigar(cigar: &str) -> Vec<(u32, char)> {
     let mut ops = Vec::new();
     let mut num_start = 0;
     for (i, c) in cigar.char_indices() {

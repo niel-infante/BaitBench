@@ -416,7 +416,8 @@ baitbench assess-probes \
   [--output-prefix ""] \
   [--report full|none|rmd] \
   [--cleanup] \
-  [--all-individual-targets] \
+  [--gap-min-length N] \
+  [--no-individual-targets] \
   [--refine-iterations N | --refine-until-stable] \
   [--refine-threshold 80.0]
 ```
@@ -433,12 +434,13 @@ baitbench assess-probes \
 | `--output-prefix` | (empty) | String prepended to every output filename |
 | `--report` | full | Report mode |
 | `--cleanup` | false | Delete intermediate files |
-| `--all-individual-targets` | false | Rerun coverage per target in isolation; adds individual target coverage section |
+| `--gap-min-length` | median probe length | Minimum gap size (bp) for gap detail output |
+| `--no-individual-targets` | false | Skip per-target individual mapping (use for very large panels) |
 | `--refine-iterations` | none | Number of refinement iterations |
 | `--refine-until-stable` | false | Repeat until stable |
 | `--refine-threshold` | 80.0 | 1× coverage threshold for refinement |
 
-**Output files:** `cov_probe_coverage_summary.tsv`, `cov_probe_depth.tsv`, `cov_multi_mapping_probes.tsv`, `xreact_hits.tsv`, `xreact_summary.tsv`, `assess_probes_report.html`.
+**Output files:** `cov_probe_coverage_summary.tsv`, `cov_probe_depth.tsv`, `cov_multi_mapping_probes.tsv`, `xreact_hits.tsv`, `xreact_summary.tsv`, `individual_target_coverage_summary.tsv`, `*_gap_details.tsv`, `assess_probes_report.html`.
 
 ---
 

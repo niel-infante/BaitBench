@@ -27,4 +27,5 @@ dependencies:
   - r-optparse>=1.7
   - r-dt>=0.27
   - r-plotly>=4.8.0
+  - r-ggrepel>=0.9
   - pandoc>=2.19

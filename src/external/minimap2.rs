@@ -277,6 +277,104 @@ fn write_probe_alignments<W: Write>(
     Ok(())
 }
 
+/// Align pre-loaded probe sequences against a single-target FASTA and return per-position depth.
+///
+/// No SAM file is written. Probe sequences are passed pre-loaded to avoid re-reading the
+/// probe FASTA on every call (used by individual target coverage computation).
+///
+/// Probe mapping is parallelised across `threads` rayon workers; coverage accumulation
+/// is serial (no atomic overhead). Pass `threads = 1` to disable parallelism.
+pub fn probe_depth_in_memory(
+    preset: &str,
+    target_path: &Path,
+    probe_seqs: &std::collections::HashMap<String, String>,
+    max_secondary: usize,
+    threads: usize,
+) -> anyhow::Result<(std::collections::HashMap<String, usize>, std::collections::HashMap<String, Vec<u32>>)> {
+    use crate::alignment::coverage::parse_cigar;
+    use std::sync::Arc;
+    use rayon::prelude::*;
+
+    let mut aligner = Aligner::from_fasta(path_str(target_path)?, to_preset(preset)?)
+        .with_context(|| format!("Failed to build index for {}", target_path.display()))?;
+    aligner.options_mut().flags.remove(AlignFlags::NO_PRINT_2ND);
+    aligner.options_mut().filtering.best_n = max_secondary as i32;
+    aligner.output_config_mut().do_md = true;
+    let opts = MapOpts { cs: None, md: Some(true) };
+
+    let ref_lengths: std::collections::HashMap<String, usize> = aligner
+        .index()
+        .seqs
+        .iter()
+        .map(|s| (s.name.to_string(), s.len))
+        .collect();
+    let mut coverage: std::collections::HashMap<String, Vec<u32>> = ref_lengths
+        .iter()
+        .map(|(n, &l)| (n.clone(), vec![0u32; l]))
+        .collect();
+
+    // Parallel phase: map all probes, collecting raw mappings.
+    // Aligner is Sync so Arc<Aligner> can be shared across rayon workers.
+    let shared = Arc::new(aligner);
+    let probe_vec: Vec<(&String, &String)> = probe_seqs.iter().collect();
+
+    let all_mappings: Vec<Vec<rammap::Mapping>> = if threads > 1 {
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(threads)
+            .build()
+            .unwrap_or_else(|_| rayon::ThreadPoolBuilder::new().build().unwrap());
+        pool.install(|| {
+            probe_vec
+                .par_iter()
+                .map(|(name, seq)| shared.map_seq_with(name, seq.as_bytes(), opts).mappings)
+                .collect()
+        })
+    } else {
+        probe_vec
+            .iter()
+            .map(|(name, seq)| shared.map_seq_with(name, seq.as_bytes(), opts).mappings)
+            .collect()
+    };
+
+    // Serial phase: accumulate coverage from collected mappings.
+    for mappings in &all_mappings {
+        let mut secondary_count = 0usize;
+        for m in mappings {
+            if m.is_supplementary {
+                continue;
+            }
+            if !m.is_primary {
+                if secondary_count >= max_secondary {
+                    continue;
+                }
+                secondary_count += 1;
+            }
+            let cov = match coverage.get_mut(m.target_name.as_ref()) {
+                Some(c) => c,
+                None => continue,
+            };
+            let cigar = m.cigar.as_deref().unwrap_or("*");
+            let mut ref_pos = m.target_start;
+            for (len, op) in parse_cigar(cigar) {
+                match op {
+                    'M' | '=' | 'X' => {
+                        for _ in 0..len {
+                            if ref_pos < cov.len() {
+                                cov[ref_pos] += 1;
+                            }
+                            ref_pos += 1;
+                        }
+                    }
+                    'D' | 'N' => ref_pos += len as usize,
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    Ok((ref_lengths, coverage))
+}
+
 /// Cross-reactivity alignment (PAF output with all secondary alignments).
 ///
 /// Replicates `minimap2 -x <preset> -c --secondary=yes -N 10000 -p 0.5 <reference> <probes>`

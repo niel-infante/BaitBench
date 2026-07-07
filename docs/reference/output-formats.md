@@ -201,6 +201,27 @@ This format is typically 100–1000× smaller than per-position output, making i
 
 ---
 
+## *_gap_details.tsv
+
+Written by `assess-probes`. One row per gap region meeting the minimum length threshold. Always written (header-only if no qualifying gaps). Coordinates are 1-based inclusive.
+
+| Column | Description |
+|--------|-------------|
+| `target_id` | Target sequence name |
+| `gap_start` | Start position (1-based, inclusive) |
+| `gap_end` | End position (1-based, inclusive) |
+| `gap_length` | Gap length in bp |
+| `is_terminal` | `true` if gap touches position 1 or the last base of the target |
+| `gc_content` | Fraction GC (0–1; N bases excluded from denominator) |
+| `dust_score` | sDUST masked fraction (0–1; high = low complexity) |
+| `gap_type` | `true_gap` (no probe covers this region even in isolation) or `multimapper_gap` (probe exists but mapped elsewhere in combined alignment). Omitted if `--no-individual-targets`. |
+| `individual_coverage` | Fraction of gap positions with depth > 0 in individual-target mapping (0–1). Omitted if `--no-individual-targets`. |
+| `gap_sequence` | Nucleotide sequence of the gap (last column for easy omission when parsing) |
+
+Rows are sorted by `gap_length` descending.
+
+---
+
 ## Intermediate Files
 
 These are written during a run and can be removed with `--cleanup`:

@@ -28,7 +28,12 @@ pub struct AssessProbesArgs<'a> {
     pub refine_threshold: f64,
     pub refine_iterations: Option<usize>,
     pub refine_until_stable: bool,
-    pub all_individual_targets: bool,
+    /// Skip per-target individual mapping (use for very large panels).
+    pub no_individual_targets: bool,
+    /// Minimum gap length (bp) for gap detail output. None = auto from median probe length.
+    pub gap_min_length: Option<usize>,
+    /// Number of threads for probe mapping within each individual target alignment.
+    pub threads: usize,
 }
 
 pub fn execute(args: &AssessProbesArgs) -> Result<()> {
@@ -68,10 +73,10 @@ pub fn execute(args: &AssessProbesArgs) -> Result<()> {
         log::info!("Mode     : chained from build-probes");
     }
 
-    // --- Step 1: Run probe coverage analysis ---
+    // --- Step 1: Run probe coverage analysis (combined — real-assay behavior) ---
     let cov_prefix = format!("{}cov_", pfx);
     log::info!("Running probe coverage analysis...");
-    probe_coverage::execute(&probe_coverage::ProbeCoverageArgs {
+    let cov_data = probe_coverage::run_probe_coverage(&probe_coverage::ProbeCoverageArgs {
         targets: args.targets,
         probes: args.probes,
         outdir: args.outdir,
@@ -83,20 +88,40 @@ pub fn execute(args: &AssessProbesArgs) -> Result<()> {
     })?;
 
     // --- Step 1b: Individual target coverage (eliminates probe competition) ---
-    let indiv_summary: Option<PathBuf> = if args.all_individual_targets {
+    let indiv_data: Option<probe_coverage::IndividualCoverageData> = if args.no_individual_targets {
+        log::info!("Skipping individual target coverage (--no-individual-targets).");
+        None
+    } else {
         log::info!("Computing individual target coverage (per-target alignment)...");
-        let path = compute_individual_coverage(
+        let data = probe_coverage::run_individual_coverage(
             args.targets,
             args.probes,
             args.outdir,
             pfx,
             args.minimap_preset,
             args.proximity,
+            args.threads,
         )?;
-        Some(path)
-    } else {
-        None
+        Some(data)
     };
+
+    // --- Step 1c: Gap detail analysis ---
+    let gap_min = args.gap_min_length.unwrap_or_else(|| {
+        let m = probe_coverage::compute_median_probe_length(args.probes);
+        log::info!("Gap min-length auto-detected from probe FASTA: {} bp", m);
+        m
+    });
+    let gap_details_path = probe_coverage::compute_gap_details(
+        &cov_data.coverage,
+        &cov_data.ref_lengths,
+        indiv_data.as_ref().map(|d| &d.coverage),
+        args.targets,
+        gap_min,
+        args.outdir,
+        pfx,
+    )?;
+
+    let indiv_summary: Option<PathBuf> = indiv_data.as_ref().map(|d| d.summary_path.clone());
 
     // --- Step 2: Run cross-reactivity analysis ---
     let xreact_prefix = format!("{}xreact_", pfx);
@@ -120,18 +145,19 @@ pub fn execute(args: &AssessProbesArgs) -> Result<()> {
     // --- Step 4: Collect data file paths ---
     let xreact_hits = prefixed_join(args.outdir, &xreact_prefix, "hits.tsv");
     let xreact_summary = prefixed_join(args.outdir, &xreact_prefix, "summary.tsv");
-    let cov_summary = prefixed_join(args.outdir, &cov_prefix, "probe_coverage_summary.tsv");
-    let cov_depth = prefixed_join(args.outdir, &cov_prefix, "probe_depth.tsv");
-    let cov_multi = prefixed_join(args.outdir, &cov_prefix, "multi_mapping_probes.tsv");
+    let cov_summary = &cov_data.summary_path;
+    let cov_depth = &cov_data.depth_path;
+    let cov_multi = &cov_data.multi_mapping_path;
 
     // --- Step 5: Refinement iterations ---
     let refine_summary: Option<PathBuf> = if args.refine_iterations.is_some() || args.refine_until_stable {
-        Some(run_refinement(args, &cov_summary)?)
+        Some(run_refinement(args, cov_summary)?)
     } else {
         None
     };
 
     // --- Step 6: Generate report (after refinement so it can include the refinement summary) ---
+    let gap_min_str = gap_min.to_string();
     match args.report {
         ReportMode::None => {
             log::info!("Skipping report generation (--report none)");
@@ -147,13 +173,15 @@ pub fn execute(args: &AssessProbesArgs) -> Result<()> {
                     &xreact_hits,
                     &xreact_summary,
                     args.threshold,
-                    &cov_summary,
-                    &cov_depth,
-                    &cov_multi,
+                    cov_summary,
+                    cov_depth,
+                    cov_multi,
                     args.proximity,
                     &params_path,
                     indiv_summary.as_deref(),
                     refine_summary.as_deref(),
+                    Some(&gap_details_path),
+                    &gap_min_str,
                     &report_path,
                 ) {
                     Ok(()) => log::info!("Report generated: {}", report_path.display()),
@@ -173,13 +201,15 @@ pub fn execute(args: &AssessProbesArgs) -> Result<()> {
                 &xreact_hits,
                 &xreact_summary,
                 args.threshold,
-                &cov_summary,
-                &cov_depth,
-                &cov_multi,
+                cov_summary,
+                cov_depth,
+                cov_multi,
                 args.proximity,
                 &params_path,
                 indiv_summary.as_deref(),
                 refine_summary.as_deref(),
+                Some(&gap_details_path),
+                &gap_min_str,
                 &report_path,
             ) {
                 Ok(()) => {}
@@ -196,13 +226,15 @@ pub fn execute(args: &AssessProbesArgs) -> Result<()> {
                 &xreact_hits,
                 &xreact_summary,
                 args.threshold,
-                &cov_summary,
-                &cov_depth,
-                &cov_multi,
+                cov_summary,
+                cov_depth,
+                cov_multi,
                 args.proximity,
                 &params_path,
                 indiv_summary.as_deref(),
                 refine_summary.as_deref(),
+                Some(&gap_details_path),
+                &gap_min_str,
                 &report_path,
             ) {
                 Ok(()) => {}
@@ -216,13 +248,15 @@ pub fn execute(args: &AssessProbesArgs) -> Result<()> {
                     &xreact_hits,
                     &xreact_summary,
                     args.threshold,
-                    &cov_summary,
-                    &cov_depth,
-                    &cov_multi,
+                    cov_summary,
+                    cov_depth,
+                    cov_multi,
                     args.proximity,
                     &params_path,
                     indiv_summary.as_deref(),
                     refine_summary.as_deref(),
+                    Some(&gap_details_path),
+                    &gap_min_str,
                     &report_path,
                 ) {
                     Ok(()) => log::info!("Report generated: {}", report_path.display()),
@@ -275,13 +309,15 @@ fn write_run_params(path: &Path, args: &AssessProbesArgs) -> Result<()> {
         writeln!(w, "genomes\t--genomes\t{}", g.display())?;
     }
     writeln!(w, "threshold\t--threshold\t{:.1}", args.threshold)?;
-    writeln!(
-        w,
-        "minimap_preset\t--minimap-preset\t{}",
-        args.minimap_preset
-    )?;
+    writeln!(w, "minimap_preset\t--minimap-preset\t{}", args.minimap_preset)?;
     writeln!(w, "proximity\t--proximity\t{}", args.proximity)?;
     writeln!(w, "outdir\t-o\t{}", args.outdir.display())?;
+    if args.no_individual_targets {
+        writeln!(w, "no_individual_targets\t--no-individual-targets\ttrue")?;
+    }
+    if let Some(g) = args.gap_min_length {
+        writeln!(w, "gap_min_length\t--gap-min-length\t{}", g)?;
+    }
 
     w.flush()?;
     Ok(())
@@ -318,6 +354,8 @@ fn generate_assess_report(
     params_path: &Path,
     indiv_summary: Option<&Path>,
     refine_summary: Option<&Path>,
+    gap_details: Option<&Path>,
+    gap_min_length: &str,
     output_path: &Path,
 ) -> Result<()> {
     let r_dir = rscript::find_r_dir()
@@ -370,6 +408,12 @@ fn generate_assess_report(
             r_args.extend(["--refine-summary".into(), abs_path_str(p)?]);
         }
     }
+    if let Some(p) = gap_details {
+        if p.exists() {
+            r_args.extend(["--gap-details".into(), abs_path_str(p)?]);
+        }
+    }
+    r_args.extend(["--gap-min-length".into(), gap_min_length.to_string()]);
 
     let arg_refs: Vec<&str> = r_args.iter().map(|s| s.as_str()).collect();
     rscript::run_rscript(&script, &arg_refs)
@@ -388,6 +432,8 @@ fn write_assess_rmd(
     params_path: &Path,
     indiv_summary: Option<&Path>,
     refine_summary: Option<&Path>,
+    gap_details: Option<&Path>,
+    gap_min_length: &str,
     output_path: &Path,
 ) -> Result<()> {
     let r_dir = rscript::find_r_dir()
@@ -421,6 +467,9 @@ fn write_assess_rmd(
     let refine_summary_str = refine_summary
         .and_then(|p| if p.exists() { abs_path_str(p).ok() } else { None })
         .unwrap_or_default();
+    let gap_details_str = gap_details
+        .and_then(|p| if p.exists() { abs_path_str(p).ok() } else { None })
+        .unwrap_or_default();
     let xreact_hits_str = abs_path_str(xreact_hits)?;
     let xreact_summary_str = abs_path_str(xreact_summary)?;
     let cov_summary_str = abs_path_str(cov_summary)?;
@@ -440,6 +489,8 @@ fn write_assess_rmd(
         ("params_file", params_path_str.as_str()),
         ("individual_coverage_file", indiv_summary_str.as_str()),
         ("refine_summary_file", refine_summary_str.as_str()),
+        ("gap_details_file", gap_details_str.as_str()),
+        ("gap_min_length", gap_min_length),
     ];
 
     let template_content = std::fs::read_to_string(&rmd_template)
@@ -457,113 +508,6 @@ fn write_assess_rmd(
         rmd_path.display()
     );
     Ok(())
-}
-
-/// Compute per-target probe coverage by running alignment individually for each target.
-///
-/// Each target is evaluated in complete isolation: only that one sequence is present
-/// in the reference during alignment, so probe competition from similar targets is
-/// entirely eliminated. This gives the theoretical maximum coverage achievable for
-/// each target if it were the only sequence in the panel.
-fn compute_individual_coverage(
-    targets: &Path,
-    probes: &Path,
-    outdir: &Path,
-    output_prefix: &str,
-    minimap_preset: &str,
-    proximity: usize,
-) -> Result<PathBuf> {
-    use crate::alignment::coverage;
-
-    // Load target IDs in file order for deterministic output
-    let target_ids = fasta::parse_fasta_ids(targets)?;
-    let n = target_ids.len();
-    log::info!("Computing individual coverage for {} targets...", n);
-
-    // Temp directory for per-target FASTAs and SAMs
-    let tmp_dir = prefixed_join(outdir, output_prefix, "indiv_tmp");
-    fs::create_dir_all(&tmp_dir)?;
-
-    let mut stats: Vec<(String, coverage::ProbeCoverageStats)> = Vec::new();
-
-    let report_interval = (n / 10).max(1);
-
-    for (i, target_id) in target_ids.iter().enumerate() {
-        if i > 0 && i % report_interval == 0 {
-            log::info!(
-                "Individual coverage: {}/{} targets ({:.0}%)",
-                i, n,
-                100.0 * i as f64 / n as f64
-            );
-        }
-        log::debug!("Individual coverage [{}/{}]: {}", i + 1, n, target_id);
-
-        // Extract this single target to a temp FASTA
-        let target_fa = tmp_dir.join(format!("{}.fa", i));
-        let mut id_set = HashSet::new();
-        id_set.insert(target_id.clone());
-        let extracted = fasta::extract_by_ids(targets, &id_set, &target_fa)?;
-        if extracted == 0 {
-            log::warn!("Target '{}' not found in FASTA — skipping", target_id);
-            continue;
-        }
-
-        // Align all probes against this single target
-        let sam_path = tmp_dir.join(format!("{}.sam", i));
-        let log_path = tmp_dir.join(format!("{}.log", i));
-        minimap2::probe_align(
-            minimap_preset,
-            &target_fa,
-            probes,
-            &sam_path,
-            &log_path,
-            1,
-            1000,
-        )?;
-
-        // Compute coverage for this target
-        let cov_result = coverage::compute_probe_coverage(&sam_path)?;
-        if let Some(depths) = cov_result.coverage.get(target_id) {
-            let ref_len = cov_result
-                .ref_lengths
-                .get(target_id)
-                .copied()
-                .unwrap_or(depths.len());
-            let s = coverage::calculate_probe_stats(depths, ref_len, proximity);
-            stats.push((target_id.clone(), s));
-        } else {
-            // No alignments at all — zero coverage
-            let ref_len = cov_result
-                .ref_lengths
-                .values()
-                .next()
-                .copied()
-                .unwrap_or(0);
-            let zero = vec![0u32; ref_len];
-            let s = coverage::calculate_probe_stats(&zero, ref_len, proximity);
-            stats.push((target_id.clone(), s));
-        }
-
-        // Clean up temp files for this target immediately
-        let _ = fs::remove_file(&target_fa);
-        let _ = fs::remove_file(&sam_path);
-        let _ = fs::remove_file(&log_path);
-    }
-
-    // Remove the (now empty) temp directory
-    let _ = fs::remove_dir(&tmp_dir);
-
-    stats.sort_by(|a, b| a.0.cmp(&b.0));
-
-    let summary_path =
-        prefixed_join(outdir, output_prefix, "individual_target_coverage_summary.tsv");
-    probe_coverage::write_probe_summary(&summary_path, &stats)?;
-    log::info!(
-        "Individual target coverage summary written to {}",
-        summary_path.display()
-    );
-
-    Ok(summary_path)
 }
 
 /// Count the number of target rows (non-header lines) in a probe_coverage_summary.tsv.

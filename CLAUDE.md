@@ -73,7 +73,7 @@ genomes.fa + targets.fa + distractors.fa [+ sample.tsv] [+ mapping.tsv]
 `baitbench tool <TOOL>` groups standalone utility tools under a single subcommand to keep the main help clean. Run `baitbench tool --help` to list available tools. Current tools: `syotti` (greedy set-cover probe design), `catch` (CATCH optimization probe design), `dustview` (sDUST masking visualization), `collapse` (cd-hit-est sequence clustering). More tools may be added here without cluttering top-level help.
 
 
-`baitbench assess-probes` runs combined probe assessment: probe coverage analysis + cross-reactivity (self-homology always, against genomes if `--genomes` provided), producing a single combined HTML report. Can include build pipeline stats when chained from `build-probes`. Standalone, not part of the simulation pipeline. `--all-individual-targets` reruns coverage once per target in isolation (minimap2 called separately for each target) and adds an **Individual Target Coverage** section to the report, useful when the panel contains many similar strain variants.
+`baitbench assess-probes` runs combined probe assessment: probe coverage analysis + cross-reactivity (self-homology always, against genomes if `--genomes` provided), producing a single combined HTML report. Can include build pipeline stats when chained from `build-probes`. Standalone, not part of the simulation pipeline. Individual-target coverage (minimap2 called separately for each target, eliminating probe competition) is always-on and enables gap classification (`true_gap` vs. `multimapper_gap`); skip with `--no-individual-targets` for very large panels (e.g. >10 000 targets). `--gap-min-length` controls the minimum gap size included in `*_gap_details.tsv` (defaults to median probe length).
 
 ### Key Files
 
@@ -98,7 +98,7 @@ genomes.fa + targets.fa + distractors.fa [+ sample.tsv] [+ mapping.tsv]
 | `src/target_similarity.rs` | Shared library: target similarity computation, discriminability scoring, confusion matrices |
 | `src/commands/coverage_curve.rs` | Coverage curve: pipeline at multiple param combos (CT × temp × CF × NS) → depth curves |
 | `src/commands/build_probes.rs` | Build probes: N filter → collapse → tile/CATCH/Syotti → N-fix (`--no-n-in-probes`) → GC filter → complexity filter (sDUST) → deduplicate; auto-chains to assess-probes |
-| `src/commands/assess_probes.rs` | Combined probe assessment: orchestrates probe_coverage + xreact + optional individual-target coverage, generates combined report |
+| `src/commands/assess_probes.rs` | Combined probe assessment: orchestrates probe_coverage + individual-target coverage (always) + xreact + gap details, generates combined report |
 | `src/sdust.rs` | sDUST low-complexity sequence detection (Morgulis et al. 2006) |
 | `src/syotti.rs` | Syotti greedy bait design: design_probes() — k-mer hash index, seed-and-extend, greedy set-cover (Alanko et al. 2022) |
 | `src/catch.rs` | Native CATCH probe design: design_probes() — tiling → MinHash dedup → greedy set cover (reimplementation of Metsky et al. 2019) |
