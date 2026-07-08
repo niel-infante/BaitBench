@@ -613,26 +613,41 @@ if (has_indiv_gap_cols) {
   display_cols <- c(display_cols, "gap_type", "individual_coverage")
 }
 
-top_gaps <- gap_df[seq_len(min(20, nrow(gap_df))), display_cols, drop = FALSE]
-top_gaps$gc_content <- round(top_gaps$gc_content, 3)
+# True gaps first (no probe covers the region even in isolation), then
+# multimapper gaps (probe exists but was outcompeted), both by descending length.
+if (has_indiv_gap_cols && "gap_type" %in% names(gap_df)) {
+  gap_df_display <- gap_df %>%
+    mutate(.type_order = ifelse(gap_type == "true_gap", 0L, 1L)) %>%
+    arrange(.type_order, desc(gap_length)) %>%
+    select(-.type_order)
+} else {
+  gap_df_display <- gap_df
+}
+
+top_gaps <- gap_df_display[seq_len(min(20, nrow(gap_df_display))), display_cols, drop = FALSE]
+top_gaps$gc_content <- round(top_gaps$gc_content * 100, 1)  # fraction → percent
 top_gaps$dust_score <- round(top_gaps$dust_score, 3)
 if ("individual_coverage" %in% names(top_gaps)) {
   top_gaps$individual_coverage <- round(top_gaps$individual_coverage, 3)
 }
 
+col_labels <- names(top_gaps)
+col_labels[col_labels == "gc_content"] <- "GC (%)"
+col_labels[col_labels == "dust_score"] <- "Dust Masked"
+
 dt <- DT::datatable(
   top_gaps,
   caption = sprintf(
-    "Top %d gaps by length (full file includes gap sequences)",
+    "Top %d gaps by length — true gaps shown first (full file includes gap sequences)",
     nrow(top_gaps)
   ),
   rownames = FALSE,
+  colnames = col_labels,
   options = list(scrollX = TRUE, pageLength = 20, dom = "t"),
   class = "compact"
 )
 
 if (has_indiv_gap_cols && "gap_type" %in% names(top_gaps)) {
-  type_col_idx <- which(names(top_gaps) == "gap_type") - 1L
   dt <- DT::formatStyle(
     dt, "gap_type",
     backgroundColor = DT::styleEqual(
@@ -641,6 +656,21 @@ if (has_indiv_gap_cols && "gap_type" %in% names(top_gaps)) {
     )
   )
 }
+
+# GC (%): bold red text when outside the typical probe design range (20–80%).
+dt <- DT::formatStyle(
+  dt, "gc_content",
+  fontWeight = DT::styleInterval(c(20, 80), c("bold", "normal", "bold")),
+  color     = DT::styleInterval(c(20, 80), c("#c0392b", "inherit", "#c0392b"))
+)
+
+# Dust Masked: bold orange text when more than 25% of the gap is low-complexity.
+dt <- DT::formatStyle(
+  dt, "dust_score",
+  fontWeight = DT::styleInterval(0.25, c("normal", "bold")),
+  color     = DT::styleInterval(0.25, c("inherit", "#e67e22"))
+)
+
 dt
 ```
 
