@@ -12,3 +12,4 @@ Explanation is understanding-oriented: it covers the "why" and "how it works" be
 | [Metrics and Classification](metrics-and-classification.md) | The 3-way classification system and how sensitivity, specificity, and F1 are computed |
 | [Thermodynamic Scoring](thermodynamic-scoring.md) | The SantaLucia nearest-neighbor model, Boltzmann weighting, and salt correction |
 | [CT Scores](ct-scores.md) | How CT values map to distractor fractions, PCR efficiency, and calibration |
+| [Low-Complexity Filtering](low-complexity-filtering.md) | How sDUST scores sequence complexity, how the three parameters interact, and how to choose cutoffs |

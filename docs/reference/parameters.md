@@ -154,11 +154,39 @@ Used by `baitbench build-probes`. All method-specific flags are silently ignored
 
 | Parameter | Flag | Default | Description |
 |-----------|------|---------|-------------|
+| Targets | `-t` / `--targets` | _(required)_ | Target sequences FASTA |
 | Method | `--method` | `tile` | Probe design algorithm: `tile`, `catch-lite`, `catch`, `syotti-lite`, `probetools-lite` |
-| Step (tile) | `--step` | 60 | Sliding window step between consecutive probe start positions (`tile` method) |
-| No-N in probes | `--no-n-in-probes` | false | Replace N bases in probes: each N → T unless adjacent to T, then A/C/G |
+| Probe length | `--probe-length` | 120 | Probe length in bp |
+| Step (tile) | `--step` | -60 | Step from end of each probe to start of next: negative = overlap, 0 = perfectly tiled, positive = gap (`tile` method only) |
+| Max N fraction | `--max-n-frac` | 0.05 | Max fraction of ambiguous (N) bases in a target sequence; sequences above this are removed before design |
+| No-N in probes | `--no-n-in-probes` | false | Replace N bases in designed probes: each N → T unless adjacent to T, then A/C/G |
 | Min GC | `--min-gc` | 0.20 | Minimum GC fraction (0–1) to keep a probe |
 | Max GC | `--max-gc` | 0.80 | Maximum GC fraction (0–1) to keep a probe |
+| DUST threshold | `--dust-threshold` | 2.0 | DUST score threshold for low-complexity filtering (Morgulis et al. 2006) |
+| DUST window | `--dust-window` | 64 | Window size in bases for DUST scoring |
+| Max masked fraction | `--max-masked-frac` | 0.25 | Max fraction of DUST-masked bases to keep a probe; set to 1.0 to disable complexity filtering |
+| Collapse threshold | `--collapse-threshold` | 0.95 | cd-hit-est identity threshold for initial target collapse |
+| Dedup threshold | `--dedup-threshold` | 0.95 | cd-hit-est identity threshold for final probe deduplication |
+| Threads | `--threads` | 5 | Number of threads for cd-hit-est |
+| Output directory | `-o` / `--outdir` | `./build_probes_results` | Output directory |
+| Output prefix | `--output-prefix` | _(none)_ | String prepended to every output filename |
+| Report | `--report` | `both-r` | Report mode: `full` (HTML only), `rmd` (RMarkdown only), `both-r` (HTML + RMarkdown), `none` (skip) |
+| Cleanup | `--cleanup` | false | Delete intermediate files after completion |
+| Skip assess | `--skip-assess` | false | Skip the automatic probe assessment step (coverage + cross-reactivity) |
+
+### Assessment Parameters
+
+These apply to the `assess-probes` step that `build-probes` chains into automatically (unless `--skip-assess` is set).
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--genomes` | _(none)_ | Genome FASTA(s) for cross-reactivity checking; can be specified multiple times |
+| `--threshold` | 80.0 | Minimum homology (%) for cross-reactivity detection |
+| `--minimap-preset` | `sr` | Minimap2 alignment preset for assessment alignments |
+| `--proximity` | 50 | Proximity distance (bp) for pull-down zone metric in coverage assessment |
+| `--refine-threshold` | 80.0 | 1× coverage threshold (%) below which targets are re-analyzed in refinement iterations |
+| `--refine-iterations` | _(none)_ | Number of refinement iterations to run on low-coverage targets |
+| `--refine-until-stable` | false | Repeat refinement until no targets remain below `--refine-threshold` or the set stabilizes (conflicts with `--refine-iterations`) |
 
 ### `--method catch-lite` / `--method catch` Parameters
 
@@ -174,8 +202,8 @@ Used by `baitbench build-probes`. All method-specific flags are silently ignored
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--syotti-mismatches` | 5 | Maximum Hamming-distance mismatches for a bait to cover a target window |
-| `--syotti-seed-len` | 20 | Seed length for k-mer index during extension |
+| `--syotti-mismatches` | 40 | Maximum Hamming-distance mismatches for a bait to cover a reference window |
+| `--syotti-seed-len` | 20 | Seed length (k-mer size) for the approximate search index |
 
 ### `--method probetools-lite` Parameters
 
