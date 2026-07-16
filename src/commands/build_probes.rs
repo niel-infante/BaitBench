@@ -9,9 +9,7 @@ use crate::external::{cdhit, rscript};
 use crate::external::catch as external_catch;
 use crate::io_utils::prefixed_join;
 use crate::sdust;
-use crate::syotti;
-use crate::catch;
-use crate::probetools;
+use crate::probes::{syotti, catch, probetools};
 
 pub struct BuildProbesArgs<'a> {
     pub targets: &'a Path,

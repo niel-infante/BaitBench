@@ -102,12 +102,12 @@ pub fn filter_paf(
         }
 
         // Scan optional tags (fields 12+)
-        let mut nm: u32 = 0;
+        let mut nm: Option<u32> = None;
         let mut has_indel = false;
 
         for field in &fields[12..] {
             if let Some(val) = field.strip_prefix("NM:i:") {
-                nm = val.parse().unwrap_or(0);
+                nm = val.parse().ok();
             } else if let Some(cigar) = field.strip_prefix("cg:Z:") {
                 if cigar.contains('I') || cigar.contains('D') {
                     has_indel = true;
@@ -115,7 +115,9 @@ pub fn filter_paf(
             }
         }
 
-        if !has_indel && nm <= max_mismatches {
+        // NM absent: skip mismatch filter (alignment passes on match-bases alone)
+        let nm_passes = nm.map_or(true, |n| n <= max_mismatches);
+        if !has_indel && nm_passes {
             passing.insert(query_name.to_string());
         }
     }

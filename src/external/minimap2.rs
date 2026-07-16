@@ -291,7 +291,7 @@ pub fn probe_depth_in_memory(
     max_secondary: usize,
     threads: usize,
 ) -> anyhow::Result<(std::collections::HashMap<String, usize>, std::collections::HashMap<String, Vec<u32>>)> {
-    use crate::alignment::coverage::parse_cigar;
+    use crate::alignment::cigar::{parse_cigar, CigarOp};
     use std::sync::Arc;
     use rayon::prelude::*;
 
@@ -357,7 +357,7 @@ pub fn probe_depth_in_memory(
             let mut ref_pos = m.target_start;
             for (len, op) in parse_cigar(cigar) {
                 match op {
-                    'M' | '=' | 'X' => {
+                    CigarOp::Match | CigarOp::Equal | CigarOp::Mismatch => {
                         for _ in 0..len {
                             if ref_pos < cov.len() {
                                 cov[ref_pos] += 1;
@@ -365,7 +365,7 @@ pub fn probe_depth_in_memory(
                             ref_pos += 1;
                         }
                     }
-                    'D' | 'N' => ref_pos += len as usize,
+                    CigarOp::Del | CigarOp::Skip => ref_pos += len as usize,
                     _ => {}
                 }
             }

@@ -3,7 +3,7 @@ use std::path::Path;
 
 use crate::external::minimap2;
 use crate::fasta;
-use crate::sampling::{thermo_sim, weights};
+use crate::sampling::{thermo_sim, weights, FragmentLengthParams};
 use crate::sampling::thermo_sim::SimulateMode;
 use crate::thermodynamics::ThermoModel;
 
@@ -30,6 +30,17 @@ pub struct SimulateArgs<'a> {
 }
 
 pub fn execute(args: &SimulateArgs) -> Result<()> {
+    if args.fragment_length_mean < args.fragment_length_min as f64
+        || args.fragment_length_mean > args.fragment_length_max as f64
+    {
+        anyhow::bail!(
+            "--fragment-length-mean ({}) must be within [--fragment-length-min ({}), --fragment-length-max ({})]",
+            args.fragment_length_mean,
+            args.fragment_length_min,
+            args.fragment_length_max,
+        );
+    }
+
     if let Some(seed) = args.seed {
         log::info!("Using random seed: {}", seed);
     }
@@ -87,14 +98,18 @@ pub fn execute(args: &SimulateArgs) -> Result<()> {
 
     let mut all_fragments: Vec<(String, String)> = Vec::with_capacity(args.num_fragments);
 
+    let len_params = FragmentLengthParams {
+        mean: args.fragment_length_mean,
+        min: args.fragment_length_min,
+        max: args.fragment_length_max,
+    };
+
     if n_capture > 0 {
         let capture_frags = thermo_sim::sample_capture_fragments(
             &hits_by_probe,
             &sequences,
             n_capture,
-            args.fragment_length_mean,
-            args.fragment_length_min,
-            args.fragment_length_max,
+            len_params,
             args.seed,
             0,
         )?;
@@ -107,9 +122,7 @@ pub fn execute(args: &SimulateArgs) -> Result<()> {
             &sequences,
             &wts,
             n_background,
-            args.fragment_length_mean,
-            args.fragment_length_min,
-            args.fragment_length_max,
+            len_params,
             args.seed,
             all_fragments.len(),
         )?;

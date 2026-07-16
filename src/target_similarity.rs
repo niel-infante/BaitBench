@@ -182,8 +182,11 @@ pub fn build_similarity_context(
         let species_b = target_to_species.get(&sim.target_b);
 
         if let (Some(sp_a), Some(sp_b)) = (species_a, species_b) {
-            // Check if these targets belong to different species
-            let different_species = sp_a.iter().any(|sa| sp_b.iter().all(|sb| sa != sb));
+            // True only when the two targets share no species at all.
+            // (all-vs-all avoids the multi-species-target edge case where
+            //  the old `any/all` form treated targets sharing one species as
+            //  cross-species because they also belonged to a second species.)
+            let different_species = !sp_a.iter().any(|sa| sp_b.contains(sa));
             if different_species {
                 cross_species_similar
                     .entry(sim.target_a.clone())

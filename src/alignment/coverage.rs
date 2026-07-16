@@ -4,6 +4,8 @@ use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::Path;
 
+use super::cigar::{parse_cigar, CigarOp};
+
 /// Coverage statistics for a single reference sequence.
 pub struct CoverageStats {
     pub ref_length: usize,
@@ -38,12 +40,11 @@ impl GapRegion {
     /// Fraction of this gap covered (depth > 0) in another coverage vector.
     pub fn coverage_fraction(&self, other: &[u32]) -> f64 {
         let len = self.length();
-        if len == 0 {
+        if len == 0 || self.start >= other.len() {
             return 0.0;
         }
         let end = self.end.min(other.len());
-        let start = self.start.min(end);
-        let covered = other[start..end].iter().filter(|&&d| d > 0).count();
+        let covered = other[self.start..end].iter().filter(|&&d| d > 0).count();
         covered as f64 / len as f64
     }
 }
@@ -73,22 +74,6 @@ pub fn collect_gaps(coverage: &[u32], min_length: usize) -> Vec<GapRegion> {
     gaps
 }
 
-/// Parse CIGAR string into (length, operation) pairs.
-///
-/// E.g. "50M2I3D10M" -> [(50, 'M'), (2, 'I'), (3, 'D'), (10, 'M')]
-pub fn parse_cigar(cigar: &str) -> Vec<(u32, char)> {
-    let mut ops = Vec::new();
-    let mut num_start = 0;
-    for (i, c) in cigar.char_indices() {
-        if c.is_ascii_alphabetic() || c == '=' {
-            if let Ok(len) = cigar[num_start..i].parse::<u32>() {
-                ops.push((len, c));
-            }
-            num_start = i + c.len_utf8();
-        }
-    }
-    ops
-}
 
 /// Compute per-position coverage for all references from a SAM file.
 ///
@@ -162,8 +147,7 @@ pub fn compute_coverage(sam_path: &Path) -> Result<CoverageResult> {
 
         for (len, op) in ops {
             match op {
-                'M' | '=' | 'X' => {
-                    // Alignment match/mismatch: read covers these reference positions
+                CigarOp::Match | CigarOp::Equal | CigarOp::Mismatch => {
                     for _ in 0..len {
                         if ref_pos < cov.len() {
                             cov[ref_pos] += 1;
@@ -171,12 +155,8 @@ pub fn compute_coverage(sam_path: &Path) -> Result<CoverageResult> {
                         ref_pos += 1;
                     }
                 }
-                'D' | 'N' => {
-                    // Deletion/skip: consume reference but no coverage
+                CigarOp::Del | CigarOp::Skip => {
                     ref_pos += len as usize;
-                }
-                'I' | 'S' | 'H' | 'P' => {
-                    // Insertion/clip/pad: do not consume reference
                 }
                 _ => {}
             }
@@ -305,7 +285,7 @@ pub fn compute_probe_coverage(sam_path: &Path) -> Result<CoverageResult> {
 
         for (len, op) in ops {
             match op {
-                'M' | '=' | 'X' => {
+                CigarOp::Match | CigarOp::Equal | CigarOp::Mismatch => {
                     for _ in 0..len {
                         if ref_pos < cov.len() {
                             cov[ref_pos] += 1;
@@ -313,10 +293,9 @@ pub fn compute_probe_coverage(sam_path: &Path) -> Result<CoverageResult> {
                         ref_pos += 1;
                     }
                 }
-                'D' | 'N' => {
+                CigarOp::Del | CigarOp::Skip => {
                     ref_pos += len as usize;
                 }
-                'I' | 'S' | 'H' | 'P' => {}
                 _ => {}
             }
         }

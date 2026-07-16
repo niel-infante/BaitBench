@@ -17,6 +17,8 @@ use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::Path;
 
+use crate::seq_utils::{hamming_n_mismatch, reverse_complement};
+
 // ─── Coverage model ───────────────────────────────────────────────────────────
 
 /// How to decide whether a probe hybridizes to a target window.
@@ -55,30 +57,6 @@ impl CoverageModel {
     }
 }
 
-// ─── Sequence utilities ───────────────────────────────────────────────────────
-// These match src/syotti.rs exactly; if a bug fix is needed in both, consider
-// extracting to src/seq_utils.rs.
-
-fn reverse_complement(seq: &[u8]) -> Vec<u8> {
-    seq.iter().rev().map(|&b| complement(b)).collect()
-}
-
-fn complement(b: u8) -> u8 {
-    match b {
-        b'A' | b'a' => b'T',
-        b'T' | b't' => b'A',
-        b'C' | b'c' => b'G',
-        b'G' | b'g' => b'C',
-        _ => b'N',
-    }
-}
-
-fn hamming_n_mismatch(a: &[u8], b: &[u8]) -> usize {
-    a.iter()
-        .zip(b.iter())
-        .filter(|&(&x, &y)| x == b'N' || y == b'N' || x != y)
-        .count()
-}
 
 /// Build a k-mer hash index: maps each `seed_len`-mer to all (seq_idx, pos)
 /// occurrences. Seeds containing N are skipped.

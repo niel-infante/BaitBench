@@ -754,6 +754,19 @@ fn run_refinement(args: &AssessProbesArgs, initial_summary: &Path) -> Result<Pat
         // For --refine-iterations, the for-loop bound handles stopping
     }
 
+    // Log if we exhausted iterations without clearing all low-coverage targets
+    if args.refine_iterations.is_some() {
+        let remaining = read_low_coverage_targets(&current_summary, args.refine_threshold)?;
+        if !remaining.is_empty() {
+            log::info!(
+                "Refinement stopped: max iterations ({}) reached, {} targets still below {:.1}% 1X coverage",
+                max_iterations,
+                remaining.len(),
+                args.refine_threshold,
+            );
+        }
+    }
+
     let summary_path = prefixed_join(args.outdir, pfx, "refine_summary.tsv");
     write_refine_summary(&summary_path, &steps)?;
     log::info!("Refinement summary written: {}", summary_path.display());

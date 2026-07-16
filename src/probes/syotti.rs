@@ -12,6 +12,8 @@ use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::Path;
 
+use crate::seq_utils::{hamming_n_mismatch, reverse_complement};
+
 /// Design probes using the Syotti greedy algorithm.
 ///
 /// Scans each input sequence; at every uncovered position, extracts a bait of
@@ -119,29 +121,6 @@ pub fn design_probes(
     Ok(total_probes)
 }
 
-/// Reverse complement of a DNA byte sequence.
-/// Non-ACGT bases (including N) are mapped to N.
-fn reverse_complement(seq: &[u8]) -> Vec<u8> {
-    seq.iter().rev().map(|&b| complement(b)).collect()
-}
-
-fn complement(b: u8) -> u8 {
-    match b {
-        b'A' | b'a' => b'T',
-        b'T' | b't' => b'A',
-        b'C' | b'c' => b'G',
-        b'G' | b'g' => b'C',
-        _ => b'N',
-    }
-}
-
-/// Hamming distance where N on either side always counts as a mismatch.
-fn hamming_n_mismatch(a: &[u8], b: &[u8]) -> usize {
-    a.iter()
-        .zip(b.iter())
-        .filter(|&(&x, &y)| x == b'N' || y == b'N' || x != y)
-        .count()
-}
 
 /// Build a k-mer hash index: maps each `seed_len`-mer to all (seq_idx, pos)
 /// occurrences across the input sequences. Seeds containing N are skipped.

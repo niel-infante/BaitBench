@@ -74,6 +74,13 @@ pub fn execute(args: &IdentifyArgs) -> Result<()> {
         );
     }
 
+    if !(0.0..=100.0).contains(&args.identity_threshold) {
+        bail!(
+            "--identity-threshold must be in [0, 100], got {}",
+            args.identity_threshold
+        );
+    }
+
     fs::create_dir_all(args.outdir)?;
 
     log::info!("=============================================");

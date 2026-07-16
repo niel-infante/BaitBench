@@ -1,15 +1,14 @@
 mod alignment;
-mod catch;
 mod cleanup;
 mod cli;
 mod commands;
 mod external;
 mod fasta;
 mod io_utils;
+mod probes;
 mod sampling;
 mod sdust;
-mod probetools;
-mod syotti;
+mod seq_utils;
 mod target_similarity;
 mod thermodynamics;
 
@@ -18,6 +17,7 @@ use clap::Parser;
 
 use cli::{Cli, Commands, ToolCommands};
 use commands::{assess_probes, build_probes, coverage_curve, filter, generate_list, identify, map_reads, metrics, panel_qc, prepare, probe_coverage, report, run, sequence, simulate, xreact};
+use probes::{catch, syotti};
 use sequence::ReadSimulator;
 use sampling::thermo_sim::SimulateMode as ThSimMode;
 use io_utils::resolve_sample_arg;
@@ -142,8 +142,46 @@ fn resolve_distractor_fraction(
 ) -> Result<f64> {
     match ct {
         Some(ct_val) => ct_to_distractor_fraction(ct_val, baseline_ct, baseline_fraction, efficiency),
-        None => Ok(distractor_fraction.unwrap_or(DEFAULT_DISTRACTOR_FRACTION)),
+        None => {
+            let df = distractor_fraction.unwrap_or(DEFAULT_DISTRACTOR_FRACTION);
+            if !(0.0..=1.0).contains(&df) {
+                bail!("--distractor-fraction must be in [0, 1], got {}", df);
+            }
+            Ok(df)
+        }
     }
+}
+
+struct ResolvedCommonArgs {
+    distractor_fraction: f64,
+    sample: Option<std::collections::HashMap<String, f64>>,
+    sample_target_map: Option<std::collections::HashMap<String, Vec<String>>>,
+}
+
+fn resolve_common_pipeline_args(
+    ct_baseline: f64,
+    ct_baseline_fraction: f64,
+    ct_efficiency: f64,
+    ct_calibration: Option<&[String]>,
+    distractor_fraction: Option<f64>,
+    ct: Option<f64>,
+    sample: Option<&[String]>,
+    sample_target_map: Option<&std::path::Path>,
+) -> Result<ResolvedCommonArgs> {
+    let (baseline_ct, baseline_frac, efficiency) =
+        resolve_ct_params(ct_baseline, ct_baseline_fraction, ct_efficiency, ct_calibration)?;
+    let resolved_df = resolve_distractor_fraction(
+        distractor_fraction, ct, baseline_ct, baseline_frac, efficiency,
+    )?;
+    let resolved_sample = sample.map(resolve_sample_arg).transpose()?;
+    let resolved_stm = sample_target_map
+        .map(io_utils::parse_sample_target_map)
+        .transpose()?;
+    Ok(ResolvedCommonArgs {
+        distractor_fraction: resolved_df,
+        sample: resolved_sample,
+        sample_target_map: resolved_stm,
+    })
 }
 
 fn main() -> Result<()> {
@@ -209,22 +247,11 @@ fn main() -> Result<()> {
             report,
             cleanup,
         } => {
-            let (baseline_ct, baseline_frac, efficiency) = resolve_ct_params(
+            let resolved = resolve_common_pipeline_args(
                 ct_baseline, ct_baseline_fraction, ct_efficiency, ct_calibration.as_deref(),
+                distractor_fraction, ct,
+                sample.as_deref(), sample_target_map.as_deref(),
             )?;
-            let resolved_df = resolve_distractor_fraction(
-                distractor_fraction, ct, baseline_ct, baseline_frac, efficiency,
-            )?;
-
-            let resolved_sample = sample
-                .as_ref()
-                .map(|s| resolve_sample_arg(s))
-                .transpose()?;
-
-            let resolved_stm = sample_target_map
-                .as_ref()
-                .map(|p| io_utils::parse_sample_target_map(p))
-                .transpose()?;
 
             let run_name = run_name.unwrap_or_else(|| {
                 format!("run_{}", chrono::Local::now().format("%Y%m%d_%H%M%S"))
@@ -251,14 +278,14 @@ fn main() -> Result<()> {
                 genomes: genomes.as_deref(),
                 distractors: &distractors,
                 probes: &probes,
-                sample: resolved_sample.as_ref(),
-                sample_target_map: resolved_stm.as_ref(),
+                sample: resolved.sample.as_ref(),
+                sample_target_map: resolved.sample_target_map.as_ref(),
                 groups: groups.as_deref(),
                 distractor_groups: distractor_groups.as_deref(),
                 host_fasta: host_fasta.as_deref(),
                 run_name,
                 num_fragments,
-                distractor_fraction: resolved_df,
+                distractor_fraction: resolved.distractor_fraction,
                 ct,
                 ct_baseline,
                 ct_baseline_fraction,
@@ -317,32 +344,21 @@ fn main() -> Result<()> {
             outdir,
             output_prefix,
         } => {
-            let (baseline_ct, baseline_frac, efficiency) = resolve_ct_params(
+            let resolved = resolve_common_pipeline_args(
                 ct_baseline, ct_baseline_fraction, ct_efficiency, ct_calibration.as_deref(),
+                distractor_fraction, ct,
+                sample.as_deref(), sample_target_map.as_deref(),
             )?;
-            let resolved_df = resolve_distractor_fraction(
-                distractor_fraction, ct, baseline_ct, baseline_frac, efficiency,
-            )?;
-
-            let resolved_sample = sample
-                .as_ref()
-                .map(|s| resolve_sample_arg(s))
-                .transpose()?;
-
-            let resolved_stm = sample_target_map
-                .as_ref()
-                .map(|p| io_utils::parse_sample_target_map(p))
-                .transpose()?;
 
             prepare::execute(&prepare::PrepareArgs {
                 targets: &targets,
                 genomes: genomes.as_deref(),
                 distractors: &distractors,
-                sample: resolved_sample.as_ref(),
-                sample_target_map: resolved_stm.as_ref(),
+                sample: resolved.sample.as_ref(),
+                sample_target_map: resolved.sample_target_map.as_ref(),
                 groups: groups.as_deref(),
                 distractor_groups: distractor_groups.as_deref(),
-                distractor_fraction: resolved_df,
+                distractor_fraction: resolved.distractor_fraction,
                 outdir: &outdir,
                 output_prefix: &output_prefix,
             })?;

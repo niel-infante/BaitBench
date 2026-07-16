@@ -18,6 +18,8 @@ use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::Path;
 
+use crate::alignment::cigar::{cigar_ref_len, expand_cigar, CigarOp};
+use crate::sampling::FragmentLengthParams;
 use crate::thermodynamics::{boltzmann_score, delta_g, ThermoModel};
 
 /// Simulate mode — controls how probe hit scores are computed.
@@ -110,69 +112,39 @@ fn cigar_and_md_to_pairs(
     pairs
 }
 
-#[derive(Clone, Copy)]
-enum CigarOp {
-    Match,
-    Ins,
-    Del,
-    Skip,
-    SoftClip,
-    HardClip,
-    Pad,
-    Equal,
-    Mismatch,
-}
-
-fn expand_cigar(cigar: &str) -> Vec<CigarOp> {
-    let mut ops = Vec::new();
-    let mut num = String::new();
-    for ch in cigar.chars() {
-        if ch.is_ascii_digit() {
-            num.push(ch);
-        } else {
-            let n: usize = num.parse().unwrap_or(1);
-            num.clear();
-            let op = match ch {
-                'M' => CigarOp::Match,
-                'I' => CigarOp::Ins,
-                'D' => CigarOp::Del,
-                'N' => CigarOp::Skip,
-                'S' => CigarOp::SoftClip,
-                'H' => CigarOp::HardClip,
-                'P' => CigarOp::Pad,
-                '=' => CigarOp::Equal,
-                'X' => CigarOp::Mismatch,
-                _ => continue,
-            };
-            for _ in 0..n {
-                ops.push(op);
-            }
-        }
-    }
-    ops
-}
 
 /// Parse an MD tag and return a map of query_position → mismatched_ref_base.
-/// MD format example: "10A5T3"  means 10 matches, then A mismatch, 5 matches, T mismatch, 3 matches.
+/// MD format example: "10A5^TT3" means 10 matches, A mismatch, 5 matches, TT deletion, 3 matches.
+/// Deletion bases (after '^') are reference-only and must NOT advance the query position.
 fn parse_md_mismatches(md: &str) -> HashMap<usize, u8> {
     let mut map = HashMap::new();
     let mut qi = 0usize;
     let mut num = String::new();
+    let mut in_deletion = false;
 
     for ch in md.chars() {
         if ch.is_ascii_digit() {
             num.push(ch);
+            in_deletion = false; // a digit always terminates the deletion run
         } else if ch == '^' {
-            // Deletion — skip, handled in CIGAR
-        } else if ch.is_ascii_alphabetic() {
-            // Flush number (matches)
+            // Flush any pending match count before entering the deletion
             if !num.is_empty() {
                 qi += num.parse::<usize>().unwrap_or(0);
                 num.clear();
             }
-            // This is a mismatch at qi
-            map.insert(qi, ch.to_ascii_uppercase() as u8);
-            qi += 1;
+            in_deletion = true;
+        } else if ch.is_ascii_alphabetic() {
+            if in_deletion {
+                // Reference-only deletion base — skip without advancing query position
+            } else {
+                // Flush match count, then record mismatch at current query position
+                if !num.is_empty() {
+                    qi += num.parse::<usize>().unwrap_or(0);
+                    num.clear();
+                }
+                map.insert(qi, ch.to_ascii_uppercase() as u8);
+                qi += 1;
+            }
         }
     }
 
@@ -292,40 +264,22 @@ pub fn load_probe_hits(
     Ok(hits_by_probe)
 }
 
-/// Compute the length consumed on the reference by a CIGAR string.
-fn cigar_ref_len(cigar: &str) -> usize {
-    let mut len = 0usize;
-    let mut num = String::new();
-    for ch in cigar.chars() {
-        if ch.is_ascii_digit() {
-            num.push(ch);
-        } else {
-            let n: usize = num.parse().unwrap_or(0);
-            num.clear();
-            match ch {
-                'M' | 'D' | 'N' | '=' | 'X' => len += n,
-                _ => {}
-            }
-        }
-    }
-    len
-}
 
 /// Sample `n_capture` capture-derived (probe-site-biased) fragments.
 ///
 /// Returns `(header, sequence)` pairs using BaitBench naming:
 ///   `>{seq_id}_fragment_{counter} start={frag_start} length={frag_len}`
-#[allow(clippy::too_many_arguments)]
 pub fn sample_capture_fragments(
     hits_by_probe: &HashMap<String, Vec<ProbeHit>>,
     sequences: &HashMap<String, String>,
     n_capture: usize,
-    fragment_length_mean: f64,
-    fragment_length_min: usize,
-    fragment_length_max: usize,
+    len_params: FragmentLengthParams,
     seed: Option<u64>,
     counter_start: usize,
 ) -> Result<Vec<(String, String)>> {
+    let fragment_length_mean = len_params.mean;
+    let fragment_length_min = len_params.min;
+    let fragment_length_max = len_params.max;
     // Collect probes that have at least one positive-score hit
     let probe_names: Vec<&String> = hits_by_probe
         .iter()
@@ -429,17 +383,17 @@ pub fn sample_capture_fragments(
 /// Reuses the same logic as generate_fragments() but returns (header, sequence)
 /// pairs rather than writing to a file directly (so they can be interleaved with
 /// capture fragments before writing).
-#[allow(clippy::too_many_arguments)]
 pub fn sample_background_fragments(
     sequences: &HashMap<String, String>,
     weights: &HashMap<String, f64>,
     n_background: usize,
-    fragment_length_mean: f64,
-    fragment_length_min: usize,
-    fragment_length_max: usize,
+    len_params: FragmentLengthParams,
     seed: Option<u64>,
     counter_start: usize,
 ) -> Result<Vec<(String, String)>> {
+    let fragment_length_mean = len_params.mean;
+    let fragment_length_min = len_params.min;
+    let fragment_length_max = len_params.max;
     // Filter to sequences with positive weights
     let weighted_seqs: Vec<(&String, &String)> = sequences
         .iter()

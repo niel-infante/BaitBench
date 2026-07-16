@@ -108,9 +108,11 @@ expand_intervals <- function(interval_df, max_points = 2000) {
     first_bin <- max(1L, first_bin)
     last_bin  <- min(max_points, last_bin)
     for (b in first_bin:last_bin) {
+      # Use half-open intervals [bin_edges[b], bin_edges[b+1]) to avoid
+      # floating-point boundary issues from the non-integer bin_size.
       overlap_start <- max(iv_start, bin_edges[b])
-      overlap_end   <- min(iv_end, bin_edges[b + 1] - 1)
-      overlap_len   <- overlap_end - overlap_start + 1
+      overlap_end   <- min(iv_end + 1, bin_edges[b + 1])   # exclusive end
+      overlap_len   <- overlap_end - overlap_start
       if (overlap_len > 0) {
         bin_depth_sum[b] <- bin_depth_sum[b] + iv_depth * overlap_len
         bin_width[b]     <- bin_width[b] + overlap_len
