@@ -24,3 +24,69 @@ pub fn hamming_n_mismatch(a: &[u8], b: &[u8]) -> usize {
         .filter(|&(&x, &y)| x == b'N' || y == b'N' || x != y)
         .count()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn complement_all_bases() {
+        assert_eq!(complement(b'A'), b'T');
+        assert_eq!(complement(b'T'), b'A');
+        assert_eq!(complement(b'C'), b'G');
+        assert_eq!(complement(b'G'), b'C');
+        assert_eq!(complement(b'a'), b'T');
+        assert_eq!(complement(b't'), b'A');
+        assert_eq!(complement(b'c'), b'G');
+        assert_eq!(complement(b'g'), b'C');
+    }
+
+    #[test]
+    fn complement_non_acgt_returns_n() {
+        assert_eq!(complement(b'N'), b'N');
+        assert_eq!(complement(b'X'), b'N');
+        assert_eq!(complement(b'R'), b'N');
+    }
+
+    #[test]
+    fn reverse_complement_simple() {
+        assert_eq!(reverse_complement(b"ATCG"), b"CGAT");
+    }
+
+    #[test]
+    fn reverse_complement_single_base() {
+        assert_eq!(reverse_complement(b"A"), b"T");
+    }
+
+    #[test]
+    fn reverse_complement_empty() {
+        assert_eq!(reverse_complement(b""), b"");
+    }
+
+    #[test]
+    fn reverse_complement_palindrome() {
+        assert_eq!(reverse_complement(b"AATT"), b"AATT");
+    }
+
+    #[test]
+    fn hamming_match() {
+        assert_eq!(hamming_n_mismatch(b"ATCG", b"ATCG"), 0);
+    }
+
+    #[test]
+    fn hamming_one_mismatch() {
+        assert_eq!(hamming_n_mismatch(b"ATG", b"ACG"), 1);
+    }
+
+    #[test]
+    fn hamming_all_mismatch() {
+        assert_eq!(hamming_n_mismatch(b"AAA", b"TTT"), 3);
+    }
+
+    #[test]
+    fn hamming_n_always_mismatch() {
+        assert_eq!(hamming_n_mismatch(b"NNN", b"ATG"), 3);
+        assert_eq!(hamming_n_mismatch(b"ATG", b"NNN"), 3);
+        assert_eq!(hamming_n_mismatch(b"N", b"N"), 1);
+    }
+}

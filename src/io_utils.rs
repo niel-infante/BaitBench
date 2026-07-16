@@ -301,3 +301,82 @@ pub fn abs_path(p: &Path) -> Result<PathBuf> {
 pub fn abs_path_str(p: &Path) -> Result<String> {
     Ok(abs_path(p)?.to_str().unwrap_or("").to_string())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+
+    fn ss(toks: &[&str]) -> Vec<String> {
+        toks.iter().map(|t| t.to_string()).collect()
+    }
+
+    #[test]
+    fn extract_source_simple() {
+        assert_eq!(extract_source_id("virus1_fragment_3"), Some("virus1"));
+    }
+
+    #[test]
+    fn extract_source_last_occurrence() {
+        assert_eq!(extract_source_id("a_fragment_2_fragment_5"), Some("a_fragment_2"));
+    }
+
+    #[test]
+    fn extract_source_no_fragment() {
+        assert_eq!(extract_source_id("reads_no_marker"), None);
+    }
+
+    #[test]
+    fn extract_source_empty() {
+        assert_eq!(extract_source_id(""), None);
+    }
+
+    #[test]
+    fn extract_source_strips_whitespace_token() {
+        // Only the first whitespace token is used as the ID portion.
+        assert_eq!(extract_source_id("seq1_fragment_2 extra info"), Some("seq1"));
+    }
+
+    #[test]
+    fn parse_sample_inline_ids_only() {
+        let result = parse_sample_inline(&ss(&["t1", "t2"])).unwrap();
+        assert_eq!(result["t1"], 1.0);
+        assert_eq!(result["t2"], 1.0);
+    }
+
+    #[test]
+    fn parse_sample_inline_with_weight() {
+        let result = parse_sample_inline(&ss(&["t1", "2.5", "t2"])).unwrap();
+        assert_eq!(result["t1"], 2.5);
+        assert_eq!(result["t2"], 1.0);
+    }
+
+    #[test]
+    fn parse_sample_inline_all_weighted() {
+        let result = parse_sample_inline(&ss(&["t1", "2.5", "t2", "3.0"])).unwrap();
+        assert_eq!(result["t1"], 2.5);
+        assert_eq!(result["t2"], 3.0);
+    }
+
+    #[test]
+    fn parse_sample_inline_empty_errors() {
+        assert!(parse_sample_inline(&[]).is_err());
+    }
+
+    #[test]
+    fn parse_sample_inline_weight_before_id_errors() {
+        assert!(parse_sample_inline(&ss(&["2.5", "t1"])).is_err());
+    }
+
+    #[test]
+    fn parse_sample_manifest_skips_comments_and_defaults_weight() {
+        let mut tmp = tempfile::NamedTempFile::new().unwrap();
+        writeln!(tmp, "# comment").unwrap();
+        writeln!(tmp, "id1\t2.0").unwrap();
+        writeln!(tmp, "id2").unwrap();
+        let result = parse_sample_manifest(tmp.path()).unwrap();
+        assert_eq!(result["id1"], 2.0);
+        assert_eq!(result["id2"], 1.0);
+        assert!(!result.contains_key("# comment"));
+    }
+}

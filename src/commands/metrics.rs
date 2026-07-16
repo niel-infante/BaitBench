@@ -1246,3 +1246,217 @@ fn write_json(
     serde_json::to_writer_pretty(file, &output)?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn hset(ids: &[&str]) -> HashSet<String> {
+        ids.iter().map(|s| s.to_string()).collect()
+    }
+
+    fn hmap_det(ids: &[(&str, usize)]) -> HashMap<String, usize> {
+        ids.iter().map(|(id, n)| (id.to_string(), *n)).collect()
+    }
+
+    fn hmap_str(pairs: &[(&str, &str)]) -> HashMap<String, String> {
+        pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect()
+    }
+
+    fn no_groups() -> HashMap<String, String> {
+        HashMap::new()
+    }
+
+    fn make_genome_ctx(sample_ids: &[&str], with_mapping: bool) -> GenomeContext {
+        let sample_genome_ids = hset(sample_ids);
+        let mut genome_to_targets: HashMap<String, Vec<String>> = HashMap::new();
+        let mut target_to_genomes: HashMap<String, Vec<String>> = HashMap::new();
+        if with_mapping {
+            for id in sample_ids {
+                let target = format!("{}_target", id);
+                genome_to_targets.insert(id.to_string(), vec![target.clone()]);
+                target_to_genomes.insert(target, vec![id.to_string()]);
+            }
+        }
+        let genome_ids: HashSet<String> = genome_to_targets.keys().cloned()
+            .chain(sample_genome_ids.iter().cloned())
+            .collect();
+        let sample_targets: HashSet<String> = genome_to_targets.values().flatten().cloned().collect();
+        GenomeContext { sample_targets, genome_ids, sample_genome_ids, genome_to_targets, target_to_genomes, untargeted_genomes: vec![] }
+    }
+
+    // --- classify_fragment_source ---
+
+    #[test]
+    fn classify_sample_standard_mode() {
+        let eff = hset(&["t1"]);
+        let tgts = hset(&["t1", "t2"]);
+        let dists = hset(&["d1"]);
+        assert!(matches!(classify_fragment_source("t1", &eff, &tgts, &dists, None), FragmentCategory::Sample));
+    }
+
+    #[test]
+    fn classify_nonsample_target_standard() {
+        let eff = hset(&["t1"]);
+        let tgts = hset(&["t1", "t2"]);
+        let dists = hset(&["d1"]);
+        assert!(matches!(classify_fragment_source("t2", &eff, &tgts, &dists, None), FragmentCategory::NonsampleTarget));
+    }
+
+    #[test]
+    fn classify_distractor_standard() {
+        let eff = hset(&["t1"]);
+        let tgts = hset(&["t1"]);
+        let dists = hset(&["d1"]);
+        assert!(matches!(classify_fragment_source("d1", &eff, &tgts, &dists, None), FragmentCategory::Distractor));
+    }
+
+    #[test]
+    fn classify_unknown_standard() {
+        let eff = hset(&["t1"]);
+        let tgts = hset(&["t1"]);
+        let dists = hset(&["d1"]);
+        assert!(matches!(classify_fragment_source("mystery", &eff, &tgts, &dists, None), FragmentCategory::Unknown));
+    }
+
+    #[test]
+    fn classify_sample_genome_mode_with_mapping() {
+        let ctx = make_genome_ctx(&["g1"], true);
+        assert!(matches!(
+            classify_fragment_source("g1", &HashSet::new(), &HashSet::new(), &HashSet::new(), Some(&ctx)),
+            FragmentCategory::Sample
+        ));
+    }
+
+    #[test]
+    fn classify_untargeted_genome_mode() {
+        let ctx = make_genome_ctx(&["g1"], false);
+        assert!(matches!(
+            classify_fragment_source("g1", &HashSet::new(), &HashSet::new(), &HashSet::new(), Some(&ctx)),
+            FragmentCategory::Untargeted
+        ));
+    }
+
+    #[test]
+    fn classify_nonsample_genome_mode() {
+        // g2 is in genome_ids (has a mapping entry) but not in sample_genome_ids
+        let mut ctx = make_genome_ctx(&["g1"], true);
+        ctx.genome_ids.insert("g2".to_string());
+        ctx.genome_to_targets.insert("g2".to_string(), vec!["g2_target".to_string()]);
+        assert!(matches!(
+            classify_fragment_source("g2", &HashSet::new(), &HashSet::new(), &HashSet::new(), Some(&ctx)),
+            FragmentCategory::NonsampleTarget
+        ));
+    }
+
+    #[test]
+    fn classify_distractor_genome_mode() {
+        let ctx = make_genome_ctx(&["g1"], true);
+        let dists = hset(&["d1"]);
+        assert!(matches!(
+            classify_fragment_source("d1", &HashSet::new(), &HashSet::new(), &dists, Some(&ctx)),
+            FragmentCategory::Distractor
+        ));
+    }
+
+    // --- collapse_to_groups ---
+
+    #[test]
+    fn collapse_no_map_is_identity() {
+        let detected = hmap_det(&[("seq1", 5), ("seq2", 3)]);
+        let result = collapse_to_groups(&detected, &no_groups());
+        assert_eq!(result.get("seq1"), Some(&5));
+        assert_eq!(result.get("seq2"), Some(&3));
+    }
+
+    #[test]
+    fn collapse_aggregates_to_group() {
+        let detected = hmap_det(&[("seq1", 5), ("seq2", 3)]);
+        let group_map = hmap_str(&[("seq1", "groupA"), ("seq2", "groupA")]);
+        let result = collapse_to_groups(&detected, &group_map);
+        assert_eq!(result.get("groupA"), Some(&8));
+        assert!(result.get("seq1").is_none());
+    }
+
+    // --- calculate_metrics ---
+
+    #[test]
+    fn metrics_all_sample_detected() {
+        let sample = hset(&["t1", "t2"]);
+        let targets = hset(&["t1", "t2"]);
+        let distractors: HashSet<String> = HashSet::new();
+        let detected = hmap_det(&[("t1", 10), ("t2", 5)]);
+        let r = calculate_metrics(&sample, &targets, &distractors, &detected, None, &no_groups(), &no_groups());
+        assert_eq!(r.tp_count, 2);
+        assert_eq!(r.fn_count, 0);
+        assert!((r.sensitivity - 1.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn metrics_no_sample_detected() {
+        let sample = hset(&["t1", "t2"]);
+        let targets = hset(&["t1", "t2"]);
+        let detected: HashMap<String, usize> = HashMap::new();
+        let r = calculate_metrics(&sample, &targets, &HashSet::new(), &detected, None, &no_groups(), &no_groups());
+        assert_eq!(r.tp_count, 0);
+        assert_eq!(r.fn_count, 2);
+        assert!((r.sensitivity - 0.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn metrics_partial_detection() {
+        let sample = hset(&["t1", "t2", "t3"]);
+        let targets = hset(&["t1", "t2", "t3"]);
+        let detected = hmap_det(&[("t1", 10), ("t2", 5)]);
+        let r = calculate_metrics(&sample, &targets, &HashSet::new(), &detected, None, &no_groups(), &no_groups());
+        assert_eq!(r.tp_count, 2);
+        assert_eq!(r.fn_count, 1);
+        assert!((r.sensitivity - 2.0 / 3.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn metrics_fp_target_counted() {
+        let sample = hset(&["t1"]);
+        let targets = hset(&["t1", "t2"]);
+        let detected = hmap_det(&[("t1", 5), ("t2", 3)]);
+        let r = calculate_metrics(&sample, &targets, &HashSet::new(), &detected, None, &no_groups(), &no_groups());
+        assert_eq!(r.fp_target_count, 1);
+        assert!(r.fp_targets.contains(&"t2".to_string()));
+    }
+
+    #[test]
+    fn metrics_fp_distractor_counted() {
+        let sample = hset(&["t1"]);
+        let targets = hset(&["t1"]);
+        let distractors = hset(&["d1"]);
+        let detected = hmap_det(&[("t1", 5), ("d1", 2)]);
+        let r = calculate_metrics(&sample, &targets, &distractors, &detected, None, &no_groups(), &no_groups());
+        assert_eq!(r.fp_distractor_count, 1);
+        assert!(r.fp_distractors.contains(&"d1".to_string()));
+    }
+
+    #[test]
+    fn metrics_group_collapsing_counts_one_tp() {
+        // 3 sequences → 1 group; all detected → 1 TP not 3
+        let sample = hset(&["s1", "s2", "s3"]);
+        let targets = hset(&["s1", "s2", "s3"]);
+        let detected = hmap_det(&[("s1", 5), ("s2", 3), ("s3", 2)]);
+        let group_map = hmap_str(&[("s1", "grp"), ("s2", "grp"), ("s3", "grp")]);
+        let r = calculate_metrics(&sample, &targets, &HashSet::new(), &detected, None, &group_map, &no_groups());
+        assert_eq!(r.tp_count, 1);
+        assert_eq!(r.fn_count, 0);
+    }
+
+    #[test]
+    fn metrics_precision_and_f1() {
+        // TP=2, FP_target=1, FN=0 → precision=2/3, sensitivity=1, F1=0.8
+        let sample = hset(&["t1", "t2"]);
+        let targets = hset(&["t1", "t2", "t3"]);
+        let detected = hmap_det(&[("t1", 5), ("t2", 3), ("t3", 2)]);
+        let r = calculate_metrics(&sample, &targets, &HashSet::new(), &detected, None, &no_groups(), &no_groups());
+        assert_eq!(r.tp_count, 2);
+        assert_eq!(r.fp_target_count, 1);
+        assert!((r.precision - 2.0 / 3.0).abs() < 1e-9);
+        assert!((r.f1_score - 0.8).abs() < 1e-9);
+    }
+}

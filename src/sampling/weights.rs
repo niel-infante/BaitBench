@@ -88,3 +88,88 @@ pub fn generate_weights(
     writer.flush()?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+
+    fn strs(ids: &[&str]) -> Vec<String> {
+        ids.iter().map(|s| s.to_string()).collect()
+    }
+
+    fn sample(pairs: &[(&str, f64)]) -> HashMap<String, f64> {
+        pairs.iter().map(|(k, v)| (k.to_string(), *v)).collect()
+    }
+
+    fn written_weights(path: &std::path::Path) -> HashMap<String, f64> {
+        parse_weights(path).unwrap()
+    }
+
+    #[test]
+    fn weight_sample_target_uses_given_weight() {
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        generate_weights(&strs(&["t1"]), &[], &sample(&[("t1", 2.5)]), 0.0, tmp.path()).unwrap();
+        let w = written_weights(tmp.path());
+        assert!((w["t1"] - 2.5).abs() < 1e-5);
+    }
+
+    #[test]
+    fn weight_nonsample_target_is_zero() {
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        generate_weights(&strs(&["t1", "t2"]), &[], &sample(&[("t1", 1.0)]), 0.0, tmp.path()).unwrap();
+        let w = written_weights(tmp.path());
+        assert!((w["t2"] - 0.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn weight_distractor_formula() {
+        // 1 sample (w=1.0), 1 distractor, df=0.5 → (0.5×1.0)/(1×0.5) = 1.0
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        generate_weights(&strs(&["t1"]), &strs(&["d1"]), &sample(&[("t1", 1.0)]), 0.5, tmp.path()).unwrap();
+        let w = written_weights(tmp.path());
+        assert!((w["d1"] - 1.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn weight_two_distractors_halved() {
+        // 1 sample (w=1.0), 2 distractors, df=0.5 → (0.5×1.0)/(2×0.5) = 0.5 each
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        generate_weights(&strs(&["t1"]), &strs(&["d1", "d2"]), &sample(&[("t1", 1.0)]), 0.5, tmp.path()).unwrap();
+        let w = written_weights(tmp.path());
+        assert!((w["d1"] - 0.5).abs() < 1e-5);
+        assert!((w["d2"] - 0.5).abs() < 1e-5);
+    }
+
+    #[test]
+    fn weight_distractor_zero_when_fraction_zero() {
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        generate_weights(&strs(&["t1"]), &strs(&["d1"]), &sample(&[("t1", 1.0)]), 0.0, tmp.path()).unwrap();
+        let w = written_weights(tmp.path());
+        assert!((w["d1"] - 0.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn weight_empty_sample_errors() {
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        assert!(generate_weights(&strs(&["t1"]), &[], &HashMap::new(), 0.0, tmp.path()).is_err());
+    }
+
+    #[test]
+    fn weight_distractor_fraction_ge_1_errors() {
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        assert!(generate_weights(&strs(&["t1"]), &strs(&["d1"]), &sample(&[("t1", 1.0)]), 1.0, tmp.path()).is_err());
+    }
+
+    #[test]
+    fn parse_weights_round_trip() {
+        let mut tmp = tempfile::NamedTempFile::new().unwrap();
+        writeln!(tmp, "# comment").unwrap();
+        writeln!(tmp, "seq1\t0.500000").unwrap();
+        writeln!(tmp, "seq2\t2.000000").unwrap();
+        let w = written_weights(tmp.path());
+        assert!((w["seq1"] - 0.5).abs() < 1e-5);
+        assert!((w["seq2"] - 2.0).abs() < 1e-5);
+        assert!(!w.contains_key("# comment"));
+    }
+}

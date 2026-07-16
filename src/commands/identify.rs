@@ -468,3 +468,104 @@ fn write_species_calls_json(calls: &[SpeciesCallResult], path: &Path) -> Result<
     w.flush()?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_row(id: &str, detected: bool, reads: usize) -> DetailRow {
+        DetailRow { reference_id: id.to_string(), detected, reads_assigned: reads }
+    }
+
+    fn unique_ctx(species: &str, target: &str) -> SimilarityContext {
+        SimilarityContext {
+            cross_species_similar: HashMap::new(),
+            target_is_unique: [(target.to_string(), true)].into_iter().collect(),
+            species_targets: [(species.to_string(), vec![target.to_string()])].into_iter().collect(),
+            target_to_species: [(target.to_string(), vec![species.to_string()])].into_iter().collect(),
+        }
+    }
+
+    #[test]
+    fn call_absent_no_detections() {
+        let ctx = unique_ctx("SpA", "t1");
+        let calls = call_species(&ctx, &[make_row("t1", false, 0)], 1);
+        assert_eq!(calls.len(), 1);
+        assert!(matches!(calls[0].call, SpeciesCall::Absent));
+        assert_eq!(calls[0].reason, "no_detections");
+    }
+
+    #[test]
+    fn call_present_unique_detected() {
+        let ctx = unique_ctx("SpA", "t1");
+        let calls = call_species(&ctx, &[make_row("t1", true, 50)], 1);
+        assert_eq!(calls.len(), 1);
+        assert!(matches!(calls[0].call, SpeciesCall::Present));
+        assert_eq!(calls[0].reason, "unique_markers_detected");
+    }
+
+    #[test]
+    fn call_ambiguous_no_unique_markers() {
+        // Species with only shared (non-unique) targets, one detected → AMBIGUOUS
+        let mut similar: HashMap<String, HashSet<String>> = HashMap::new();
+        similar.insert("t_shared".to_string(), ["t_other".to_string()].into_iter().collect());
+        let ctx = SimilarityContext {
+            cross_species_similar: similar,
+            target_is_unique: [("t_shared".to_string(), false)].into_iter().collect(),
+            species_targets: [("SpA".to_string(), vec!["t_shared".to_string()])].into_iter().collect(),
+            target_to_species: [("t_shared".to_string(), vec!["SpA".to_string()])].into_iter().collect(),
+        };
+        let calls = call_species(&ctx, &[make_row("t_shared", true, 10)], 1);
+        assert_eq!(calls.len(), 1);
+        assert!(matches!(calls[0].call, SpeciesCall::Ambiguous));
+        assert_eq!(calls[0].reason, "no_unique_markers");
+    }
+
+    #[test]
+    fn call_cross_reactivity_explained() {
+        // SpA: unique t1 + shared t2 — detected first, called PRESENT.
+        // SpB: only shared t2 — all detections explained by SpA → ABSENT.
+        let mut similar: HashMap<String, HashSet<String>> = HashMap::new();
+        similar.insert("t1".to_string(), ["t2".to_string()].into_iter().collect());
+        similar.insert("t2".to_string(), ["t1".to_string()].into_iter().collect());
+        let ctx = SimilarityContext {
+            cross_species_similar: similar,
+            target_is_unique: [("t1".to_string(), true), ("t2".to_string(), false)].into_iter().collect(),
+            species_targets: [
+                ("SpA".to_string(), vec!["t1".to_string(), "t2".to_string()]),
+                ("SpB".to_string(), vec!["t2".to_string()]),
+            ].into_iter().collect(),
+            target_to_species: [
+                ("t1".to_string(), vec!["SpA".to_string()]),
+                ("t2".to_string(), vec!["SpA".to_string(), "SpB".to_string()]),
+            ].into_iter().collect(),
+        };
+        let rows = vec![make_row("t1", true, 50), make_row("t2", true, 30)];
+        let calls = call_species(&ctx, &rows, 1);
+        let spa = calls.iter().find(|c| c.species_id == "SpA").unwrap();
+        let spb = calls.iter().find(|c| c.species_id == "SpB").unwrap();
+        assert!(matches!(spa.call, SpeciesCall::Present), "SpA should be PRESENT");
+        assert!(matches!(spb.call, SpeciesCall::Absent), "SpB should be ABSENT (explained)");
+        assert_eq!(spb.reason, "cross_reactivity_explained");
+        assert!(spb.explained_by.contains(&"SpA".to_string()));
+    }
+
+    #[test]
+    fn call_ambiguous_insufficient_unique() {
+        // 2 unique targets, only 1 detected, min_unique=2 → AMBIGUOUS
+        let ctx = SimilarityContext {
+            cross_species_similar: HashMap::new(),
+            target_is_unique: [("t1".to_string(), true), ("t2".to_string(), true)].into_iter().collect(),
+            species_targets: [("SpA".to_string(), vec!["t1".to_string(), "t2".to_string()])].into_iter().collect(),
+            target_to_species: [
+                ("t1".to_string(), vec!["SpA".to_string()]),
+                ("t2".to_string(), vec!["SpA".to_string()]),
+            ].into_iter().collect(),
+        };
+        let rows = vec![make_row("t1", true, 20), make_row("t2", false, 0)];
+        let calls = call_species(&ctx, &rows, 2);
+        assert_eq!(calls.len(), 1);
+        assert!(matches!(calls[0].call, SpeciesCall::Ambiguous));
+        assert_eq!(calls[0].reason, "insufficient_unique_evidence");
+    }
+}
