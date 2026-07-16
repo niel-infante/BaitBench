@@ -7,7 +7,7 @@ use crate::cli::ReportMode;
 use crate::commands::report::{rmd_output_path, substitute_rmd_params};
 use crate::external::rscript;
 use crate::io_utils;
-use crate::io_utils::prefixed_join;
+use crate::io_utils::{abs_path_str, prefixed_join};
 use crate::target_similarity;
 
 pub struct PanelQcArgs<'a> {
@@ -259,29 +259,25 @@ fn generate_panel_qc_report(
         bail!("Panel QC R script not found: {}", script.display());
     }
 
-    let disc_abs = std::fs::canonicalize(disc_path)?;
-    let matrix_abs = std::fs::canonicalize(matrix_path)?;
-    let sim_abs = std::fs::canonicalize(sim_path)?;
-    let params_abs = std::fs::canonicalize(params_path)?;
-    let output_abs = if output_path.is_absolute() {
-        output_path.to_path_buf()
-    } else {
-        std::env::current_dir()?.join(output_path)
-    };
+    let disc_abs = abs_path_str(disc_path)?;
+    let matrix_abs = abs_path_str(matrix_path)?;
+    let sim_abs = abs_path_str(sim_path)?;
+    let params_abs = abs_path_str(params_path)?;
+    let output_abs = abs_path_str(output_path)?;
 
     rscript::run_rscript(
         &script,
         &[
             "--discriminability",
-            disc_abs.to_str().unwrap_or(""),
+            &disc_abs,
             "--matrix",
-            matrix_abs.to_str().unwrap_or(""),
+            &matrix_abs,
             "--similarity",
-            sim_abs.to_str().unwrap_or(""),
+            &sim_abs,
             "--params",
-            params_abs.to_str().unwrap_or(""),
+            &params_abs,
             "--output",
-            output_abs.to_str().unwrap_or(""),
+            &output_abs,
         ],
     )
 }
@@ -304,16 +300,16 @@ fn write_panel_qc_rmd(
         );
     }
 
-    let disc_abs = std::fs::canonicalize(disc_path)?;
-    let matrix_abs = std::fs::canonicalize(matrix_path)?;
-    let sim_abs = std::fs::canonicalize(sim_path)?;
-    let params_abs = std::fs::canonicalize(params_path)?;
+    let disc_abs = abs_path_str(disc_path)?;
+    let matrix_abs = abs_path_str(matrix_path)?;
+    let sim_abs = abs_path_str(sim_path)?;
+    let params_abs = abs_path_str(params_path)?;
 
     let params = vec![
-        ("discriminability_file", disc_abs.to_str().unwrap_or("")),
-        ("matrix_file", matrix_abs.to_str().unwrap_or("")),
-        ("similarity_file", sim_abs.to_str().unwrap_or("")),
-        ("params_file", params_abs.to_str().unwrap_or("")),
+        ("discriminability_file", disc_abs.as_str()),
+        ("matrix_file", matrix_abs.as_str()),
+        ("similarity_file", sim_abs.as_str()),
+        ("params_file", params_abs.as_str()),
     ];
 
     let template_content = std::fs::read_to_string(&rmd_template)

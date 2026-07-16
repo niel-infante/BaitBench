@@ -118,6 +118,8 @@ pub enum Commands {
         #[arg(long, default_value = "70.0")]
         hybridization_temperature: f64,
 
+        // Hidden: advanced thermodynamics parameter; the 50 mM Na+ default is appropriate for
+        // most hybridization capture protocols. Exposed via CLI for reproducibility.
         #[arg(long, default_value = "50.0", hide = true)]
         salt_concentration: f64,
 
@@ -356,6 +358,8 @@ pub enum Commands {
         #[arg(long, default_value = "70.0")]
         hybridization_temperature: f64,
 
+        // Hidden: advanced thermodynamics parameter; the 50 mM Na+ default is appropriate for
+        // most hybridization capture protocols. Exposed via CLI for reproducibility.
         #[arg(long, default_value = "50.0", hide = true)]
         salt_concentration: f64,
 
@@ -1133,6 +1137,8 @@ pub enum Commands {
         #[arg(long, default_value = "70.0", conflicts_with = "hybridization_temperature_values")]
         hybridization_temperature: f64,
 
+        // Hidden: advanced thermodynamics parameter; the 50 mM Na+ default is appropriate for
+        // most hybridization capture protocols. Exposed via CLI for reproducibility.
         #[arg(long, default_value = "50.0", hide = true)]
         salt_concentration: f64,
 

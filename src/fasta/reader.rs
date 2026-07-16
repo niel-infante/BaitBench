@@ -22,7 +22,7 @@ pub fn parse_fasta(path: &Path) -> Result<HashMap<String, String>> {
                 sequences.insert(id, current_seq.join(""));
                 current_seq.clear();
             }
-            let id = line[1..].split_whitespace().next().unwrap_or("").to_string();
+            let id = line.strip_prefix('>').unwrap_or("").split_whitespace().next().unwrap_or("").to_string();
             current_id = Some(id);
         } else if !line.is_empty() {
             current_seq.push(line.to_uppercase());
@@ -45,7 +45,7 @@ pub fn parse_fasta_ids(path: &Path) -> Result<Vec<String>> {
     for line in reader.lines() {
         let line = line?;
         if line.starts_with('>') {
-            let id = line[1..].split_whitespace().next().unwrap_or("").to_string();
+            let id = line.strip_prefix('>').unwrap_or("").split_whitespace().next().unwrap_or("").to_string();
             ids.push(id);
         }
     }

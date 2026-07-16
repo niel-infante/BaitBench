@@ -207,9 +207,13 @@ fn subtract_interval(intervals: &mut IntervalList, start: usize, end: usize) {
 
 // ─── MinHash deduplication ────────────────────────────────────────────────────
 
+// 100 hash functions gives ~1% collision probability for typical probe panels.
+// k=8 balances specificity vs speed for probe-length (~120 bp) sequences.
+// These values are empirical choices; the original CATCH paper (Metsky et al. 2019)
+// uses a similar MinHash scheme but does not prescribe specific values.
 const MINHASH_NUM_FUNCS: usize = 100;
 const MINHASH_KMER_LEN: usize = 8;
-// Mersenne prime 2^31-1, sufficient for probe sequences
+// Mersenne prime 2^31-1; fits in u64 arithmetic without overflow during hashing.
 const MINHASH_PRIME: u64 = 2_147_483_647;
 
 /// Generate `MINHASH_NUM_FUNCS` pairs (a, b) for polynomial hash functions

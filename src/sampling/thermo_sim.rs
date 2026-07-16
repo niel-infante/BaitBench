@@ -69,7 +69,7 @@ fn cigar_and_md_to_pairs(
 
     // Build MD-based mismatch map: query_position → ref_base
     let md_mismatches = md
-        .map(|s| parse_md_mismatches(s))
+        .map(parse_md_mismatches)
         .unwrap_or_default();
 
     let mut pairs: Vec<(u8, u8)> = Vec::with_capacity(probe_seq.len());

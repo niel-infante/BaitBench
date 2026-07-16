@@ -300,9 +300,7 @@ All wrappers follow the pattern: `check_available() → bool/Result`, then speci
 | `sample_target_map.txt` | TSV (genome_id target_id) | prepare (genome mode) | metrics, coverage_curve |
 | `target_groups.tsv` | TSV (seq_id group_name) | prepare (only if `--groups`) | metrics, report |
 | `distractor_groups.tsv` | TSV (seq_id group_name) | prepare (always; auto or `--distractor-groups`) | metrics, report |
-| `fragments.fa` | FASTA | simulate | capture, metrics |
-| `captured.fa` | FASTA | capture | enrich (if --fold-enrichment), sequence, metrics |
-| `enriched.fa` | FASTA | enrich | sequence, metrics (only if --fold-enrichment) |
+| `fragments.fa` | FASTA | simulate | sequence, metrics |
 | `reads.fa` / `reads.fq` | FASTA or FASTQ | sequence | filter/map_reads |
 | `filtered.fa` / `filtered.fq` | FASTA or FASTQ | filter | map_reads |
 | `mapped.sam` | SAM | map_reads | generate_list, metrics |

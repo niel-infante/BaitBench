@@ -10,7 +10,7 @@ use crate::commands::report::{rmd_output_path, substitute_rmd_params};
 use crate::commands::{probe_coverage, xreact};
 use crate::external::{minimap2, rscript};
 use crate::fasta;
-use crate::io_utils::prefixed_join;
+use crate::io_utils::{abs_path_str, prefixed_join};
 
 pub struct AssessProbesArgs<'a> {
     pub targets: &'a Path,
@@ -323,23 +323,6 @@ fn write_run_params(path: &Path, args: &AssessProbesArgs) -> Result<()> {
     Ok(())
 }
 
-/// Make a path absolute (canonicalize if it exists, otherwise join with cwd).
-fn abs_path(p: &Path) -> Result<PathBuf> {
-    if p.exists() {
-        Ok(std::fs::canonicalize(p)?)
-    } else if p.is_absolute() {
-        Ok(p.to_path_buf())
-    } else {
-        Ok(std::env::current_dir()?.join(p))
-    }
-}
-
-fn abs_path_str(p: &Path) -> Result<String> {
-    Ok(abs_path(p)?
-        .to_str()
-        .unwrap_or("")
-        .to_string())
-}
 
 fn generate_assess_report(
     build_stats_file: Option<&Path>,

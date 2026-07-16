@@ -281,3 +281,23 @@ pub fn write_sample_target_map(
     writer.flush()?;
     Ok(())
 }
+
+/// Resolve a path to an absolute path suitable for passing to R scripts.
+///
+/// Uses `canonicalize` when the path exists (handles symlinks/relative refs),
+/// or falls back to joining with the current working directory so callers
+/// don't have to ensure the file exists before calling (e.g. for output paths
+/// written moments later).
+pub fn abs_path(p: &Path) -> Result<PathBuf> {
+    if p.exists() {
+        Ok(std::fs::canonicalize(p)?)
+    } else if p.is_absolute() {
+        Ok(p.to_path_buf())
+    } else {
+        Ok(std::env::current_dir()?.join(p))
+    }
+}
+
+pub fn abs_path_str(p: &Path) -> Result<String> {
+    Ok(abs_path(p)?.to_str().unwrap_or("").to_string())
+}

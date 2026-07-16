@@ -36,7 +36,7 @@ pub fn extract_by_ids(fasta_path: &Path, ids: &HashSet<String>, output_path: &Pa
     for line in reader.lines() {
         let line = line?;
         if line.starts_with('>') {
-            let id = line[1..].split_whitespace().next().unwrap_or("");
+            let id = line.strip_prefix('>').unwrap_or("").split_whitespace().next().unwrap_or("");
             writing = ids.contains(id);
             if writing {
                 writeln!(writer, "{}", line)?;

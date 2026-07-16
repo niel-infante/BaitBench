@@ -10,7 +10,7 @@ use crate::cli::ReportMode;
 use crate::commands::report::{rmd_output_path, substitute_rmd_params};
 use crate::external::{minimap2, rscript};
 use crate::fasta;
-use crate::io_utils::prefixed_join;
+use crate::io_utils::{abs_path_str, prefixed_join};
 
 pub struct XreactArgs<'a> {
     pub probes: &'a Path,
@@ -137,9 +137,14 @@ pub fn execute(args: &XreactArgs) -> Result<()> {
             }
         }
 
-        let _ = fs::remove_file(&paf_path);
+        if let Err(e) = fs::remove_file(&paf_path) {
+            log::debug!("Could not remove {}: {}", paf_path.display(), e);
+        }
         if args.against.len() > 1 {
-            let _ = fs::remove_file(prefixed_join(args.outdir, pfx, "against_combined.fa"));
+            let combined = prefixed_join(args.outdir, pfx, "against_combined.fa");
+            if let Err(e) = fs::remove_file(&combined) {
+                log::debug!("Could not remove {}: {}", combined.display(), e);
+            }
         }
     }
 
@@ -191,7 +196,9 @@ pub fn execute(args: &XreactArgs) -> Result<()> {
             }
         }
 
-        let _ = fs::remove_file(&paf_path);
+        if let Err(e) = fs::remove_file(&paf_path) {
+            log::debug!("Could not remove {}: {}", paf_path.display(), e);
+        }
     }
 
     // Write run_params.tsv
@@ -363,34 +370,25 @@ fn generate_xreact_report(
         bail!("Xreact R script not found: {}", script.display());
     }
 
-    let hits_abs = std::fs::canonicalize(hits_path)?;
-    let summary_abs = std::fs::canonicalize(summary_path)?;
-    let params_abs = std::fs::canonicalize(params_path)?;
-    let output_abs = if output_path.is_absolute() {
-        output_path.to_path_buf()
-    } else {
-        std::env::current_dir()?.join(output_path)
-    };
-
-    let hits_str = hits_abs.to_str().unwrap_or("");
-    let summary_str = summary_abs.to_str().unwrap_or("");
-    let params_str = params_abs.to_str().unwrap_or("");
-    let output_str = output_abs.to_str().unwrap_or("");
+    let hits_str = abs_path_str(hits_path)?;
+    let summary_str = abs_path_str(summary_path)?;
+    let params_str = abs_path_str(params_path)?;
+    let output_str = abs_path_str(output_path)?;
     let threshold_str = format!("{:.1}", threshold);
 
     rscript::run_rscript(
         &script,
         &[
             "--hits",
-            hits_str,
+            &hits_str,
             "--summary",
-            summary_str,
+            &summary_str,
             "--params",
-            params_str,
+            &params_str,
             "--threshold",
             &threshold_str,
             "--output",
-            output_str,
+            &output_str,
         ],
     )
 }
@@ -410,16 +408,16 @@ fn write_xreact_rmd(
         bail!("RMarkdown template not found: {}", rmd_template.display());
     }
 
-    let hits_abs = std::fs::canonicalize(hits_path)?;
-    let summary_abs = std::fs::canonicalize(summary_path)?;
-    let params_abs = std::fs::canonicalize(params_path)?;
+    let hits_abs = abs_path_str(hits_path)?;
+    let summary_abs = abs_path_str(summary_path)?;
+    let params_abs = abs_path_str(params_path)?;
     let threshold_str = format!("{:.1}", threshold);
 
     let params = vec![
-        ("hits_file", hits_abs.to_str().unwrap_or("")),
-        ("summary_file", summary_abs.to_str().unwrap_or("")),
-        ("params_file", params_abs.to_str().unwrap_or("")),
-        ("threshold", &threshold_str),
+        ("hits_file", hits_abs.as_str()),
+        ("summary_file", summary_abs.as_str()),
+        ("params_file", params_abs.as_str()),
+        ("threshold", threshold_str.as_str()),
     ];
 
     let template_content = std::fs::read_to_string(&rmd_template)

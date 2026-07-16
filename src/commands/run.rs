@@ -76,6 +76,13 @@ fn reads_ext(fmt: OutputFormat) -> &'static str {
     }
 }
 
+fn fmt_opt<T: std::fmt::Display>(opt: Option<T>) -> String {
+    match opt {
+        Some(v) => v.to_string(),
+        None => "none".to_string(),
+    }
+}
+
 pub fn execute(args: &RunArgs) -> Result<()> {
     let outdir = &args.outdir;
     fs::create_dir_all(outdir)?;
@@ -136,7 +143,7 @@ pub fn execute(args: &RunArgs) -> Result<()> {
     }
     log::info!(
         "Seed                : {}",
-        args.seed.map(|s| s.to_string()).unwrap_or_else(|| "none".to_string())
+        fmt_opt(args.seed)
     );
     log::info!("Output dir          : {}", outdir.display());
     log::info!("=============================================");
@@ -161,7 +168,7 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         writeln!(f, "host_fasta\t--host-fasta\t{}", args.host_fasta.map(|p| p.display().to_string()).unwrap_or_else(|| "none".to_string()))?;
         writeln!(f, "num_fragments\t--num-fragments\t{}", args.num_fragments)?;
         writeln!(f, "distractor_fraction\t--distractor-fraction\t{}", args.distractor_fraction)?;
-        writeln!(f, "ct\t--ct\t{}", args.ct.map(|v| v.to_string()).unwrap_or_else(|| "none".to_string()))?;
+        writeln!(f, "ct\t--ct\t{}", fmt_opt(args.ct))?;
         if let Some(cal) = &args.ct_calibration {
             writeln!(f, "ct_calibration_1\t--ct-calibration\t{}", cal[0])?;
             writeln!(f, "ct_calibration_2\t--ct-calibration\t{}", cal[1])?;
@@ -180,7 +187,7 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         writeln!(f, "fragment_length_min\t--fragment-length-min\t{}", args.fragment_length_min)?;
         writeln!(f, "fragment_length_max\t--fragment-length-max\t{}", args.fragment_length_max)?;
         writeln!(f, "read_length\t--read-length\t{}", args.read_length)?;
-        writeln!(f, "num_sequences\t--num-sequences\t{}", args.num_sequences.map(|s| s.to_string()).unwrap_or_else(|| "none".to_string()))?;
+        writeln!(f, "num_sequences\t--num-sequences\t{}", fmt_opt(args.num_sequences))?;
         let sim_name = match args.simulator {
             ReadSimulator::Perfect => "perfect",
             ReadSimulator::Art     => "art",
@@ -204,7 +211,7 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         };
         writeln!(f, "output_format\t--output-format\t{}", fmt_str)?;
         writeln!(f, "threads\t--threads\t{}", args.threads)?;
-        writeln!(f, "seed\t--seed\t{}", args.seed.map(|s| s.to_string()).unwrap_or_else(|| "none".to_string()))?;
+        writeln!(f, "seed\t--seed\t{}", fmt_opt(args.seed))?;
         writeln!(f, "outdir\t--outdir\t{}", outdir.display())?;
         f.flush()?;
     }

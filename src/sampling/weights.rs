@@ -78,7 +78,7 @@ pub fn generate_weights(
 
     for id in target_ids {
         let w = sample_weights.get(id).copied().unwrap_or(0.0);
-        writeln!(writer, "{}\t{}", id, w)?;
+        writeln!(writer, "{}\t{:.6}", id, w)?;
     }
 
     for id in distractor_ids {
