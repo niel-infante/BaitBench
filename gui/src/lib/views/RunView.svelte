@@ -735,15 +735,15 @@
 <div class="run-view">
   <!-- Header -->
   <div class="header">
+    <div class="header-side"></div>
     <span class="logo">BaitBench</span>
-    <div class="spacer"></div>
-    <button class="btn-ghost small" on:click={() => open('https://niel-infante.github.io/BaitBench/')}>Documentation</button>
-    <button class="btn-ghost small" on:click={goToSetup}>⚙ Change Environment</button>
-    {#if isRunning}
-      <button class="btn-ghost small active-run" on:click={() => currentView.set('log')}>
-        ● View Running Pipeline
-      </button>
-    {/if}
+    <div class="header-side right">
+      {#if isRunning}
+        <button class="btn-running" on:click={() => currentView.set('log')}>
+          ● View Running Pipeline
+        </button>
+      {/if}
+    </div>
   </div>
 
   <div class="body">
@@ -759,6 +759,11 @@
           >{t.label}</button>
         {/each}
       {/each}
+      <div class="sidebar-spacer"></div>
+      <div class="sidebar-utilities">
+        <button class="util-btn" on:click={() => open('https://niel-infante.github.io/BaitBench/')}>Documentation ↗</button>
+        <button class="util-btn" on:click={goToSetup}>⚙ Change Environment</button>
+      </div>
     </nav>
 
     <!-- Form area -->
@@ -771,7 +776,7 @@
       <div class="form-scroll">
         <!-- ── run ─────────────────────────────────────── -->
         {#if selectedTool === 'run'}
-          <section class="form-section">
+          <section class="form-section" data-kind="input">
             <h3>Inputs</h3>
             <FilePicker label="Targets FASTA" bind:value={r_targets} required
               filters={[{ name: 'FASTA', extensions: ['fa', 'fasta', 'fna'] }]} />
@@ -781,7 +786,7 @@
               filters={[{ name: 'FASTA', extensions: ['fa', 'fasta', 'fna'] }]} />
           </section>
 
-          <section class="form-section">
+          <section class="form-section" data-kind="input">
             <h3>Sample Manifest</h3>
             <div class="toggle-row">
               <button class="toggle-btn" class:active={r_sampleIsFile}
@@ -802,7 +807,7 @@
             {/if}
           </section>
 
-          <section class="form-section">
+          <section class="form-section" data-kind="params">
             <h3>Distractor Fraction</h3>
             <div class="toggle-row">
               <button class="toggle-btn" class:active={r_distractorMode === 'fraction'}
@@ -867,7 +872,7 @@
             {/if}
           </section>
 
-          <section class="form-section">
+          <section class="form-section" data-kind="params">
             <h3>Simulation</h3>
             <div class="field-row">
               <label class="field-label" for="simmode">Simulate mode</label>
@@ -900,7 +905,7 @@
             </div>
           </section>
 
-          <section class="form-section">
+          <section class="form-section" data-kind="output">
             <h3>Output</h3>
             <FilePicker label="Output directory" bind:value={outdir} directory required />
             <div class="field-row">
@@ -1077,12 +1082,12 @@
 
         <!-- ── build-probes ──────────────────────────── -->
         {:else if selectedTool === 'build-probes'}
-          <section class="form-section">
+          <section class="form-section" data-kind="input">
             <h3>Inputs</h3>
             <FilePicker label="Targets FASTA" bind:value={bp_targets} required
               filters={[{ name: 'FASTA', extensions: ['fa', 'fasta', 'fna'] }]} />
           </section>
-          <section class="form-section">
+          <section class="form-section" data-kind="params">
             <h3>Design Method</h3>
             <div class="field-row">
               <label class="field-label" for="bp-method">Method</label>
@@ -1169,7 +1174,7 @@
               </div>
             {/if}
           </section>
-          <section class="form-section">
+          <section class="form-section" data-kind="output">
             <h3>Output</h3>
             <FilePicker label="Output directory" bind:value={outdir} directory required />
             <div class="field-row">
@@ -1275,7 +1280,7 @@
 
         <!-- ── assess-probes ────────────────────────── -->
         {:else if selectedTool === 'assess-probes'}
-          <section class="form-section">
+          <section class="form-section" data-kind="input">
             <h3>Inputs</h3>
             <FilePicker label="Targets FASTA" bind:value={ap_targets} required
               filters={[{ name: 'FASTA', extensions: ['fa', 'fasta', 'fna'] }]} />
@@ -1284,7 +1289,7 @@
             <FilePicker label="Genomes FASTA (optional)" bind:value={ap_genomes}
               filters={[{ name: 'FASTA', extensions: ['fa', 'fasta', 'fna'] }]} />
           </section>
-          <section class="form-section">
+          <section class="form-section" data-kind="output">
             <h3>Output</h3>
             <FilePicker label="Output directory" bind:value={outdir} directory required />
             <div class="field-row">
@@ -1357,7 +1362,7 @@
 
         <!-- ── xreact ───────────────────────────────── -->
         {:else if selectedTool === 'xreact'}
-          <section class="form-section">
+          <section class="form-section" data-kind="input">
             <h3>Inputs</h3>
             <FilePicker label="Probes FASTA" bind:value={xr_probes} required
               filters={[{ name: 'FASTA', extensions: ['fa', 'fasta'] }]} />
@@ -1369,7 +1374,7 @@
               Probe-vs-probe self cross-reactivity
             </label>
           </section>
-          <section class="form-section">
+          <section class="form-section" data-kind="output">
             <h3>Output</h3>
             <FilePicker label="Output directory" bind:value={outdir} directory required />
             <div class="field-row">
@@ -1404,14 +1409,14 @@
 
         <!-- ── panel-qc ─────────────────────────────── -->
         {:else if selectedTool === 'panel-qc'}
-          <section class="form-section">
+          <section class="form-section" data-kind="input">
             <h3>Inputs</h3>
             <FilePicker label="Targets FASTA" bind:value={pq_targets} required
               filters={[{ name: 'FASTA', extensions: ['fa', 'fasta', 'fna'] }]} />
             <FilePicker label="Sample-target map (TSV)" bind:value={pq_sampleTargetMap} required
               filters={[{ name: 'TSV', extensions: ['tsv', 'txt'] }]} />
           </section>
-          <section class="form-section">
+          <section class="form-section" data-kind="output">
             <h3>Output</h3>
             <FilePicker label="Output directory" bind:value={outdir} directory required />
             <div class="field-row">
@@ -1446,7 +1451,7 @@
 
         <!-- ── identify ─────────────────────────────── -->
         {:else if selectedTool === 'identify'}
-          <section class="form-section">
+          <section class="form-section" data-kind="input">
             <h3>Inputs</h3>
             <FilePicker label="detected_detail.tsv" bind:value={id_detectedDetail} required
               filters={[{ name: 'TSV', extensions: ['tsv'] }]} />
@@ -1459,7 +1464,7 @@
               bind:value={id_targets}
               filters={[{ name: 'FASTA', extensions: ['fa', 'fasta', 'fna'] }]} />
           </section>
-          <section class="form-section">
+          <section class="form-section" data-kind="output">
             <h3>Output</h3>
             <FilePicker label="Output directory" bind:value={outdir} directory required />
             <div class="field-row">
@@ -1486,7 +1491,7 @@
 
         <!-- ── coverage-curve ────────────────────────── -->
         {:else if selectedTool === 'coverage-curve'}
-          <section class="form-section">
+          <section class="form-section" data-kind="input">
             <h3>Inputs</h3>
             <FilePicker label="Targets FASTA" bind:value={cc_targets} required
               filters={[{ name: 'FASTA', extensions: ['fa', 'fasta', 'fna'] }]} />
@@ -1500,7 +1505,7 @@
               filters={[{ name: 'TSV', extensions: ['tsv', 'txt'] }]} />
           </section>
 
-          <section class="form-section">
+          <section class="form-section" data-kind="input">
             <h3>Sample Manifest</h3>
             <div class="toggle-row">
               <button class="toggle-btn" class:active={cc_sampleIsFile}
@@ -1521,7 +1526,7 @@
             {/if}
           </section>
 
-          <section class="form-section">
+          <section class="form-section" data-kind="params">
             <h3>Simulation</h3>
             <div class="field-row">
               <label class="field-label" for="cc-nfrags">Number of fragments</label>
@@ -1537,7 +1542,7 @@
             </div>
           </section>
 
-          <section class="form-section">
+          <section class="form-section" data-kind="params">
             <h3>Parameter Sweep</h3>
             <p class="sweep-hint">Check a parameter to sweep over multiple values; uncheck to use a single fixed value.</p>
 
@@ -1651,7 +1656,7 @@
             </div>
           </section>
 
-          <section class="form-section">
+          <section class="form-section" data-kind="output">
             <h3>Output</h3>
             <FilePicker label="Output directory" bind:value={outdir} directory required />
             <div class="field-row">
@@ -1747,18 +1752,38 @@
   .header {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 8px 16px;
-    border-bottom: 1px solid var(--color-border);
-    background: var(--color-card);
+    padding: 0 18px;
+    height: 46px;
+    background: #1e3a8a;
     flex-shrink: 0;
+    position: relative;
+    z-index: 10;
   }
+  .header-side {
+    flex: 1;
+    display: flex;
+    align-items: center;
+  }
+  .header-side.right { justify-content: flex-end; }
   .logo {
-    font-size: 1.05rem;
+    font-size: 1.4rem;
     font-weight: 800;
-    color: var(--color-primary);
+    color: #ffffff;
+    letter-spacing: -0.02em;
+    user-select: none;
   }
-  .spacer { flex: 1; }
+  .btn-running {
+    padding: 4px 10px;
+    background: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 5px;
+    font-size: 0.8rem;
+    color: #ffffff;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s;
+  }
+  .btn-running:hover { background: rgba(255, 255, 255, 0.22); }
   .body {
     display: flex;
     flex: 1;
@@ -1766,40 +1791,73 @@
   }
   /* Sidebar */
   .sidebar {
-    width: 180px;
+    width: 188px;
     flex-shrink: 0;
-    border-right: 1px solid var(--color-border);
-    background: var(--color-card);
-    padding: 10px 0;
+    border-right: none;
+    background: var(--sidebar-bg);
+    padding: 6px 0;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    gap: 0;
   }
   .cat-label {
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     font-weight: 700;
     text-transform: uppercase;
-    color: var(--color-muted);
-    letter-spacing: 0.04em;
-    padding: 8px 12px 3px;
+    color: var(--sidebar-cat-text);
+    letter-spacing: 0.09em;
+    padding: 16px 14px 5px;
+    border-top: 1px solid var(--sidebar-separator);
+    margin-top: 6px;
+  }
+  .sidebar > :global(div:first-child) {
+    border-top: none;
+    margin-top: 0;
+    padding-top: 8px;
   }
   .tool-btn {
     width: 100%;
     text-align: left;
-    padding: 7px 14px;
+    padding: 7px 18px;
     font-size: 0.85rem;
     border: none;
     background: transparent;
     cursor: pointer;
-    color: var(--color-text);
+    color: var(--sidebar-text);
     border-radius: 0;
+    transition: background 0.1s;
   }
-  .tool-btn:hover { background: var(--color-btn-hover); }
+  .tool-btn:hover { background: var(--sidebar-hover); }
   .tool-btn.active {
-    background: var(--color-primary-light);
-    color: var(--color-primary);
+    background: var(--sidebar-active-bg);
+    color: var(--sidebar-active-text);
     font-weight: 600;
+  }
+  .sidebar-spacer { flex: 1; }
+  .sidebar-utilities {
+    padding: 8px 12px 14px;
+    border-top: 1px solid var(--sidebar-separator);
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .util-btn {
+    width: 100%;
+    text-align: left;
+    padding: 7px 12px;
+    font-size: 0.8rem;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: rgba(255, 255, 255, 0.07);
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--sidebar-text);
+    transition: background 0.15s, border-color 0.15s;
+    box-sizing: border-box;
+  }
+  .util-btn:hover {
+    background: rgba(255, 255, 255, 0.13);
+    border-color: rgba(255, 255, 255, 0.3);
   }
   /* Form area */
   .form-area {
@@ -1809,32 +1867,51 @@
     overflow: hidden;
   }
   .tool-header {
-    padding: 14px 20px 10px;
-    border-bottom: 1px solid var(--color-border);
+    padding: 16px 22px 12px;
+    border-bottom: 2px solid var(--color-border);
+    background: var(--color-card);
     flex-shrink: 0;
   }
-  .tool-header h2 { margin: 0 0 3px; font-size: 1.05rem; }
+  .tool-header h2 { margin: 0 0 4px; font-size: 1.15rem; font-weight: 700; }
   .tool-desc { margin: 0; font-size: 0.82rem; color: var(--color-muted); }
   .form-scroll {
     flex: 1;
     overflow-y: auto;
-    padding: 16px 20px 32px;
+    padding: 14px 16px 28px;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 10px;
   }
   .form-section {
     display: flex;
     flex-direction: column;
     gap: 10px;
+    background: var(--color-card);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 14px 16px;
   }
   .form-section h3 {
-    margin: 0 0 2px;
-    font-size: 0.82rem;
+    margin: 0 0 4px;
+    font-size: 0.72rem;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--color-muted);
+    letter-spacing: 0.07em;
+    color: var(--color-label);
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .form-section[data-kind="input"] {
+    border-left: 3px solid rgba(59, 130, 246, 0.65);
+    background: rgba(59, 130, 246, 0.03);
+  }
+  .form-section[data-kind="params"] {
+    border-left: 3px solid rgba(139, 92, 246, 0.55);
+    background: rgba(139, 92, 246, 0.03);
+  }
+  .form-section[data-kind="output"] {
+    border-left: 3px solid rgba(16, 185, 129, 0.65);
+    background: rgba(16, 185, 129, 0.03);
   }
   .field-row {
     display: flex;
@@ -1958,6 +2035,4 @@
     color: var(--color-text);
   }
   .btn-ghost:hover { background: var(--color-btn-hover); }
-  .btn-ghost.small { font-size: 0.8rem; padding: 4px 8px; }
-  .active-run { color: #2b6cb0; border-color: #bee3f8; }
 </style>

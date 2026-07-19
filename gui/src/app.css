@@ -7,11 +7,20 @@
   --color-label: #4a5568;
   --color-border: #e2e8f0;
   --color-card: #ffffff;
-  --color-bg: #f7fafc;
+  --color-bg: #f0f4f9;
   --color-input-bg: #ffffff;
   --color-btn: #edf2f7;
   --color-btn-hover: #e2e8f0;
   --color-chip: #edf2f7;
+
+  /* Sidebar — always dark regardless of color-scheme */
+  --sidebar-bg: #1b2540;
+  --sidebar-text: #c5d0e6;
+  --sidebar-cat-text: #7eaee0;
+  --sidebar-hover: rgba(255, 255, 255, 0.07);
+  --sidebar-active-bg: #2563eb;
+  --sidebar-active-text: #ffffff;
+  --sidebar-separator: rgba(255, 255, 255, 0.08);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -23,11 +32,14 @@
     --color-label: #cbd5e0;
     --color-border: #2d3748;
     --color-card: #1a202c;
-    --color-bg: #171923;
+    --color-bg: #131921;
     --color-input-bg: #2d3748;
     --color-btn: #2d3748;
     --color-btn-hover: #4a5568;
     --color-chip: #2d3748;
+
+    --sidebar-bg: #111827;
+    --sidebar-cat-text: #93c5fd;
   }
 }
 
@@ -39,6 +51,11 @@ html, body, #app {
   padding: 0;
   height: 100%;
   overflow: hidden;
+}
+
+#app {
+  border: 1px solid rgba(30, 58, 138, 0.55);
+  box-sizing: border-box;
 }
 
 body {
