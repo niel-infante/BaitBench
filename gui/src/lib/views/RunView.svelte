@@ -56,6 +56,7 @@
   let r_sampleTargetMap = '';
   let r_groups = '';
   let r_hostFasta = '';
+  let r_hostMinimapPreset = 'sr';
   let r_identify = false;
   let r_runName = '';
   // fragment params
@@ -227,7 +228,7 @@
         r_distractorMode, r_distractorFraction, r_ct, r_ctBaseline, r_ctBaselineFraction,
         r_ctEfficiency, r_ctCalibMode, r_ctCal1, r_ctCal2,
         r_simulateMode, r_numFragments, r_captureFraction, r_hybTemp, r_readLength, r_seed,
-        r_genomes, r_sampleTargetMap, r_groups, r_distractorGroups, r_hostFasta,
+        r_genomes, r_sampleTargetMap, r_groups, r_distractorGroups, r_hostFasta, r_hostMinimapPreset,
         r_identify, r_identifyIdentThreshold, r_identifyMinUniq, r_runName,
         r_fragLenMean, r_fragLenMin, r_fragLenMax, r_minimapPreset,
         r_numSequences, r_outputFormat, r_readSimulator, r_sequencerProfile, r_coverageDepth,
@@ -303,6 +304,7 @@
         r_genomes = str('r_genomes'); r_sampleTargetMap = str('r_sampleTargetMap');
         r_groups = str('r_groups'); r_distractorGroups = str('r_distractorGroups');
         r_hostFasta = str('r_hostFasta');
+        r_hostMinimapPreset = str('r_hostMinimapPreset', 'sr');
         r_identify = bl('r_identify');
         r_identifyIdentThreshold = str('r_identifyIdentThreshold', '90');
         r_identifyMinUniq = str('r_identifyMinUniq', '1');
@@ -495,6 +497,7 @@
         if (r_groups) add('--groups', r_groups);
         if (r_distractorGroups) add('--distractor-groups', r_distractorGroups);
         if (r_hostFasta) add('--host-fasta', r_hostFasta);
+        if (r_hostFasta && r_hostMinimapPreset !== 'sr') add('--host-minimap-preset', r_hostMinimapPreset);
         flag('--identify', r_identify);
         if (r_identify) {
           if (r_identifyIdentThreshold !== '90') add('--identity-threshold', r_identifyIdentThreshold);
@@ -1065,6 +1068,12 @@
             <FilePicker label="Host FASTA" bind:value={r_hostFasta}
               tooltip="Host genome FASTA (e.g. human). Reads aligning to this reference are removed before mapping to targets. Simulates host-depletion in a metagenomics workflow."
               filters={[{ name: 'FASTA', extensions: ['fa', 'fasta', 'fna'] }]} />
+            {#if r_hostFasta}
+              <div class="field-row">
+                <label class="field-label" for="r-hostminimap" data-tooltip="Minimap2 preset for host filtering alignment. Auto-selected based on --minimap-preset by default. Use 'map-ont' for ONT long reads or 'sr' for Illumina short reads.">Host minimap2 preset <span class="tip">?</span></label>
+                <input id="r-hostminimap" class="text-input short" type="text" bind:value={r_hostMinimapPreset} />
+              </div>
+            {/if}
             <h4 class="subsection">Species Identification</h4>
             <label class="check-label">
               <input type="checkbox" bind:checked={r_identify} />
@@ -1463,6 +1472,7 @@
             <h3>Inputs</h3>
             <FilePicker label="detected_detail.tsv" bind:value={id_detectedDetail} required
               tooltip="The detected_detail.tsv output from a previous baitbench run (or baitbench metrics). Contains per-target read counts used for species calling."
+              tooltipBelow
               filters={[{ name: 'TSV', extensions: ['tsv'] }]} />
             <FilePicker label="Sample-target map (TSV)" bind:value={id_sampleTargetMap} required
               tooltip="TSV mapping genome/species IDs to target sequence IDs. Tells identify which targets correspond to the same species for multi-target pattern calling."

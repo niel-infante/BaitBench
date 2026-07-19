@@ -136,7 +136,7 @@ Additional flags for `badread` only:
 | Output dir | `--outdir`, `-o` | ./results | Output directory. A timestamped subdirectory is created for each run. |
 | Output prefix | `--output-prefix` | (empty) | String prepended to every auto-generated output filename |
 | Run name | `--run-name` | auto | Custom name for the run. Default: `run_YYYYMMDD_HHMMSS` |
-| Report mode | `--report` | full | `full` (render HTML), `none` (skip), `rmd` (editable RMarkdown), `both-r` (HTML and RMarkdown) |
+| Report mode | `--report` | `both-r` | `full` (render HTML), `none` (skip), `rmd` (editable RMarkdown), `both-r` (HTML and RMarkdown) |
 | Seed | `--seed`, `-s` | random | Random seed for reproducibility. Without this, results vary between runs. |
 | Verbose | `--verbose` | false | Enable debug logging (global flag) |
 | Minimap preset | `--minimap-preset` | auto | Alignment preset for read mapping. Auto-selected based on simulator: `sr` for perfect/art, `map-ont` for ONT badread, `map-pb` for PacBio badread. Override with explicit value if needed. |

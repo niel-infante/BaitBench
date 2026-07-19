@@ -16,6 +16,8 @@ Steps to complete before tagging a new BaitBench release.
     --num-fragments 1000 --seed 42 --outdir /tmp/bb_release_test
   ```
 - [ ] GUI builds and launches (`cd gui && make copy-sidecar && make dev`)
+- [ ] **GUI flags** — for each tool in `RunView.svelte`, verify every CLI flag is wired up and matches the current `src/cli.rs` definition. Check new flags added since last release are present in the GUI.
+- [ ] **GUI tooltips** — for each tool, verify all non-obvious fields have a `data-tooltip` / `tooltip` prop. Any field added since last release should have a tooltip.
 
 ---
 

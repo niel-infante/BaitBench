@@ -38,7 +38,7 @@ The primary command for most use cases. Chains all pipeline steps (prepare throu
 
 In genome mode with `--sample-target-map`, use `--identify` to add species-level calling after metrics. Species calls are included in the HTML report with ground-truth comparison against `--sample`.
 
-`--report` accepts: `full` (HTML, default), `none` (skip), `rmd` (editable RMarkdown), `both-r` (HTML + RMarkdown).
+`--report` accepts: `full` (HTML), `none` (skip), `rmd` (editable RMarkdown), `both-r` (HTML + RMarkdown, default).
 
 See [Parameters](parameters.md) for all options.
 
@@ -380,7 +380,7 @@ A final probe is always anchored to the sequence end regardless of step.
 | `--pt-min-coverage-gain` | 0.001 | Stagnation guard: stop if 10th-percentile improvement falls below this (`probetools-lite` only) |
 | `--skip-assess` | false | Skip automatic probe assessment after building |
 | `--outdir` | ./build_probes_results | Output directory |
-| `--report` | full | Report mode: `full`, `none`, `rmd`, or `both-r` |
+| `--report` | `both-r` | Report mode: `full`, `none`, `rmd`, or `both-r` |
 | `--cleanup` | false | Delete intermediate files |
 | `--refine-iterations` | none | Number of refinement iterations on low-coverage targets |
 | `--refine-until-stable` | false | Repeat until no targets remain below the threshold or set stabilises |
@@ -432,7 +432,7 @@ baitbench assess-probes \
 | `--proximity` | 50 | Pull-down zone distance in bp |
 | `--outdir` | ./assess_probes_results | Output directory |
 | `--output-prefix` | (empty) | String prepended to every output filename |
-| `--report` | full | Report mode |
+| `--report` | `both-r` | Report mode |
 | `--cleanup` | false | Delete intermediate files |
 | `--gap-min-length` | median probe length | Minimum gap size (bp) for gap detail output |
 | `--no-individual-targets` | false | Skip per-target individual mapping (use for very large panels) |
@@ -465,7 +465,7 @@ baitbench probe-coverage \
 | `--outdir` | ./probe_coverage | Output directory |
 | `--minimap-preset` | sr | Alignment preset |
 | `--proximity` | 50 | Pull-down zone distance in bp |
-| `--report` | full | Report mode |
+| `--report` | `both-r` | Report mode |
 | `--cleanup` | false | Delete intermediate files |
 
 **Output files:** `probe_depth.tsv`, `probe_coverage_summary.tsv`, `multi_mapping_probes.tsv`, `probe_coverage_report.html`.
@@ -565,7 +565,7 @@ baitbench panel-qc \
 | `--identity-threshold` | 90.0 | Minimum sequence identity % to consider two targets "similar" |
 | `--minimap-preset` | sr | Alignment preset |
 | `--outdir` | ./panel_qc_results | Output directory |
-| `--report` | full | Report mode |
+| `--report` | `both-r` | Report mode |
 | `--cleanup` | false | Delete intermediate files |
 
 **Algorithm:**

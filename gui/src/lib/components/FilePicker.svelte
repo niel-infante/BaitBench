@@ -9,6 +9,7 @@
   export let filters: { name: string; extensions: string[] }[] = [];
   export let required: boolean = false;
   export let tooltip: string = '';
+  export let tooltipBelow: boolean = false;
   export let id: string = label.replace(/\s+/g, '_').toLowerCase();
 
   async function browse() {
@@ -27,7 +28,7 @@
 </script>
 
 <div class="file-picker">
-  <label for={id} data-tooltip={tooltip || undefined}>
+  <label for={id} data-tooltip={tooltip || undefined} data-tooltip-pos={tooltipBelow ? 'below' : undefined}>
     {label}
     {#if required}<span class="req">*</span>{/if}
     {#if tooltip}<span class="tip">?</span>{/if}

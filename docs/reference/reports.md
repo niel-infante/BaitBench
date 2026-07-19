@@ -10,10 +10,10 @@ The `--report` flag controls report output for `run`, `probe-coverage`, `coverag
 
 | Mode | Description |
 |------|-------------|
-| `full` (default) | Render the full HTML report using R and pandoc. Requires R with rmarkdown, ggplot2, and DT packages. |
+| `full` | Render the full HTML report using R and pandoc. Requires R with rmarkdown, ggplot2, and DT packages. |
 | `none` | Skip report generation entirely. All TSV and JSON outputs are still produced. |
 | `rmd` | Write a parameterized RMarkdown file with all paths and parameters pre-filled. Does not require R at run time. |
-| `both-r` | Generate both the HTML report and the editable RMarkdown file. |
+| `both-r` (default) | Generate both the HTML report and the editable RMarkdown file. |
 
 ### Using `--report rmd`
 
