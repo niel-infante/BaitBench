@@ -784,6 +784,12 @@
               filters={[{ name: 'FASTA', extensions: ['fa', 'fasta'] }]} />
             <FilePicker label="Distractor FASTA(s)" bind:value={r_distractors} multiple required
               filters={[{ name: 'FASTA', extensions: ['fa', 'fasta', 'fna'] }]} />
+            <FilePicker label="Genomes FASTA (optional, genome mode)" bind:value={r_genomes}
+              tooltip="Full genome sequences for genome mode (e.g. complete bacterial chromosomes). Fragments are generated from these genomes but reads are mapped back to Targets FASTA. Use for bacteria or large pathogens where the probe target region differs from the full genome."
+              filters={[{ name: 'FASTA', extensions: ['fa', 'fasta', 'fna'] }]} />
+            <FilePicker label="Sample-target map (optional, genome mode)" bind:value={r_sampleTargetMap}
+              tooltip="Two-column TSV: genome_id → target_id. Links genome sequences to their probe target regions in genome mode. If omitted, auto-matched by exact name or 'genome_id|target_id' prefix."
+              filters={[{ name: 'TSV', extensions: ['tsv', 'txt'] }]} />
           </section>
 
           <section class="form-section" data-kind="input">
@@ -817,7 +823,7 @@
             </div>
             {#if r_distractorMode === 'fraction'}
               <div class="field-row">
-                <label class="field-label" for="dfrac">Distractor fraction (0–1)</label>
+                <label class="field-label" for="dfrac" data-tooltip="Fraction of simulated reads from distractor (background) sequences. 0.9 = 90% background, 10% target. Models real sample composition.">Distractor fraction (0–1) <span class="tip">?</span></label>
                 <input id="dfrac" class="text-input short" type="number" min="0" max="1" step="0.01"
                   bind:value={r_distractorFraction} />
               </div>
@@ -827,7 +833,7 @@
               </div>
               <div class="field-group">
                 <div class="field-row">
-                  <label class="field-label" for="ct">CT value</label>
+                  <label class="field-label" for="ct" data-tooltip="qPCR cycle threshold. Higher CT = more dilute target. CT 20 ≈ 1% target, CT 25 ≈ 0.03%, CT 30 ≈ 0.001% (at 100% PCR efficiency).">CT value <span class="tip">?</span></label>
                   <input id="ct" class="text-input short" type="number" step="0.1"
                     bind:value={r_ct} />
                 </div>
@@ -840,29 +846,29 @@
                   </div>
                   {#if r_ctCalibMode === 'single'}
                     <div class="field-row">
-                      <label class="field-label" for="ctb">CT baseline</label>
+                      <label class="field-label" for="ctb" data-tooltip="CT value of the calibration reference point. Default: CT 20 corresponds to 1% target fraction.">CT baseline <span class="tip">?</span></label>
                       <input id="ctb" class="text-input short" type="number" step="0.1"
                         bind:value={r_ctBaseline} />
                     </div>
                     <div class="field-row">
-                      <label class="field-label" for="ctbf">CT baseline fraction</label>
+                      <label class="field-label" for="ctbf" data-tooltip="Target fraction at the baseline CT. Default: 0.01 means CT 20 = 1% target in the mixture.">CT baseline fraction <span class="tip">?</span></label>
                       <input id="ctbf" class="text-input short" type="number" step="0.001" min="0" max="1"
                         bind:value={r_ctBaselineFraction} />
                     </div>
                     <div class="field-row">
-                      <label class="field-label" for="cte">PCR efficiency (0–1)</label>
+                      <label class="field-label" for="cte" data-tooltip="PCR amplification efficiency per cycle. 1.0 = 100% (doubles every cycle). Real assays typically run at 0.90–0.98.">PCR efficiency (0–1) <span class="tip">?</span></label>
                       <input id="cte" class="text-input short" type="number" step="0.01" min="0" max="1"
                         bind:value={r_ctEfficiency} />
                     </div>
                   {:else}
                     <p class="hint-sm">Provide two (CT, target-fraction) reference points; efficiency is derived automatically.</p>
                     <div class="field-row">
-                      <label class="field-label" for="ctcal1">Point 1 (CT,fraction)</label>
+                      <label class="field-label" for="ctcal1" data-tooltip="Format: CT,fraction — e.g. '20,0.01' means CT 20 corresponds to 1% target. PCR efficiency is derived from the two points.">Point 1 (CT,fraction) <span class="tip">?</span></label>
                       <input id="ctcal1" class="text-input short" type="text"
                         bind:value={r_ctCal1} placeholder="20,0.01" />
                     </div>
                     <div class="field-row">
-                      <label class="field-label" for="ctcal2">Point 2 (CT,fraction)</label>
+                      <label class="field-label" for="ctcal2" data-tooltip="Second calibration point. Format: CT,fraction — e.g. '25,0.003' means CT 25 corresponds to 0.3% target.">Point 2 (CT,fraction) <span class="tip">?</span></label>
                       <input id="ctcal2" class="text-input short" type="text"
                         bind:value={r_ctCal2} placeholder="25,0.003" />
                     </div>
@@ -875,7 +881,7 @@
           <section class="form-section" data-kind="params">
             <h3>Simulation</h3>
             <div class="field-row">
-              <label class="field-label" for="simmode">Simulate mode</label>
+              <label class="field-label" for="simmode" data-tooltip="Thermodynamic uses the SantaLucia (1998) nearest-neighbor TNN model to score probe-target binding based on hybridization free energy. Simple assigns uniform capture probability. Thermodynamic is more accurate but slower.">Simulate mode <span class="tip">?</span></label>
               <select id="simmode" class="select-input" bind:value={r_simulateMode}>
                 <option value="thermodynamic">Thermodynamic (TNN)</option>
                 <option value="simple">Simple</option>
@@ -883,23 +889,23 @@
             </div>
             {#if r_simulateMode === 'thermodynamic'}
               <div class="field-row">
-                <label class="field-label" for="hybtemp">Hybridization temperature (°C)</label>
+                <label class="field-label" for="hybtemp" data-tooltip="Temperature used in the TNN model to calculate probe-target binding free energy. Higher temp = stricter hybridization. Typical range: 60–75°C.">Hybridization temperature (°C) <span class="tip">?</span></label>
                 <input id="hybtemp" class="text-input short" type="number" step="1"
                   bind:value={r_hybTemp} />
               </div>
             {/if}
             <div class="field-row">
-              <label class="field-label" for="nfrags">Number of fragments</label>
+              <label class="field-label" for="nfrags" data-tooltip="Total DNA fragments to simulate across all sequences. More fragments → better proportional accuracy but slower run. Typical: 10,000–100,000.">Number of fragments <span class="tip">?</span></label>
               <input id="nfrags" class="text-input short" type="number" min="100"
                 bind:value={r_numFragments} />
             </div>
             <div class="field-row">
-              <label class="field-label" for="capfrac">Capture fraction</label>
+              <label class="field-label" for="capfrac" data-tooltip="Proportion of fragments overlapping a probe that are retained (captured). 1.0 = capture everything that touches a probe. Models real hybridization capture efficiency.">Capture fraction <span class="tip">?</span></label>
               <input id="capfrac" class="text-input short" type="number" min="0" max="1" step="0.01"
                 bind:value={r_captureFraction} />
             </div>
             <div class="field-row">
-              <label class="field-label" for="readlen">Read length (bp)</label>
+              <label class="field-label" for="readlen" data-tooltip="Simulated fragments are trimmed to this length to produce reads. Should match the sequencing technology (e.g. 150 bp for Illumina short reads).">Read length (bp) <span class="tip">?</span></label>
               <input id="readlen" class="text-input short" type="number" min="1"
                 bind:value={r_readLength} />
             </div>
@@ -934,7 +940,7 @@
                 bind:value={threads} />
             </div>
             <div class="field-row">
-              <label class="field-label" for="seed">Random seed (blank = random)</label>
+              <label class="field-label" for="seed" data-tooltip="Fix this value to reproduce the exact same simulation in future runs. Leave blank for a new random seed each time.">Random seed (blank = random) <span class="tip">?</span></label>
               <input id="seed" class="text-input short" type="text" bind:value={r_seed}
                 placeholder="e.g. 42" />
             </div>
@@ -943,7 +949,7 @@
               <input id="runname" class="text-input" type="text" bind:value={r_runName} />
             </div>
             <div class="field-row">
-              <label class="field-label" for="fraglenmean">Fragment length mean (bp)</label>
+              <label class="field-label" for="fraglenmean" data-tooltip="Mean length of simulated DNA fragments before trimming to read length. Longer fragments capture more context per molecule. Default: 500 bp.">Fragment length mean (bp) <span class="tip">?</span></label>
               <input id="fraglenmean" class="text-input short" type="number" bind:value={r_fragLenMean} />
             </div>
             <div class="field-row">
@@ -955,24 +961,24 @@
               <input id="fraglenmax" class="text-input short" type="number" bind:value={r_fragLenMax} />
             </div>
             <div class="field-row">
-              <label class="field-label" for="minimap">Minimap2 preset</label>
+              <label class="field-label" for="minimap" data-tooltip="Minimap2 alignment preset for mapping reads back to the reference. 'sr' for Illumina short reads (default), 'map-ont' for Nanopore, 'map-pb' for PacBio.">Minimap2 preset <span class="tip">?</span></label>
               <input id="minimap" class="text-input short" type="text" bind:value={r_minimapPreset} />
             </div>
             <h4 class="subsection">Sequencing</h4>
             <div class="field-row">
-              <label class="field-label" for="r-numseq">Num sequences to sample (blank = all)</label>
+              <label class="field-label" for="r-numseq" data-tooltip="Subsample this many reads from the simulated pool before mapping. Leave blank to use all reads. Useful for testing at lower sequencing depths.">Num sequences to sample (blank = all) <span class="tip">?</span></label>
               <input id="r-numseq" class="text-input short" type="number" min="1"
                 bind:value={r_numSequences} placeholder="all" />
             </div>
             <div class="field-row">
-              <label class="field-label" for="r-outfmt">Output format</label>
+              <label class="field-label" for="r-outfmt" data-tooltip="FASTA for the perfect simulator. FASTQ includes quality scores — required for ART or Badread read simulators.">Output format <span class="tip">?</span></label>
               <select id="r-outfmt" class="select-input" bind:value={r_outputFormat}>
                 <option value="fasta">FASTA</option>
                 <option value="fastq">FASTQ</option>
               </select>
             </div>
             <div class="field-row">
-              <label class="field-label" for="r-readsim">Read simulator</label>
+              <label class="field-label" for="r-readsim" data-tooltip="Perfect: error-free reads (fastest, default). ART: Illumina error profiles (requires art_modern conda package). Badread: long-read error models for Nanopore/PacBio (requires badread conda package).">Read simulator <span class="tip">?</span></label>
               <select id="r-readsim" class="select-input" bind:value={r_readSimulator}>
                 <option value="perfect">Perfect (no errors)</option>
                 <option value="art">ART (Illumina profiles)</option>
@@ -981,12 +987,12 @@
             </div>
             {#if r_readSimulator === 'art'}
               <div class="field-row">
-                <label class="field-label" for="r-artprofile">Sequencer profile</label>
+                <label class="field-label" for="r-artprofile" data-tooltip="ART instrument profile name. Examples: HS25 (HiSeq 2500), HS10 (HiSeq 1000), NS50 (NextSeq 500). See ART documentation for full list.">Sequencer profile <span class="tip">?</span></label>
                 <input id="r-artprofile" class="text-input" type="text" bind:value={r_sequencerProfile}
                   placeholder="e.g. HS25" />
               </div>
               <div class="field-row">
-                <label class="field-label" for="r-covdepth">Coverage depth</label>
+                <label class="field-label" for="r-covdepth" data-tooltip="Target sequencing coverage depth (×). ART will generate reads until this average depth is reached per reference sequence.">Coverage depth <span class="tip">?</span></label>
                 <input id="r-covdepth" class="text-input short" type="number" step="0.1" min="0"
                   bind:value={r_coverageDepth} />
               </div>
@@ -996,70 +1002,68 @@
               </label>
               {#if r_pairedEnd}
                 <div class="field-row">
-                  <label class="field-label" for="r-pefragmean">Insert size mean (bp)</label>
+                  <label class="field-label" for="r-pefragmean" data-tooltip="Mean DNA fragment insert size for paired-end sequencing (bp). Must be larger than the read length. Typical Illumina: 300–500 bp.">Insert size mean (bp) <span class="tip">?</span></label>
                   <input id="r-pefragmean" class="text-input short" type="number"
                     bind:value={r_peFargLenMean} />
                 </div>
                 <div class="field-row">
-                  <label class="field-label" for="r-pefragsd">Insert size SD (bp)</label>
+                  <label class="field-label" for="r-pefragsd" data-tooltip="Standard deviation of the fragment insert size (bp). Typical Illumina: 50–100 bp.">Insert size SD (bp) <span class="tip">?</span></label>
                   <input id="r-pefragsd" class="text-input short" type="number"
                     bind:value={r_peFargLenSd} />
                 </div>
               {/if}
             {:else if r_readSimulator === 'badread'}
               <div class="field-row">
-                <label class="field-label" for="r-brprofile">Sequencer profile / model</label>
+                <label class="field-label" for="r-brprofile" data-tooltip="Badread error model name. Examples: nanopore2023, nanopore2020, pacbio2016. Leave blank for the default model. See Badread documentation for the full list.">Sequencer profile / model <span class="tip">?</span></label>
                 <input id="r-brprofile" class="text-input" type="text" bind:value={r_sequencerProfile}
                   placeholder="e.g. nanopore2023" />
               </div>
               <div class="field-row">
-                <label class="field-label" for="r-brcovdepth">Coverage depth</label>
+                <label class="field-label" for="r-brcovdepth" data-tooltip="Target average sequencing depth (×) for Badread long-read simulation.">Coverage depth <span class="tip">?</span></label>
                 <input id="r-brcovdepth" class="text-input short" type="number" step="0.1" min="0"
                   bind:value={r_coverageDepth} />
               </div>
               <div class="field-row">
-                <label class="field-label" for="r-brlenm">Read length mean (bp)</label>
+                <label class="field-label" for="r-brlenm" data-tooltip="Mean length of simulated long reads (bp). Leave blank to use Badread's default distribution for the selected model.">Read length mean (bp) <span class="tip">?</span></label>
                 <input id="r-brlenm" class="text-input short" type="number" min="1"
                   bind:value={r_longReadLenMean} placeholder="default" />
               </div>
               <div class="field-row">
-                <label class="field-label" for="r-brlens">Read length SD (bp)</label>
+                <label class="field-label" for="r-brlens" data-tooltip="Standard deviation of long-read lengths (bp). Leave blank to use Badread defaults.">Read length SD (bp) <span class="tip">?</span></label>
                 <input id="r-brlens" class="text-input short" type="number" min="0"
                   bind:value={r_longReadLenSd} placeholder="default" />
               </div>
               <div class="field-row">
-                <label class="field-label" for="r-brglitch">Glitches (rate,size,skips)</label>
+                <label class="field-label" for="r-brglitch" data-tooltip="Badread glitch parameters as 'rate,size,skips'. Simulates signal glitches in the sequencer. E.g. '10000,25,5' = 1 glitch per 10,000 bp, size 25, skipping 5 bases.">Glitches (rate,size,skips) <span class="tip">?</span></label>
                 <input id="r-brglitch" class="text-input short" type="text"
                   bind:value={r_badreadGlitches} placeholder="e.g. 10000,25,5" />
               </div>
               <div class="field-row">
-                <label class="field-label" for="r-brjunk">Junk reads (%)</label>
+                <label class="field-label" for="r-brjunk" data-tooltip="Percentage of reads that are entirely random sequence (junk). Simulates empty nanopores or other noise. Default: 0.">Junk reads (%) <span class="tip">?</span></label>
                 <input id="r-brjunk" class="text-input short" type="number" min="0" max="100"
                   bind:value={r_badreadJunkReads} placeholder="0" />
               </div>
               <div class="field-row">
-                <label class="field-label" for="r-brrandom">Random reads (%)</label>
+                <label class="field-label" for="r-brrandom" data-tooltip="Percentage of reads drawn from random sequence instead of the reference. Simulates background noise from sequencer. Default: 0.">Random reads (%) <span class="tip">?</span></label>
                 <input id="r-brrandom" class="text-input short" type="number" min="0" max="100"
                   bind:value={r_badreadRandomReads} placeholder="0" />
               </div>
               <div class="field-row">
-                <label class="field-label" for="r-brchim">Chimeric reads (%)</label>
+                <label class="field-label" for="r-brchim" data-tooltip="Percentage of chimeric reads (two random fragments joined end-to-end). Common in long-read datasets from adapter ligation artifacts. Default: 0.">Chimeric reads (%) <span class="tip">?</span></label>
                 <input id="r-brchim" class="text-input short" type="number" min="0" max="100"
                   bind:value={r_badreadChimeras} placeholder="0" />
               </div>
             {/if}
-            <h4 class="subsection">Genome Mode (optional)</h4>
-            <FilePicker label="Genomes FASTA" bind:value={r_genomes}
-              filters={[{ name: 'FASTA', extensions: ['fa', 'fasta', 'fna'] }]} />
-            <FilePicker label="Sample-target map" bind:value={r_sampleTargetMap}
-              filters={[{ name: 'TSV', extensions: ['tsv', 'txt'] }]} />
             <h4 class="subsection">Grouping (optional)</h4>
             <FilePicker label="Target groups" bind:value={r_groups}
+              tooltip="Two-column TSV: sequence_id → group_name. Collapses multiple variant sequences of the same organism into one logical entity for TP/FP/FN classification."
               filters={[{ name: 'TSV', extensions: ['tsv', 'txt'] }]} />
             <FilePicker label="Distractor groups" bind:value={r_distractorGroups}
+              tooltip="Two-column TSV: contig_id → group_name. By default, all contigs from each distractor FASTA are automatically grouped by filename. Use this file when multiple organisms are mixed into one FASTA."
               filters={[{ name: 'TSV', extensions: ['tsv', 'txt'] }]} />
             <h4 class="subsection">Host Filtering (optional)</h4>
             <FilePicker label="Host FASTA" bind:value={r_hostFasta}
+              tooltip="Host genome FASTA (e.g. human). Reads aligning to this reference are removed before mapping to targets. Simulates host-depletion in a metagenomics workflow."
               filters={[{ name: 'FASTA', extensions: ['fa', 'fasta', 'fna'] }]} />
             <h4 class="subsection">Species Identification</h4>
             <label class="check-label">
@@ -1068,12 +1072,12 @@
             </label>
             {#if r_identify}
               <div class="field-row">
-                <label class="field-label" for="r-identthresh">Identity threshold (%)</label>
+                <label class="field-label" for="r-identthresh" data-tooltip="Minimum sequence identity (%) between targets for cross-reactivity to be used when resolving ambiguous species calls.">Identity threshold (%) <span class="tip">?</span></label>
                 <input id="r-identthresh" class="text-input short" type="number" min="0" max="100"
                   bind:value={r_identifyIdentThreshold} />
               </div>
               <div class="field-row">
-                <label class="field-label" for="r-minuniq">Min unique targets for call</label>
+                <label class="field-label" for="r-minuniq" data-tooltip="Minimum number of targets unique to a species that must be detected to confidently call it PRESENT rather than AMBIGUOUS.">Min unique targets for call <span class="tip">?</span></label>
                 <input id="r-minuniq" class="text-input short" type="number" min="1"
                   bind:value={r_identifyMinUniq} />
               </div>
@@ -1090,7 +1094,7 @@
           <section class="form-section" data-kind="params">
             <h3>Design Method</h3>
             <div class="field-row">
-              <label class="field-label" for="bp-method">Method</label>
+              <label class="field-label" for="bp-method" data-tooltip="Tile: simple sliding window (fastest). CATCH-lite: greedy set cover targeting a coverage fraction. Syotti-lite: greedy set cover with k-mer seeding. ProbeTools-lite: iterative k-mer clustering. CATCH: external tool (requires catch conda package).">Method <span class="tip">?</span></label>
               <select id="bp-method" class="select-input" bind:value={bp_method}>
                 <option value="tile">Tile (sliding window)</option>
                 <option value="catch-lite">CATCH-lite (native Rust)</option>
@@ -1106,12 +1110,12 @@
             </div>
             {#if bp_method === 'tile'}
               <div class="field-row">
-                <label class="field-label" for="bp-step">Step (negative = overlap)</label>
+                <label class="field-label" for="bp-step" data-tooltip="Spacing between consecutive probes (bp). Positive = gap between probes. Negative = overlap. E.g. -20 = probes overlap by 20 bp.">Step (negative = overlap) <span class="tip">?</span></label>
                 <input id="bp-step" class="text-input short" type="number" bind:value={bp_step} />
               </div>
             {:else if bp_method === 'catch-lite' || bp_method === 'catch'}
               <div class="field-row">
-                <label class="field-label" for="bp-catchstride">Probe stride</label>
+                <label class="field-label" for="bp-catchstride" data-tooltip="Step between candidate probe positions in the initial tiling before set-cover optimization. Smaller stride = more candidates but slower.">Probe stride <span class="tip">?</span></label>
                 <input id="bp-catchstride" class="text-input short" type="number" bind:value={bp_catchStride} />
               </div>
               <div class="field-row">
@@ -1119,57 +1123,57 @@
                 <input id="bp-catchmm" class="text-input short" type="number" bind:value={bp_catchMismatches} />
               </div>
               <div class="field-row">
-                <label class="field-label" for="bp-catchext">Extension (bp each side)</label>
+                <label class="field-label" for="bp-catchext" data-tooltip="Extend each candidate probe by this many bp on each side before set-cover. Increases the genomic region each probe can cover.">Extension (bp each side) <span class="tip">?</span></label>
                 <input id="bp-catchext" class="text-input short" type="number" min="0" bind:value={bp_catchExtension} />
               </div>
               <div class="field-row">
-                <label class="field-label" for="bp-catchcov">Min coverage fraction</label>
+                <label class="field-label" for="bp-catchcov" data-tooltip="Fraction of each target sequence that must be covered by at least one probe. Set-cover stops when this is achieved. 1.0 = full coverage required.">Min coverage fraction <span class="tip">?</span></label>
                 <input id="bp-catchcov" class="text-input short" type="number" step="0.01" min="0" max="1" bind:value={bp_catchCoverage} />
               </div>
               <div class="field-row">
-                <label class="field-label" for="bp-catchmh">MinHash dedup threshold</label>
+                <label class="field-label" for="bp-catchmh" data-tooltip="Probes with MinHash Jaccard similarity above this threshold are considered duplicates and merged during CATCH set-cover. Lower value = more aggressive deduplication.">MinHash dedup threshold <span class="tip">?</span></label>
                 <input id="bp-catchmh" class="text-input short" type="number" step="0.01" min="0" max="1" bind:value={bp_catchMinhashThreshold} />
               </div>
             {:else if bp_method === 'syotti-lite'}
               <div class="field-row">
-                <label class="field-label" for="bp-syottimm">Mismatches</label>
+                <label class="field-label" for="bp-syottimm" data-tooltip="Maximum mismatches allowed between a probe and a target region for the probe to count as covering it. Higher = more tolerant, fewer probes needed.">Mismatches <span class="tip">?</span></label>
                 <input id="bp-syottimm" class="text-input short" type="number" bind:value={bp_syottiMismatches} />
               </div>
               <div class="field-row">
-                <label class="field-label" for="bp-syottiseed">Seed length</label>
+                <label class="field-label" for="bp-syottiseed" data-tooltip="K-mer seed length for Syotti's greedy set-cover index. Shorter seeds find more hits but are slower; longer seeds are faster but may miss divergent sequences.">Seed length <span class="tip">?</span></label>
                 <input id="bp-syottiseed" class="text-input short" type="number" bind:value={bp_syottiSeedLen} />
               </div>
             {:else if bp_method === 'probetools-lite'}
               <div class="field-row">
-                <label class="field-label" for="bp-ptstep">K-mer step</label>
+                <label class="field-label" for="bp-ptstep" data-tooltip="Step size for k-mer sampling when building the ProbeTools cluster index. Smaller step = denser sampling, better coverage, slower.">K-mer step <span class="tip">?</span></label>
                 <input id="bp-ptstep" class="text-input short" type="number" min="1" bind:value={bp_ptStep} />
               </div>
               <div class="field-row">
-                <label class="field-label" for="bp-ptident">Cluster identity threshold</label>
+                <label class="field-label" for="bp-ptident" data-tooltip="Minimum sequence identity for two sequences to be assigned to the same ProbeTools cluster. 0.9 = 90% identity required to cluster together.">Cluster identity threshold <span class="tip">?</span></label>
                 <input id="bp-ptident" class="text-input short" type="number" step="0.01" min="0" max="1" bind:value={bp_ptIdentity} />
               </div>
               <div class="field-row">
-                <label class="field-label" for="bp-ptcov">Target coverage fraction</label>
+                <label class="field-label" for="bp-ptcov" data-tooltip="Fraction of each target sequence that must be covered by probes. Algorithm stops adding probes once this is reached per target.">Target coverage fraction <span class="tip">?</span></label>
                 <input id="bp-ptcov" class="text-input short" type="number" step="0.01" min="0" max="1" bind:value={bp_ptCoverage} />
               </div>
               <div class="field-row">
-                <label class="field-label" for="bp-ptbatch">Probes per iteration</label>
+                <label class="field-label" for="bp-ptbatch" data-tooltip="Number of probe candidates added per iteration. Larger batches are faster but may overshoot the optimal panel size.">Probes per iteration <span class="tip">?</span></label>
                 <input id="bp-ptbatch" class="text-input short" type="number" min="1" bind:value={bp_ptBatchSize} />
               </div>
               <div class="field-row">
-                <label class="field-label" for="bp-ptmax">Max panel size (blank = unlimited)</label>
+                <label class="field-label" for="bp-ptmax" data-tooltip="Hard cap on the total number of probes in the final panel. Leave blank for no limit. Useful when you need to fit probes on a fixed-size array.">Max panel size (blank = unlimited) <span class="tip">?</span></label>
                 <input id="bp-ptmax" class="text-input short" type="number" min="1" bind:value={bp_ptMaxPanelSize} placeholder="unlimited" />
               </div>
               <div class="field-row">
-                <label class="field-label" for="bp-ptdepth">Min coverage depth</label>
+                <label class="field-label" for="bp-ptdepth" data-tooltip="Minimum number of probes that must cover each base for it to count as covered. Depth > 1 provides redundancy against probe failure.">Min coverage depth <span class="tip">?</span></label>
                 <input id="bp-ptdepth" class="text-input short" type="number" min="1" bind:value={bp_ptMinDepth} />
               </div>
               <div class="field-row">
-                <label class="field-label" for="bp-ptiter">Max iterations</label>
+                <label class="field-label" for="bp-ptiter" data-tooltip="Maximum number of probe-addition iterations before stopping, even if coverage goal is not met.">Max iterations <span class="tip">?</span></label>
                 <input id="bp-ptiter" class="text-input short" type="number" min="1" bind:value={bp_ptMaxIterations} />
               </div>
               <div class="field-row">
-                <label class="field-label" for="bp-ptgain">Min coverage gain to continue</label>
+                <label class="field-label" for="bp-ptgain" data-tooltip="Stop iterating if the fractional coverage gain in the last iteration falls below this value. Prevents infinite loops when adding probes no longer helps.">Min coverage gain to continue <span class="tip">?</span></label>
                 <input id="bp-ptgain" class="text-input short" type="number" step="0.0001" min="0" bind:value={bp_ptMinCoverageGain} />
               </div>
             {/if}
@@ -1197,56 +1201,56 @@
           </section>
           <AdvancedOptions label="Filtering & Assessment">
             <div class="field-row">
-              <label class="field-label" for="bp-mingc">Min GC</label>
+              <label class="field-label" for="bp-mingc" data-tooltip="Minimum GC content fraction for a probe to pass. Probes below this value are too AT-rich and may have low melting temperatures. Typical range: 0.30–0.70.">Min GC <span class="tip">?</span></label>
               <input id="bp-mingc" class="text-input short" type="number" step="0.01" min="0" max="1" bind:value={bp_minGc} />
             </div>
             <div class="field-row">
-              <label class="field-label" for="bp-maxgc">Max GC</label>
+              <label class="field-label" for="bp-maxgc" data-tooltip="Maximum GC content fraction for a probe to pass. Probes above this value are too GC-rich and may form secondary structures or be hard to synthesize. Typical range: 0.30–0.70.">Max GC <span class="tip">?</span></label>
               <input id="bp-maxgc" class="text-input short" type="number" step="0.01" min="0" max="1" bind:value={bp_maxGc} />
             </div>
             <div class="field-row">
-              <label class="field-label" for="bp-maxnfrac">Max N fraction in targets</label>
+              <label class="field-label" for="bp-maxnfrac" data-tooltip="Target sequences with more than this fraction of ambiguous N bases are excluded before probe design. High-N sequences produce unreliable probes.">Max N fraction in targets <span class="tip">?</span></label>
               <input id="bp-maxnfrac" class="text-input short" type="number" step="0.01" min="0" max="1" bind:value={bp_maxNFrac} />
             </div>
-            <label class="check-label">
+            <label class="check-label" data-tooltip="After design, replace each N in a probe with T (or A/C/G if adjacent to T). Avoids ambiguous bases that some synthesizers cannot manufacture.">
               <input type="checkbox" bind:checked={bp_noNInProbes} />
-              Replace N bases in probes with non-N
+              Replace N bases in probes with non-N <span class="tip">?</span>
             </label>
             <div class="field-row">
-              <label class="field-label" for="bp-dust">sDUST threshold</label>
+              <label class="field-label" for="bp-dust" data-tooltip="sDUST complexity score threshold. Probes with a score above this are considered low-complexity (repetitive) and removed. Lower = stricter filtering. Default ~2.5.">sDUST threshold <span class="tip">?</span></label>
               <input id="bp-dust" class="text-input short" type="number" step="0.1" bind:value={bp_dustThreshold} />
             </div>
             <div class="field-row">
-              <label class="field-label" for="bp-dustwin">sDUST window size (bp)</label>
+              <label class="field-label" for="bp-dustwin" data-tooltip="Sliding window size for sDUST complexity scoring. Larger windows average over more sequence context; smaller windows flag short repetitive runs.">sDUST window size (bp) <span class="tip">?</span></label>
               <input id="bp-dustwin" class="text-input short" type="number" min="1" bind:value={bp_dustWindow} />
             </div>
             <div class="field-row">
-              <label class="field-label" for="bp-maxmask">Max masked fraction</label>
+              <label class="field-label" for="bp-maxmask" data-tooltip="Maximum fraction of a probe that can be masked by sDUST before the probe is dropped. E.g. 0.5 = probes where more than half the sequence is low-complexity are removed.">Max masked fraction <span class="tip">?</span></label>
               <input id="bp-maxmask" class="text-input short" type="number" step="0.01" min="0" max="1" bind:value={bp_maxMaskedFrac} />
             </div>
             <div class="field-row">
-              <label class="field-label" for="bp-collapse">Collapse identity threshold</label>
+              <label class="field-label" for="bp-collapse" data-tooltip="cd-hit-est identity threshold for collapsing redundant target sequences before probe design. Sequences above this identity are merged into a single representative. 0.95 = 95% identity.">Collapse identity threshold <span class="tip">?</span></label>
               <input id="bp-collapse" class="text-input short" type="number" step="0.01" min="0" max="1" bind:value={bp_collapseThreshold} />
             </div>
             <div class="field-row">
-              <label class="field-label" for="bp-dedup">Dedup identity threshold</label>
+              <label class="field-label" for="bp-dedup" data-tooltip="cd-hit-est identity threshold for deduplicating final probes after design. Probes above this identity are collapsed to one representative. Removes near-identical probes that would waste array space.">Dedup identity threshold <span class="tip">?</span></label>
               <input id="bp-dedup" class="text-input short" type="number" step="0.01" min="0" max="1" bind:value={bp_dedupThreshold} />
             </div>
             <div class="field-row">
-              <label class="field-label" for="bp-thresh">Xreact homology threshold (%)</label>
+              <label class="field-label" for="bp-thresh" data-tooltip="Minimum alignment identity (%) for a probe to be flagged as cross-reactive with a genome or another probe. Higher = only flag very close matches.">Xreact homology threshold (%) <span class="tip">?</span></label>
               <input id="bp-thresh" class="text-input short" type="number" min="0" max="100" bind:value={bp_threshold} />
             </div>
             <div class="field-row">
-              <label class="field-label" for="bp-prox">Proximity distance (bp)</label>
+              <label class="field-label" for="bp-prox" data-tooltip="Two cross-reactive hits within this distance (bp) on the same reference are merged into one report entry. Reduces noise from overlapping alignments.">Proximity distance (bp) <span class="tip">?</span></label>
               <input id="bp-prox" class="text-input short" type="number" min="0" bind:value={bp_proximity} />
             </div>
             <div class="field-row">
-              <label class="field-label" for="bp-minimap">Minimap2 preset</label>
+              <label class="field-label" for="bp-minimap" data-tooltip="Minimap2 alignment preset for probe assessment. 'sr' = short reads (≤250 bp probes), 'map-ont' = Oxford Nanopore, 'asm5' = high-identity assemblies. Default 'sr' works for most probe lengths.">Minimap2 preset <span class="tip">?</span></label>
               <input id="bp-minimap" class="text-input short" type="text" bind:value={bp_minimapPreset} />
             </div>
             <h4 class="subsection">Coverage Refinement</h4>
             <div class="field-row">
-              <label class="field-label" for="bp-refmode">Refinement</label>
+              <label class="field-label" for="bp-refmode" data-tooltip="After initial probe design, optionally re-run assessment and prune probes that fall below the coverage threshold. 'iterations' = fixed rounds; 'stable' = repeat until no more probes are pruned.">Refinement <span class="tip">?</span></label>
               <select id="bp-refmode" class="select-input" bind:value={bp_refineMode}>
                 <option value="none">None</option>
                 <option value="iterations">Fixed iterations</option>
@@ -1255,22 +1259,23 @@
             </div>
             {#if bp_refineMode !== 'none'}
               <div class="field-row">
-                <label class="field-label" for="bp-refthresh">1× coverage threshold (%)</label>
+                <label class="field-label" for="bp-refthresh" data-tooltip="A probe is pruned during refinement if removing it leaves at least this percentage of target bases still covered at 1×. Lower = more aggressive pruning.">1× coverage threshold (%) <span class="tip">?</span></label>
                 <input id="bp-refthresh" class="text-input short" type="number" min="0" max="100" bind:value={bp_refineThreshold} />
               </div>
               {#if bp_refineMode === 'iterations'}
                 <div class="field-row">
-                  <label class="field-label" for="bp-refiter">Iterations</label>
+                  <label class="field-label" for="bp-refiter" data-tooltip="Number of refinement rounds to run. Each round re-assesses coverage and prunes redundant probes.">Iterations <span class="tip">?</span></label>
                   <input id="bp-refiter" class="text-input short" type="number" min="1" bind:value={bp_refineIterations} />
                 </div>
               {/if}
             {/if}
             <h4 class="subsection">Assessment</h4>
             <FilePicker label="Genomes FASTA (cross-reactivity check)" bind:value={bp_genomes}
+              tooltip="Optional: FASTA of non-target genomes (e.g. human, host) to check probes against for cross-reactivity. Probes hitting these are flagged in the assessment report."
               filters={[{ name: 'FASTA', extensions: ['fa', 'fasta', 'fna'] }]} />
-            <label class="check-label">
+            <label class="check-label" data-tooltip="Skip the assess-probes step that runs after build-probes. Use if you only want the probe FASTA and will assess separately.">
               <input type="checkbox" bind:checked={bp_skipAssess} />
-              Skip assessment step
+              Skip assessment step <span class="tip">?</span>
             </label>
             <div class="field-row">
               <label class="field-label" for="bp-threads">Threads</label>
@@ -1287,6 +1292,7 @@
             <FilePicker label="Probes FASTA" bind:value={ap_probes} required
               filters={[{ name: 'FASTA', extensions: ['fa', 'fasta'] }]} />
             <FilePicker label="Genomes FASTA (optional)" bind:value={ap_genomes}
+              tooltip="Optional FASTA of off-target genomes (e.g. host) to include in cross-reactivity analysis. If omitted, only self cross-reactivity (probe-vs-probe) is checked."
               filters={[{ name: 'FASTA', extensions: ['fa', 'fasta', 'fna'] }]} />
           </section>
           <section class="form-section" data-kind="output">
@@ -1312,30 +1318,30 @@
           </section>
           <AdvancedOptions label="Options">
             <div class="field-row">
-              <label class="field-label" for="ap-threshold">Homology threshold (%)</label>
+              <label class="field-label" for="ap-threshold" data-tooltip="Minimum alignment identity (%) for a probe to be flagged as cross-reactive with a genome or another probe. Higher = only report very close matches.">Homology threshold (%) <span class="tip">?</span></label>
               <input id="ap-threshold" class="text-input short" type="number" min="0" max="100"
                 bind:value={ap_threshold} />
             </div>
-            <label class="check-label">
+            <label class="check-label" data-tooltip="By default, each target is assessed individually (probes aligned one target at a time) to distinguish true gaps from multi-mapper ambiguity. Skip this for panels with >10 000 targets to save time.">
               <input type="checkbox" bind:checked={ap_noIndividual} />
-              Skip per-target individual coverage mapping (faster for large panels)
+              Skip per-target individual coverage mapping (faster for large panels) <span class="tip">?</span>
             </label>
             <div class="field-row">
-              <label class="field-label" for="ap-prox">Proximity distance (bp)</label>
+              <label class="field-label" for="ap-prox" data-tooltip="Cross-reactive hits within this distance (bp) on the same reference are merged into one entry. Reduces noise from overlapping alignments.">Proximity distance (bp) <span class="tip">?</span></label>
               <input id="ap-prox" class="text-input short" type="number" min="0" bind:value={ap_proximity} />
             </div>
             <div class="field-row">
-              <label class="field-label" for="ap-minimap">Minimap2 preset</label>
+              <label class="field-label" for="ap-minimap" data-tooltip="Minimap2 alignment preset. 'sr' works for probes ≤250 bp (default). Use 'map-ont' for long-read contexts or 'asm5' for near-identical assemblies.">Minimap2 preset <span class="tip">?</span></label>
               <input id="ap-minimap" class="text-input short" type="text" bind:value={ap_minimapPreset} />
             </div>
             <div class="field-row">
-              <label class="field-label" for="ap-gaplen">Min gap length in detail output (bp)</label>
+              <label class="field-label" for="ap-gaplen" data-tooltip="Only report uncovered gaps in the detail TSV if they are at least this many base pairs long. Shorter gaps are too small to matter for most capture designs. Defaults to median probe length.">Min gap length in detail output (bp) <span class="tip">?</span></label>
               <input id="ap-gaplen" class="text-input short" type="number" min="1"
                 bind:value={ap_gapMinLength} placeholder="default" />
             </div>
             <h4 class="subsection">Coverage Refinement</h4>
             <div class="field-row">
-              <label class="field-label" for="ap-refmode">Refinement</label>
+              <label class="field-label" for="ap-refmode" data-tooltip="Optionally re-assess and prune redundant probes: 'iterations' = fixed rounds; 'stable' = repeat until no more probes can be removed without dropping coverage below threshold.">Refinement <span class="tip">?</span></label>
               <select id="ap-refmode" class="select-input" bind:value={ap_refineMode}>
                 <option value="none">None</option>
                 <option value="iterations">Fixed iterations</option>
@@ -1344,12 +1350,12 @@
             </div>
             {#if ap_refineMode !== 'none'}
               <div class="field-row">
-                <label class="field-label" for="ap-refthresh">1× coverage threshold (%)</label>
+                <label class="field-label" for="ap-refthresh" data-tooltip="A probe is pruned if removing it leaves at least this percentage of target bases still covered at 1×. Lower = more aggressive pruning of redundant probes.">1× coverage threshold (%) <span class="tip">?</span></label>
                 <input id="ap-refthresh" class="text-input short" type="number" min="0" max="100" bind:value={ap_refineThreshold} />
               </div>
               {#if ap_refineMode === 'iterations'}
                 <div class="field-row">
-                  <label class="field-label" for="ap-refiter">Iterations</label>
+                  <label class="field-label" for="ap-refiter" data-tooltip="Number of refinement rounds. Each round removes probes that fall below the coverage threshold and reassesses.">Iterations <span class="tip">?</span></label>
                   <input id="ap-refiter" class="text-input short" type="number" min="1" bind:value={ap_refineIterations} />
                 </div>
               {/if}
@@ -1368,10 +1374,11 @@
               filters={[{ name: 'FASTA', extensions: ['fa', 'fasta'] }]} />
             <FilePicker label="Against FASTA(s) (genomes to check against)" multiple
               bind:value={xr_against}
+              tooltip="One or more FASTA files of non-target genomes to check probes against (e.g. human host, common contaminants). Probes with significant hits are flagged as cross-reactive."
               filters={[{ name: 'FASTA', extensions: ['fa', 'fasta', 'fna'] }]} />
-            <label class="check-label">
+            <label class="check-label" data-tooltip="Also check probes against each other (probe-vs-probe). Flags probe pairs that may co-hybridize or compete for the same binding site.">
               <input type="checkbox" bind:checked={xr_self} />
-              Probe-vs-probe self cross-reactivity
+              Probe-vs-probe self cross-reactivity <span class="tip">?</span>
             </label>
           </section>
           <section class="form-section" data-kind="output">
@@ -1397,12 +1404,12 @@
           </section>
           <AdvancedOptions label="Options">
             <div class="field-row">
-              <label class="field-label" for="xr-threshold">Homology threshold (%)</label>
+              <label class="field-label" for="xr-threshold" data-tooltip="Minimum alignment identity (%) to flag a probe as cross-reactive. 80% = flag alignments with ≥80% sequence identity. Higher values = more specific, fewer false flags.">Homology threshold (%) <span class="tip">?</span></label>
               <input id="xr-threshold" class="text-input short" type="number" min="0" max="100"
                 bind:value={xr_threshold} />
             </div>
             <div class="field-row">
-              <label class="field-label" for="xr-minimap">Minimap2 preset</label>
+              <label class="field-label" for="xr-minimap" data-tooltip="Minimap2 alignment preset for cross-reactivity alignment. 'sr' for short probes (≤250 bp), 'asm5' for near-identical sequences, 'map-ont' for long-read contexts.">Minimap2 preset <span class="tip">?</span></label>
               <input id="xr-minimap" class="text-input short" type="text" bind:value={xr_minimapPreset} />
             </div>
           </AdvancedOptions>
@@ -1414,6 +1421,7 @@
             <FilePicker label="Targets FASTA" bind:value={pq_targets} required
               filters={[{ name: 'FASTA', extensions: ['fa', 'fasta', 'fna'] }]} />
             <FilePicker label="Sample-target map (TSV)" bind:value={pq_sampleTargetMap} required
+              tooltip="TSV mapping species/genome IDs to their target sequence IDs (genome_id → target_id). Tells panel-qc which targets belong to the same species for discriminability scoring."
               filters={[{ name: 'TSV', extensions: ['tsv', 'txt'] }]} />
           </section>
           <section class="form-section" data-kind="output">
@@ -1439,12 +1447,12 @@
           </section>
           <AdvancedOptions label="Options">
             <div class="field-row">
-              <label class="field-label" for="pq-ident">Identity threshold (%)</label>
+              <label class="field-label" for="pq-ident" data-tooltip="Minimum alignment identity (%) to count two targets as cross-similar. Used to compute inter-species confusion and discriminability scores. Higher = only flag very close pairs.">Identity threshold (%) <span class="tip">?</span></label>
               <input id="pq-ident" class="text-input short" type="number" min="0" max="100"
                 bind:value={pq_identityThreshold} />
             </div>
             <div class="field-row">
-              <label class="field-label" for="pq-minimap">Minimap2 preset</label>
+              <label class="field-label" for="pq-minimap" data-tooltip="Minimap2 preset for target-vs-target similarity alignment. 'asm5' works well for comparing closely related viral or bacterial sequences.">Minimap2 preset <span class="tip">?</span></label>
               <input id="pq-minimap" class="text-input short" type="text" bind:value={pq_minimapPreset} />
             </div>
           </AdvancedOptions>
@@ -1454,14 +1462,18 @@
           <section class="form-section" data-kind="input">
             <h3>Inputs</h3>
             <FilePicker label="detected_detail.tsv" bind:value={id_detectedDetail} required
+              tooltip="The detected_detail.tsv output from a previous baitbench run (or baitbench metrics). Contains per-target read counts used for species calling."
               filters={[{ name: 'TSV', extensions: ['tsv'] }]} />
             <FilePicker label="Sample-target map (TSV)" bind:value={id_sampleTargetMap} required
+              tooltip="TSV mapping genome/species IDs to target sequence IDs. Tells identify which targets correspond to the same species for multi-target pattern calling."
               filters={[{ name: 'TSV', extensions: ['tsv', 'txt'] }]} />
             <FilePicker label="Pre-computed target similarity TSV (optional)"
               bind:value={id_targetSimilarity}
+              tooltip="Pre-computed target-vs-target similarity matrix (from a prior panel-qc or assess-probes run). Speeds up identify by skipping the alignment step."
               filters={[{ name: 'TSV', extensions: ['tsv'] }]} />
             <FilePicker label="Targets FASTA (optional, compute similarity on-the-fly)"
               bind:value={id_targets}
+              tooltip="Provide target sequences to compute cross-similarity on-the-fly (instead of a pre-computed TSV). Used to explain away false positives caused by cross-reactive probes."
               filters={[{ name: 'FASTA', extensions: ['fa', 'fasta', 'fna'] }]} />
           </section>
           <section class="form-section" data-kind="output">
@@ -1474,17 +1486,17 @@
           </section>
           <AdvancedOptions label="Options">
             <div class="field-row">
-              <label class="field-label" for="id-ident">Identity threshold (%)</label>
+              <label class="field-label" for="id-ident" data-tooltip="Alignment identity threshold (%) for target similarity. Two species are considered cross-similar if their targets share this much identity — used to explain apparent false positives.">Identity threshold (%) <span class="tip">?</span></label>
               <input id="id-ident" class="text-input short" type="number" min="0" max="100"
                 bind:value={id_identityThreshold} />
             </div>
             <div class="field-row">
-              <label class="field-label" for="id-minuniq">Min unique targets for call</label>
+              <label class="field-label" for="id-minuniq" data-tooltip="Minimum number of uniquely detected targets (not explained by cross-reactivity) required to call a species PRESENT. Higher = fewer false positives, but risks missing low-titer species.">Min unique targets for call <span class="tip">?</span></label>
               <input id="id-minuniq" class="text-input short" type="number" min="1"
                 bind:value={id_minUniqueTargets} />
             </div>
             <div class="field-row">
-              <label class="field-label" for="id-minimap">Minimap2 preset</label>
+              <label class="field-label" for="id-minimap" data-tooltip="Minimap2 preset for on-the-fly target similarity computation. 'asm5' is recommended for comparing closely related pathogen sequences.">Minimap2 preset <span class="tip">?</span></label>
               <input id="id-minimap" class="text-input short" type="text" bind:value={id_minimapPreset} />
             </div>
           </AdvancedOptions>
@@ -1500,8 +1512,10 @@
             <FilePicker label="Distractor FASTA(s)" bind:value={cc_distractors} multiple required
               filters={[{ name: 'FASTA', extensions: ['fa', 'fasta', 'fna'] }]} />
             <FilePicker label="Genomes FASTA (optional, genome mode)" bind:value={cc_genomes}
+              tooltip="Full genome sequences (e.g. complete bacterial chromosomes). In genome mode, fragments are generated from these genomes but reads are mapped to targets. Leave blank for standard virus/amplicon mode."
               filters={[{ name: 'FASTA', extensions: ['fa', 'fasta', 'fna'] }]} />
             <FilePicker label="Sample-target map (optional)" bind:value={cc_sampleTargetMap}
+              tooltip="TSV linking genome IDs to target sequence IDs (genome mode only). Enables correct read attribution when full genomes are simulated but reads map to gene targets."
               filters={[{ name: 'TSV', extensions: ['tsv', 'txt'] }]} />
           </section>
 
@@ -1529,12 +1543,12 @@
           <section class="form-section" data-kind="params">
             <h3>Simulation</h3>
             <div class="field-row">
-              <label class="field-label" for="cc-nfrags">Number of fragments</label>
+              <label class="field-label" for="cc-nfrags" data-tooltip="Total fragments to simulate per pipeline run. More fragments = more stable coverage estimates but slower runtime. 1 000–10 000 is typical.">Number of fragments <span class="tip">?</span></label>
               <input id="cc-nfrags" class="text-input short" type="number" min="100"
                 bind:value={cc_numFragments} />
             </div>
             <div class="field-row">
-              <label class="field-label" for="cc-simmode">Simulate mode</label>
+              <label class="field-label" for="cc-simmode" data-tooltip="Thermodynamic: uses SantaLucia nearest-neighbor model to bias fragment selection by probe binding free energy (ΔG). Simple: purely random fragment selection. Thermodynamic is more realistic but slower.">Simulate mode <span class="tip">?</span></label>
               <select id="cc-simmode" class="select-input" bind:value={cc_simulateMode}>
                 <option value="thermodynamic">Thermodynamic (TNN)</option>
                 <option value="simple">Simple</option>
@@ -1561,9 +1575,9 @@
                 CT scoring is experimental. Results may not reflect real-world assay performance.
               </div>
               <div class="sweep-row">
-                <label class="sweep-label">
+                <label class="sweep-label" data-tooltip="qPCR cycle threshold values to sweep. Higher CT = lower target fraction in the mixture. Enter space-separated values (e.g. 20 25 30). Each value runs a separate pipeline.">
                   <input type="checkbox" bind:checked={cc_ctSweep} />
-                  CT
+                  CT <span class="tip">?</span>
                 </label>
                 {#if cc_ctSweep}
                   <input class="text-input sweep-input" type="text" bind:value={cc_ctList} placeholder="20 25 30" />
@@ -1580,34 +1594,34 @@
                 </div>
                 {#if cc_ctCalibMode === 'single'}
                   <div class="field-row">
-                    <label class="field-label" for="cc-ctb">CT baseline</label>
+                    <label class="field-label" for="cc-ctb" data-tooltip="The reference CT value where target fraction equals the baseline fraction. Default: CT 20 = 1% target. Calibrate to your assay's known reference point.">CT baseline <span class="tip">?</span></label>
                     <input id="cc-ctb" class="text-input short" type="number" step="0.1" bind:value={cc_ctBaseline} />
                   </div>
                   <div class="field-row">
-                    <label class="field-label" for="cc-ctbf">CT baseline fraction</label>
+                    <label class="field-label" for="cc-ctbf" data-tooltip="Target fraction at the baseline CT. E.g. 0.01 means at CT 20, 1% of the mixture is target. The CT-to-fraction conversion is anchored to this point.">CT baseline fraction <span class="tip">?</span></label>
                     <input id="cc-ctbf" class="text-input short" type="number" step="0.001" min="0" max="1" bind:value={cc_ctBaselineFraction} />
                   </div>
                   <div class="field-row">
-                    <label class="field-label" for="cc-cte">PCR efficiency (0–1)</label>
+                    <label class="field-label" for="cc-cte" data-tooltip="PCR amplification efficiency per cycle. 1.0 = perfect doubling (100%). Real assays typically run at 0.90–0.98. Affects how steeply target fraction changes per CT unit.">PCR efficiency (0–1) <span class="tip">?</span></label>
                     <input id="cc-cte" class="text-input short" type="number" step="0.01" min="0" max="1" bind:value={cc_ctEfficiency} />
                   </div>
                 {:else}
                   <p class="hint-sm">Provide two (CT, target-fraction) reference points; efficiency is derived automatically.</p>
                   <div class="field-row">
-                    <label class="field-label" for="cc-ctcal1">Point 1 (CT,fraction)</label>
+                    <label class="field-label" for="cc-ctcal1" data-tooltip="First calibration point as 'CT,fraction'. E.g. '20,0.01' means at CT 20, 1% of the mixture is target. PCR efficiency is derived from the two points automatically.">Point 1 (CT,fraction) <span class="tip">?</span></label>
                     <input id="cc-ctcal1" class="text-input short" type="text" bind:value={cc_ctCal1} placeholder="20,0.01" />
                   </div>
                   <div class="field-row">
-                    <label class="field-label" for="cc-ctcal2">Point 2 (CT,fraction)</label>
+                    <label class="field-label" for="cc-ctcal2" data-tooltip="Second calibration point as 'CT,fraction'. E.g. '25,0.003'. Together with Point 1, defines the CT-to-fraction conversion curve for your specific assay.">Point 2 (CT,fraction) <span class="tip">?</span></label>
                     <input id="cc-ctcal2" class="text-input short" type="text" bind:value={cc_ctCal2} placeholder="25,0.003" />
                   </div>
                 {/if}
               </AdvancedOptions>
             {:else}
               <div class="sweep-row">
-                <label class="sweep-label">
+                <label class="sweep-label" data-tooltip="Fraction of fragments from distractor (off-target) sequences. 0.9 = 90% background noise. Enter space-separated values to sweep (e.g. 0.5 0.7 0.9).">
                   <input type="checkbox" bind:checked={cc_distractorFracSweep} />
-                  Distractor Fraction
+                  Distractor Fraction <span class="tip">?</span>
                 </label>
                 {#if cc_distractorFracSweep}
                   <input class="text-input sweep-input" type="text" bind:value={cc_distractorFracList} placeholder="0.5 0.7 0.9" />
@@ -1619,9 +1633,9 @@
 
             {#if cc_simulateMode === 'thermodynamic'}
               <div class="sweep-row">
-                <label class="sweep-label">
+                <label class="sweep-label" data-tooltip="Hybridization temperature for TNN thermodynamic scoring. Higher temp = more stringent probe selection. Enter space-separated values to sweep (e.g. 60 65 70 75).">
                   <input type="checkbox" bind:checked={cc_tempSweep} />
-                  Hybridization Temp (°C)
+                  Hybridization Temp (°C) <span class="tip">?</span>
                 </label>
                 {#if cc_tempSweep}
                   <input class="text-input sweep-input" type="text" bind:value={cc_tempList} placeholder="60 65 70 75" />
@@ -1632,9 +1646,9 @@
             {/if}
 
             <div class="sweep-row">
-              <label class="sweep-label">
+              <label class="sweep-label" data-tooltip="Fraction of probe-hybridizing fragments that are actually captured and sequenced. Models enrichment efficiency. 0.5 = 50% recovery. Sweep to compare sensitivity across efficiency levels.">
                 <input type="checkbox" bind:checked={cc_cfSweep} />
-                Capture Fraction
+                Capture Fraction <span class="tip">?</span>
               </label>
               {#if cc_cfSweep}
                 <input class="text-input sweep-input" type="text" bind:value={cc_cfList} placeholder="0.3 0.5 0.8" />
@@ -1644,9 +1658,9 @@
             </div>
 
             <div class="sweep-row">
-              <label class="sweep-label">
+              <label class="sweep-label" data-tooltip="Number of reads/sequences to subsample before mapping. Simulates different sequencing depths. Leave blank (or uncheck) to use all simulated reads. Sweep to plot depth-vs-coverage curves.">
                 <input type="checkbox" bind:checked={cc_nsSweep} />
-                Num Sequences
+                Num Sequences <span class="tip">?</span>
               </label>
               {#if cc_nsSweep}
                 <input class="text-input sweep-input" type="text" bind:value={cc_nsList} placeholder="500 1000 5000" />
@@ -1683,29 +1697,30 @@
               <input id="cc-threads" class="text-input short" type="number" min="1" bind:value={threads} />
             </div>
             <div class="field-row">
-              <label class="field-label" for="cc-seed">Random seed (blank = random)</label>
+              <label class="field-label" for="cc-seed" data-tooltip="Fixed seed for the random number generator. Set to the same value to reproduce identical results across runs. Leave blank for a different result each time.">Random seed (blank = random) <span class="tip">?</span></label>
               <input id="cc-seed" class="text-input short" type="text" bind:value={cc_seed} placeholder="e.g. 42" />
             </div>
             <div class="field-row">
-              <label class="field-label" for="cc-fraglenmean">Fragment length mean (bp)</label>
+              <label class="field-label" for="cc-fraglenmean" data-tooltip="Mean length of simulated library fragments (before sequencing). Should match your expected library insert size. Typical WGS: 300–500 bp; capture: 200–400 bp.">Fragment length mean (bp) <span class="tip">?</span></label>
               <input id="cc-fraglenmean" class="text-input short" type="number" bind:value={cc_fragLenMean} />
             </div>
             <div class="field-row">
-              <label class="field-label" for="cc-fraglenmin">Fragment length min (bp)</label>
+              <label class="field-label" for="cc-fraglenmin" data-tooltip="Minimum allowed fragment length. Fragments shorter than this are rejected during sampling. Should be ≥ probe length for meaningful capture simulation.">Fragment length min (bp) <span class="tip">?</span></label>
               <input id="cc-fraglenmin" class="text-input short" type="number" bind:value={cc_fragLenMin} />
             </div>
             <div class="field-row">
-              <label class="field-label" for="cc-fraglenmax">Fragment length max (bp)</label>
+              <label class="field-label" for="cc-fraglenmax" data-tooltip="Maximum allowed fragment length. Very long fragments are less efficiently captured; capping here keeps the simulation realistic for your size-selection range.">Fragment length max (bp) <span class="tip">?</span></label>
               <input id="cc-fraglenmax" class="text-input short" type="number" bind:value={cc_fragLenMax} />
             </div>
             <FilePicker label="Host FASTA (optional filtering)" bind:value={cc_hostFasta}
+              tooltip="Optional host genome for pre-mapping host read removal. Reads that align here are discarded before mapping to targets. Use to simulate depletion of host background."
               filters={[{ name: 'FASTA', extensions: ['fa', 'fasta', 'fna'] }]} />
             <div class="field-row">
-              <label class="field-label" for="cc-minimap">Minimap2 preset</label>
+              <label class="field-label" for="cc-minimap" data-tooltip="Minimap2 preset for mapping reads to targets. 'sr' for short reads (default), 'map-ont' for long reads, 'asm5' for high-identity assemblies.">Minimap2 preset <span class="tip">?</span></label>
               <input id="cc-minimap" class="text-input short" type="text" bind:value={cc_minimapPreset} />
             </div>
             <div class="field-row">
-              <label class="field-label" for="cc-hostminimap">Host minimap2 preset</label>
+              <label class="field-label" for="cc-hostminimap" data-tooltip="Separate minimap2 preset for host filtering alignment. Use a more sensitive preset (e.g. 'map-ont') if reads are longer than typical short reads.">Host minimap2 preset <span class="tip">?</span></label>
               <input id="cc-hostminimap" class="text-input short" type="text" bind:value={cc_hostMinimapPreset} />
             </div>
           </AdvancedOptions>
