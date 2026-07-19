@@ -4,6 +4,7 @@
   import { listen, type UnlistenFn } from '@tauri-apps/api/event';
   import { open as dialogOpen } from '@tauri-apps/plugin-dialog';
   import { load } from '@tauri-apps/plugin-store';
+  import { get } from 'svelte/store';
   import { currentView, condaEnvPath } from '../stores';
   import type { CondaEnv, ValidationResult, SetupCheck, SetupProgress } from '../types';
 
@@ -29,6 +30,7 @@
   let detecting = false;
 
   let condaExe = '';
+  let cameFromRun = false;
   let unlisten: UnlistenFn | null = null;
 
   onMount(async () => {
@@ -49,6 +51,12 @@
     try {
       setupCheck = await invoke<SetupCheck>('check_setup');
       if (setupCheck.baitbench_env_valid) {
+        if (get(condaEnvPath)) {
+          // User explicitly navigated here from RunView to change the env
+          cameFromRun = true;
+          await openExistingFlow();
+          return;
+        }
         await saveEnvAndContinue(setupCheck.baitbench_env!);
         return;
       }
@@ -166,7 +174,7 @@
   {:else if step === 'welcome'}
     <div class="card">
       <h2>Welcome to BaitBench</h2>
-      <p class="hint">BaitBench needs a conda environment with <code>minimap2</code> and <code>cd-hit-est</code>. Set one up automatically or point to an existing environment.</p>
+      <p class="hint">BaitBench needs a conda environment with <code>cd-hit-est</code> and other tools. Set one up automatically or point to an existing environment.</p>
       {#if !setupCheck?.conda_found}
         <div class="info-box">No conda installation detected. Automatic setup will download <strong>Miniforge3</strong> (~80 MB) to <code>~/miniforge3</code>, then create the <strong>baitbench</strong> environment.</div>
       {:else}
@@ -217,7 +225,7 @@
   {:else if step === 'existing'}
     <div class="card">
       <h2>Select an existing environment</h2>
-      <p class="hint">Choose a conda environment that already has <code>minimap2</code> and <code>cd-hit-est</code>.</p>
+      <p class="hint">Choose a conda environment that already has <code>cd-hit-est</code>.</p>
       {#if detecting}
         <div class="spinner-row"><span class="spinner"></span> Scanning for conda environments…</div>
       {:else if envs.length > 0}
@@ -255,7 +263,11 @@
         </div>
       {/if}
       <div class="btn-row">
-        <button class="btn-secondary" on:click={() => (step = 'welcome')}>← Back</button>
+        {#if cameFromRun}
+          <button class="btn-secondary" on:click={() => currentView.set('run')}>Cancel</button>
+        {:else}
+          <button class="btn-secondary" on:click={() => (step = 'welcome')}>← Back</button>
+        {/if}
         <button class="btn-primary" disabled={!activePath || !validation?.valid} on:click={saveExisting}>Save &amp; Continue</button>
       </div>
     </div>

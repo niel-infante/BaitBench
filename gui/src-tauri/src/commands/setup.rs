@@ -38,7 +38,7 @@ pub struct SetupProgress {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const REQUIRED_BINS: &[&str] = &["minimap2", "cd-hit-est"];
+const REQUIRED_BINS: &[&str] = &["cd-hit-est"];
 const OPTIONAL_BINS: &[&str] = &["R", "pandoc", "blastn"];
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
