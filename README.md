@@ -275,10 +275,10 @@ Results are written to `<outdir>/<run_name>/` and include:
 
 | Section | Contents |
 |---------|----------|
-| [Tutorials](docs/tutorials/index.md) | Step-by-step walkthroughs: installation, first simulation, genome mode |
-| [How-To Guides](docs/how-to/index.md) | Task-oriented guides: input files, parameters, interpreting results, probe design, troubleshooting |
-| [Reference](docs/reference/index.md) | Complete parameter tables, command reference, input/output format specs, report sections |
-| [Explanation](docs/explanation/index.md) | Concepts: pipeline architecture, simulation modes, thermodynamic scoring, CT scores, metrics |
+| [Tutorials](https://niel-infante.github.io/BaitBench/tutorials/) | Step-by-step walkthroughs: installation, first simulation, genome mode |
+| [How-To Guides](https://niel-infante.github.io/BaitBench/how-to/) | Task-oriented guides: input files, parameters, interpreting results, probe design, troubleshooting |
+| [Reference](https://niel-infante.github.io/BaitBench/reference/) | Complete parameter tables, command reference, input/output format specs, report sections |
+| [Explanation](https://niel-infante.github.io/BaitBench/explanation/) | Concepts: pipeline architecture, simulation modes, thermodynamic scoring, CT scores, metrics |
 
 ## Dependencies
 
