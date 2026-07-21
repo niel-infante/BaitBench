@@ -42,6 +42,7 @@ nav:
 markdown_extensions:
   - admonition
   - tables
+  - md_in_html
   - toc:
       permalink: true
 

@@ -2,9 +2,13 @@
 
 In-silico simulation of probe capture for evaluating probe set performance.
 
-## Download
+## Installation
 
-[**Download the latest GUI installer**](https://github.com/niel-infante/BaitBench/releases/latest) — available for macOS (Apple Silicon), macOS (Intel), and Windows.
+**See the [Quick Start Guide](https://niel-infante.github.io/BaitBench/) for installation and first-launch instructions.**
+
+- Command line tool available for Linux and macOS.
+- GUI Installers available for macOS (Apple silicon) and Windows.
+
 
 ## What It Does
 
@@ -24,60 +28,7 @@ Key capabilities:
 - **Probe building** -- construct a probe set from target sequences (collapse, tile, GC filter, complexity filter, deduplicate) with automatic quality assessment
 - **Probe assessment** -- combined probe coverage + cross-reactivity analysis in a single report
 
-## Installation
-
-### 1. Install dependencies
-
-```bash
-conda env create -f environment.yml
-conda activate baitbench
-```
-
-### 2. Build
-
-Requires the [Rust toolchain](https://rustup.rs/).
-
-```bash
-cargo build --release
-```
-
-The binary is at `target/release/baitbench`.
-
-### 3. Desktop GUI (optional)
-
-A Tauri v2 desktop GUI is available in `gui/`. It wraps the `baitbench` binary as a sidecar and provides a point-and-click interface for all major tools, real-time log streaming, and in-app report viewing.
-
-**Additional prerequisites:**
-- [Node.js](https://nodejs.org/) v18 or later
-
-**First-time setup:**
-
-```bash
-cd gui
-npm install       # install frontend dependencies
-make copy-sidecar # build the CLI and copy it into the GUI package
-```
-
-**Launch in development mode (hot-reload):**
-
-```bash
-make dev
-# or equivalently:
-npm run tauri:dev
-```
-
-**Build a distributable app bundle:**
-
-```bash
-make build
-# output: gui/src-tauri/target/release/bundle/
-```
-
-**On first launch** the app shows a setup screen to select and validate your conda environment. Once saved it goes straight to the tool picker on subsequent launches.
-
----
-
-## Quick Start
+## Simple Commands
 
 ### Basic run
 

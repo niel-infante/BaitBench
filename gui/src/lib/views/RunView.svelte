@@ -964,8 +964,25 @@
               <input id="fraglenmax" class="text-input short" type="number" bind:value={r_fragLenMax} />
             </div>
             <div class="field-row">
-              <label class="field-label" for="minimap" data-tooltip="Minimap2 alignment preset for mapping reads back to the reference. 'sr' for Illumina short reads (default), 'map-ont' for Nanopore, 'map-pb' for PacBio.">Minimap2 preset <span class="tip">?</span></label>
-              <input id="minimap" class="text-input short" type="text" bind:value={r_minimapPreset} />
+              <label class="field-label" for="minimap" data-tooltip="Minimap2 alignment preset for mapping reads back to the reference. 'sr' for Illumina short reads (default), 'map-ont' for Nanopore, 'map-hifi' for PacBio HiFi.">Minimap2 preset <span class="tip">?</span></label>
+              <select id="minimap" class="text-input short" bind:value={r_minimapPreset}>
+                <option value="sr">sr (Illumina short reads)</option>
+                <option value="map-ont">map-ont (Nanopore)</option>
+                <option value="map-hifi">map-hifi (PacBio HiFi)</option>
+                <option value="asm5">asm5 (high-identity assembly)</option>
+                <option value="asm10">asm10</option>
+                <option value="asm20">asm20</option>
+                <option value="ava-ont">ava-ont (ONT overlap)</option>
+                <option value="ava-pb">ava-pb (PacBio overlap)</option>
+                <option value="cdna">cdna</option>
+                <option value="lr:hq">lr:hq</option>
+                <option value="lr:hqae">lr:hqae</option>
+                <option value="map-iclr">map-iclr</option>
+                <option value="map-pb">map-pb (PacBio CLR)</option>
+                <option value="splice">splice</option>
+                <option value="splice:hq">splice:hq</option>
+                <option value="splice:sr">splice:sr</option>
+              </select>
             </div>
             <h4 class="subsection">Sequencing</h4>
             <div class="field-row">
@@ -1070,8 +1087,25 @@
               filters={[{ name: 'FASTA', extensions: ['fa', 'fasta', 'fna'] }]} />
             {#if r_hostFasta}
               <div class="field-row">
-                <label class="field-label" for="r-hostminimap" data-tooltip="Minimap2 preset for host filtering alignment. Auto-selected based on --minimap-preset by default. Use 'map-ont' for ONT long reads or 'sr' for Illumina short reads.">Host minimap2 preset <span class="tip">?</span></label>
-                <input id="r-hostminimap" class="text-input short" type="text" bind:value={r_hostMinimapPreset} />
+                <label class="field-label" for="r-hostminimap" data-tooltip="Minimap2 preset for host filtering alignment. Auto-selected based on --minimap-preset by default. Override only if your host reads require a different preset.">Host minimap2 preset <span class="tip">?</span></label>
+                <select id="r-hostminimap" class="text-input short" bind:value={r_hostMinimapPreset}>
+                  <option value="sr">sr (Illumina short reads)</option>
+                  <option value="map-ont">map-ont (Nanopore)</option>
+                  <option value="map-hifi">map-hifi (PacBio HiFi)</option>
+                  <option value="asm5">asm5 (high-identity assembly)</option>
+                  <option value="asm10">asm10</option>
+                  <option value="asm20">asm20</option>
+                  <option value="ava-ont">ava-ont (ONT overlap)</option>
+                  <option value="ava-pb">ava-pb (PacBio overlap)</option>
+                  <option value="cdna">cdna</option>
+                  <option value="lr:hq">lr:hq</option>
+                  <option value="lr:hqae">lr:hqae</option>
+                  <option value="map-iclr">map-iclr</option>
+                  <option value="map-pb">map-pb (PacBio CLR)</option>
+                  <option value="splice">splice</option>
+                  <option value="splice:hq">splice:hq</option>
+                  <option value="splice:sr">splice:sr</option>
+                </select>
               </div>
             {/if}
             <h4 class="subsection">Species Identification</h4>
@@ -1254,8 +1288,25 @@
               <input id="bp-prox" class="text-input short" type="number" min="0" bind:value={bp_proximity} />
             </div>
             <div class="field-row">
-              <label class="field-label" for="bp-minimap" data-tooltip="Minimap2 alignment preset for probe assessment. 'sr' = short reads (≤250 bp probes), 'map-ont' = Oxford Nanopore, 'asm5' = high-identity assemblies. Default 'sr' works for most probe lengths.">Minimap2 preset <span class="tip">?</span></label>
-              <input id="bp-minimap" class="text-input short" type="text" bind:value={bp_minimapPreset} />
+              <label class="field-label" for="bp-minimap" data-tooltip="Minimap2 alignment preset for probe assessment. 'sr' works for most probe lengths (≤250 bp). Use 'asm5' for high-identity assemblies or 'map-ont' for long-read contexts.">Minimap2 preset <span class="tip">?</span></label>
+              <select id="bp-minimap" class="text-input short" bind:value={bp_minimapPreset}>
+                <option value="sr">sr (Illumina short reads)</option>
+                <option value="map-ont">map-ont (Nanopore)</option>
+                <option value="map-hifi">map-hifi (PacBio HiFi)</option>
+                <option value="asm5">asm5 (high-identity assembly)</option>
+                <option value="asm10">asm10</option>
+                <option value="asm20">asm20</option>
+                <option value="ava-ont">ava-ont (ONT overlap)</option>
+                <option value="ava-pb">ava-pb (PacBio overlap)</option>
+                <option value="cdna">cdna</option>
+                <option value="lr:hq">lr:hq</option>
+                <option value="lr:hqae">lr:hqae</option>
+                <option value="map-iclr">map-iclr</option>
+                <option value="map-pb">map-pb (PacBio CLR)</option>
+                <option value="splice">splice</option>
+                <option value="splice:hq">splice:hq</option>
+                <option value="splice:sr">splice:sr</option>
+              </select>
             </div>
             <h4 class="subsection">Coverage Refinement</h4>
             <div class="field-row">
@@ -1341,7 +1392,24 @@
             </div>
             <div class="field-row">
               <label class="field-label" for="ap-minimap" data-tooltip="Minimap2 alignment preset. 'sr' works for probes ≤250 bp (default). Use 'map-ont' for long-read contexts or 'asm5' for near-identical assemblies.">Minimap2 preset <span class="tip">?</span></label>
-              <input id="ap-minimap" class="text-input short" type="text" bind:value={ap_minimapPreset} />
+              <select id="ap-minimap" class="text-input short" bind:value={ap_minimapPreset}>
+                <option value="sr">sr (Illumina short reads)</option>
+                <option value="map-ont">map-ont (Nanopore)</option>
+                <option value="map-hifi">map-hifi (PacBio HiFi)</option>
+                <option value="asm5">asm5 (high-identity assembly)</option>
+                <option value="asm10">asm10</option>
+                <option value="asm20">asm20</option>
+                <option value="ava-ont">ava-ont (ONT overlap)</option>
+                <option value="ava-pb">ava-pb (PacBio overlap)</option>
+                <option value="cdna">cdna</option>
+                <option value="lr:hq">lr:hq</option>
+                <option value="lr:hqae">lr:hqae</option>
+                <option value="map-iclr">map-iclr</option>
+                <option value="map-pb">map-pb (PacBio CLR)</option>
+                <option value="splice">splice</option>
+                <option value="splice:hq">splice:hq</option>
+                <option value="splice:sr">splice:sr</option>
+              </select>
             </div>
             <div class="field-row">
               <label class="field-label" for="ap-gaplen" data-tooltip="Only report uncovered gaps in the detail TSV if they are at least this many base pairs long. Shorter gaps are too small to matter for most capture designs. Defaults to median probe length.">Min gap length in detail output (bp) <span class="tip">?</span></label>
@@ -1419,7 +1487,24 @@
             </div>
             <div class="field-row">
               <label class="field-label" for="xr-minimap" data-tooltip="Minimap2 alignment preset for cross-reactivity alignment. 'sr' for short probes (≤250 bp), 'asm5' for near-identical sequences, 'map-ont' for long-read contexts.">Minimap2 preset <span class="tip">?</span></label>
-              <input id="xr-minimap" class="text-input short" type="text" bind:value={xr_minimapPreset} />
+              <select id="xr-minimap" class="text-input short" bind:value={xr_minimapPreset}>
+                <option value="sr">sr (Illumina short reads)</option>
+                <option value="map-ont">map-ont (Nanopore)</option>
+                <option value="map-hifi">map-hifi (PacBio HiFi)</option>
+                <option value="asm5">asm5 (high-identity assembly)</option>
+                <option value="asm10">asm10</option>
+                <option value="asm20">asm20</option>
+                <option value="ava-ont">ava-ont (ONT overlap)</option>
+                <option value="ava-pb">ava-pb (PacBio overlap)</option>
+                <option value="cdna">cdna</option>
+                <option value="lr:hq">lr:hq</option>
+                <option value="lr:hqae">lr:hqae</option>
+                <option value="map-iclr">map-iclr</option>
+                <option value="map-pb">map-pb (PacBio CLR)</option>
+                <option value="splice">splice</option>
+                <option value="splice:hq">splice:hq</option>
+                <option value="splice:sr">splice:sr</option>
+              </select>
             </div>
           </AdvancedOptions>
 
@@ -1462,7 +1547,24 @@
             </div>
             <div class="field-row">
               <label class="field-label" for="pq-minimap" data-tooltip="Minimap2 preset for target-vs-target similarity alignment. 'asm5' works well for comparing closely related viral or bacterial sequences.">Minimap2 preset <span class="tip">?</span></label>
-              <input id="pq-minimap" class="text-input short" type="text" bind:value={pq_minimapPreset} />
+              <select id="pq-minimap" class="text-input short" bind:value={pq_minimapPreset}>
+                <option value="sr">sr (Illumina short reads)</option>
+                <option value="map-ont">map-ont (Nanopore)</option>
+                <option value="map-hifi">map-hifi (PacBio HiFi)</option>
+                <option value="asm5">asm5 (high-identity assembly)</option>
+                <option value="asm10">asm10</option>
+                <option value="asm20">asm20</option>
+                <option value="ava-ont">ava-ont (ONT overlap)</option>
+                <option value="ava-pb">ava-pb (PacBio overlap)</option>
+                <option value="cdna">cdna</option>
+                <option value="lr:hq">lr:hq</option>
+                <option value="lr:hqae">lr:hqae</option>
+                <option value="map-iclr">map-iclr</option>
+                <option value="map-pb">map-pb (PacBio CLR)</option>
+                <option value="splice">splice</option>
+                <option value="splice:hq">splice:hq</option>
+                <option value="splice:sr">splice:sr</option>
+              </select>
             </div>
           </AdvancedOptions>
 
@@ -1507,7 +1609,24 @@
             </div>
             <div class="field-row">
               <label class="field-label" for="id-minimap" data-tooltip="Minimap2 preset for on-the-fly target similarity computation. 'asm5' is recommended for comparing closely related pathogen sequences.">Minimap2 preset <span class="tip">?</span></label>
-              <input id="id-minimap" class="text-input short" type="text" bind:value={id_minimapPreset} />
+              <select id="id-minimap" class="text-input short" bind:value={id_minimapPreset}>
+                <option value="sr">sr (Illumina short reads)</option>
+                <option value="map-ont">map-ont (Nanopore)</option>
+                <option value="map-hifi">map-hifi (PacBio HiFi)</option>
+                <option value="asm5">asm5 (high-identity assembly)</option>
+                <option value="asm10">asm10</option>
+                <option value="asm20">asm20</option>
+                <option value="ava-ont">ava-ont (ONT overlap)</option>
+                <option value="ava-pb">ava-pb (PacBio overlap)</option>
+                <option value="cdna">cdna</option>
+                <option value="lr:hq">lr:hq</option>
+                <option value="lr:hqae">lr:hqae</option>
+                <option value="map-iclr">map-iclr</option>
+                <option value="map-pb">map-pb (PacBio CLR)</option>
+                <option value="splice">splice</option>
+                <option value="splice:hq">splice:hq</option>
+                <option value="splice:sr">splice:sr</option>
+              </select>
             </div>
           </AdvancedOptions>
 
@@ -1727,11 +1846,45 @@
               filters={[{ name: 'FASTA', extensions: ['fa', 'fasta', 'fna'] }]} />
             <div class="field-row">
               <label class="field-label" for="cc-minimap" data-tooltip="Minimap2 preset for mapping reads to targets. 'sr' for short reads (default), 'map-ont' for long reads, 'asm5' for high-identity assemblies.">Minimap2 preset <span class="tip">?</span></label>
-              <input id="cc-minimap" class="text-input short" type="text" bind:value={cc_minimapPreset} />
+              <select id="cc-minimap" class="text-input short" bind:value={cc_minimapPreset}>
+                <option value="sr">sr (Illumina short reads)</option>
+                <option value="map-ont">map-ont (Nanopore)</option>
+                <option value="map-hifi">map-hifi (PacBio HiFi)</option>
+                <option value="asm5">asm5 (high-identity assembly)</option>
+                <option value="asm10">asm10</option>
+                <option value="asm20">asm20</option>
+                <option value="ava-ont">ava-ont (ONT overlap)</option>
+                <option value="ava-pb">ava-pb (PacBio overlap)</option>
+                <option value="cdna">cdna</option>
+                <option value="lr:hq">lr:hq</option>
+                <option value="lr:hqae">lr:hqae</option>
+                <option value="map-iclr">map-iclr</option>
+                <option value="map-pb">map-pb (PacBio CLR)</option>
+                <option value="splice">splice</option>
+                <option value="splice:hq">splice:hq</option>
+                <option value="splice:sr">splice:sr</option>
+              </select>
             </div>
             <div class="field-row">
-              <label class="field-label" for="cc-hostminimap" data-tooltip="Separate minimap2 preset for host filtering alignment. Use a more sensitive preset (e.g. 'map-ont') if reads are longer than typical short reads.">Host minimap2 preset <span class="tip">?</span></label>
-              <input id="cc-hostminimap" class="text-input short" type="text" bind:value={cc_hostMinimapPreset} />
+              <label class="field-label" for="cc-hostminimap" data-tooltip="Separate minimap2 preset for host filtering alignment. Override only if host reads require a different preset than the main mapping.">Host minimap2 preset <span class="tip">?</span></label>
+              <select id="cc-hostminimap" class="text-input short" bind:value={cc_hostMinimapPreset}>
+                <option value="sr">sr (Illumina short reads)</option>
+                <option value="map-ont">map-ont (Nanopore)</option>
+                <option value="map-hifi">map-hifi (PacBio HiFi)</option>
+                <option value="asm5">asm5 (high-identity assembly)</option>
+                <option value="asm10">asm10</option>
+                <option value="asm20">asm20</option>
+                <option value="ava-ont">ava-ont (ONT overlap)</option>
+                <option value="ava-pb">ava-pb (PacBio overlap)</option>
+                <option value="cdna">cdna</option>
+                <option value="lr:hq">lr:hq</option>
+                <option value="lr:hqae">lr:hqae</option>
+                <option value="map-iclr">map-iclr</option>
+                <option value="map-pb">map-pb (PacBio CLR)</option>
+                <option value="splice">splice</option>
+                <option value="splice:hq">splice:hq</option>
+                <option value="splice:sr">splice:sr</option>
+              </select>
             </div>
           </AdvancedOptions>
         {/if}
