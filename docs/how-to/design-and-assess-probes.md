@@ -20,6 +20,18 @@ Target sequences
 
 `build-probes` automatically runs `assess-probes` at the end unless you pass `--skip-assess`.
 
+### The build pipeline in full
+
+[![baitbench build-probes pipeline](../diagrams/paper_build_probes.png)](../diagrams/paper_build_probes.png)
+
+*Seven steps; step 4 is where the design method is chosen. All four methods converge on the same downstream filters. Click to enlarge.*
+
+### What assess-probes does
+
+[![baitbench assess-probes pipeline](../diagrams/paper_assess_probes.png)](../diagrams/paper_assess_probes.png)
+
+*Coverage analysis (steps 1a–1c) and cross-reactivity (steps 2a–2b) run independently and merge into one HTML report. Dashed boxes are conditional. Click to enlarge.*
+
 ---
 
 ## Choosing a design method

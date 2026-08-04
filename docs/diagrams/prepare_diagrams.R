@@ -1345,17 +1345,23 @@ digraph {
 
   // ── STEP 1a ───────────────────────────────────────────────────────────────
   s1a [label=<<B>Step 1a — Probe coverage analysis</B><BR/>
-       <FONT POINT-SIZE='10'>minimap2: all probes vs all targets (combined alignment)<BR/>
+       <FONT POINT-SIZE='10'>rammap: all probes vs all targets (combined alignment)<BR/>
        Per-probe and per-target coverage statistics<BR/>
        (--threshold, --proximity for gap bridging)</FONT>>,
        fillcolor='#EBF5FB', color='#2E86C1', penwidth=2]
 
   // ── STEP 1b ───────────────────────────────────────────────────────────────
-  s1b [label=<<B>Step 1b — Individual target coverage</B> <BR/>
-       <FONT POINT-SIZE='10'>--all-individual-targets: minimap2 run per target in isolation<BR/>
-       Eliminates probe competition; shows per-target depth without<BR/>
-       interference from closely related targets</FONT>>,
-       fillcolor='#EBF5FB', color='#2E86C1', penwidth=1.5, style='filled,dashed']
+  s1b [label=<<B>Step 1b — Individual target coverage</B><BR/>
+       <FONT POINT-SIZE='10'>Aligned per target in isolation; eliminates probe competition<BR/>
+       Enables true_gap vs. multimapper_gap classification<BR/>
+       Skip with --no-individual-targets for very large panels</FONT>>,
+       fillcolor='#EBF5FB', color='#2E86C1', penwidth=2]
+
+  // ── STEP 1c ───────────────────────────────────────────────────────────────
+  s1c [label=<<B>Step 1c — Gap details</B><BR/>
+       <FONT POINT-SIZE='10'>Per-gap table of uncovered target regions<BR/>
+       (--gap-min-length; defaults to median probe length)</FONT>>,
+       fillcolor='#EBF5FB', color='#2E86C1', penwidth=2]
 
   // ── STEP 2a ───────────────────────────────────────────────────────────────
   s2a [label=<<B>Step 2a — Self cross-reactivity</B> <BR/>
@@ -1373,7 +1379,7 @@ digraph {
   report [label=<<B>Combined HTML Report</B><BR/>
           <FONT POINT-SIZE='10'>(optional) Build pipeline stats<BR/>
           Probe coverage summary + depth plots<BR/>
-          (optional) Individual target coverage section<BR/>
+          Individual target coverage section<BR/>
           Cross-reactivity heatmaps + tables<BR/>
           Parameters panel</FONT>>,
           fillcolor='#F9F0FF', color='#7D3C98', penwidth=2, shape=box]
@@ -1392,8 +1398,10 @@ digraph {
   probes  -> s1a [penwidth=2]
   probes  -> s2a [penwidth=2]
 
-  s1a -> s1b [label='--all-individual-targets', style=dashed,
-              color='#2E86C1', penwidth=1.2]
+  targets -> s1b [penwidth=2]
+  probes  -> s1b [penwidth=2]
+  s1a -> s1c [color='#2E86C1', penwidth=2]
+  s1b -> s1c [color='#2E86C1', penwidth=2]
 
   genomes_opt -> s2b [style=dashed, color='#95A5A6', penwidth=1.2]
   probes -> s2b [style=dashed, color='#C0392B', penwidth=1.2]
@@ -1401,7 +1409,8 @@ digraph {
   build_stats -> report [style=dashed, color='#95A5A6', penwidth=1.2]
 
   s1a -> report [penwidth=2, color='#2E86C1']
-  s1b -> report [penwidth=1.2, style=dashed, color='#2E86C1']
+  s1b -> report [penwidth=2, color='#2E86C1']
+  s1c -> report [penwidth=2, color='#2E86C1']
   s2a -> report [penwidth=2, color='#C0392B']
   s2b -> report [penwidth=1.2, style=dashed, color='#C0392B']
 

@@ -23,6 +23,18 @@ distractors.fa
 
 All sequences (targets + distractors) are placed into one combined reference. Fragments are generated from this combined reference according to per-sequence weights, probe alignment scores, and the `--capture-fraction` parameter.
 
+#### Without `--sample`
+
+Every target is in the sample at weight 1.0:
+
+[![Prepare in standard mode without a sample manifest](../diagrams/prepare_mode1_standard_nosample.png)](../diagrams/prepare_mode1_standard_nosample.png)
+
+#### With `--sample`
+
+Only the manifest targets generate fragments; the rest get weight 0, so any read reaching them is a false positive:
+
+[![Prepare in standard mode with a sample manifest](../diagrams/prepare_mode2_standard_sample.png)](../diagrams/prepare_mode2_standard_sample.png)
+
 ---
 
 ## Genome Mode
@@ -48,6 +60,18 @@ Two reference files are created at the prepare step:
 - **mapping_reference.fa** (targets + distractors): the mapping reference; reads are aligned here after capture
 
 A read from a genomic fragment only maps successfully if it spans a region also present in the targets FASTA. This correctly models the expected enrichment: only the portion of the genome covered by the 16S sequence will generate mappable reads.
+
+#### Without `--sample`
+
+All genomes are in the sample; `prepare` builds both references and resolves the genome → target links:
+
+[![Prepare in genome mode without a sample manifest](../diagrams/prepare_mode3_genomes_nosample.png)](../diagrams/prepare_mode3_genomes_nosample.png)
+
+#### With `--sample`
+
+Only sample genomes generate fragments. Non-sample genomes get weight 0, but their target sequences remain in `mapping_reference.fa` — so reads from other sources can mis-map to them and be counted as `FP_target`:
+
+[![Prepare in genome mode with a sample manifest](../diagrams/prepare_mode4_genomes_sample.png)](../diagrams/prepare_mode4_genomes_sample.png)
 
 ### Sample-target-map
 

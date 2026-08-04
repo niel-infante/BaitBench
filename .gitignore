@@ -36,8 +36,19 @@ test_results/
 # BLAST databases (user-generated)
 blast_db/
 
+# MkDocs build output (published via `mkdocs gh-deploy` to the gh-pages branch,
+# built fresh on CI — the local copy is a disposable artifact)
+site/
+
 # Other
 #paper.md
 
+# Diagram sources are ignored by default (scratch renders, FirstTry/, .DS_Store),
+# but the generator script and the diagrams embedded in the docs must be tracked
+# or they 404 on the deployed site.
 docs/diagrams/*
+!docs/diagrams/prepare_diagrams.R
+!docs/diagrams/paper_*.png
+!docs/diagrams/prepare_mode*.png
+
 tmp.md

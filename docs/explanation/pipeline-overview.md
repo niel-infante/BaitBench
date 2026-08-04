@@ -4,6 +4,18 @@ BaitBench models a hybridization capture experiment as a sequence of discrete co
 
 ---
 
+## The whole tool at a glance
+
+BaitBench spans four phases. Probe **design** (`build-probes`) and **assessment** (`assess-probes`) are optional and independent of the simulation — bring your own probes and you start at the simulate phase.
+
+[![BaitBench complete tool workflow: design, assess, simulate, report](../diagrams/paper_workflow_overview.png)](../diagrams/paper_workflow_overview.png)
+
+*The four phases and how user inputs flow through them. Dashed arrows are optional paths. Click to enlarge.*
+
+The rest of this page covers Phase 3 (simulate) in detail. For Phases 1 and 2, see [Design and Assess Probes](../how-to/design-and-assess-probes.md).
+
+---
+
 ## Standard mode pipeline
 
 ```

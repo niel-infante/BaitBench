@@ -39,6 +39,7 @@ nav:
     - Metrics and Classification: explanation/metrics-and-classification.md
     - Thermodynamic Scoring: explanation/thermodynamic-scoring.md
     - CT Scores: explanation/ct-scores.md
+    - Low-Complexity Filtering: explanation/low-complexity-filtering.md
 
 markdown_extensions:
   - admonition

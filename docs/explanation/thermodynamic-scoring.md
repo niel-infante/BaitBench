@@ -38,6 +38,12 @@ SantaLucia (1998) provides a unified table of 10 unique nearest-neighbor paramet
 
 ## Computing ΔG: Three Contributions
 
+A worked example, from an aligned probe-reference pair through to the sampling weight it produces:
+
+[![Thermodynamic scoring of a probe-reference alignment](../diagrams/paper_thermodynamic_scoring.png)](../diagrams/paper_thermodynamic_scoring.png)
+
+*One mismatch at position 3 breaks the stacking chain, so only 5 of the 7 possible stacking steps contribute. Click to enlarge.*
+
 ### 1. Stacking terms
 
 For each consecutive base-pair dinucleotide in the probe-target alignment (5'→3'), BaitBench looks up the stacking ΔH° and ΔS° from the SantaLucia (1998) table. Mismatched positions contribute zero stacking energy (they break the consecutive run).
@@ -46,29 +52,27 @@ This means a probe with 3 mismatches in a run of otherwise matched positions los
 
 ### 2. Initiation terms
 
-Two initiation penalties are added:
-- One for the terminal AT (or AU) base pair at the 5' end (if applicable)
-- One for the terminal AT base pair at the 3' end (if applicable)
+Two initiation penalties are added, one for the **first** Watson-Crick pair of the aligned duplex and one for the **last**. SantaLucia (1998) gives separate AT and GC initiation parameters, and BaitBench applies whichever matches each terminal pair.
 
-GC terminal pairs incur no initiation penalty; AT terminal pairs add a small enthalpic and entropic cost (weaker terminal stacking).
+Initiation is only charged when at least one stacking step exists. An isolated Watson-Crick pair flanked by mismatches cannot form a stable duplex, so paying its initiation cost would produce ΔG > 0 — implying the probe is actively repelled, which is unphysical.
 
-### 3. Salt correction (Owczarzy et al.)
+### 3. Salt correction (Owczarzy et al. 1997)
 
-The ΔG calculation applies at 1 M NaCl. For realistic hybridization conditions (typically 0.1–1.0 M), the melting temperature is corrected using the Owczarzy et al. formula:
+The SantaLucia parameters are derived at 1 M Na⁺. For realistic hybridization buffers, BaitBench corrects the **entropy** term for the actual Na⁺ concentration:
 
 ```
-1/Tm(corrected) = 1/Tm(1M NaCl)
-                + (4.29 × fGC - 3.95) × 10⁻⁵ × ln([Na⁺])
-                + 9.40 × 10⁻⁶ × (ln([Na⁺]))²
+ΔS([Na⁺]) = ΔS(1 M) + 0.368 × (n_wc - 1) × ln([Na⁺])
 ```
 
-Where `fGC` is the fraction of GC base pairs in the duplex. This correction shifts the melting temperature upward at physiological Na⁺ concentrations compared to the standard 1 M condition.
+Where `n_wc` is the number of Watson-Crick paired positions and `[Na⁺]` is molar. At 1 M, `ln(1) = 0` and no correction applies. At lower salt the correction is negative, making ΔG less favourable — matching the physical fact that duplexes are less stable when there are fewer cations to screen the phosphate backbone. As with initiation, the correction is skipped when there is no stacking.
 
-BaitBench applies this correction to the melting temperature, then uses the corrected Tm to evaluate ΔG at the actual hybridization temperature:
+The three contributions are then combined at the hybridization temperature:
 
 ```
-ΔG(T_hyb) = ΔH° × (1 - T_hyb / Tm_corrected)
+ΔG = ΔH°(stacking + initiation) - T × ΔS°(stacking + initiation + salt) / 1000
 ```
+
+With T in Kelvin, ΔH° in kcal/mol, ΔS° in cal/(mol·K), and ΔG in kcal/mol. More negative = more stable.
 
 ---
 
@@ -81,17 +85,21 @@ score = exp(-ΔG / (R × T))
 ```
 
 Where:
-- R = 1.987 cal/(mol·K) (gas constant)
+- R = 1.987 × 10⁻³ kcal/(mol·K) (gas constant)
 - T = hybridization temperature in Kelvin
-- ΔG is in cal/mol
+- ΔG is in kcal/mol
 
-A favourable (negative) ΔG gives a score > 1; an unfavourable ΔG gives a score < 1. Positions with no probe alignment have score 0.
+A favourable (negative) ΔG gives a score > 1. The score is **clamped to a minimum of 1.0**: probes can enrich fragments relative to background but never deplete them, so a duplex too weak to be stable (ΔG > 0) simply falls back to the neutral baseline rather than suppressing the site. Positions with no probe alignment are not in the captured pool at all.
 
-These scores are used as sampling weights: positions with higher Boltzmann scores generate more captured fragments per unit of simulation time.
+These scores are used as sampling weights: positions with higher Boltzmann scores generate more captured fragments.
 
 ---
 
 ## From Scores to Fragment Sampling
+
+[![Fragment sampling: probe-biased and background multinomial](../diagrams/paper_fragment_sampling.png)](../diagrams/paper_fragment_sampling.png)
+
+*`--capture-fraction` splits the fragment budget between the probe-biased and background pools; the Boltzmann score then decides which probe sites within the captured pool are favoured. Click to enlarge.*
 
 The simulation divides fragments into two categories:
 
