@@ -97,15 +97,29 @@ These scores are used as sampling weights: positions with higher Boltzmann score
 
 ## From Scores to Fragment Sampling
 
-[![Fragment sampling: probe-biased and background multinomial](../diagrams/paper_fragment_sampling.png)](../diagrams/paper_fragment_sampling.png)
+Every fragment reaches `fragments.fa` by one of exactly two routes:
 
-*`--capture-fraction` splits the fragment budget between the probe-biased and background pools; the Boltzmann score then decides which probe sites within the captured pool are favoured. Click to enlarge.*
+[![Two routes by which a fragment is selected: probe-biased sampling and background sampling](../diagrams/paper_fragment_sampling.png)](../diagrams/paper_fragment_sampling.png)
 
-The simulation divides fragments into two categories:
+*`--capture-fraction` is the only parameter controlling the ratio between the two arms. Within the probe-biased arm the probe is drawn uniformly, and only then is the probe-fragment pair weighted. Click to enlarge.*
 
-**Captured fragments** (governed by `--capture-fraction`): drawn from positions with probe alignments, weighted by Boltzmann score. A position covered by two overlapping probes accumulates the scores of both alignments — higher effective capture probability.
+**Captured fragments** (governed by `--capture-fraction`) are drawn in two stages. First a **probe is chosen uniformly at random** from those with at least one scoring hit — affinity plays no part in this step, so a strong probe is picked no more often than a weak one. Only then is one of *that probe's* hits chosen, weighted by
 
-**Background fragments** (governed by `1 - capture-fraction`): drawn uniformly from all positions in a sequence, regardless of probe coverage. These represent non-specific co-capture: fragments that end up in the capture library without being bound by a probe (e.g., because they were in solution adjacent to a captured molecule, or due to non-specific binding).
+```
+score = exp(-ΔG / RT) × w_seq
+```
+
+so the two competing influences — thermodynamic affinity and how abundant the source sequence is in the specimen — act together, and act only at this second stage.
+
+### Why a uniform probe draw still favours well-tiled targets
+
+Picking the probe uniformly might look like it flattens out any advantage from dense tiling, but it does the opposite. Every probe is drawn equally often, so a target covered by 20 probes gets 20 chances per round while one covered by 2 gets only 2.
+
+**Probe count therefore acts as an implicit weight across targets.** Affinity and abundance never compete between targets — they compete only *within* a single probe's hit list, deciding which of that probe's binding sites is used once the probe has already been chosen.
+
+This is worth keeping in mind when comparing panel designs: a set-cover method that achieves the same coverage with fewer probes per target will, all else equal, pull down proportionally less material from that target than a dense tiling design.
+
+**Background fragments** (governed by `1 - capture-fraction`) bleed through without any probe involvement. A sequence is picked with probability proportional to `weight × length`, then a position uniformly along it — probe sites included. These represent non-specific co-capture: fragments that end up in the library without being bound by a probe (e.g., in solution adjacent to a captured molecule, or through non-specific binding).
 
 At `--capture-fraction 0.5` (the default), 50% of a sequence's fragments come from probe-covered positions (thermodynamically weighted) and 50% come from uniform background sampling. Background reads spread thinly across the entire sequence, producing low depth per position. Probe-captured reads concentrate at binding sites, producing high local depth — this is what creates the characteristic "spike" pattern in captured vs non-captured sequences.
 

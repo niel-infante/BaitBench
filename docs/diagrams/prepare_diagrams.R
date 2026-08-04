@@ -1043,15 +1043,20 @@ save_diagram(diagram8, "paper_thermodynamic_scoring.png", width = 3600)
 
 
 # ============================================================================
-# Diagram 9: Two-Level Multinomial Fragment Sampling
-# Shows how probe-biased and background fragments are generated.
+# Diagram 9: How a Fragment Gets Selected
+# Shows the two arms by which a fragment reaches fragments.fa.
 # ============================================================================
+# Layout notes: <I> around a single subscript character makes graphviz
+# mis-measure the run, producing huge gaps and breaking line centring. Use
+# plain _subscript notation instead. Likewise never mix inline <B> with plain
+# text on the same line.
 if (9 %in% selected) {
 diagram9 <- grViz("
 digraph {
   graph [rankdir=TB, fontname='Helvetica', bgcolor='white',
-         label=<<B>Fragment Sampling: Probe-Biased + Background Multinomial</B>>,
-         labelloc=t, fontsize=20, pad='0.6,0.4', nodesep=0.55, ranksep=0.65]
+         label=<<B>How a Fragment Gets Selected</B><BR/>
+         <FONT POINT-SIZE='14'>Two arms: probe-mediated capture vs non-specific bleed-through</FONT>>,
+         labelloc=t, fontsize=22, pad='0.6,0.4', nodesep=0.55, ranksep=0.7]
   node [fontname='Helvetica', fontsize=11, style=filled, margin='0.15,0.10', penwidth=1.5]
   edge [fontname='Helvetica', fontsize=9, penwidth=1.4, color='#5D6D7E']
 
@@ -1066,7 +1071,7 @@ digraph {
       </TR>
       <TR>
         <TD ALIGN='CENTER'><FONT POINT-SIZE='9'>N total fragments<BR/><B>--num-fragments</B></FONT></TD>
-        <TD ALIGN='CENTER'><FONT POINT-SIZE='9'>capture fraction <I>f</I><BR/><B>--capture-fraction</B></FONT></TD>
+        <TD ALIGN='CENTER'><FONT POINT-SIZE='9'>capture fraction f<BR/><B>--capture-fraction</B></FONT></TD>
         <TD ALIGN='CENTER'><FONT POINT-SIZE='9'>probe alignments<BR/>(SAM, TNN-scored)</FONT></TD>
       </TR>
     </TABLE>
@@ -1081,31 +1086,39 @@ digraph {
   n_background [shape=box, fillcolor='#6D7C8A', fontcolor='white',
                 label=<<B>N × (1 − f) fragments</B><BR/><FONT POINT-SIZE='9'>background (uncaptured)</FONT>>]
 
+  // ── ARM HEADINGS (above each step box) ───────────────────────────────────
+  cap_title [shape=plaintext, fillcolor='white',
+             label=<<FONT POINT-SIZE='15' COLOR='#1A5276'><B>Probe-Biased Sampling</B></FONT><BR/>
+             <FONT POINT-SIZE='11' COLOR='#1A5276'>Two-level weighted multinomial</FONT>>]
+
+  bg_title [shape=plaintext, fillcolor='white',
+            label=<<FONT POINT-SIZE='15' COLOR='#5D6D7E'><B>Background Sampling</B></FONT><BR/>
+            <FONT POINT-SIZE='11' COLOR='#5D6D7E'>Uniform by sequence weight</FONT>>]
+
   // ── PROBE-BIASED BRANCH (left) ────────────────────────────────────────────
   subgraph cluster_capture {
-    label=<<B>Probe-Biased Sampling</B><BR/><FONT POINT-SIZE='9'>Two-level weighted multinomial</FONT>>
-    style=rounded; color='#1A5276'; fontsize=12; fontcolor='#1A5276'; margin=14
+    label=\"\"; style=rounded; color='#1A5276'; margin=14; penwidth=2
 
     step1 [shape=box, fillcolor='#2980B9', fontcolor='white',
-           label=<<B>Level 1 — Select probe</B><BR/>
+           label=<<B>Select probe</B><BR/>
            <FONT POINT-SIZE='9'>Uniform over probes<BR/>
-           with ≥ 1 alignment hit<BR/><BR/>
-           P(probe<I>i</I>) = 1 / |probes with hits|</FONT>>]
+           with at least 1 alignment hit<BR/><BR/>
+           P(probe_i) = 1 / number of probes with hits</FONT>>]
 
     step2 [shape=box, fillcolor='#1A5276', fontcolor='white',
-           label=<<B>Level 2 — Select alignment hit</B><BR/>
+           label=<<B>Select alignment hit</B><BR/>
            <FONT POINT-SIZE='9'>Weighted by Boltzmann score × sequence weight<BR/><BR/>
-           P(hit<I>j</I>) ∝ exp(−ΔG<I>j</I>/RT) × w<SUB>seq</SUB><BR/><BR/>
+           P(hit_j) proportional to exp(−ΔG_j / RT) × w_seq<BR/><BR/>
            High-affinity sites preferentially sampled</FONT>>]
 
     step3 [shape=box, fillcolor='#154360', fontcolor='white',
-           label=<<B>Level 3 — Fragment center</B><BR/>
+           label=<<B>Fragment center</B><BR/>
            <FONT POINT-SIZE='9'>center = hit_center + Uniform(−L/4, +L/4)<BR/>
            where L = fragment length mean<BR/><BR/>
            Jitter models probe offset variability</FONT>>]
 
     step4 [shape=box, fillcolor='#0D3349', fontcolor='white',
-           label=<<B>Level 4 — Fragment length</B><BR/>
+           label=<<B>Fragment length</B><BR/>
            <FONT POINT-SIZE='9'>length ~ TruncNormal(mean, sd)<BR/>
            clamped to [min, max]<BR/><BR/>
            Extract sequence from reference</FONT>>]
@@ -1115,12 +1128,11 @@ digraph {
 
   // ── BACKGROUND BRANCH (right) ─────────────────────────────────────────────
   subgraph cluster_background {
-    label=<<B>Background Sampling</B><BR/><FONT POINT-SIZE='9'>Uniform by sequence weight</FONT>>
-    style=rounded; color='#6D7C8A'; fontsize=12; fontcolor='#6D7C8A'; margin=14
+    label=\"\"; style=rounded; color='#6D7C8A'; margin=14; penwidth=2
 
     bg1 [shape=box, fillcolor='#6D7C8A', fontcolor='white',
          label=<<B>Select sequence</B><BR/>
-         <FONT POINT-SIZE='9'>P(seq<I>i</I>) ∝ weight<I>i</I> × length<I>i</I><BR/><BR/>
+         <FONT POINT-SIZE='9'>P(seq_i) proportional to weight_i × length_i<BR/><BR/>
          Sequence weights from weights.txt<BR/>
          (sample targets, distractors)</FONT>>]
 
@@ -1135,9 +1147,9 @@ digraph {
 
   // ── OUTPUT ───────────────────────────────────────────────────────────────
   merge [shape=diamond, fillcolor='#0B5345', fontcolor='white', penwidth=2,
-         label=<<B>Merge and shuffle</B>>]
+         label=<<B>Combine both pools</B>>]
 
-  output [shape=note, fillcolor='#D5F5E3', color='#27AE60', penwidth=2.5,
+  output [shape=folder, fillcolor='#D5F5E3', color='#27AE60', penwidth=2.5,
           label=<<B>fragments.fa</B><BR/>
           <FONT POINT-SIZE='9'>N fragments total<BR/>
           Names encode source: {seq_id}_fragment_{n}<BR/>
@@ -1149,15 +1161,20 @@ digraph {
            pull-down efficiency (wash stringency,<BR/>
            hybridization time). Per-site differential<BR/>
            enrichment is handled by Boltzmann<BR/>
-           weighting in Level 2.</I></FONT>>]
+           weighting at the hit-selection step.</I></FONT>>]
 
   // ── EDGES ─────────────────────────────────────────────────────────────────
   inputs -> split [penwidth=2]
-  split -> n_capture   [label=<<FONT POINT-SIZE='9'><I>f</I></FONT>>, color='#1A5276']
-  split -> n_background [label=<<FONT POINT-SIZE='9'><I>1 − f</I></FONT>>, color='#6D7C8A']
+  split -> n_capture [color='#1A5276', penwidth=2, minlen=2,
+                      label=<<FONT POINT-SIZE='26' COLOR='#1A5276'><B>&nbsp;&nbsp;f&nbsp;&nbsp;</B></FONT>>]
+  split -> n_background [color='#6D7C8A', penwidth=2, minlen=2,
+                         label=<<FONT POINT-SIZE='26' COLOR='#5D6D7E'><B>&nbsp;&nbsp;1 − f&nbsp;&nbsp;</B></FONT>>]
 
-  n_capture -> step1 [color='#1A5276', penwidth=1.8]
-  n_background -> bg1 [color='#6D7C8A', penwidth=1.8]
+  n_capture -> cap_title [color='#1A5276', penwidth=1.8, arrowhead=none]
+  cap_title -> step1 [color='#1A5276', penwidth=1.8]
+
+  n_background -> bg_title [color='#6D7C8A', penwidth=1.8, arrowhead=none]
+  bg_title -> bg1 [color='#6D7C8A', penwidth=1.8]
 
   step4 -> merge [color='#1A5276', penwidth=1.8]
   bg2   -> merge [color='#6D7C8A', penwidth=1.8]
@@ -1422,6 +1439,7 @@ digraph {
 
 save_diagram(diagram11, "paper_assess_probes.png", width = 3600)
 }
+
 
 
 message("\nDone. Diagrams saved to: ", outdir)
