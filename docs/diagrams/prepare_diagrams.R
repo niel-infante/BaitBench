@@ -56,7 +56,57 @@ diagram_spec <- if (length(args) >= 2) args[2] else "all"
 selected <- parse_selection(diagram_spec)
 message("Rendering diagrams: ", paste(selected, collapse = ", "))
 
+# Poster mode: `poster` as the 3rd argument emits high-resolution,
+# transparent-background copies prefixed with poster_ instead of the
+# normal web-sized renders.
+poster_mode  <- length(args) >= 3 && tolower(args[3]) %in% c("poster", "true", "yes")
+POSTER_SCALE <- 3          # multiplier applied to each diagram base width
+POSTER_MAX_PX <- 140e6     # pixel-count ceiling, keeps rsvg inside memory
+
+if (poster_mode) message("Poster mode: high-res, transparent background, poster_ prefix")
+
+# Re-render a graph with a transparent canvas.
+# The DOT source lives in graph$x$diagram, so swap the graph-level bgcolor
+# there rather than post-processing the SVG. Node `fillcolor='white'` and HTML
+# table `BGCOLOR=` attributes do not contain the substring "bgcolor='white'",
+# so intentional white fills survive untouched.
+make_transparent <- function(graph) {
+  dot <- graph$x$diagram
+  dot <- gsub("bgcolor='white'", "bgcolor='transparent'", dot, fixed = TRUE)
+  dot <- gsub('bgcolor="white"', 'bgcolor="transparent"', dot, fixed = TRUE)
+  grViz(dot)
+}
+
+# Read the intrinsic point dimensions graphviz wrote into the SVG header so the
+# pixel ceiling can be applied without guessing the aspect ratio.
+svg_aspect <- function(svg) {
+  w <- as.numeric(sub('.*<svg[^>]*width="([0-9.]+)pt".*', '\\1', svg))
+  h <- as.numeric(sub('.*<svg[^>]*height="([0-9.]+)pt".*', '\\1', svg))
+  if (is.na(w) || is.na(h) || w <= 0) return(NA_real_)
+  h / w
+}
+
+save_poster <- function(graph, filename, width) {
+  svg <- export_svg(make_transparent(graph))
+  target <- width * POSTER_SCALE
+  aspect <- svg_aspect(svg)
+  if (!is.na(aspect)) {
+    px <- target * (target * aspect)
+    if (px > POSTER_MAX_PX) {
+      target <- floor(sqrt(POSTER_MAX_PX / aspect))
+      message("  (capped to ", target, " px wide to stay within memory)")
+    }
+  }
+  out <- file.path(outdir, paste0("poster_", filename))
+  rsvg_png(charToRaw(svg), file = out, width = target)
+  message("Saved: ", out, "  [", target, " px wide]")
+}
+
 save_diagram <- function(graph, filename, width = 3200) {
+  if (poster_mode) {
+    save_poster(graph, filename, width)
+    return(invisible(NULL))
+  }
   svg <- export_svg(graph)
   rsvg_png(charToRaw(svg), file = file.path(outdir, filename), width = width)
   message("Saved: ", file.path(outdir, filename))
