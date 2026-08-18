@@ -167,32 +167,32 @@ pub fn execute(args: &AssessProbesArgs) -> Result<()> {
 
     // --- Step 6: Generate report (after refinement so it can include the refinement summary) ---
     let gap_min_str = gap_min.to_string();
+    let report_path = prefixed_join(args.outdir, pfx, "assess_probes_report.html");
+    let report_inputs = ReportInputs {
+        build_stats_file: args.build_stats_file,
+        build_params_file: args.build_params_file,
+        xreact_hits: &xreact_hits,
+        xreact_summary: &xreact_summary,
+        threshold: args.threshold,
+        cov_summary,
+        cov_depth,
+        cov_multi,
+        proximity: args.proximity,
+        params_path: &params_path,
+        indiv_summary: indiv_summary.as_deref(),
+        refine_summary: refine_summary.as_deref(),
+        gap_details: Some(&gap_details_path),
+        gap_min_length: &gap_min_str,
+        output_path: &report_path,
+    };
     match args.report {
         ReportMode::None => {
             log::info!("Skipping report generation (--report none)");
         }
         ReportMode::Full => {
             if rscript::check_available() {
-                let report_path =
-                    prefixed_join(args.outdir, pfx, "assess_probes_report.html");
                 log::info!("Generating combined probe assessment report...");
-                match generate_assess_report(
-                    args.build_stats_file,
-                    args.build_params_file,
-                    &xreact_hits,
-                    &xreact_summary,
-                    args.threshold,
-                    cov_summary,
-                    cov_depth,
-                    cov_multi,
-                    args.proximity,
-                    &params_path,
-                    indiv_summary.as_deref(),
-                    refine_summary.as_deref(),
-                    Some(&gap_details_path),
-                    &gap_min_str,
-                    &report_path,
-                ) {
+                match generate_assess_report(&report_inputs) {
                     Ok(()) => log::info!("Report generated: {}", report_path.display()),
                     Err(e) => log::warn!("Report generation failed (non-fatal): {}", e),
                 }
@@ -201,73 +201,21 @@ pub fn execute(args: &AssessProbesArgs) -> Result<()> {
             }
         }
         ReportMode::Rmd => {
-            let report_path =
-                prefixed_join(args.outdir, pfx, "assess_probes_report.html");
             log::info!("Generating probe assessment RMarkdown file...");
-            match write_assess_rmd(
-                args.build_stats_file,
-                args.build_params_file,
-                &xreact_hits,
-                &xreact_summary,
-                args.threshold,
-                cov_summary,
-                cov_depth,
-                cov_multi,
-                args.proximity,
-                &params_path,
-                indiv_summary.as_deref(),
-                refine_summary.as_deref(),
-                Some(&gap_details_path),
-                &gap_min_str,
-                &report_path,
-            ) {
+            match write_assess_rmd(&report_inputs) {
                 Ok(()) => {}
                 Err(e) => log::warn!("RMarkdown generation failed (non-fatal): {}", e),
             }
         }
         ReportMode::BothR => {
-            let report_path =
-                prefixed_join(args.outdir, pfx, "assess_probes_report.html");
             log::info!("Generating probe assessment RMarkdown file...");
-            match write_assess_rmd(
-                args.build_stats_file,
-                args.build_params_file,
-                &xreact_hits,
-                &xreact_summary,
-                args.threshold,
-                cov_summary,
-                cov_depth,
-                cov_multi,
-                args.proximity,
-                &params_path,
-                indiv_summary.as_deref(),
-                refine_summary.as_deref(),
-                Some(&gap_details_path),
-                &gap_min_str,
-                &report_path,
-            ) {
+            match write_assess_rmd(&report_inputs) {
                 Ok(()) => {}
                 Err(e) => log::warn!("RMarkdown generation failed (non-fatal): {}", e),
             }
             if rscript::check_available() {
                 log::info!("Generating combined probe assessment HTML report...");
-                match generate_assess_report(
-                    args.build_stats_file,
-                    args.build_params_file,
-                    &xreact_hits,
-                    &xreact_summary,
-                    args.threshold,
-                    cov_summary,
-                    cov_depth,
-                    cov_multi,
-                    args.proximity,
-                    &params_path,
-                    indiv_summary.as_deref(),
-                    refine_summary.as_deref(),
-                    Some(&gap_details_path),
-                    &gap_min_str,
-                    &report_path,
-                ) {
+                match generate_assess_report(&report_inputs) {
                     Ok(()) => log::info!("Report generated: {}", report_path.display()),
                     Err(e) => log::warn!("Report generation failed (non-fatal): {}", e),
                 }
@@ -345,23 +293,30 @@ fn write_run_params(path: &Path, args: &AssessProbesArgs) -> Result<()> {
 }
 
 
-fn generate_assess_report(
-    build_stats_file: Option<&Path>,
-    build_params_file: Option<&Path>,
-    xreact_hits: &Path,
-    xreact_summary: &Path,
+/// Bundles every input `generate_assess_report` and `write_assess_rmd` need — the two
+/// functions have identical parameter lists because they're the HTML and RMarkdown
+/// backends for the same report, so they need exactly the same data. Passing one
+/// struct instead of 15 positional arguments means the two can't drift out of sync,
+/// and fields are matched by name instead of by position at every call site.
+struct ReportInputs<'a> {
+    build_stats_file: Option<&'a Path>,
+    build_params_file: Option<&'a Path>,
+    xreact_hits: &'a Path,
+    xreact_summary: &'a Path,
     threshold: f64,
-    cov_summary: &Path,
-    cov_depth: &Path,
-    cov_multi: &Path,
+    cov_summary: &'a Path,
+    cov_depth: &'a Path,
+    cov_multi: &'a Path,
     proximity: usize,
-    params_path: &Path,
-    indiv_summary: Option<&Path>,
-    refine_summary: Option<&Path>,
-    gap_details: Option<&Path>,
-    gap_min_length: &str,
-    output_path: &Path,
-) -> Result<()> {
+    params_path: &'a Path,
+    indiv_summary: Option<&'a Path>,
+    refine_summary: Option<&'a Path>,
+    gap_details: Option<&'a Path>,
+    gap_min_length: &'a str,
+    output_path: &'a Path,
+}
+
+fn generate_assess_report(inputs: &ReportInputs) -> Result<()> {
     let r_dir = rscript::find_r_dir()
         .ok_or_else(|| anyhow::anyhow!("Cannot find R scripts directory."))?;
 
@@ -373,73 +328,57 @@ fn generate_assess_report(
         );
     }
 
-    let threshold_str = format!("{:.1}", threshold);
-    let proximity_str = proximity.to_string();
+    let threshold_str = format!("{:.1}", inputs.threshold);
+    let proximity_str = inputs.proximity.to_string();
 
     let mut r_args: Vec<String> = Vec::new();
 
     // Required args
-    r_args.extend(["--xreact-hits".into(), abs_path_str(xreact_hits)?]);
-    r_args.extend(["--xreact-summary".into(), abs_path_str(xreact_summary)?]);
+    r_args.extend(["--xreact-hits".into(), abs_path_str(inputs.xreact_hits)?]);
+    r_args.extend(["--xreact-summary".into(), abs_path_str(inputs.xreact_summary)?]);
     r_args.extend(["--threshold".into(), threshold_str]);
-    r_args.extend(["--cov-summary".into(), abs_path_str(cov_summary)?]);
-    r_args.extend(["--cov-depth".into(), abs_path_str(cov_depth)?]);
+    r_args.extend(["--cov-summary".into(), abs_path_str(inputs.cov_summary)?]);
+    r_args.extend(["--cov-depth".into(), abs_path_str(inputs.cov_depth)?]);
     r_args.extend(["--proximity".into(), proximity_str]);
-    r_args.extend(["--params".into(), abs_path_str(params_path)?]);
-    r_args.extend(["--output".into(), abs_path_str(output_path)?]);
+    r_args.extend(["--params".into(), abs_path_str(inputs.params_path)?]);
+    r_args.extend(["--output".into(), abs_path_str(inputs.output_path)?]);
 
     // Optional build-probes data
-    if let Some(p) = build_stats_file {
+    if let Some(p) = inputs.build_stats_file {
         if p.exists() {
             r_args.extend(["--build-stats".into(), abs_path_str(p)?]);
         }
     }
-    if let Some(p) = build_params_file {
+    if let Some(p) = inputs.build_params_file {
         if p.exists() {
             r_args.extend(["--build-params".into(), abs_path_str(p)?]);
         }
     }
-    if cov_multi.exists() {
-        r_args.extend(["--cov-multi-mapping".into(), abs_path_str(cov_multi)?]);
+    if inputs.cov_multi.exists() {
+        r_args.extend(["--cov-multi-mapping".into(), abs_path_str(inputs.cov_multi)?]);
     }
-    if let Some(p) = indiv_summary {
+    if let Some(p) = inputs.indiv_summary {
         if p.exists() {
             r_args.extend(["--indiv-cov-summary".into(), abs_path_str(p)?]);
         }
     }
-    if let Some(p) = refine_summary {
+    if let Some(p) = inputs.refine_summary {
         if p.exists() {
             r_args.extend(["--refine-summary".into(), abs_path_str(p)?]);
         }
     }
-    if let Some(p) = gap_details {
+    if let Some(p) = inputs.gap_details {
         if p.exists() {
             r_args.extend(["--gap-details".into(), abs_path_str(p)?]);
         }
     }
-    r_args.extend(["--gap-min-length".into(), gap_min_length.to_string()]);
+    r_args.extend(["--gap-min-length".into(), inputs.gap_min_length.to_string()]);
 
     let arg_refs: Vec<&str> = r_args.iter().map(|s| s.as_str()).collect();
     rscript::run_rscript(&script, &arg_refs)
 }
 
-fn write_assess_rmd(
-    build_stats_file: Option<&Path>,
-    build_params_file: Option<&Path>,
-    xreact_hits: &Path,
-    xreact_summary: &Path,
-    threshold: f64,
-    cov_summary: &Path,
-    cov_depth: &Path,
-    cov_multi: &Path,
-    proximity: usize,
-    params_path: &Path,
-    indiv_summary: Option<&Path>,
-    refine_summary: Option<&Path>,
-    gap_details: Option<&Path>,
-    gap_min_length: &str,
-    output_path: &Path,
-) -> Result<()> {
+fn write_assess_rmd(inputs: &ReportInputs) -> Result<()> {
     let r_dir = rscript::find_r_dir()
         .ok_or_else(|| anyhow::anyhow!("Cannot find R scripts directory."))?;
 
@@ -451,34 +390,34 @@ fn write_assess_rmd(
         );
     }
 
-    let threshold_str = format!("{:.1}", threshold);
-    let proximity_str = proximity.to_string();
+    let threshold_str = format!("{:.1}", inputs.threshold);
+    let proximity_str = inputs.proximity.to_string();
 
-    let build_stats_str = build_stats_file
+    let build_stats_str = inputs.build_stats_file
         .and_then(|p| if p.exists() { abs_path_str(p).ok() } else { None })
         .unwrap_or_default();
-    let build_params_str = build_params_file
+    let build_params_str = inputs.build_params_file
         .and_then(|p| if p.exists() { abs_path_str(p).ok() } else { None })
         .unwrap_or_default();
-    let cov_multi_str = if cov_multi.exists() {
-        abs_path_str(cov_multi)?
+    let cov_multi_str = if inputs.cov_multi.exists() {
+        abs_path_str(inputs.cov_multi)?
     } else {
         String::new()
     };
-    let indiv_summary_str = indiv_summary
+    let indiv_summary_str = inputs.indiv_summary
         .and_then(|p| if p.exists() { abs_path_str(p).ok() } else { None })
         .unwrap_or_default();
-    let refine_summary_str = refine_summary
+    let refine_summary_str = inputs.refine_summary
         .and_then(|p| if p.exists() { abs_path_str(p).ok() } else { None })
         .unwrap_or_default();
-    let gap_details_str = gap_details
+    let gap_details_str = inputs.gap_details
         .and_then(|p| if p.exists() { abs_path_str(p).ok() } else { None })
         .unwrap_or_default();
-    let xreact_hits_str = abs_path_str(xreact_hits)?;
-    let xreact_summary_str = abs_path_str(xreact_summary)?;
-    let cov_summary_str = abs_path_str(cov_summary)?;
-    let cov_depth_str = abs_path_str(cov_depth)?;
-    let params_path_str = abs_path_str(params_path)?;
+    let xreact_hits_str = abs_path_str(inputs.xreact_hits)?;
+    let xreact_summary_str = abs_path_str(inputs.xreact_summary)?;
+    let cov_summary_str = abs_path_str(inputs.cov_summary)?;
+    let cov_depth_str = abs_path_str(inputs.cov_depth)?;
+    let params_path_str = abs_path_str(inputs.params_path)?;
 
     let params = vec![
         ("build_stats_file", build_stats_str.as_str()),
@@ -494,7 +433,7 @@ fn write_assess_rmd(
         ("individual_coverage_file", indiv_summary_str.as_str()),
         ("refine_summary_file", refine_summary_str.as_str()),
         ("gap_details_file", gap_details_str.as_str()),
-        ("gap_min_length", gap_min_length),
+        ("gap_min_length", inputs.gap_min_length),
     ];
 
     let template_content = std::fs::read_to_string(&rmd_template)
@@ -502,7 +441,7 @@ fn write_assess_rmd(
 
     let output_content = substitute_rmd_params(&template_content, &params);
 
-    let rmd_path = rmd_output_path(output_path);
+    let rmd_path = rmd_output_path(inputs.output_path);
     std::fs::write(&rmd_path, output_content)
         .with_context(|| format!("Failed to write RMarkdown: {}", rmd_path.display()))?;
 
