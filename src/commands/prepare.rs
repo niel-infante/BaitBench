@@ -120,8 +120,7 @@ pub fn execute(args: &PrepareArgs) -> Result<()> {
         if args.genomes.is_some() { "genomes" } else { "targets" }
     );
 
-    if args.genomes.is_some() {
-        let genomes_path = args.genomes.unwrap();
+    if let Some(genomes_path) = args.genomes {
         let genome_id_list = genome_ids.as_ref().unwrap();
 
         // Build combined_reference.fa = genomes + distractors (for fragment generation)

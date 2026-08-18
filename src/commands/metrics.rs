@@ -407,16 +407,14 @@ fn classify_fragment_source(
         } else {
             FragmentCategory::Unknown
         }
+    } else if effective_sample.contains(source) {
+        FragmentCategory::Sample
+    } else if targets.contains(source) {
+        FragmentCategory::NonsampleTarget
+    } else if distractors.contains(source) {
+        FragmentCategory::Distractor
     } else {
-        if effective_sample.contains(source) {
-            FragmentCategory::Sample
-        } else if targets.contains(source) {
-            FragmentCategory::NonsampleTarget
-        } else if distractors.contains(source) {
-            FragmentCategory::Distractor
-        } else {
-            FragmentCategory::Unknown
-        }
+        FragmentCategory::Unknown
     }
 }
 
@@ -882,9 +880,7 @@ fn build_group_detail_rows(
 
         let (category, expected, classification) = if is_sample {
             if is_detected { ("sample", "true", "TP") } else { ("sample", "true", "FN") }
-        } else {
-            if is_detected { ("target", "false", "FP_target") } else { ("target", "false", "TN_target") }
-        };
+        } else if is_detected { ("target", "false", "FP_target") } else { ("target", "false", "TN_target") };
 
         rows.push(GroupDetailRow {
             group_name: group.clone(),
@@ -1375,7 +1371,7 @@ mod tests {
         let group_map = hmap_str(&[("seq1", "groupA"), ("seq2", "groupA")]);
         let result = collapse_to_groups(&detected, &group_map);
         assert_eq!(result.get("groupA"), Some(&8));
-        assert!(result.get("seq1").is_none());
+        assert!(!result.contains_key("seq1"));
     }
 
     // --- calculate_metrics ---

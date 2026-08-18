@@ -339,7 +339,7 @@ pub fn calculate_probe_stats(
     // Median: sort depths, take middle value
     let mut sorted = coverage.to_vec();
     sorted.sort_unstable();
-    let median_depth = if sorted.len() % 2 == 0 {
+    let median_depth = if sorted.len().is_multiple_of(2) {
         (sorted[sorted.len() / 2 - 1] as f64 + sorted[sorted.len() / 2] as f64) / 2.0
     } else {
         sorted[sorted.len() / 2] as f64
@@ -358,14 +358,12 @@ pub fn calculate_probe_stats(
     for &d in coverage {
         if d == 0 {
             current_gap += 1;
-        } else {
-            if current_gap > 0 {
-                num_gaps += 1;
-                if current_gap > max_gap_length {
-                    max_gap_length = current_gap;
-                }
-                current_gap = 0;
+        } else if current_gap > 0 {
+            num_gaps += 1;
+            if current_gap > max_gap_length {
+                max_gap_length = current_gap;
             }
+            current_gap = 0;
         }
     }
     if current_gap > 0 {
@@ -381,9 +379,7 @@ pub fn calculate_probe_stats(
         if d > 0 {
             let start = i.saturating_sub(proximity_bp);
             let end = std::cmp::min(i + proximity_bp + 1, ref_length);
-            for pos in start..end {
-                near_probe[pos] = true;
-            }
+            near_probe[start..end].fill(true);
         }
     }
     let near_count = near_probe.iter().filter(|&&v| v).count();
@@ -431,12 +427,12 @@ pub fn write_coverage_intervals(
         let mut run_start: usize = 0; // 0-based index
         let mut run_depth: u32 = depths[0];
 
-        for i in 1..depths.len() {
-            if depths[i] != run_depth {
+        for (i, &depth) in depths.iter().enumerate().skip(1) {
+            if depth != run_depth {
                 // Emit the previous run (1-based inclusive)
                 writeln!(w, "{}\t{}\t{}\t{}", ref_name, run_start + 1, i, run_depth)?;
                 run_start = i;
-                run_depth = depths[i];
+                run_depth = depth;
             }
         }
         // Emit the final run

@@ -102,9 +102,7 @@ pub fn design_probes(
 
             for &(m_seq, m_pos) in fwd_matches.iter().chain(rc_matches.iter()) {
                 let end = (m_pos + bait_len).min(covered[m_seq].len());
-                for off in m_pos..end {
-                    covered[m_seq][off] = true;
-                }
+                covered[m_seq][m_pos..end].fill(true);
             }
 
             probe_num += 1;
@@ -207,13 +205,13 @@ fn load_fasta(path: &Path) -> Result<(Vec<String>, Vec<Vec<u8>>)> {
     for line in reader.lines() {
         let line = line?;
         let trimmed = line.trim_end();
-        if trimmed.starts_with('>') {
+        if let Some(stripped) = trimmed.strip_prefix('>') {
             if let Some(id) = current_id.take() {
                 ids.push(id);
                 seqs.push(current_seq.clone());
                 current_seq.clear();
             }
-            let id = trimmed[1..]
+            let id = stripped
                 .split_whitespace()
                 .next()
                 .unwrap_or("")

@@ -1,4 +1,4 @@
-/// Shared DNA sequence utilities used by probe design algorithms.
+//! Shared DNA sequence utilities used by probe design algorithms.
 
 /// Complement of a single DNA base (case-insensitive). Non-ACGT → N.
 #[inline]

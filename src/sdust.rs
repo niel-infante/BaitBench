@@ -118,7 +118,7 @@ fn save_masked_regions(
     perfect: &mut Vec<PerfectInterval>,
     wstart: usize,
 ) {
-    while perfect.last().map_or(false, |p| p.start < wstart) {
+    while perfect.last().is_some_and(|p| p.start < wstart) {
         let p = perfect.pop().unwrap();
         if let Some(prev) = res.last_mut() {
             if p.start <= prev.1 + 1 {
@@ -245,11 +245,7 @@ pub fn sdust(seq: &[u8], threshold: f64, window_size: usize) -> Vec<(usize, usiz
         let b2 = encode_base(seq[wfinish]);
 
         if let (Some(b0), Some(b1), Some(b2)) = (b0, b1, b2) {
-            let wstart = if wfinish + 1 >= window_size {
-                wfinish + 1 - window_size
-            } else {
-                0
-            };
+            let wstart = (wfinish + 1).saturating_sub(window_size);
 
             save_masked_regions(&mut res, &mut perfect, wstart);
 

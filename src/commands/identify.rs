@@ -315,7 +315,7 @@ pub fn call_species(
                 *ctx.target_is_unique.get(t.as_str()).unwrap_or(&true)
                     && detection
                         .get(t.as_str())
-                        .map_or(false, |(det, _)| *det)
+                        .is_some_and(|(det, _)| *det)
                     && !explained_targets.contains(t.as_str())
             })
             .collect();
@@ -326,7 +326,7 @@ pub fn call_species(
                 !*ctx.target_is_unique.get(t.as_str()).unwrap_or(&true)
                     && detection
                         .get(t.as_str())
-                        .map_or(false, |(det, _)| *det)
+                        .is_some_and(|(det, _)| *det)
                     && !explained_targets.contains(t.as_str())
             })
             .collect();

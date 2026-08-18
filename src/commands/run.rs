@@ -109,7 +109,7 @@ pub fn execute(args: &RunArgs) -> Result<()> {
     log::info!(
         "Sample              : {}",
         args.sample
-            .map(|s| io_utils::format_sample_display(s))
+            .map(io_utils::format_sample_display)
             .unwrap_or_else(|| "none (all targets)".to_string())
     );
     log::info!("Simulate mode       : {}", sim_mode_str);
@@ -164,7 +164,7 @@ pub fn execute(args: &RunArgs) -> Result<()> {
             writeln!(f, "distractors\t--distractors\t{}", d.display())?;
         }
         writeln!(f, "probes\t--probes\t{}", args.probes.display())?;
-        writeln!(f, "sample\t--sample\t{}", args.sample.map(|s| io_utils::format_sample_display(s)).unwrap_or_else(|| "none".to_string()))?;
+        writeln!(f, "sample\t--sample\t{}", args.sample.map(io_utils::format_sample_display).unwrap_or_else(|| "none".to_string()))?;
         writeln!(f, "host_fasta\t--host-fasta\t{}", args.host_fasta.map(|p| p.display().to_string()).unwrap_or_else(|| "none".to_string()))?;
         writeln!(f, "num_fragments\t--num-fragments\t{}", args.num_fragments)?;
         writeln!(f, "distractor_fraction\t--distractor-fraction\t{}", args.distractor_fraction)?;

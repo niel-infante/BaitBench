@@ -508,7 +508,7 @@ pub fn compute_median_probe_length(probes_path: &Path) -> usize {
             let mut lengths: Vec<usize> = seqs.values().map(|s| s.len()).collect();
             lengths.sort_unstable();
             let mid = lengths.len() / 2;
-            if lengths.len() % 2 == 0 {
+            if lengths.len().is_multiple_of(2) {
                 (lengths[mid - 1] + lengths[mid]) / 2
             } else {
                 lengths[mid]

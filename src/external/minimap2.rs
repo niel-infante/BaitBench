@@ -8,6 +8,13 @@ use rammap::align::map::AlignFlags;
 
 use crate::fasta;
 
+/// (ref name → sequence length, ref name → per-position depth vector), as returned by
+/// `probe_depth_in_memory`.
+type RefLengthsAndCoverage = (
+    std::collections::HashMap<String, usize>,
+    std::collections::HashMap<String, Vec<u32>>,
+);
+
 // ---- helpers ----
 
 fn to_preset(preset: &str) -> Result<Preset> {
@@ -279,7 +286,7 @@ pub fn probe_depth_in_memory(
     probe_seqs: &std::collections::HashMap<String, String>,
     max_secondary: usize,
     threads: usize,
-) -> anyhow::Result<(std::collections::HashMap<String, usize>, std::collections::HashMap<String, Vec<u32>>)> {
+) -> anyhow::Result<RefLengthsAndCoverage> {
     use crate::alignment::cigar::{parse_cigar, CigarOp};
     use std::sync::Arc;
     use rayon::prelude::*;

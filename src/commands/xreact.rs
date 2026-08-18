@@ -544,7 +544,7 @@ fn write_hits_tsv(path: &Path, hits: &[HitRecord]) -> Result<()> {
         hits[a]
             .probe_id
             .cmp(&hits[b].probe_id)
-            .then(hits[a].mode.cmp(&hits[b].mode))
+            .then(hits[a].mode.cmp(hits[b].mode))
             .then(
                 hits[b]
                     .homology_pct

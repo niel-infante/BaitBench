@@ -636,8 +636,8 @@ fn compute_depth_curve(depths: &[u32], ref_length: usize) -> Vec<(usize, f64)> {
     }
 
     let mut curve = Vec::with_capacity(max_depth);
-    for t in 1..=max_depth {
-        let pct = cumsum[t] as f64 / ref_length as f64 * 100.0;
+    for (t, &cum) in cumsum.iter().enumerate().skip(1).take(max_depth) {
+        let pct = cum as f64 / ref_length as f64 * 100.0;
         curve.push((t, pct));
     }
 

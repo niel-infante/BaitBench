@@ -276,7 +276,7 @@ pub fn substitute_rmd_params(template: &str, params: &[(&str, &str)]) -> String 
 /// Convert an output path from .html to .Rmd (or append .Rmd if no .html extension).
 pub fn rmd_output_path(html_path: &Path) -> std::path::PathBuf {
     let mut path = html_path.to_path_buf();
-    if path.extension().map_or(false, |ext| ext == "html") {
+    if path.extension().is_some_and(|ext| ext == "html") {
         path.set_extension("Rmd");
     } else {
         let mut name = path

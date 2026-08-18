@@ -1,43 +1,43 @@
-/// Nearest-neighbor thermodynamic model for DNA hybridization.
-///
-/// Parameters from SantaLucia (1998) "A unified view of polymer, dumbbell, and
-/// oligonucleotide DNA nearest-neighbor thermodynamics", PNAS 95(4):1460–1465.
-///
-/// Salt correction from Owczarzy et al. (1997):
-///   ΔS([Na+]) = ΔS(1 M) + 0.368 × (n_bp - 1) × ln([Na+])
-///
-/// Nucleotide index convention: A=0, C=1, G=2, T=3
-///
-/// # Design notes
-///
-/// `boltzmann_score` is used as a relative sampling weight — only ratios between
-/// scores matter.  Score = 1 (ΔG = 0) is the neutral baseline; > 1 means
-/// favorable binding; < 1 is never produced by this model (see initiation note).
-///
-/// ## Initiation terms
-///
-/// SantaLucia (1998) initiation parameters capture the cost of nucleating a new
-/// duplex from two free strands: loss of translational/rotational entropy on
-/// association, plus the instability of terminal base pairs (only partially
-/// stacked, fewer constraints than interior pairs).  AT termini are more costly
-/// than GC because A-T pairs have two hydrogen bonds vs three for G-C.
-///
-/// Initiation is applied **only when at least one NN stacking step exists**
-/// (≥ 2 consecutive WC pairs).  A single isolated WC pair flanked by mismatches
-/// cannot sustain a stable duplex; applying the nucleation penalty to it would
-/// give ΔG > 0 and score < 1 — implying the probe is actively repelled, which
-/// is unphysical.  When no stacking exists, ΔG = 0 and score = 1 (neutral).
-///
-/// ## Comparison with RAmpSim
-///
-/// RAmpSim (Rooney et al. 2025, bioRxiv 2025.12.05.692407) uses the same
-/// SantaLucia stacking table and SkipStacking strategy but omits initiation and
-/// salt correction.  For relative scoring, the constant part of initiation
-/// cancels across probes.  BaitBench preserves the AT vs GC terminal distinction
-/// (~2 kcal/mol effect) because it is physically real and affects relative
-/// capture probabilities.  The salt correction has a larger impact at typical
-/// hybridization conditions (50 mM Na+) and meaningfully re-ranks long vs short
-/// probe hits.
+//! Nearest-neighbor thermodynamic model for DNA hybridization.
+//!
+//! Parameters from SantaLucia (1998) "A unified view of polymer, dumbbell, and
+//! oligonucleotide DNA nearest-neighbor thermodynamics", PNAS 95(4):1460–1465.
+//!
+//! Salt correction from Owczarzy et al. (1997):
+//!   ΔS([Na+]) = ΔS(1 M) + 0.368 × (n_bp - 1) × ln([Na+])
+//!
+//! Nucleotide index convention: A=0, C=1, G=2, T=3
+//!
+//! # Design notes
+//!
+//! `boltzmann_score` is used as a relative sampling weight — only ratios between
+//! scores matter.  Score = 1 (ΔG = 0) is the neutral baseline; > 1 means
+//! favorable binding; < 1 is never produced by this model (see initiation note).
+//!
+//! ## Initiation terms
+//!
+//! SantaLucia (1998) initiation parameters capture the cost of nucleating a new
+//! duplex from two free strands: loss of translational/rotational entropy on
+//! association, plus the instability of terminal base pairs (only partially
+//! stacked, fewer constraints than interior pairs).  AT termini are more costly
+//! than GC because A-T pairs have two hydrogen bonds vs three for G-C.
+//!
+//! Initiation is applied **only when at least one NN stacking step exists**
+//! (≥ 2 consecutive WC pairs).  A single isolated WC pair flanked by mismatches
+//! cannot sustain a stable duplex; applying the nucleation penalty to it would
+//! give ΔG > 0 and score < 1 — implying the probe is actively repelled, which
+//! is unphysical.  When no stacking exists, ΔG = 0 and score = 1 (neutral).
+//!
+//! ## Comparison with RAmpSim
+//!
+//! RAmpSim (Rooney et al. 2025, bioRxiv 2025.12.05.692407) uses the same
+//! SantaLucia stacking table and SkipStacking strategy but omits initiation and
+//! salt correction.  For relative scoring, the constant part of initiation
+//! cancels across probes.  BaitBench preserves the AT vs GC terminal distinction
+//! (~2 kcal/mol effect) because it is physically real and affects relative
+//! capture probabilities.  The salt correction has a larger impact at typical
+//! hybridization conditions (50 mM Na+) and meaningfully re-ranks long vs short
+//! probe hits.
 
 /// Gas constant in kcal/(mol·K)
 const R_KCAL: f64 = 1.987_204_258_64e-3;
@@ -173,7 +173,7 @@ fn initiation_params(top: u8, bot: u8) -> Option<NnParams> {
 ///
 /// 3. **Salt correction** (Owczarzy et al. 1997): adjusts ΔS for the actual Na+
 ///    concentration relative to the 1 M reference used to derive the NN table:
-///      ΔS_corrected = ΔS_1M + 0.368 × (n_wc - 1) × ln([Na+])
+///    ΔS_corrected = ΔS_1M + 0.368 × (n_wc - 1) × ln([Na+])
 ///    where n_wc is the count of WC-paired positions and [Na+] is in molar.
 ///    At 1 M Na+, ln(1) = 0 so no correction is applied.
 ///

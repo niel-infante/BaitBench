@@ -494,8 +494,8 @@ fn find_low_coverage_regions(
     let mut raw_runs: Vec<(usize, usize)> = Vec::new();
     let mut run_start: Option<usize> = None;
 
-    for i in 0..depth_len {
-        if depths[i] < min_depth {
+    for (i, &depth) in depths.iter().enumerate().take(depth_len) {
+        if depth < min_depth {
             if run_start.is_none() {
                 run_start = Some(i);
             }
@@ -571,14 +571,14 @@ fn load_fasta(path: &Path) -> Result<Vec<(String, String)>> {
     for line in reader.lines() {
         let line = line?;
         let trimmed = line.trim_end();
-        if trimmed.starts_with('>') {
+        if let Some(stripped) = trimmed.strip_prefix('>') {
             if let Some(id) = current_id.take() {
                 if !current_seq.is_empty() {
                     seqs.push((id, std::mem::take(&mut current_seq)));
                 }
             }
             current_id = Some(
-                trimmed[1..]
+                stripped
                     .split_whitespace()
                     .next()
                     .unwrap_or("")

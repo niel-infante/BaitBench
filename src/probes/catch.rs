@@ -130,13 +130,13 @@ fn load_fasta(path: &Path) -> Result<(Vec<String>, Vec<Vec<u8>>)> {
     for line in reader.lines() {
         let line = line?;
         let trimmed = line.trim_end();
-        if trimmed.starts_with('>') {
+        if let Some(stripped) = trimmed.strip_prefix('>') {
             if let Some(id) = current_id.take() {
                 ids.push(id);
                 seqs.push(current_seq.clone());
                 current_seq.clear();
             }
-            let id = trimmed[1..]
+            let id = stripped
                 .split_whitespace()
                 .next()
                 .unwrap_or("")
@@ -499,7 +499,7 @@ pub fn design_probes(
         }
 
         iter += 1;
-        if iter % 100 == 0 {
+        if iter.is_multiple_of(100) {
             let total_covered: usize = seq_lens
                 .iter()
                 .zip(uncovered_bp.iter())
