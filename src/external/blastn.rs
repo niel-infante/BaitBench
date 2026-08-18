@@ -1,107 +1,140 @@
-#![allow(dead_code)]
-
-use anyhow::{Context, Result, bail};
-use std::collections::HashSet;
-use std::fs::File;
-use std::io::{BufRead, BufReader};
+use anyhow::{bail, Context, Result};
+use std::fs::{self, File};
 use std::path::Path;
 use std::process::Command;
 
-/// Check that blastn is available on PATH.
+use crate::fasta;
+
+/// Check that blastn and makeblastdb are available on PATH.
 pub fn check_available() -> Result<()> {
-    let status = Command::new("blastn")
+    let blastn_ok = Command::new("blastn")
         .arg("-version")
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
-        .status();
-
-    match status {
-        Ok(s) if s.success() => Ok(()),
-        _ => bail!("blastn not found on PATH. Please install BLAST+."),
-    }
-}
-
-/// Run blastn for probe capture.
-///
-/// Uses blastn-short task with tabular output format.
-pub fn capture_align(
-    blast_db: &str,
-    reads: &Path,
-    output_tsv: &Path,
-    log_file: &Path,
-    threads: usize,
-) -> Result<()> {
-    let log = File::create(log_file)
-        .with_context(|| format!("Cannot create log: {}", log_file.display()))?;
-
-    let status = Command::new("blastn")
-        .args(["-task", "blastn-short"])
-        .args(["-db", blast_db])
-        .arg("-query")
-        .arg(reads)
-        .arg("-out")
-        .arg(output_tsv)
-        .args(["-outfmt", "6 qseqid sseqid nident length mismatch gapopen"])
-        .args(["-max_hsps", "1"])
-        .args(["-max_target_seqs", "1"])
-        .args(["-evalue", "1000"])
-        .args(["-word_size", "7"])
-        .args(["-dust", "no"])
-        .args(["-soft_masking", "false"])
-        .args(["-num_threads", &threads.to_string()])
-        .stderr(log)
         .status()
-        .context("Failed to execute blastn")?;
+        .map(|s| s.success())
+        .unwrap_or(false);
+    if !blastn_ok {
+        bail!("blastn not found on PATH. Install BLAST+ (conda install -c bioconda blast).");
+    }
 
-    if !status.success() {
-        bail!("blastn failed (exit code {:?})", status.code());
+    let makeblastdb_ok = Command::new("makeblastdb")
+        .arg("-version")
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false);
+    if !makeblastdb_ok {
+        bail!("makeblastdb not found on PATH. Install BLAST+ (conda install -c bioconda blast).");
     }
 
     Ok(())
 }
 
-/// Filter BLAST tabular output and return passing read IDs.
+/// Align `query` against `reference` with blastn-short, reporting every HSP
+/// (not just the best hit per query) so cross-reactivity analysis sees all
+/// homologous regions, mirroring `minimap2::xreact_align`'s use of secondary
+/// alignments.
 ///
-/// Filters: first hit per read, no gaps (gapopen == 0), nident >= min_match_bases.
-pub fn filter_blast_results(
-    blast_tsv: &Path,
-    min_match_bases: u32,
-) -> Result<HashSet<String>> {
-    let file = File::open(blast_tsv)
-        .with_context(|| format!("Cannot open BLAST results: {}", blast_tsv.display()))?;
-    let reader = BufReader::new(file);
-
-    let mut passing = HashSet::new();
-    let mut total_hits = 0u64;
-
-    for line in reader.lines() {
-        let line = line?;
-        let line = line.trim();
-        if line.is_empty() {
-            continue;
-        }
-
-        total_hits += 1;
-        let fields: Vec<&str> = line.split('\t').collect();
-        if fields.len() < 6 {
-            continue;
-        }
-
-        let qseqid = fields[0];
-        let nident: u32 = fields[2].parse().unwrap_or(0);
-        let gapopen: u32 = fields[5].parse().unwrap_or(1);
-
-        // First hit per read only, no gaps, sufficient identity
-        if !passing.contains(qseqid) && gapopen == 0 && nident >= min_match_bases {
-            passing.insert(qseqid.to_string());
-        }
+/// Builds a temporary nucleotide BLAST database from `reference` next to
+/// `output_tsv`, runs the search, then removes the database files.
+///
+/// Output columns (tab-separated, no header): qseqid, sseqid, qlen, qstart,
+/// qend, nident, length — parsed by `alignment::blast_tab::parse_blast_hits`.
+pub fn xreact_align(
+    reference: &Path,
+    query: &Path,
+    output_tsv: &Path,
+    log_file: &Path,
+    threads: usize,
+) -> Result<()> {
+    // makeblastdb/blastn error out on empty FASTA input (e.g. build-probes
+    // filtered every probe away). minimap2 handles this gracefully (0 PAF
+    // records), so match that behavior: skip the search and write an empty
+    // results file.
+    if fasta::count_sequences(reference)? == 0 || fasta::count_sequences(query)? == 0 {
+        File::create(output_tsv)
+            .with_context(|| format!("Cannot create: {}", output_tsv.display()))?;
+        File::create(log_file)
+            .with_context(|| format!("Cannot create log: {}", log_file.display()))?;
+        return Ok(());
     }
 
-    log::info!(
-        "BLAST filtering: {} total hits, {} reads passing",
-        total_hits,
-        passing.len()
-    );
+    let db_prefix = output_tsv.with_extension("blastdb");
+    let log = File::create(log_file)
+        .with_context(|| format!("Cannot create log: {}", log_file.display()))?;
 
-    Ok(passing)
+    let makeblastdb_status = Command::new("makeblastdb")
+        .arg("-in")
+        .arg(reference)
+        .args(["-dbtype", "nucl"])
+        .arg("-out")
+        .arg(&db_prefix)
+        .stdout(log.try_clone().context("Cannot duplicate log handle")?)
+        .stderr(log.try_clone().context("Cannot duplicate log handle")?)
+        .status()
+        .context("Failed to execute makeblastdb")?;
+
+    if !makeblastdb_status.success() {
+        cleanup_blast_db(&db_prefix);
+        bail!(
+            "makeblastdb failed (exit code {:?}); see {}",
+            makeblastdb_status.code(),
+            log_file.display()
+        );
+    }
+
+    let blastn_status = Command::new("blastn")
+        .args(["-task", "blastn-short"])
+        .arg("-db")
+        .arg(&db_prefix)
+        .arg("-query")
+        .arg(query)
+        .arg("-out")
+        .arg(output_tsv)
+        .args(["-outfmt", "6 qseqid sseqid qlen qstart qend nident length"])
+        .args(["-evalue", "1000"])
+        .args(["-dust", "no"])
+        .args(["-num_threads", &threads.to_string()])
+        .stdout(std::process::Stdio::null())
+        .stderr(log)
+        .status()
+        .context("Failed to execute blastn")?;
+
+    cleanup_blast_db(&db_prefix);
+
+    if !blastn_status.success() {
+        bail!(
+            "blastn failed (exit code {:?}); see {}",
+            blastn_status.code(),
+            log_file.display()
+        );
+    }
+
+    Ok(())
+}
+
+/// Remove all BLAST database files sharing `db_prefix` (extension varies by
+/// BLAST+ version: .ndb/.nhr/.nin/.njs/.not/.nsq/.ntf/.nto or the older
+/// .nhr/.nin/.nsq trio).
+fn cleanup_blast_db(db_prefix: &Path) {
+    let dir = db_prefix.parent().unwrap_or_else(|| Path::new("."));
+    let prefix_name = match db_prefix.file_name().and_then(|n| n.to_str()) {
+        Some(n) => n.to_string(),
+        None => return,
+    };
+
+    let entries = match fs::read_dir(dir) {
+        Ok(e) => e,
+        Err(_) => return,
+    };
+
+    for entry in entries.flatten() {
+        if let Some(name) = entry.file_name().to_str() {
+            if name.starts_with(&prefix_name) && name != prefix_name {
+                let _ = fs::remove_file(entry.path());
+            }
+        }
+    }
 }

@@ -54,6 +54,17 @@ probe_flu_002   against  0.0              NA              0
 
 Probes with `max_homology_pct` above your threshold are likely to produce false positive reads in real experiments. Consider removing or redesigning them.
 
+**Aligner choice:** the default `--aligner minimap2` is fast and needs no external install, but its minimizer-based seeding can miss weak or short homologous regions for probe-length queries. If you need to catch marginal cross-reactivity (a missed hit is worse than a slow run), switch to `--aligner blast`, which uses blastn-short and is more sensitive to short/divergent homology at the cost of speed (requires BLAST+ on PATH):
+
+```bash
+baitbench xreact \
+  --probes probes.fa \
+  --against human_genome.fa \
+  --threshold 80 \
+  --aligner blast \
+  --outdir xreact_results
+```
+
 ### Probe self-homology
 
 Check whether probes are too similar to each other (which can cause cross-capture between panel members):

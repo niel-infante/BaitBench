@@ -120,17 +120,6 @@ pub fn check_available() -> Result<()> {
     Ok(())
 }
 
-/// Probe capture alignment — unused, kept for API compatibility.
-#[allow(dead_code)]
-pub fn capture_align(
-    _probes: &Path,
-    _reads: &Path,
-    _output_paf: &Path,
-    _log_file: &Path,
-) -> Result<()> {
-    bail!("capture_align is not implemented in the rammap backend")
-}
-
 /// Map reads to a reference (SAM output, primary alignments only).
 ///
 /// Replicates `minimap2 -ax <preset> --secondary=no <reference> <reads> [<reads_r2>]`

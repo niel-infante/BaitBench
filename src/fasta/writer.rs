@@ -6,18 +6,6 @@ use std::path::Path;
 
 use super::reader::is_fastq;
 
-/// Write a single FASTA record to a writer.
-#[allow(dead_code)]
-pub fn write_fasta_record(writer: &mut impl Write, id: &str, sequence: &str) -> Result<()> {
-    writeln!(writer, ">{}", id)?;
-    // Write sequence in 80-character lines
-    for chunk in sequence.as_bytes().chunks(80) {
-        writer.write_all(chunk)?;
-        writeln!(writer)?;
-    }
-    Ok(())
-}
-
 /// Extract sequences from a FASTA file by ID set (replaces seqtk subseq).
 /// Single-pass streaming: never loads full file into memory.
 /// Returns the number of sequences extracted.

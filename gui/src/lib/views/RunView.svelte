@@ -119,6 +119,7 @@
   let bp_collapseThreshold = '0.95';
   let bp_dedupThreshold = '0.95';
   let bp_proximity = '50';
+  let bp_aligner = 'minimap2';
   let bp_minimapPreset = 'sr';
   let bp_threshold = '80';
   let bp_refineThreshold = '80';
@@ -134,6 +135,7 @@
   let ap_threshold = '80';
   let ap_noIndividual = false;
   let ap_proximity = '50';
+  let ap_aligner = 'minimap2';
   let ap_minimapPreset = 'sr';
   let ap_gapMinLength = '';
   let ap_refineThreshold = '80';
@@ -145,6 +147,7 @@
   let xr_against = '';
   let xr_self = false;
   let xr_threshold = '80';
+  let xr_aligner = 'minimap2';
   let xr_minimapPreset = 'sr';
 
   // ── panel-qc ─────────────────────────────────────────────────────────────
@@ -245,17 +248,17 @@
         bp_minGc, bp_maxGc, bp_maxNFrac, bp_noNInProbes,
         bp_dustThreshold, bp_dustWindow, bp_maxMaskedFrac,
         bp_collapseThreshold, bp_dedupThreshold,
-        bp_proximity, bp_minimapPreset, bp_threshold,
+        bp_proximity, bp_aligner, bp_minimapPreset, bp_threshold,
         bp_refineThreshold, bp_refineMode, bp_refineIterations,
         bp_skipAssess, bp_genomes,
       };
       case 'assess-probes': return { ...shared,
         ap_targets, ap_probes, ap_genomes, ap_threshold, ap_noIndividual,
-        ap_proximity, ap_minimapPreset, ap_gapMinLength,
+        ap_proximity, ap_aligner, ap_minimapPreset, ap_gapMinLength,
         ap_refineThreshold, ap_refineMode, ap_refineIterations,
       };
       case 'xreact': return { ...shared,
-        xr_probes, xr_against, xr_self, xr_threshold, xr_minimapPreset,
+        xr_probes, xr_against, xr_self, xr_threshold, xr_aligner, xr_minimapPreset,
       };
       case 'panel-qc': return { ...shared,
         pq_targets, pq_sampleTargetMap, pq_identityThreshold, pq_minimapPreset,
@@ -339,6 +342,7 @@
         bp_collapseThreshold = str('bp_collapseThreshold', '0.95');
         bp_dedupThreshold = str('bp_dedupThreshold', '0.95');
         bp_proximity = str('bp_proximity', '50'); bp_minimapPreset = str('bp_minimapPreset', 'sr');
+        bp_aligner = str('bp_aligner', 'minimap2');
         bp_threshold = str('bp_threshold', '80');
         bp_refineThreshold = str('bp_refineThreshold', '80');
         bp_refineMode = str('bp_refineMode', 'none') as 'none' | 'iterations' | 'stable';
@@ -349,6 +353,7 @@
         ap_targets = str('ap_targets'); ap_probes = str('ap_probes'); ap_genomes = str('ap_genomes');
         ap_threshold = str('ap_threshold', '80'); ap_noIndividual = bl('ap_noIndividual');
         ap_proximity = str('ap_proximity', '50'); ap_minimapPreset = str('ap_minimapPreset', 'sr');
+        ap_aligner = str('ap_aligner', 'minimap2');
         ap_gapMinLength = str('ap_gapMinLength');
         ap_refineThreshold = str('ap_refineThreshold', '80');
         ap_refineMode = str('ap_refineMode', 'none') as 'none' | 'iterations' | 'stable';
@@ -357,6 +362,7 @@
       case 'xreact':
         xr_probes = str('xr_probes'); xr_against = str('xr_against');
         xr_self = bl('xr_self'); xr_threshold = str('xr_threshold', '80');
+        xr_aligner = str('xr_aligner', 'minimap2');
         xr_minimapPreset = str('xr_minimapPreset', 'sr');
         break;
       case 'panel-qc':
@@ -549,6 +555,7 @@
         if (bp_collapseThreshold !== '0.95') add('--collapse-threshold', bp_collapseThreshold);
         if (bp_dedupThreshold !== '0.95') add('--dedup-threshold', bp_dedupThreshold);
         if (bp_proximity !== '50') add('--proximity', bp_proximity);
+        if (bp_aligner !== 'minimap2') add('--aligner', bp_aligner);
         if (bp_minimapPreset !== 'sr') add('--minimap-preset', bp_minimapPreset);
         if (bp_threshold !== '80') add('--threshold', bp_threshold);
         if (bp_refineMode !== 'none') {
@@ -570,6 +577,7 @@
         if (ap_threshold !== '80') add('--threshold', ap_threshold);
         flag('--no-individual-targets', ap_noIndividual);
         if (ap_proximity !== '50') add('--proximity', ap_proximity);
+        if (ap_aligner !== 'minimap2') add('--aligner', ap_aligner);
         if (ap_minimapPreset !== 'sr') add('--minimap-preset', ap_minimapPreset);
         if (ap_gapMinLength) add('--gap-min-length', ap_gapMinLength);
         if (ap_refineMode !== 'none') {
@@ -591,7 +599,12 @@
         if (xr_against) add('--against', xr_against);
         flag('--self', xr_self);
         if (xr_threshold !== '80') add('--threshold', xr_threshold);
-        if (xr_minimapPreset !== 'sr') add('--minimap-preset', xr_minimapPreset);
+        if (xr_aligner !== 'minimap2') add('--aligner', xr_aligner);
+        if (xr_aligner === 'blast') {
+          add('--threads', threads);
+        } else if (xr_minimapPreset !== 'sr') {
+          add('--minimap-preset', xr_minimapPreset);
+        }
         break;
       }
 
@@ -1284,6 +1297,13 @@
               <input id="bp-thresh" class="text-input short" type="number" min="0" max="100" bind:value={bp_threshold} />
             </div>
             <div class="field-row">
+              <label class="field-label" for="bp-aligner" data-tooltip="Aligner for the cross-reactivity step. minimap2 is fast and needs no external install, but its minimizer seeding can miss weak or short homologous regions. blast (blastn-short) is more sensitive, at the cost of speed — requires BLAST+ on PATH. Uses the Threads setting below.">Xreact aligner <span class="tip">?</span></label>
+              <select id="bp-aligner" class="select-input" bind:value={bp_aligner}>
+                <option value="minimap2">minimap2 (fast, embedded)</option>
+                <option value="blast">blast (more sensitive, requires BLAST+)</option>
+              </select>
+            </div>
+            <div class="field-row">
               <label class="field-label" for="bp-prox" data-tooltip="Two cross-reactive hits within this distance (bp) on the same reference are merged into one report entry. Reduces noise from overlapping alignments.">Proximity distance (bp) <span class="tip">?</span></label>
               <input id="bp-prox" class="text-input short" type="number" min="0" bind:value={bp_proximity} />
             </div>
@@ -1381,6 +1401,13 @@
               <label class="field-label" for="ap-threshold" data-tooltip="Minimum alignment identity (%) for a probe to be flagged as cross-reactive with a genome or another probe. Higher = only report very close matches.">Homology threshold (%) <span class="tip">?</span></label>
               <input id="ap-threshold" class="text-input short" type="number" min="0" max="100"
                 bind:value={ap_threshold} />
+            </div>
+            <div class="field-row">
+              <label class="field-label" for="ap-aligner" data-tooltip="Aligner for the cross-reactivity step. minimap2 is fast and needs no external install, but its minimizer seeding can miss weak or short homologous regions. blast (blastn-short) is more sensitive, at the cost of speed — requires BLAST+ on PATH. Uses the Threads setting below.">Xreact aligner <span class="tip">?</span></label>
+              <select id="ap-aligner" class="select-input" bind:value={ap_aligner}>
+                <option value="minimap2">minimap2 (fast, embedded)</option>
+                <option value="blast">blast (more sensitive, requires BLAST+)</option>
+              </select>
             </div>
             <label class="check-label" data-tooltip="By default, each target is assessed individually (probes aligned one target at a time) to distinguish true gaps from multi-mapper ambiguity. Skip this for panels with >10 000 targets to save time.">
               <input type="checkbox" bind:checked={ap_noIndividual} />
@@ -1486,6 +1513,19 @@
                 bind:value={xr_threshold} />
             </div>
             <div class="field-row">
+              <label class="field-label" for="xr-aligner" data-tooltip="minimap2 is fast and needs no external install, but its minimizer seeding can miss weak or short homologous regions. blast (blastn-short) is more sensitive to short/divergent homology, at the cost of speed — requires BLAST+ on PATH.">Aligner <span class="tip">?</span></label>
+              <select id="xr-aligner" class="select-input" bind:value={xr_aligner}>
+                <option value="minimap2">minimap2 (fast, embedded)</option>
+                <option value="blast">blast (more sensitive, requires BLAST+)</option>
+              </select>
+            </div>
+            {#if xr_aligner === 'blast'}
+              <div class="field-row">
+                <label class="field-label" for="xr-threads">Threads</label>
+                <input id="xr-threads" class="text-input short" type="number" min="1" bind:value={threads} />
+              </div>
+            {:else}
+            <div class="field-row">
               <label class="field-label" for="xr-minimap" data-tooltip="Minimap2 alignment preset for cross-reactivity alignment. 'sr' for short probes (≤250 bp), 'asm5' for near-identical sequences, 'map-ont' for long-read contexts.">Minimap2 preset <span class="tip">?</span></label>
               <select id="xr-minimap" class="text-input short" bind:value={xr_minimapPreset}>
                 <option value="sr">sr (Illumina short reads)</option>
@@ -1506,6 +1546,7 @@
                 <option value="splice:sr">splice:sr</option>
               </select>
             </div>
+            {/if}
           </AdvancedOptions>
 
         <!-- ── panel-qc ─────────────────────────────── -->

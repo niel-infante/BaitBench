@@ -37,7 +37,7 @@ Fragment lengths follow a truncated normal distribution clamped to [min, max].
 
 | Parameter | Flag | Default | Description |
 |-----------|------|---------|-------------|
-| Distractor fraction | `--distractor-fraction`, `-f` | 0.9 | Fraction of fragments from distractors (0–1). Higher = lower target abundance. **Mutually exclusive with `--ct`** |
+| Distractor fraction | `--distractor-fraction` (`-f` on `prepare` only) | 0.9 | Fraction of fragments from distractors (0–1). Higher = lower target abundance. **Mutually exclusive with `--ct`** |
 | CT score | `--ct` | none | qPCR CT value. Converted to distractor fraction via calibration formula. Lower CT = more target. **Mutually exclusive with `--distractor-fraction`** |
 
 If neither is specified, defaults to `--distractor-fraction 0.9`.
@@ -119,12 +119,12 @@ Additional flags for `badread` only:
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--long-read-length-mean` | 15000 | Mean read length for badread (bp) |
-| `--long-read-length-sd` | 13000 | Standard deviation of read length for badread (bp) |
-| `--badread-glitches` | `0,0,0` | Badread glitch parameters (`rate,size,skip`). |
-| `--badread-junk-reads` | 0 | Percentage of junk reads in badread output |
-| `--badread-random-reads` | 0 | Percentage of random reads in badread output |
-| `--badread-chimeras` | 0 | Percentage of chimeric reads in badread output |
+| `--long-read-length-mean` | profile default: 9000 (`ont`/`ont-2020`), 15000 (`pacbio`) | Mean read length for badread (bp) |
+| `--long-read-length-sd` | profile default: 7000 (`ont`/`ont-2020`), 13000 (`pacbio`) | Standard deviation of read length for badread (bp) |
+| `--badread-glitches` | badread's own default | Badread glitch parameters (`rate,size,skip`). |
+| `--badread-junk-reads` | badread's own default (~1%) | Percentage of junk reads in badread output |
+| `--badread-random-reads` | badread's own default (~1%) | Percentage of random reads in badread output |
+| `--badread-chimeras` | badread's own default (~1%) | Percentage of chimeric reads in badread output |
 
 ---
 
@@ -167,7 +167,7 @@ Used by `baitbench build-probes`. All method-specific flags are silently ignored
 | Max masked fraction | `--max-masked-frac` | 0.25 | Max fraction of DUST-masked bases to keep a probe; set to 1.0 to disable complexity filtering |
 | Collapse threshold | `--collapse-threshold` | 0.95 | cd-hit-est identity threshold for initial target collapse |
 | Dedup threshold | `--dedup-threshold` | 0.95 | cd-hit-est identity threshold for final probe deduplication |
-| Threads | `--threads` | 5 | Number of threads for cd-hit-est |
+| Threads | `--threads` | 5 | Number of threads for cd-hit-est, and for the blastn search when the assessment step uses `--aligner blast` |
 | Output directory | `-o` / `--outdir` | `./build_probes_results` | Output directory |
 | Output prefix | `--output-prefix` | _(none)_ | String prepended to every output filename |
 | Report | `--report` | `both-r` | Report mode: `full` (HTML only), `rmd` (RMarkdown only), `both-r` (HTML + RMarkdown), `none` (skip) |
@@ -182,7 +182,8 @@ These apply to the `assess-probes` step that `build-probes` chains into automati
 |------|---------|-------------|
 | `--genomes` | _(none)_ | Genome FASTA(s) for cross-reactivity checking; can be specified multiple times |
 | `--threshold` | 80.0 | Minimum homology (%) for cross-reactivity detection |
-| `--minimap-preset` | `sr` | Minimap2 alignment preset for assessment alignments |
+| `--aligner` | `minimap2` | Alignment backend for the cross-reactivity step: `minimap2` (fast, embedded) or `blast` (blastn-short; more sensitive to weak/short homology, requires BLAST+ on PATH, uses `--threads`) |
+| `--minimap-preset` | `sr` | Minimap2 alignment preset for coverage/assessment alignments (always used regardless of `--aligner`) |
 | `--proximity` | 50 | Proximity distance (bp) for pull-down zone metric in coverage assessment |
 | `--refine-threshold` | 80.0 | 1× coverage threshold (%) below which targets are re-analyzed in refinement iterations |
 | `--refine-iterations` | _(none)_ | Number of refinement iterations to run on low-coverage targets |

@@ -130,7 +130,8 @@ baitbench filter \
   --host host_genome.fa \
   --reads reads.fa \
   --output filtered.fa \
-  [--minimap-preset sr]
+  [--minimap-preset sr] \
+  [--log-file host_filter.log]
 ```
 
 Uses the embedded aligner to map reads against the host genome. Reads that map are removed; unmapped reads are retained.
@@ -148,7 +149,8 @@ baitbench map \
   --reference combined_reference.fa \
   --reads reads.fa \
   --output mapped.sam \
-  [--minimap-preset sr]
+  [--minimap-preset sr] \
+  [--log-file mapping.log]
 ```
 
 In standard mode, reads are mapped to `combined_reference.fa`. In genome mode, reads are mapped to `mapping_reference.fa` (targets + distractors).
@@ -190,8 +192,11 @@ baitbench metrics \
   --output-detail detected_detail.tsv \
   [--output-json results.json] \
   [--output-coverage coverage.tsv] \
-  [--sample-target-map sample_target_map.txt] \
-  [--seed 42]
+  [--seed 42] \
+  [--reads-sequenced 10000] \
+  [--reads-after-filter 9500] \
+  [--target-groups groups.tsv] \
+  [--distractor-groups distractor_groups.tsv]
 ```
 
 **Output files:** `results.tsv`, `detected_detail.tsv`, optionally `results.json` and `coverage.tsv`.
@@ -292,6 +297,7 @@ baitbench build-probes \
   [--threads 5] \
   [--genomes genome1.fa ...] \
   [--threshold 80.0] \
+  [--aligner minimap2|blast] \
   [--skip-assess] \
   [--outdir build_probes_results] \
   [--report full|none|rmd] \
@@ -365,9 +371,10 @@ A final probe is always anchored to the sequence end regardless of step.
 | `--max-masked-frac` | 0.25 | Max sDUST-masked fraction to keep a probe. Set to 1.0 to disable. |
 | `--collapse-threshold` | 0.95 | cd-hit-est identity for initial target collapse |
 | `--dedup-threshold` | 0.95 | cd-hit-est identity for final probe deduplication |
-| `--threads` | 5 | Threads for cd-hit-est |
+| `--threads` | 5 | Threads for cd-hit-est, and for the blastn search when `--aligner blast` |
 | `--genomes` | none | Genome FASTA(s) for cross-reactivity check (assessment step) |
 | `--threshold` | 80.0 | Homology threshold for cross-reactivity (assessment step) |
+| `--aligner` | minimap2 | Alignment backend for the assessment's cross-reactivity step: `minimap2` (fast, embedded) or `blast` (blastn-short; more sensitive to weak/short homology, requires BLAST+ on PATH) |
 | `--syotti-mismatches` | 40 | Max Hamming distance for coverage (`syotti-lite` only) |
 | `--syotti-seed-len` | 20 | K-mer seed length for approximate matching (`syotti-lite` only) |
 | `--pt-step` | 1 | K-mer enumeration step (`probetools-lite` only) |
@@ -410,6 +417,7 @@ baitbench assess-probes \
   --probes probes.fa \
   [--genomes genome1.fa ...] \
   [--threshold 80.0] \
+  [--aligner minimap2|blast] \
   [--minimap-preset sr] \
   [--proximity 50] \
   [--outdir assess_probes_results] \
@@ -419,7 +427,8 @@ baitbench assess-probes \
   [--gap-min-length N] \
   [--no-individual-targets] \
   [--refine-iterations N | --refine-until-stable] \
-  [--refine-threshold 80.0]
+  [--refine-threshold 80.0] \
+  [--threads N]
 ```
 
 | Parameter | Default | Description |
@@ -428,7 +437,8 @@ baitbench assess-probes \
 | `--probes` | required | Probe sequences FASTA |
 | `--genomes` | none | Genome FASTA(s) for cross-reactivity (repeatable) |
 | `--threshold` | 80.0 | Minimum homology % to report cross-reactive hits |
-| `--minimap-preset` | sr | Alignment preset |
+| `--aligner` | minimap2 | Alignment backend for the cross-reactivity step: `minimap2` (fast, embedded) or `blast` (blastn-short; more sensitive to weak/short homology, requires BLAST+ on PATH) |
+| `--minimap-preset` | sr | Alignment preset for coverage mapping (always used regardless of `--aligner`) |
 | `--proximity` | 50 | Pull-down zone distance in bp |
 | `--outdir` | ./assess_probes_results | Output directory |
 | `--output-prefix` | (empty) | String prepended to every output filename |
@@ -439,6 +449,7 @@ baitbench assess-probes \
 | `--refine-iterations` | none | Number of refinement iterations |
 | `--refine-until-stable` | false | Repeat until stable |
 | `--refine-threshold` | 80.0 | 1× coverage threshold for refinement |
+| `--threads` | all cores | Threads for per-target coverage mapping, and for the blastn search when `--aligner blast` |
 
 **Output files:** `cov_probe_coverage_summary.tsv`, `cov_probe_depth.tsv`, `cov_multi_mapping_probes.tsv`, `xreact_hits.tsv`, `xreact_summary.tsv`, `individual_target_coverage_summary.tsv`, `*_gap_details.tsv`, `assess_probes_report.html`.
 
@@ -455,6 +466,7 @@ baitbench probe-coverage \
   [--outdir probe_coverage] \
   [--minimap-preset sr] \
   [--proximity 50] \
+  [--output-prefix ""] \
   [--report full|none|rmd]
 ```
 
@@ -465,6 +477,7 @@ baitbench probe-coverage \
 | `--outdir` | ./probe_coverage | Output directory |
 | `--minimap-preset` | sr | Alignment preset |
 | `--proximity` | 50 | Pull-down zone distance in bp |
+| `--output-prefix` | (empty) | String prepended to every output filename |
 | `--report` | `both-r` | Report mode |
 | `--cleanup` | false | Delete intermediate files |
 
@@ -497,7 +510,9 @@ baitbench xreact \
   [--against genome1.fa genome2.fa ...] \
   [--self] \
   [--threshold 80.0] \
+  [--aligner minimap2|blast] \
   [--minimap-preset sr] \
+  [--threads N] \
   [--outdir xreact_results]
 ```
 
@@ -509,9 +524,13 @@ At least one of `--against` or `--self` must be specified; both can be used toge
 | `--against` | none | Reference genome FASTA(s) (repeatable) |
 | `--self` | false | Check probe-vs-probe cross-reactivity (self-hits excluded) |
 | `--threshold` | 80.0 | Minimum homology %: `matching_bases / probe_length × 100` |
-| `--minimap-preset` | sr | Alignment preset |
+| `--aligner` | minimap2 | Alignment backend: `minimap2` (fast, embedded, no external install) or `blast` (blastn-short; more sensitive to weak/short homology, requires BLAST+ on PATH) |
+| `--minimap-preset` | sr | Alignment preset (`--aligner minimap2` only) |
+| `--threads` | all cores | Threads for the blastn search (`--aligner blast` only) |
 | `--outdir` | ./xreact_results | Output directory |
 | `--cleanup` | false | Delete intermediate files |
+
+**Choosing an aligner:** minimap2's minimizer-based seeding can miss weak or short homologous regions, especially for probe-length (~60–120bp) queries with divergent similarity — a known limitation of minimizer chaining, not just a tuning gap. `--aligner blast` trades speed for sensitivity in that regime, which matters most when a missed cross-reactive hit (false negative) is the costlier error.
 
 **Homology metric:** `matching_bases / probe_length × 100`. Captures both alignment identity and query coverage in one number — a probe with 90% identity over 90% of its length scores ~81%.
 

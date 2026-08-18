@@ -50,6 +50,8 @@ Report generation requires R and the `R/` directory.
 
 ### "blastn: command not found" or "cd-hit-est: command not found"
 
+`blastn` is only needed for `--aligner blast` on `xreact`, `assess-probes`, or `build-probes` (the default `--aligner minimap2` is embedded and needs no external install). `cd-hit-est` is needed for `build-probes` and `tool collapse`.
+
 The conda environment is not active.
 
 ```bash

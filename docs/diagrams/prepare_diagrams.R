@@ -24,6 +24,12 @@
 #   9  paper_fragment_sampling.png       — two-level multinomial sampling schematic
 #  10  paper_build_probes.png            — build-probes pipeline steps
 #  11  paper_assess_probes.png           — assess-probes pipeline steps
+#  12  paper_full_simulation_pipeline.png — genome-mode simulation pipeline, full detail
+#                                       (prepare → probe alignment → thermodynamic
+#                                       scoring → fragment sampling → sequence
+#                                       simulator options → filter → map/list →
+#                                       metrics → report). Intentionally dense —
+#                                       not meant to be readable at a glance.
 
 library(DiagrammeR)
 library(DiagrammeRsvg)
@@ -34,7 +40,7 @@ outdir <- if (length(args) >= 1) args[1] else "."
 dir.create(outdir, showWarnings = FALSE, recursive = TRUE)
 
 # Parse diagram selection (e.g. "5", "2-4", "1,3,5-6")
-parse_selection <- function(spec, total = 11) {
+parse_selection <- function(spec, total = 12) {
   if (is.na(spec) || spec == "" || spec == "all") return(seq_len(total))
   parts <- unlist(strsplit(spec, ","))
   nums <- integer(0)
@@ -97,7 +103,7 @@ save_poster <- function(graph, filename, width) {
       message("  (capped to ", target, " px wide to stay within memory)")
     }
   }
-  out <- file.path(outdir, paste0("poster_", filename))
+  out <- file.path(outdir, paste0("poster_", sub("^paper_", "", filename)))
   rsvg_png(charToRaw(svg), file = out, width = target)
   message("Saved: ", out, "  [", target, " px wide]")
 }
@@ -811,7 +817,7 @@ digraph {
   graph [rankdir=LR, fontname='Helvetica', bgcolor='white',
          label=<<B>BaitBench: Complete Tool Workflow</B>>,
          labelloc=t, fontsize=22, pad='0.6,0.4', nodesep=0.45, ranksep=0.9]
-  node [fontname='Helvetica', fontsize=11, style=filled, shape=box,
+  node [fontname='Helvetica', fontsize=12, style=filled, shape=box,
         margin='0.15,0.09', penwidth=1.5]
   edge [fontname='Helvetica', fontsize=9, penwidth=1.4]
 
@@ -820,13 +826,13 @@ digraph {
     label=<<B>User Inputs</B>>; style=rounded; color='#BDC3C7'
     fontsize=12; fontcolor='#7F8C8D'; margin=12
 
-    in_targets   [label=<<B>targets.fa</B><BR/><FONT POINT-SIZE='9'>Target sequences</FONT>>,
+    in_targets   [label=<<B>targets.fa</B>>,
                   fillcolor='#D6EAF8', color='#4A90D9', shape=note]
-    in_distractors [label=<<B>distractors.fa</B><BR/><FONT POINT-SIZE='9'>Background sequences</FONT>>,
+    in_distractors [label=<<B>distractors.fa</B>>,
                     fillcolor='#FADBD8', color='#E74C3C', shape=note]
-    in_probes_ext [label=<<B>probes.fa</B><BR/><FONT POINT-SIZE='9'>Pre-built probes<BR/>(if skipping design)</FONT>>,
+    in_probes_ext [label=<<B>probes.fa</B>>,
                    fillcolor='#FCF3CF', color='#D4AC0D', shape=note, style='filled,dashed']
-    in_sample    [label=<<B>sample.tsv</B><BR/><FONT POINT-SIZE='9'>Sample manifest<BR/>(optional)</FONT>>,
+    in_sample    [label=<<B>sample.tsv</B>>,
                   fillcolor='#FDEBD0', color='#F39C12', shape=note, style='filled,dashed']
 
     in_targets -> in_distractors [style=invis]
@@ -836,13 +842,13 @@ digraph {
 
   // ── PHASE 1: DESIGN ──────────────────────────────────────────────────────
   subgraph cluster_design {
-    label=<<B>Phase 1 — Design</B><BR/><FONT POINT-SIZE='9'>Optional: build probe set from targets</FONT>>
+    label=<<B>Design</B>>
     style=rounded; color='#8E44AD'; fontsize=13; fontcolor='#8E44AD'; margin=15
 
-    build [label=<<B>build-probes</B><BR/><FONT POINT-SIZE='9'>N-filter → collapse → tile/CATCH/Syotti<BR/>GC filter → sDUST → deduplicate</FONT>>,
+    build [label=<<B>build-probes</B>>,
            fillcolor='#8E44AD', fontcolor='white']
 
-    probes_fa [label=<<B>probes.fa</B><BR/><FONT POINT-SIZE='9'>Filtered probe set</FONT>>,
+    probes_fa [label=<<B>probes.fa</B>>,
                fillcolor='#E8DAEF', color='#8E44AD', shape=note]
 
     build -> probes_fa [color='#8E44AD']
@@ -850,13 +856,13 @@ digraph {
 
   // ── PHASE 2: ASSESS ──────────────────────────────────────────────────────
   subgraph cluster_assess {
-    label=<<B>Phase 2 — Assess</B><BR/><FONT POINT-SIZE='9'>Probe QC: coverage, cross-reactivity, panel discriminability</FONT>>
+    label=<<B>Assess</B>>
     style=rounded; color='#2980B9'; fontsize=13; fontcolor='#2980B9'; margin=15
 
-    assess [label=<<B>assess-probes</B><BR/><FONT POINT-SIZE='9'>Probe coverage (minimap2)<BR/>Cross-reactivity (probes vs self/genomes)<BR/>panel-qc: target discriminability</FONT>>,
+    assess [label=<<B>assess-probes</B>>,
             fillcolor='#2980B9', fontcolor='white']
 
-    assess_report [label=<<B>assess_probes.html</B><BR/><FONT POINT-SIZE='9'>Coverage • gaps • multimapping<BR/>Cross-reactivity heat maps<BR/>Discriminability scores</FONT>>,
+    assess_report [label=<<B>assess_probes.html</B>>,
                    fillcolor='#D6EAF8', color='#2980B9', shape=note]
 
     assess -> assess_report [color='#2980B9']
@@ -864,34 +870,28 @@ digraph {
 
   // ── PHASE 3: SIMULATE ────────────────────────────────────────────────────
   subgraph cluster_simulate {
-    label=<<B>Phase 3 — Simulate</B><BR/><FONT POINT-SIZE='9'>In-silico capture experiment</FONT>>
+    label=<<B>Simulate</B>>
     style=rounded; color='#1A5276'; fontsize=13; fontcolor='#1A5276'; margin=15
 
-    sim_prepare [label=<<B>prepare</B><BR/><FONT POINT-SIZE='9'>Combine refs, weights</FONT>>,
-                 fillcolor='#2C3E50', fontcolor='white']
-    sim_simulate [label=<<B>simulate</B><BR/><FONT POINT-SIZE='9'>TNN scoring + multinomial<BR/>probe-biased + background</FONT>>,
-                  fillcolor='#1A5276', fontcolor='white']
-    sim_sequence [label=<<B>sequence</B><BR/><FONT POINT-SIZE='9'>Trim to read length</FONT>>,
-                  fillcolor='#154360', fontcolor='white']
-    sim_filter   [label=<<B>filter</B><BR/><FONT POINT-SIZE='9'>Host depletion (optional)</FONT>>,
-                  fillcolor='#154360', fontcolor='white', style='filled,dashed']
-    sim_map      [label=<<B>map + list</B><BR/><FONT POINT-SIZE='9'>minimap2 → read counts</FONT>>,
-                  fillcolor='#0D3349', fontcolor='white']
-    sim_metrics  [label=<<B>metrics</B><BR/><FONT POINT-SIZE='9'>TP / FP_target / FP_distractor<BR/>FN / TN → sensitivity, specificity</FONT>>,
-                  fillcolor='#0B5345', fontcolor='white']
+    sim_prepare  [label=<<B>prepare</B>>,     fillcolor='#2C3E50', fontcolor='white']
+    sim_simulate [label=<<B>simulate</B>>,    fillcolor='#1A5276', fontcolor='white']
+    sim_sequence [label=<<B>sequence</B>>,    fillcolor='#154360', fontcolor='white']
+    sim_filter   [label=<<B>filter</B>>,      fillcolor='#154360', fontcolor='white', style='filled,dashed']
+    sim_map      [label=<<B>map + list</B>>,  fillcolor='#0D3349', fontcolor='white']
+    sim_metrics  [label=<<B>metrics</B>>,     fillcolor='#0B5345', fontcolor='white']
 
     sim_prepare -> sim_simulate -> sim_sequence -> sim_filter [style=dashed]
     sim_filter -> sim_map [style=dashed]
-    sim_sequence -> sim_map [style=dashed, label=<<FONT POINT-SIZE='8'>(no filter)</FONT>>]
+    sim_sequence -> sim_map [style=dashed]
     sim_map -> sim_metrics
   }
 
   // ── PHASE 4: REPORT ──────────────────────────────────────────────────────
   subgraph cluster_report {
-    label=<<B>Phase 4 — Report</B>>
+    label=<<B>Report</B>>
     style=rounded; color='#27AE60'; fontsize=13; fontcolor='#27AE60'; margin=15
 
-    sim_report [label=<<B>report.html</B><BR/><FONT POINT-SIZE='9'>Sankey • detection lollipop<BR/>Coverage plots • metrics<BR/>(R / ggplot2)</FONT>>,
+    sim_report [label=<<B>report.html</B>>,
                 fillcolor='#D5F5E3', color='#27AE60', shape=note, penwidth=2.5]
   }
 
@@ -904,8 +904,7 @@ digraph {
   in_targets -> assess [color='#2980B9']
 
   // External probes → Assess (bypass design)
-  in_probes_ext -> assess [style=dashed, color='#2980B9',
-                            label=<<FONT POINT-SIZE='8' COLOR='#2980B9'>bypass design</FONT>>]
+  in_probes_ext -> assess [style=dashed, color='#2980B9']
 
   // Inputs → Simulate
   in_targets -> sim_prepare [color='#1A5276']
@@ -914,8 +913,7 @@ digraph {
 
   // Probes → Simulate
   probes_fa -> sim_simulate [color='#1A5276']
-  in_probes_ext -> sim_simulate [style=dashed, color='#1A5276',
-                                  label=<<FONT POINT-SIZE='8' COLOR='#1A5276'>or use directly</FONT>>]
+  in_probes_ext -> sim_simulate [style=dashed, color='#1A5276']
 
   // Simulate → Report
   sim_metrics -> sim_report [color='#27AE60', penwidth=2]
@@ -1247,107 +1245,53 @@ if (10 %in% selected) {
 diagram10 <- grViz("
 digraph {
   graph [rankdir=TB, fontname='Helvetica', bgcolor='white',
-         label=<<B>baitbench build-probes</B><BR/>
-         <FONT POINT-SIZE='13'>Probe Design Pipeline</FONT>>,
+         label=<<B>baitbench build-probes</B>>,
          labelloc=t, fontsize=20, pad=0.6, nodesep=0.55, ranksep=0.7]
   node [fontname='Helvetica', fontsize=12, style=filled, shape=box,
         margin='0.18,0.10']
   edge [fontname='Helvetica', fontsize=10]
 
   // ── INPUT ─────────────────────────────────────────────────────────────────
-  input [label=<<B>targets.fa</B><BR/>
-         <FONT POINT-SIZE='10'>Input target sequences<BR/>(N sequences)</FONT>>,
+  input [label=<<B>targets.fa</B>>,
          fillcolor='#D6EAF8', color='#4A90D9', penwidth=2, shape=folder]
 
-  params [label=<<FONT POINT-SIZE='10'><B>Parameters</B><BR/>
-          --probe-length (120)<BR/>
-          --method tile | catch-lite | syotti-lite | catch<BR/>
-          --gc-min / --gc-max (0.25–0.75)<BR/>
-          --max-masked-frac (0.5)<BR/>
-          --similarity (0.95 dedup)</FONT>>,
-          fillcolor='#F2F3F4', color='#95A5A6', shape=note, penwidth=1]
-
-  // ── STEP 1 ────────────────────────────────────────────────────────────────
-  s1 [label=<<B>Step 1 — N-content filter</B><BR/>
-      <FONT POINT-SIZE='10'>Remove sequences with &gt; max-n-fraction ambiguous bases<BR/>
-      (default 10%)</FONT>>,
+  // ── STEPS ─────────────────────────────────────────────────────────────────
+  s1 [label=<<B>N-content filter</B>>,
       fillcolor='#FDEBD0', color='#CA6F1E', penwidth=1.5]
 
-  // ── STEP 2 ────────────────────────────────────────────────────────────────
-  s2 [label=<<B>Step 2 — Collapse redundant targets</B><BR/>
-      <FONT POINT-SIZE='10'>cd-hit-est clustering to remove near-identical sequences<BR/>
-      (reduces redundancy before probe construction)</FONT>>,
+  s2 [label=<<B>Collapse redundant targets</B>>,
       fillcolor='#FDEBD0', color='#CA6F1E', penwidth=1.5]
 
-  // ── STEP 3 ────────────────────────────────────────────────────────────────
-  s3 [label=<<B>Step 3 — Length filter</B><BR/>
-      <FONT POINT-SIZE='10'>Remove sequences shorter than probe length<BR/>
-      (cannot tile a probe from them)</FONT>>,
+  s3 [label=<<B>Length filter</B>>,
       fillcolor='#FDEBD0', color='#CA6F1E', penwidth=1.5]
 
-  // ── STEP 4 — method branch ────────────────────────────────────────────────
-  s4_choice [label=<<B>Step 4 — Build probes</B><BR/>
-             <FONT POINT-SIZE='10'>Select probe design method:</FONT>>,
+  // ── method branch ────────────────────────────────────────────────────────
+  s4_choice [label=<<B>Build probes</B>>,
              fillcolor='#D5F5E3', color='#1E8449', penwidth=2, shape=diamond,
              margin='0.25,0.12']
 
-  s4_tile [label=<<B>tile</B><BR/>
-           <FONT POINT-SIZE='10'>Sliding window across each sequence<BR/>
-           (configurable overlap via --step)</FONT>>,
-           fillcolor='#EAFAF1', color='#1E8449', penwidth=1.5]
+  s4_tile   [label=<<B>tile</B>>,        fillcolor='#EAFAF1', color='#1E8449', penwidth=1.5]
+  s4_catch  [label=<<B>catch-lite</B>>,  fillcolor='#EAFAF1', color='#1E8449', penwidth=1.5]
+  s4_syotti [label=<<B>syotti-lite</B>>, fillcolor='#EAFAF1', color='#1E8449', penwidth=1.5]
+  s4_ext    [label=<<B>catch</B>>,       fillcolor='#EAFAF1', color='#1E8449', penwidth=1.5]
 
-  s4_catch [label=<<B>catch-lite</B><BR/>
-            <FONT POINT-SIZE='10'>CATCH optimization: tiling → MinHash<BR/>
-            dedup → greedy set cover<BR/>
-            (native Rust reimplementation)</FONT>>,
-            fillcolor='#EAFAF1', color='#1E8449', penwidth=1.5]
+  s4_merge [label='', shape=point, width=0.15, fillcolor='#1E8449', color='#1E8449']
 
-  s4_syotti [label=<<B>syotti-lite</B><BR/>
-             <FONT POINT-SIZE='10'>Syotti greedy set cover: k-mer index<BR/>
-             seed-and-extend bait design<BR/>
-             (native Rust reimplementation)</FONT>>,
-             fillcolor='#EAFAF1', color='#1E8449', penwidth=1.5]
-
-  s4_ext [label=<<B>catch</B><BR/>
-          <FONT POINT-SIZE='10'>External CATCH tool<BR/>
-          (requires catch conda package)</FONT>>,
-          fillcolor='#EAFAF1', color='#1E8449', penwidth=1.5]
-
-  s4_merge [label=<<FONT POINT-SIZE='10'>raw probes.fa</FONT>>,
-            shape=point, width=0.15, fillcolor='#1E8449', color='#1E8449']
-
-  // ── STEP 5 ────────────────────────────────────────────────────────────────
-  s5 [label=<<B>Step 5 — GC-content filter</B><BR/>
-      <FONT POINT-SIZE='10'>Remove probes outside GC range<BR/>
-      (default 25%–75%)</FONT>>,
+  s5 [label=<<B>GC-content filter</B>>,
       fillcolor='#FDEBD0', color='#CA6F1E', penwidth=1.5]
 
-  // ── STEP 6 ────────────────────────────────────────────────────────────────
-  s6 [label=<<B>Step 6 — Complexity filter (sDUST)</B><BR/>
-      <FONT POINT-SIZE='10'>Remove low-complexity probes<BR/>
-      (Morgulis et al. 2006; default max-masked-frac 0.5)</FONT>>,
+  s6 [label=<<B>Complexity filter</B>>,
       fillcolor='#FDEBD0', color='#CA6F1E', penwidth=1.5]
 
-  // ── STEP 7 ────────────────────────────────────────────────────────────────
-  s7 [label=<<B>Step 7 — Deduplicate</B><BR/>
-      <FONT POINT-SIZE='10'>cd-hit-est clustering to remove near-identical probes<BR/>
-      (default similarity 0.95)</FONT>>,
+  s7 [label=<<B>Deduplicate</B>>,
       fillcolor='#FDEBD0', color='#CA6F1E', penwidth=1.5]
 
   // ── OUTPUT ────────────────────────────────────────────────────────────────
-  output [label=<<B>probes.fa</B><BR/>
-          <FONT POINT-SIZE='10'>Final probeset</FONT>>,
+  output [label=<<B>probes.fa</B>>,
           fillcolor='#D5F5E3', color='#1E8449', penwidth=2, shape=folder]
 
-  chain [label=<<B>assess-probes</B><BR/>
-         <FONT POINT-SIZE='10'>Auto-chained unless --skip-assess<BR/>
-         (probe coverage + cross-reactivity + report)</FONT>>,
-         fillcolor='#EBF5FB', color='#2E86C1', penwidth=1.5, shape=box]
-
   // ── EDGES ─────────────────────────────────────────────────────────────────
-  input  -> s1 [penwidth=2]
-  params -> s1 [style=dashed, color='#95A5A6', arrowhead=none]
-  s1 -> s2 -> s3 -> s4_choice [penwidth=2]
+  input -> s1 -> s2 -> s3 -> s4_choice [penwidth=2]
 
   s4_choice -> s4_tile   [label='tile',       color='#1E8449']
   s4_choice -> s4_catch  [label='catch-lite', color='#1E8449']
@@ -1360,11 +1304,6 @@ digraph {
   s4_ext    -> s4_merge [color='#1E8449']
 
   s4_merge -> s5 -> s6 -> s7 -> output [penwidth=2]
-  output -> chain [penwidth=1.8, style=dashed, color='#2E86C1',
-                   label='auto-chain']
-
-  // keep params from expanding layout
-  { rank=same; params; s1 }
 }
 ")
 
@@ -1379,8 +1318,7 @@ if (11 %in% selected) {
 diagram11 <- grViz("
 digraph {
   graph [rankdir=TB, fontname='Helvetica', bgcolor='white',
-         label=<<B>baitbench assess-probes</B><BR/>
-         <FONT POINT-SIZE='13'>Combined Probe Assessment Pipeline</FONT>>,
+         label=<<B>baitbench assess-probes</B>>,
          labelloc=t, fontsize=20, pad=0.6, nodesep=0.55, ranksep=0.7]
   node [fontname='Helvetica', fontsize=12, style=filled, shape=box,
         margin='0.18,0.10']
@@ -1391,74 +1329,42 @@ digraph {
     label=<<B>Inputs</B>>; style=dashed; color='#7F8C8D'; fontsize=13;
     fontcolor='#7F8C8D'
 
-    targets [label=<<B>targets.fa</B><BR/>
-             <FONT POINT-SIZE='10'>Target sequences</FONT>>,
+    targets [label=<<B>targets.fa</B>>,
              fillcolor='#D6EAF8', color='#4A90D9', penwidth=2, shape=folder]
 
-    probes [label=<<B>probes.fa</B><BR/>
-            <FONT POINT-SIZE='10'>Probe sequences to assess</FONT>>,
+    probes [label=<<B>probes.fa</B>>,
             fillcolor='#D5F5E3', color='#1E8449', penwidth=2, shape=folder]
 
-    genomes_opt [label=<<B>genomes.fa</B><BR/>
-                 <FONT POINT-SIZE='10'>Non-target genomes for<BR/>
-                 cross-reactivity check</FONT>>,
+    genomes_opt [label=<<B>genomes.fa</B>>,
                  fillcolor='#F2F3F4', color='#95A5A6', penwidth=1, shape=folder]
 
-    build_stats [label=<<B>build_stats.tsv</B> <BR/>
-                 <FONT POINT-SIZE='10'>Step-by-step count stats<BR/>
-                 from build-probes chain</FONT>>,
+    build_stats [label=<<B>build_stats.tsv</B>>,
                  fillcolor='#F2F3F4', color='#95A5A6', penwidth=1, shape=folder]
   }
 
-  // ── STEP 1a ───────────────────────────────────────────────────────────────
-  s1a [label=<<B>Step 1a — Probe coverage analysis</B><BR/>
-       <FONT POINT-SIZE='10'>rammap: all probes vs all targets (combined alignment)<BR/>
-       Per-probe and per-target coverage statistics<BR/>
-       (--threshold, --proximity for gap bridging)</FONT>>,
+  // ── COVERAGE ──────────────────────────────────────────────────────────────
+  s1a [label=<<B>Probe coverage analysis</B>>,
        fillcolor='#EBF5FB', color='#2E86C1', penwidth=2]
 
-  // ── STEP 1b ───────────────────────────────────────────────────────────────
-  s1b [label=<<B>Step 1b — Individual target coverage</B><BR/>
-       <FONT POINT-SIZE='10'>Aligned per target in isolation; eliminates probe competition<BR/>
-       Enables true_gap vs. multimapper_gap classification<BR/>
-       Skip with --no-individual-targets for very large panels</FONT>>,
+  s1b [label=<<B>Individual target coverage</B>>,
        fillcolor='#EBF5FB', color='#2E86C1', penwidth=2]
 
-  // ── STEP 1c ───────────────────────────────────────────────────────────────
-  s1c [label=<<B>Step 1c — Gap details</B><BR/>
-       <FONT POINT-SIZE='10'>Per-gap table of uncovered target regions<BR/>
-       (--gap-min-length; defaults to median probe length)</FONT>>,
+  s1c [label=<<B>Gap details</B>>,
        fillcolor='#EBF5FB', color='#2E86C1', penwidth=2]
 
-  // ── STEP 2a ───────────────────────────────────────────────────────────────
-  s2a [label=<<B>Step 2a — Self cross-reactivity</B> <BR/>
-       <FONT POINT-SIZE='10'>blastn: probes vs probes<BR/>
-       Identifies probes with off-target hits within the probeset</FONT>>,
+  // ── CROSS-REACTIVITY ──────────────────────────────────────────────────────
+  s2a [label=<<B>Self cross-reactivity</B>>,
        fillcolor='#FDEDEC', color='#C0392B', penwidth=2]
 
-  // ── STEP 2b ───────────────────────────────────────────────────────────────
-  s2b [label=<<B>Step 2b — Genome cross-reactivity</B> <BR/>
-       <FONT POINT-SIZE='10'>blastn: probes vs non-target genomes<BR/>
-       Identifies probes that may capture off-target organisms</FONT>>,
+  s2b [label=<<B>Genome cross-reactivity</B>>,
        fillcolor='#FDEDEC', color='#C0392B', penwidth=1.5, style='filled,dashed']
 
   // ── REPORT ────────────────────────────────────────────────────────────────
-  report [label=<<B>Combined HTML Report</B><BR/>
-          <FONT POINT-SIZE='10'>(optional) Build pipeline stats<BR/>
-          Probe coverage summary + depth plots<BR/>
-          Individual target coverage section<BR/>
-          Cross-reactivity heatmaps + tables<BR/>
-          Parameters panel</FONT>>,
+  report [label=<<B>Combined HTML Report</B>>,
           fillcolor='#F9F0FF', color='#7D3C98', penwidth=2, shape=box]
 
   output [label=<<B>assess_probes_report.html</B>>,
           fillcolor='#F3E5F5', color='#7D3C98', penwidth=2, shape=folder]
-
-  // ── STANDALONE NOTE ────────────────────────────────────────────────────────
-  note [shape=note, fillcolor='#FEF9E7', color='#D4AC0D',
-        label=<<FONT POINT-SIZE='9'><I>Can be run standalone<BR/>
-        or auto-chained from<BR/>
-        build-probes</I></FONT>>]
 
   // ── EDGES ─────────────────────────────────────────────────────────────────
   targets -> s1a [penwidth=2]
@@ -1482,12 +1388,381 @@ digraph {
   s2b -> report [penwidth=1.2, style=dashed, color='#C0392B']
 
   report -> output [penwidth=2.5, color='#7D3C98']
-
-  note -> targets [style=invis]
 }
 ")
 
 save_diagram(diagram11, "paper_assess_probes.png", width = 3600)
+}
+
+
+
+# ============================================================================
+# Diagram 12: Full Simulation Pipeline — Genome Mode, Full Detail
+# Deliberately dense: merges mode 4 (--genomes + --sample) prepare, probe
+# alignment, thermodynamic scoring (diagram 8), fragment sampling (diagram 9),
+# every read-simulator option, filter, map/list, genome-aware metrics, and
+# report generation into one diagram. Not meant to be read at a glance.
+# ============================================================================
+if (12 %in% selected) {
+diagram12 <- grViz("
+digraph {
+  graph [rankdir=TB, fontname='Helvetica', bgcolor='white',
+         label=<<B>BaitBench: Full Simulation Pipeline — Genome Mode</B><BR/>
+         <FONT POINT-SIZE='13'>Mode 4 (--genomes + --sample) &middot; thermodynamic capture model &middot; every stage in detail</FONT>>,
+         labelloc=t, fontsize=24, pad='0.7,0.5', nodesep=0.45, ranksep=0.75]
+  node [fontname='Helvetica', fontsize=11, style=filled, shape=box, margin='0.14,0.08']
+  edge [fontname='Helvetica', fontsize=9]
+
+  // ══════════════════════════════════════════════════════════════════════
+  // STAGE 1 — USER INPUTS
+  // ══════════════════════════════════════════════════════════════════════
+  subgraph cluster_inputs {
+    label=<<B>User Inputs</B>>; style=dashed; color='#7F8C8D'; fontsize=14; fontcolor='#7F8C8D'
+
+    in_genomes [label=<<B>genomes.fa</B><BR/><FONT POINT-SIZE='10'>Full genome sequences<BR/>IDs: G1, G2, G3</FONT>>,
+                fillcolor='#E8DAEF', color='#8E44AD', penwidth=2]
+    in_targets [label=<<B>targets.fa</B><BR/><FONT POINT-SIZE='10'>Probe target subsequences<BR/>IDs: G1|16S, G2|ompB, G3|gltA</FONT>>,
+                fillcolor='#D6EAF8', color='#4A90D9', penwidth=2]
+    in_distractors [label=<<B>distractors.fa</B><BR/><FONT POINT-SIZE='10'>Background sequences<BR/>IDs: D1, D2, ... Dn</FONT>>,
+                    fillcolor='#FADBD8', color='#E74C3C', penwidth=2]
+    in_probes [label=<<B>probes.fa</B><BR/><FONT POINT-SIZE='10'>Capture probe sequences<BR/>(from build-probes or user-supplied)</FONT>>,
+               fillcolor='#FCF3CF', color='#D4AC0D', penwidth=2]
+    in_sample [label=<<B>--sample manifest.tsv</B><BR/><FONT POINT-SIZE='10'>G1  1.0<BR/>G2  3.0<BR/>(G3 is NOT in sample)</FONT>>,
+               fillcolor='#FDEBD0', color='#F39C12', penwidth=2, shape=note]
+    in_stmap [label=<<B>--sample-target-map</B><BR/><FONT POINT-SIZE='10'>(optional explicit TSV)<BR/>G1  G1|16S<BR/>G2  G2|ompB<BR/>G3  G3|gltA<BR/><I>Or: auto-linked by prefix</I></FONT>>,
+              fillcolor='#FDEBD0', color='#E67E22', penwidth=2, shape=note]
+    in_params [label=<<B>Global Parameters</B><BR/>
+               <FONT POINT-SIZE='9'>--distractor-fraction 0.9 (or --ct)<BR/>
+               --hybridization-temperature 65<BR/>
+               --salt-concentration 50<BR/>
+               --fragment-length-mean/min/max<BR/>
+               --capture-fraction<BR/>
+               --num-fragments<BR/>
+               --seed</FONT>>,
+               fillcolor='#F2F3F4', color='#95A5A6', shape=note, penwidth=1]
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // STAGE 2 — PREPARE
+  // ══════════════════════════════════════════════════════════════════════
+  prep_step [label=<<B>baitbench prepare</B><BR/><FONT POINT-SIZE='10'>Validate sample IDs in genomes<BR/>Resolve genome &rarr; target maps<BR/>Build two references<BR/>Generate weights</FONT>>,
+             fillcolor='#34495E', fontcolor=white, shape=box, penwidth=2]
+
+  subgraph cluster_prepare_out {
+    label=<<B>Prepare Outputs</B>>; style=dashed; color='#27AE60'; fontsize=14; fontcolor='#27AE60'
+
+    prep_combined [label=<<B>combined_reference.fa</B><BR/><FONT POINT-SIZE='10'>genomes.fa + distractors.fa<BR/>For fragment generation</FONT>>,
+                   fillcolor='#D5F5E3', color='#27AE60', penwidth=2]
+    prep_mapping [label=<<B>mapping_reference.fa</B><BR/><FONT POINT-SIZE='10'>targets.fa + distractors.fa<BR/>For read mapping (later)</FONT>>,
+                  fillcolor='#D5F5E3', color='#27AE60', penwidth=2]
+    prep_weights [label=<<B>weights.txt</B><BR/><FONT POINT-SIZE='10'>G1  1.0   (sample)<BR/>G2  3.0   (sample, high weight)<BR/><FONT COLOR='#95A5A6'>G3  0.0   (non-sample, no frags!)</FONT><BR/>D1  0.036 (distractor weight)<BR/>...</FONT>>,
+                  fillcolor='#D5F5E3', color='#2ECC71', penwidth=2]
+    prep_stmap [label=<<B>sample_target_map.txt</B><BR/><FONT POINT-SIZE='10'>G1 &rarr; G1|16S<BR/>G2 &rarr; G2|ompB<BR/>G3 &rarr; G3|gltA<BR/>(used by metrics step)</FONT>>,
+                fillcolor='#FDEBD0', color='#E67E22', penwidth=2]
+    prep_idlists [label=<<B>ID Lists</B><BR/><FONT POINT-SIZE='10'>genomes.txt, targets.txt<BR/>distractors.txt<BR/>sample.txt (subset!)</FONT>>,
+                  fillcolor='#D1F2EB', color='#1ABC9C', penwidth=2]
+  }
+
+  in_genomes -> prep_step
+  in_targets -> prep_step
+  in_distractors -> prep_step
+  in_sample -> prep_step
+  in_stmap -> prep_step [style=dashed, label=<<FONT POINT-SIZE='9'>optional</FONT>>]
+  in_params -> prep_step [style=dashed, color='#95A5A6', arrowhead=none]
+
+  prep_step -> prep_combined
+  prep_step -> prep_mapping
+  prep_step -> prep_weights
+  prep_step -> prep_stmap
+  prep_step -> prep_idlists
+
+  // ══════════════════════════════════════════════════════════════════════
+  // STAGE 3 — SIMULATE: probe alignment entry
+  // ══════════════════════════════════════════════════════════════════════
+  sim_align [label=<<B>Probe Alignment (rammap)</B><BR/>
+             <FONT POINT-SIZE='10'>probes.fa vs combined_reference.fa<BR/>
+             &rarr; fragments.probe_hits.sam</FONT>>,
+             fillcolor='#2C3E50', fontcolor=white, shape=box, penwidth=2]
+
+  in_probes -> sim_align
+  prep_combined -> sim_align
+
+  // ══════════════════════════════════════════════════════════════════════
+  // STAGE 4 — THERMODYNAMIC SCORING  (SantaLucia 1998 NN model)
+  // ══════════════════════════════════════════════════════════════════════
+  subgraph cluster_thermo {
+    label=<<B>Thermodynamic Scoring — per probe/reference alignment</B>>;
+    style=rounded; color='#2980B9'; fontsize=13; fontcolor='#2980B9'; margin=16
+
+    td_alignment [shape=plaintext, label=<
+      <TABLE BORDER='0' CELLBORDER='0' CELLSPACING='2' CELLPADDING='4'>
+        <TR>
+          <TD ALIGN='LEFT'><FONT POINT-SIZE='8' COLOR='#7F8C8D'>Probe 5'</FONT></TD>
+          <TD BGCOLOR='#D5F5E3' BORDER='1' WIDTH='24' ALIGN='CENTER'><B>G</B></TD>
+          <TD BGCOLOR='#D5F5E3' BORDER='1' WIDTH='24' ALIGN='CENTER'><B>C</B></TD>
+          <TD BGCOLOR='#FADBD8' BORDER='1' WIDTH='24' ALIGN='CENTER'><FONT COLOR='#C0392B'><B>A</B></FONT></TD>
+          <TD BGCOLOR='#D5F5E3' BORDER='1' WIDTH='24' ALIGN='CENTER'><B>G</B></TD>
+          <TD BGCOLOR='#D5F5E3' BORDER='1' WIDTH='24' ALIGN='CENTER'><B>T</B></TD>
+          <TD BGCOLOR='#D5F5E3' BORDER='1' WIDTH='24' ALIGN='CENTER'><B>C</B></TD>
+          <TD BGCOLOR='#D5F5E3' BORDER='1' WIDTH='24' ALIGN='CENTER'><B>G</B></TD>
+          <TD BGCOLOR='#D5F5E3' BORDER='1' WIDTH='24' ALIGN='CENTER'><B>T</B></TD>
+          <TD ALIGN='RIGHT'><FONT POINT-SIZE='8' COLOR='#7F8C8D'>3'</FONT></TD>
+        </TR>
+        <TR>
+          <TD></TD>
+          <TD ALIGN='CENTER'><FONT POINT-SIZE='11'>|</FONT></TD>
+          <TD ALIGN='CENTER'><FONT POINT-SIZE='11'>|</FONT></TD>
+          <TD ALIGN='CENTER'><FONT COLOR='#C0392B' POINT-SIZE='10'><B>X</B></FONT></TD>
+          <TD ALIGN='CENTER'><FONT POINT-SIZE='11'>|</FONT></TD>
+          <TD ALIGN='CENTER'><FONT POINT-SIZE='11'>|</FONT></TD>
+          <TD ALIGN='CENTER'><FONT POINT-SIZE='11'>|</FONT></TD>
+          <TD ALIGN='CENTER'><FONT POINT-SIZE='11'>|</FONT></TD>
+          <TD ALIGN='CENTER'><FONT POINT-SIZE='11'>|</FONT></TD>
+          <TD></TD>
+        </TR>
+        <TR>
+          <TD ALIGN='LEFT'><FONT POINT-SIZE='8' COLOR='#7F8C8D'>Ref   3'</FONT></TD>
+          <TD BGCOLOR='#D5F5E3' BORDER='1' ALIGN='CENTER'><B>C</B></TD>
+          <TD BGCOLOR='#D5F5E3' BORDER='1' ALIGN='CENTER'><B>G</B></TD>
+          <TD BGCOLOR='#FADBD8' BORDER='1' ALIGN='CENTER'><FONT COLOR='#C0392B'><B>C</B></FONT></TD>
+          <TD BGCOLOR='#D5F5E3' BORDER='1' ALIGN='CENTER'><B>C</B></TD>
+          <TD BGCOLOR='#D5F5E3' BORDER='1' ALIGN='CENTER'><B>A</B></TD>
+          <TD BGCOLOR='#D5F5E3' BORDER='1' ALIGN='CENTER'><B>G</B></TD>
+          <TD BGCOLOR='#D5F5E3' BORDER='1' ALIGN='CENTER'><B>C</B></TD>
+          <TD BGCOLOR='#D5F5E3' BORDER='1' ALIGN='CENTER'><B>A</B></TD>
+          <TD ALIGN='RIGHT'><FONT POINT-SIZE='8' COLOR='#7F8C8D'>5'</FONT></TD>
+        </TR>
+      </TABLE>
+    >]
+
+    td_stacking [shape=box, fillcolor='#D5F5E3', color='#27AE60',
+                 label=<<B>1. NN Stacking</B><BR/>
+                 <FONT POINT-SIZE='9'>Sum &#916;H, &#916;S per consecutive<BR/>
+                 WC step (SantaLucia 1998, Table 2:<BR/>
+                 10 dinucleotide parameters).<BR/>
+                 Mismatch breaks the chain.</FONT>>]
+
+    td_initiation [shape=box, fillcolor='#E8DAEF', color='#8E44AD',
+                   label=<<B>2. Initiation Terms</B><BR/>
+                   <FONT POINT-SIZE='9'>First + last WC pair each add<BR/>
+                   a fixed &#916;H/&#916;S initiation term<BR/>
+                   (SantaLucia 1998, Table 2)</FONT>>]
+
+    td_salt [shape=box, fillcolor='#FEF9E7', color='#D4AC0D',
+             label=<<B>3. Salt Correction</B><BR/>
+             <FONT POINT-SIZE='9'>&#916;S += 0.368 &#215; (n_wc &#8722; 1) &#215; ln([Na+])<BR/>
+             (Owczarzy et al. 1997)<BR/>
+             n_wc = count of WC pairs<BR/>
+             At 1 M Na+: correction = 0</FONT>>]
+
+    td_deltag [shape=box, fillcolor='#D6EAF8', color='#2980B9', penwidth=2,
+               label=<<B>&#916;G (kcal/mol)</B><BR/>
+               <FONT POINT-SIZE='9'>&#916;G = &#916;H &#8722; T &#215; (&#916;S / 1000)<BR/>
+               more negative = more stable</FONT>>]
+
+    td_boltzmann [shape=box, fillcolor='#1A5276', fontcolor='white', penwidth=2,
+                  label=<<B>Boltzmann Binding Score</B><BR/>
+                  <FONT POINT-SIZE='9'>score = exp(&#8722;&#916;G / (R &#215; T))<BR/>
+                  R = 1.987&#215;10<SUP>&#8722;3</SUP> kcal/(mol&middot;K)</FONT>>]
+
+    td_weight [shape=box, fillcolor='#0B5345', fontcolor='white', penwidth=2,
+               label=<<B>Per-Hit Sampling Weight</B><BR/>
+               <FONT POINT-SIZE='9'>weight = Boltzmann score &#215; sequence weight<BR/>
+               feeds probe-biased sampling below</FONT>>]
+
+    td_alignment -> td_stacking   [label=<<FONT POINT-SIZE='8'>WC pairs</FONT>>]
+    td_alignment -> td_initiation [label=<<FONT POINT-SIZE='8'>terminal pairs</FONT>>]
+    td_alignment -> td_salt       [label=<<FONT POINT-SIZE='8'>n_wc</FONT>>]
+    td_stacking   -> td_deltag [label=<<FONT POINT-SIZE='8'>&#916;H, &#916;S</FONT>>]
+    td_initiation -> td_deltag [label=<<FONT POINT-SIZE='8'>&#916;H, &#916;S</FONT>>]
+    td_salt       -> td_deltag [label=<<FONT POINT-SIZE='8'>&#916;S corr.</FONT>>]
+    td_deltag -> td_boltzmann [penwidth=1.8]
+    td_boltzmann -> td_weight [penwidth=1.8]
+  }
+
+  sim_align -> td_alignment [penwidth=2, label=<<FONT POINT-SIZE='8'>per hit</FONT>>]
+  sim_align -> fs_inputs [penwidth=2, style=dashed, color='#5D6D7E',
+                          label=<<FONT POINT-SIZE='8'>--num-fragments, --capture-fraction</FONT>>]
+  prep_weights -> td_weight [style=dashed, color='#95A5A6']
+
+  // ══════════════════════════════════════════════════════════════════════
+  // STAGE 5 — FRAGMENT SAMPLING  (two-level multinomial)
+  // ══════════════════════════════════════════════════════════════════════
+  subgraph cluster_fragsamp {
+    label=<<B>Fragment Sampling — two arms per fragment</B>>;
+    style=rounded; color='#1A5276'; fontsize=13; fontcolor='#1A5276'; margin=16
+
+    fs_inputs [shape=plaintext, label=<
+      <TABLE BORDER='1' CELLBORDER='0' CELLSPACING='0' CELLPADDING='6' COLOR='#BDC3C7' BGCOLOR='#F2F3F4'>
+        <TR><TD COLSPAN='3' ALIGN='CENTER' BGCOLOR='#D6EAF8'><B>Simulation inputs</B></TD></TR>
+        <TR>
+          <TD ALIGN='CENTER'><FONT POINT-SIZE='9'>N total fragments<BR/><B>--num-fragments</B></FONT></TD>
+          <TD ALIGN='CENTER'><FONT POINT-SIZE='9'>capture fraction f<BR/><B>--capture-fraction</B></FONT></TD>
+          <TD ALIGN='CENTER'><FONT POINT-SIZE='9'>weighted probe hits<BR/>(from thermo scoring)</FONT></TD>
+        </TR>
+      </TABLE>
+    >]
+
+    fs_split [shape=diamond, fillcolor='#34495E', fontcolor='white', penwidth=2,
+              label=<<B>Split N fragments</B>>]
+
+    fs_ncapture [shape=box, fillcolor='#1A5276', fontcolor='white',
+                 label=<<B>N &#215; f fragments</B><BR/><FONT POINT-SIZE='9'>probe-biased (captured pool)</FONT>>]
+    fs_nbackground [shape=box, fillcolor='#6D7C8A', fontcolor='white',
+                    label=<<B>N &#215; (1 &#8722; f) fragments</B><BR/><FONT POINT-SIZE='9'>background (uncaptured)</FONT>>]
+
+    fs_step1 [shape=box, fillcolor='#2980B9', fontcolor='white',
+              label=<<B>Select probe</B><BR/><FONT POINT-SIZE='9'>Uniform over probes with<BR/>at least 1 alignment hit</FONT>>]
+    fs_step2 [shape=box, fillcolor='#1A5276', fontcolor='white',
+              label=<<B>Select alignment hit</B><BR/><FONT POINT-SIZE='9'>P(hit) proportional to<BR/>exp(&#8722;&#916;G/RT) &#215; w_seq<BR/>high-affinity sites favored</FONT>>]
+    fs_step3 [shape=box, fillcolor='#154360', fontcolor='white',
+              label=<<B>Fragment center</B><BR/><FONT POINT-SIZE='9'>center = hit_center<BR/>+ Uniform(&#8722;L/4, +L/4)</FONT>>]
+    fs_step4 [shape=box, fillcolor='#0D3349', fontcolor='white',
+              label=<<B>Fragment length</B><BR/><FONT POINT-SIZE='9'>length ~ TruncNormal(mean, sd)<BR/>clamped to [min, max]</FONT>>]
+
+    fs_bg1 [shape=box, fillcolor='#6D7C8A', fontcolor='white',
+            label=<<B>Select sequence</B><BR/><FONT POINT-SIZE='9'>P(seq) proportional to<BR/>weight &#215; length (weights.txt)</FONT>>]
+    fs_bg2 [shape=box, fillcolor='#5D6D7E', fontcolor='white',
+            label=<<B>Generate fragment</B><BR/><FONT POINT-SIZE='9'>Uniform position, TruncNormal length<BR/>no probe-site bias</FONT>>]
+
+    fs_merge [shape=diamond, fillcolor='#0B5345', fontcolor='white', penwidth=2,
+              label=<<B>Combine both pools</B>>]
+
+    fs_inputs -> fs_split [penwidth=2]
+    fs_split -> fs_ncapture    [color='#1A5276', penwidth=2, label=<<FONT POINT-SIZE='16' COLOR='#1A5276'><B>f</B></FONT>>]
+    fs_split -> fs_nbackground [color='#6D7C8A', penwidth=2, label=<<FONT POINT-SIZE='16' COLOR='#5D6D7E'><B>1&#8722;f</B></FONT>>]
+    fs_ncapture -> fs_step1 [color='#1A5276']
+    fs_step1 -> fs_step2 -> fs_step3 -> fs_step4 [color='#2980B9']
+    fs_nbackground -> fs_bg1 [color='#6D7C8A']
+    fs_bg1 -> fs_bg2 [color='#6D7C8A']
+    fs_step4 -> fs_merge [color='#1A5276']
+    fs_bg2 -> fs_merge [color='#6D7C8A']
+  }
+
+  td_weight -> fs_inputs [penwidth=2.5, color='#2980B9', constraint=false,
+                          label=<<FONT POINT-SIZE='9' COLOR='#2980B9'>per-hit weight</FONT>>]
+  in_params -> fs_inputs [style=dashed, color='#95A5A6', arrowhead=none]
+  prep_weights -> fs_bg1 [style=dashed, color='#95A5A6']
+
+  fs_output [label=<<B>fragments.fa</B><BR/><FONT POINT-SIZE='10'>N fragments total<BR/>Names encode source:<BR/>{seq_id}_fragment_{n}</FONT>>,
+             fillcolor='#D5F5E3', color='#27AE60', penwidth=2.5, shape=folder]
+
+  fs_merge -> fs_output [penwidth=2.5, color='#27AE60']
+
+  // ══════════════════════════════════════════════════════════════════════
+  // STAGE 6 — SEQUENCE: read simulator choice
+  // ══════════════════════════════════════════════════════════════════════
+  subgraph cluster_sequence {
+    label=<<B>baitbench sequence — read simulator options</B>>;
+    style=rounded; color='#117864'; fontsize=13; fontcolor='#117864'; margin=16
+
+    seq_sample [label=<<B>Optional subsample</B><BR/><FONT POINT-SIZE='9'>--num-sequences N<BR/>(with replacement)</FONT>>,
+                fillcolor='#F2F3F4', color='#95A5A6', style='filled,dashed']
+
+    seq_choice [shape=diamond, fillcolor='#117864', fontcolor='white', penwidth=2,
+                label=<<B>--read-simulator</B>>]
+
+    seq_perfect [label=<<B>perfect</B><BR/><FONT POINT-SIZE='9'>Trim to --read-length (120bp)<BR/>No sequencing errors<BR/>fastq output: dummy Q40</FONT>>,
+                 fillcolor='#D1F2EB', color='#117864']
+
+    seq_art [label=<<B>art</B><BR/><FONT POINT-SIZE='9'>ART-modern, Illumina model<BR/>--sequencer-profile (e.g. HiSeq2500_150bp)<BR/>--read-length; optional --paired-end<BR/>(--pe-frag-len-mean/sd)<BR/>renamed via SAM RNAME field</FONT>>,
+             fillcolor='#A9DFBF', color='#117864']
+
+    seq_badread [label=<<B>badread</B><BR/><FONT POINT-SIZE='9'>Long-read model: ONT or PacBio CLR<BR/>--sequencer-profile ont / ont-2020 / pacbio<BR/>--coverage-depth (1.0 ~ 1 read/fragment)<BR/>--long-read-length-mean/sd<BR/>--badread-glitches / junk-reads /<BR/>random-reads / chimeras<BR/>renamed via {ref},{start}-{end} in description</FONT>>,
+                 fillcolor='#73C6B6', color='#117864']
+
+    seq_merge [label='', shape=point, width=0.15, fillcolor='#117864', color='#117864']
+
+    seq_sample -> seq_choice [penwidth=1.8]
+    seq_choice -> seq_perfect [label='perfect', color='#117864']
+    seq_choice -> seq_art     [label='art',     color='#117864']
+    seq_choice -> seq_badread [label='badread', color='#117864']
+    seq_perfect -> seq_merge [color='#117864']
+    seq_art     -> seq_merge [color='#117864']
+    seq_badread -> seq_merge [color='#117864']
+  }
+
+  fs_output:s -> seq_sample:e [penwidth=2, constraint=false]
+  td_weight -> seq_sample [style=invis]
+
+  seq_output [label=<<B>reads.fa / reads.fastq</B><BR/><FONT POINT-SIZE='10'>(or reads_R1.fa + reads_R2.fa<BR/>if art --paired-end)</FONT>>,
+              fillcolor='#D1F2EB', color='#117864', penwidth=2.5, shape=folder]
+
+  seq_merge -> seq_output [penwidth=2.5, color='#117864']
+
+  // ══════════════════════════════════════════════════════════════════════
+  // STAGE 7 — FILTER (optional host depletion)
+  // ══════════════════════════════════════════════════════════════════════
+  filt_step [label=<<B>baitbench filter</B><BR/><FONT POINT-SIZE='9'>optional; --host genome.fa<BR/>rammap preset sr, removes<BR/>host-aligned reads</FONT>>,
+             fillcolor='#B9770E', fontcolor='white', style='filled,dashed', penwidth=1.8]
+
+  seq_output:w -> filt_step:s [style=dashed, penwidth=1.8, constraint=false,
+                           label=<<FONT POINT-SIZE='8'>if --host given</FONT>>]
+  sim_align -> filt_step [style=invis]
+
+  // ══════════════════════════════════════════════════════════════════════
+  // STAGE 8 — MAP + LIST
+  // ══════════════════════════════════════════════════════════════════════
+  map_step [label=<<B>baitbench map</B><BR/><FONT POINT-SIZE='9'>rammap: reads vs mapping_reference.fa<BR/>preset sr &rarr; mapped.sam<BR/>(paired-end via reads_r2)</FONT>>,
+            fillcolor='#154360', fontcolor='white', penwidth=2]
+
+  list_step [label=<<B>baitbench list</B><BR/><FONT POINT-SIZE='9'>Parse SAM &rarr; per-reference<BR/>read counts (detected.list)</FONT>>,
+             fillcolor='#0D3349', fontcolor='white', penwidth=2]
+
+  seq_output:w -> map_step:s [penwidth=1.8, constraint=false, label=<<FONT POINT-SIZE='8'>no --host</FONT>>]
+  filt_step -> map_step [style=dashed, penwidth=1.8]
+  prep_mapping -> map_step [style=dashed, color='#95A5A6']
+  map_step -> list_step [penwidth=2]
+
+  // ══════════════════════════════════════════════════════════════════════
+  // STAGE 9 — METRICS  (genome-aware 3-way classification)
+  // ══════════════════════════════════════════════════════════════════════
+  subgraph cluster_metrics {
+    label=<<B>baitbench metrics — genome-aware classification</B>>;
+    style=rounded; color='#0B5345'; fontsize=13; fontcolor='#0B5345'; margin=16
+
+    met_table [shape=plaintext, label=<
+      <TABLE BORDER='1' CELLBORDER='1' CELLSPACING='0' CELLPADDING='5' COLOR='#BDC3C7'>
+        <TR><TD BGCOLOR='#D6EAF8'><B>Category</B></TD><TD BGCOLOR='#D6EAF8'><B>Detected</B></TD><TD BGCOLOR='#D6EAF8'><B>Class</B></TD></TR>
+        <TR><TD>Sample target</TD><TD>Yes</TD><TD BGCOLOR='#D5F5E3'>TP</TD></TR>
+        <TR><TD>Sample target</TD><TD>No</TD><TD BGCOLOR='#FADBD8'>FN</TD></TR>
+        <TR><TD>Non-sample target</TD><TD>Yes</TD><TD BGCOLOR='#FADBD8'>FP_target</TD></TR>
+        <TR><TD>Non-sample target</TD><TD>No</TD><TD BGCOLOR='#D5F5E3'>TN_target</TD></TR>
+        <TR><TD>Distractor</TD><TD>Yes</TD><TD BGCOLOR='#FADBD8'>FP_distractor</TD></TR>
+        <TR><TD>Distractor</TD><TD>No</TD><TD BGCOLOR='#D5F5E3'>TN_distractor</TD></TR>
+        <TR><TD>Untargeted genome</TD><TD>-</TD><TD BGCOLOR='#F2F3F4'>untargeted</TD></TR>
+      </TABLE>
+    >]
+
+    met_calc [label=<<B>Sensitivity, Specificity,<BR/>Precision, F1</B><BR/><FONT POINT-SIZE='9'>+ read-level flow:<BR/>sample/nonsample/distractor captured<BR/>correctly vs. incorrectly mapped</FONT>>,
+              fillcolor='#0B5345', fontcolor='white', penwidth=2]
+
+    met_out [label=<<B>results.tsv &middot; detected_detail.tsv<BR/>results.json &middot; coverage.tsv</B>>,
+             fillcolor='#D5F5E3', color='#27AE60', penwidth=1.8]
+
+    met_table -> met_calc [penwidth=1.8]
+    met_calc -> met_out [penwidth=1.8]
+  }
+
+  list_step -> met_table [penwidth=2]
+  prep_stmap -> met_table [style=dashed, color='#95A5A6']
+  prep_idlists -> met_table [style=dashed, color='#95A5A6']
+
+  // ══════════════════════════════════════════════════════════════════════
+  // STAGE 10 — REPORT
+  // ══════════════════════════════════════════════════════════════════════
+  rep_step [label=<<B>baitbench report</B><BR/><FONT POINT-SIZE='9'>Rscript R/report.R + report.Rmd<BR/>Sankey &middot; detection lollipop<BR/>coverage plots &middot; metrics tables<BR/>parameters panel (R / ggplot2)</FONT>>,
+            fillcolor='#6C3483', fontcolor='white', penwidth=2]
+
+  rep_output [label=<<B>report.html</B><BR/><FONT POINT-SIZE='10'>Self-contained interactive report</FONT>>,
+              fillcolor='#F3E5F5', color='#7D3C98', penwidth=2.5, shape=folder]
+
+  met_out -> rep_step [penwidth=2.5, color='#7D3C98']
+  rep_step -> rep_output [penwidth=2.5, color='#7D3C98']
+}
+")
+
+save_diagram(diagram12, "paper_full_simulation_pipeline.png", width = 6000)
 }
 
 
@@ -1504,7 +1779,8 @@ diagram_names <- c(
   "8. paper_thermodynamic_scoring.png",
   "9. paper_fragment_sampling.png",
   "10. paper_build_probes.png",
-  "11. paper_assess_probes.png"
+  "11. paper_assess_probes.png",
+  "12. paper_full_simulation_pipeline.png"
 )
 for (i in selected) {
   if (i <= length(diagram_names)) message("  ", diagram_names[i])

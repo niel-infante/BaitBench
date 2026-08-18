@@ -62,7 +62,7 @@ genomes.fa + targets.fa + distractors.fa [+ sample.tsv] [+ mapping.tsv]
 
 `baitbench coverage-curve` runs the pipeline at multiple parameter combinations (CT × distractor fraction × hybridization temperature × capture fraction × num-sequences) and produces coverage depth curve plots. Use `--ct-values`, `--distractor-fraction-values`, `--hybridization-temperature-values`, `--capture-fraction-values`, and `--num-sequences-values` to sweep each dimension independently or in combination. `--distractor-fraction-values` sweeps distractor fraction directly (mutually exclusive with `--ct-values`, `--ct`, and `--distractor-fraction`).
 
-`baitbench xreact` checks probe cross-reactivity against genomes and/or other probes (standalone, not part of the pipeline).
+`baitbench xreact` checks probe cross-reactivity against genomes and/or other probes (standalone, not part of the pipeline). `--aligner minimap2` (default, embedded) or `--aligner blast` (blastn-short; more sensitive to short/divergent homology, requires BLAST+ on PATH).
 
 `baitbench panel-qc` assesses whether a target panel can discriminate between species by computing target-vs-target similarity and per-species discriminability scores (standalone, pre-experiment QC).
 
@@ -73,7 +73,7 @@ genomes.fa + targets.fa + distractors.fa [+ sample.tsv] [+ mapping.tsv]
 `baitbench tool <TOOL>` groups standalone utility tools under a single subcommand to keep the main help clean. Run `baitbench tool --help` to list available tools. Current tools: `syotti` (greedy set-cover probe design), `catch` (CATCH optimization probe design), `dustview` (sDUST masking visualization), `collapse` (cd-hit-est sequence clustering). More tools may be added here without cluttering top-level help.
 
 
-`baitbench assess-probes` runs combined probe assessment: probe coverage analysis + cross-reactivity (self-homology always, against genomes if `--genomes` provided), producing a single combined HTML report. Can include build pipeline stats when chained from `build-probes`. Standalone, not part of the simulation pipeline. Individual-target coverage (minimap2 called separately for each target, eliminating probe competition) is always-on and enables gap classification (`true_gap` vs. `multimapper_gap`); skip with `--no-individual-targets` for very large panels (e.g. >10 000 targets). `--gap-min-length` controls the minimum gap size included in `*_gap_details.tsv` (defaults to median probe length).
+`baitbench assess-probes` runs combined probe assessment: probe coverage analysis + cross-reactivity (self-homology always, against genomes if `--genomes` provided), producing a single combined HTML report. Can include build pipeline stats when chained from `build-probes`. Standalone, not part of the simulation pipeline. Individual-target coverage (minimap2 called separately for each target, eliminating probe competition) is always-on and enables gap classification (`true_gap` vs. `multimapper_gap`); skip with `--no-individual-targets` for very large panels (e.g. >10 000 targets). `--gap-min-length` controls the minimum gap size included in `*_gap_details.tsv` (defaults to median probe length). `--aligner minimap2|blast` selects the cross-reactivity step's backend (default minimap2; same tradeoff as `xreact --aligner`); coverage steps always use minimap2 regardless. `build-probes` passes its own `--aligner`/`--threads` through when it auto-chains into assess-probes.
 
 ### Key Files
 
@@ -109,7 +109,7 @@ genomes.fa + targets.fa + distractors.fa [+ sample.tsv] [+ mapping.tsv]
 | `src/sampling/` | Weights calculation and fragment sampling |
 | `src/cleanup.rs` | Post-pipeline cleanup: delete intermediate files/dirs, keep report inputs |
 | `src/io_utils.rs` | `prefixed_join` helper, ID set parsing, sample manifest parsing, source ID extraction, sample-target-map I/O, groups file I/O |
-| `src/external/` | minimap2, blastn, catch, Rscript process wrappers |
+| `src/external/` | minimap2, blastn (xreact `--aligner blast` only), catch, Rscript process wrappers |
 | `R/report.Rmd` | RMarkdown template with ggplot2 figures |
 | `R/report.R` | R script entry point for report generation |
 | `R/ct_sweep.R` | R script entry point for CT sweep report |
@@ -243,7 +243,7 @@ cargo build --release
 ### Rust Conventions
 - Modules in `src/` follow a commands/library split
 - Each command module exposes an `execute()` function taking an args struct
-- External tools (minimap2, blastn) are called via `std::process::Command`
+- External tools (cd-hit-est, blastn for `xreact --aligner blast`) are called via `std::process::Command`; minimap2/rammap alignment is embedded in the binary
 - FASTA operations are done natively in Rust (no seqtk dependency)
 - Use `anyhow` for error handling, `log`/`env_logger` for logging
 - Use `clap` derive macros for CLI argument definitions
@@ -341,7 +341,7 @@ cat test_results_genomes/*/detected_detail.tsv
 
 **Adding a new CLI flag (GUI)**: Add the corresponding input field in `gui/src/lib/views/RunView.svelte` — either in the main form or inside the `<AdvancedOptions>` block. The Rust GUI backend passes all args through as plain strings via a `HashMap<String, String>`, so no Rust changes to the GUI are needed. See the GUI section below for the full architecture.
 
-**Modifying fragment generation**: Edit `src/sampling/fragment.rs`.
+**Modifying fragment generation**: Edit `src/sampling/thermo_sim.rs`.
 
 **Modifying sequencing**: Edit `src/commands/sequence.rs`. To add a new simulator: add a variant to `ReadSimulator` in `sequence.rs`, create a wrapper in `src/external/`, add profiles to `badread.rs` if needed, update `from_str()` and `execute()` dispatch, then add the new flag default in `main.rs`'s `Commands::Run` profile resolver.
 
@@ -400,11 +400,11 @@ The sidecar binary must be rebuilt and copied any time the Rust CLI changes: `ma
 ## Dependencies
 
 ### External (installed via conda)
-- blastn (cross-reactivity analysis)
 - cd-hit (sequence clustering, used by build-probes)
+- blast (blastn + makeblastdb; only needed for `xreact --aligner blast`)
 - R + ggplot2 + rmarkdown (report generation, optional)
 
-Alignment is handled by the rammap library compiled into the BaitBench binary (no external minimap2 install required).
+Alignment is handled by the rammap library compiled into the BaitBench binary (no external minimap2 install required). The default `xreact` aligner is minimap2/rammap; `--aligner blast` is an opt-in, more-sensitive alternative for short/divergent homology that minimap2's minimizer seeding can miss.
 
 ### Rust (managed by Cargo)
 - clap (CLI), anyhow (errors), serde/serde_json (serialization)

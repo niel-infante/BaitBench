@@ -1,5 +1,4 @@
 pub mod weights;
-pub mod fragment;
 pub mod thermo_sim;
 
 /// Fragment length distribution parameters, shared across sampling functions.

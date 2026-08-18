@@ -49,8 +49,9 @@ src/
 ├── io_utils.rs           # Shared helpers: prefixed_join, parse_id_set, extract_source_id, parse_sample_manifest, parse_sample_target_map, parse_groups_file, write_groups_file
 ├── target_similarity.rs  # Shared library: target-vs-target similarity computation, discriminability scoring, confusion matrices
 ├── alignment/
+│   ├── blast_tab.rs     # blastn outfmt-6 tabular parsing: structured BlastHit
 │   ├── coverage.rs      # CIGAR-based per-position coverage from SAM
-│   ├── paf.rs           # PAF record filtering (mismatch/indel criteria) + structured PafRecord parsing
+│   ├── paf.rs           # Structured PafRecord parsing from PAF
 │   └── sam.rs           # SAM parsing: read counts, mappings, mapped IDs
 ├── thermodynamics.rs    # SantaLucia (1998) nearest-neighbor TNN model: delta_g(), boltzmann_score()
 ├── commands/
@@ -76,17 +77,16 @@ src/
 ├── catch.rs             # Native CATCH probe design: design_probes() — tiling → MinHash dedup → greedy set cover (reimplementation of Metsky et al. 2019)
 ├── probetools.rs        # ProbeTools-Lite probe design: design_probes() — iterative k-mer enumeration → cd-hit-est clustering → greedy batch selection → minimap2 coverage → low-cov extraction (reimplementation of Kuchinski et al. 2022)
 ├── external/
-│   ├── minimap2.rs      # minimap2 wrapper: capture_align (PAF), map_reads (SAM, optional reads_r2 for PE), host_align (optional reads_r2), probe_align(max_secondary), xreact_align
+│   ├── minimap2.rs      # minimap2 wrapper: map_reads (SAM, optional reads_r2 for PE), host_align (optional reads_r2), probe_align(max_secondary), xreact_align
 │   ├── art_modern.rs    # ART-modern wrapper: check_available, run_simulation (Illumina SE/PE reads + SAM for renaming)
 │   ├── badread.rs       # badread wrapper: check_available, profile_params (ont/ont-2020/pacbio → error+qscore models), run_simulation (long reads; FASTQ to stdout)
-│   ├── blastn.rs        # BLAST+ wrapper: capture_align, filter_blast_results
+│   ├── blastn.rs        # BLAST+ wrapper: check_available, xreact_align (makeblastdb + blastn-short → tabular hits; empty query/reference short-circuits to an empty result instead of erroring; used by xreact --aligner blast, incl. when chained from assess-probes/build-probes)
 │   ├── cdhit.rs         # cd-hit-est wrapper: check_available, cluster (sequence clustering by identity)
 │   └── rscript.rs       # Rscript discovery (BAITBENCH_R_DIR, binary walk, ./R/) and execution
 ├── fasta/
 │   ├── reader.rs        # parse_fasta (id→seq), parse_fasta_ids, count_sequences
-│   └── writer.rs        # write_fasta_record, extract_by_ids (streaming), concatenate_fastas
+│   └── writer.rs        # extract_by_ids (streaming), concatenate_fastas
 └── sampling/
-    ├── fragment.rs      # generate_fragments: weighted sampling, normal-dist length
     ├── thermo_sim.rs    # Thermodynamic simulation: load_probe_hits (SAM→ProbeHit), sample_capture_fragments, sample_background_fragments, write_fragments; SimulateMode enum
     └── weights.rs       # parse_weights, generate_weights (sample/distractor fraction)
 
@@ -115,6 +115,7 @@ R/
 - **`SimulateMode`** — ValueEnum: Thermodynamic | Simple — controls probe-site weighting in simulate
 - **`ProbeMethod`** — ValueEnum: Tile | Catch | Syotti
 - **`ReportMode`** — ValueEnum: Full | None | Rmd | BothR — controls report output (HTML, skip, editable RMarkdown, or both HTML and RMarkdown)
+- **`Aligner`** — ValueEnum: Minimap2 | Blast — selects the `xreact` alignment backend (`--aligner`)
 - **CT score flags** — `--ct`, `--ct-baseline`, `--ct-baseline-fraction` on Run and Prepare; `--ct` conflicts with `--distractor-fraction`
 - **Simulate flags** — `--probes` (probe FASTA), `--simulate-mode` (thermodynamic/simple), `--hybridization-temperature` (°C, default 70), `--capture-fraction` (0–1, default 0.5) on Run and Simulate; `--hybridization-temperature-values` on CoverageCurve for temperature sweep
 - **Genome mode flags** — `--genomes` (optional genome FASTA for fragment generation), `--sample-target-map` (optional genome-to-target mapping TSV) on Run, Prepare, and CoverageCurve
@@ -135,17 +136,17 @@ Every command module exports an `Args` struct and an `execute(&Args) -> Result<(
 | `metrics` | `MetricsArgs` | targets, distractors, sample, detected, fragments, captured, sam, sample_target_map, target_groups, distractor_groups, reads_sequenced, reads_after_filter, output_group_detail | results.tsv, detected_detail.tsv (with group col), group_detail.tsv (when groups present), results.json, coverage.tsv |
 | `report` | `ReportArgs` | summary, detail, params, coverage, group_detail, run_name, report (ReportMode) | report.html or report.Rmd |
 | `probe_coverage` | `ProbeCoverageArgs` | targets, probes, minimap_preset, proximity | probe_depth.tsv, probe_coverage_summary.tsv, probe_coverage_report.html |
-| `xreact` | `XreactArgs` | probes, against (genome FASTAs), self_mode, threshold, minimap_preset, report (ReportMode) | hits.tsv, summary.tsv, xreact_report.html |
+| `xreact` | `XreactArgs` | probes, against (genome FASTAs), self_mode, threshold, aligner (Aligner: Minimap2/Blast), minimap_preset, threads, report (ReportMode) | hits.tsv, summary.tsv, xreact_report.html |
 | `panel_qc` | `PanelQcArgs` | targets, sample_target_map, identity_threshold, minimap_preset, report (ReportMode) | target_similarity.tsv, species_discriminability.tsv, species_confusion_matrix.tsv, panel_qc_report.html |
 | `identify` | `IdentifyArgs` | detected_detail, sample_target_map, target_similarity (or targets for on-the-fly), identity_threshold, min_unique_targets | species_calls.tsv, species_calls.json |
 | `run` | `RunArgs` | all pipeline inputs + ct, ct_baseline, ct_baseline_fraction, simulate_mode, hybridization_temperature, capture_fraction, num_sequences, simulator, sequencer_profile, coverage_depth, paired_end, pe_frag_len_mean/sd, genomes, sample_target_map, identify, identity_threshold, min_unique_targets | all of the above |
 | `coverage_curve` | `CoverageCurveArgs` | targets, distractors, probes, sample (required), ct/df/cf/ns values (sweep or fixed), simulate_mode, hybridization_temperature, all pipeline params, genomes, sample_target_map | coverage_curve_depth_curves.tsv, coverage_curve_report.html, combo subdirs |
-| `build_probes` | `BuildProbesArgs` | targets, method (tile/catch-lite/syotti-lite/catch), probe_length, step, catch_probe_stride/mismatches/extension/coverage/minhash_threshold, syotti_mismatches, syotti_seed_len, max_n_frac, min/max_gc, dust_threshold/dust_window/max_masked_frac, collapse/dedup thresholds, threads, genomes, threshold, skip_assess | probes_final.fa, build_probes_stats.tsv; filters sequences shorter than probe_length after collapse; auto-chains to assess_probes unless --skip-assess |
+| `build_probes` | `BuildProbesArgs` | targets, method (tile/catch-lite/syotti-lite/catch), probe_length, step, catch_probe_stride/mismatches/extension/coverage/minhash_threshold, syotti_mismatches, syotti_seed_len, max_n_frac, min/max_gc, dust_threshold/dust_window/max_masked_frac, collapse/dedup thresholds, threads, genomes, threshold, aligner (Aligner: Minimap2/Blast), skip_assess | probes_final.fa, build_probes_stats.tsv; filters sequences shorter than probe_length after collapse; auto-chains to assess_probes unless --skip-assess |
 | `tool syotti` | — (standalone) | targets, output, probe_length, mismatches, seed_len | output FASTA of probes; direct access to Syotti algorithm |
 | `tool catch` | — (standalone) | targets, output, probe_length, stride, mismatches, extension, coverage, minhash_threshold | output FASTA of probes; direct access to CATCH algorithm |
 | `tool dustview` | — (standalone) | input (optional, defaults stdin), dust_threshold, dust_window | stdout: per-sequence masked view + score stats |
 | `tool collapse` | — (standalone) | input, output, threshold, threads, log_file | output FASTA of cd-hit-est cluster representatives |
-| `assess_probes` | `AssessProbesArgs` | targets, probes, genomes (optional), threshold, minimap_preset, proximity, build_stats_file (optional), build_params_file (optional), gap_min_length (optional), no_individual_targets | cov_probe_coverage_summary.tsv, cov_probe_depth.tsv, xreact_hits.tsv, xreact_summary.tsv, assess_run_params.tsv, individual_target_coverage_summary.tsv, *_gap_details.tsv, assess_probes_report.html |
+| `assess_probes` | `AssessProbesArgs` | targets, probes, genomes (optional), threshold, aligner (Aligner: Minimap2/Blast), minimap_preset, proximity, threads, build_stats_file (optional), build_params_file (optional), gap_min_length (optional), no_individual_targets | cov_probe_coverage_summary.tsv, cov_probe_depth.tsv, xreact_hits.tsv, xreact_summary.tsv, assess_run_params.tsv, individual_target_coverage_summary.tsv, *_gap_details.tsv, assess_probes_report.html |
 
 ### Metrics (`metrics.rs`)
 
@@ -170,8 +171,13 @@ Every command module exports an `Args` struct and an `execute(&Args) -> Result<(
 ### PAF (`alignment/paf.rs`)
 
 - **`PafRecord`** — structured PAF alignment record: query_name, query_length, query_start, query_end, target_name, target_length, target_start, target_end, matching_bases, block_length, mapq
-- `filter_paf(paf, max_mismatches, min_match_bases) → HashSet<String>` — filter for capture
 - `parse_paf_records(paf) → Vec<PafRecord>` — parse all records (no filtering)
+
+### BLAST tabular (`alignment/blast_tab.rs`)
+
+- **`BlastHit`** — parsed blastn outfmt-6 hit, reduced to the fields cross-reactivity scoring needs: query_name, target_name, query_length, query_start, query_end (normalized to 0-based half-open, matching `PafRecord`'s convention), matching_bases, alignment_length
+- `parse_blast_hits(tsv) → Vec<BlastHit>` — parses `-outfmt "6 qseqid sseqid qlen qstart qend nident length"` output (no filtering)
+- `xreact.rs` converts both `PafRecord` and `BlastHit` into a common private `AlignHit` so the homology/coverage math is aligner-agnostic
 
 ### FASTA (`fasta/`)
 
@@ -201,7 +207,6 @@ Every command module exports an `Args` struct and an `execute(&Args) -> Result<(
 
 ### Sampling (`sampling/`)
 
-- `generate_fragments(sequences, weights, num, output, seed, length_params) → usize`
 - Fragment naming: `{seq_id}_fragment_{n} start={pos} length={len}`
 - `generate_weights(target_ids, distractor_ids, sample_weights, distractor_fraction, output)`
 
@@ -252,8 +257,8 @@ All wrappers follow the pattern: `check_available() → bool/Result`, then speci
 
 | Tool | Functions | Output format |
 |------|-----------|---------------|
-| minimap2 | `capture_align` (PAF), `map_reads` (SAM), `host_align` (SAM), `probe_align` (SAM, with secondary), `xreact_align` (PAF, with secondary) | PAF or SAM |
-| blastn | `capture_align` (TSV outfmt 6), `filter_blast_results` | TSV |
+| minimap2 | `map_reads` (SAM), `host_align` (SAM), `probe_align` (SAM, with secondary), `xreact_align` (PAF, with secondary) | PAF or SAM |
+| blastn | `check_available` (blastn + makeblastdb), `xreact_align` (makeblastdb + blastn-short, all HSPs) | Tabular (outfmt 6) |
 | cd-hit-est | `check_available`, `cluster` (identity-based sequence clustering) | FASTA + .clstr |
 | rscript | `check_available`, `find_r_dir`, `run_rscript` | HTML |
 

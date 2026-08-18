@@ -4,11 +4,11 @@ use std::fs::{self, File};
 use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 
-use crate::alignment::paf;
+use crate::alignment::{blast_tab, paf};
 use crate::cleanup;
-use crate::cli::ReportMode;
+use crate::cli::{Aligner, ReportMode};
 use crate::commands::report::{rmd_output_path, substitute_rmd_params};
-use crate::external::{minimap2, rscript};
+use crate::external::{blastn, minimap2, rscript};
 use crate::fasta;
 use crate::io_utils::{abs_path_str, prefixed_join};
 
@@ -17,11 +17,96 @@ pub struct XreactArgs<'a> {
     pub against: &'a [PathBuf],
     pub self_mode: bool,
     pub threshold: f64,
+    pub aligner: Aligner,
     pub outdir: &'a Path,
     pub output_prefix: &'a str,
     pub minimap_preset: &'a str,
+    pub threads: usize,
     pub report: ReportMode,
     pub cleanup: bool,
+}
+
+/// Alignment hit reduced to the fields cross-reactivity scoring needs,
+/// common to both the minimap2 (PAF) and BLAST (tabular) backends.
+struct AlignHit {
+    query_name: String,
+    target_name: String,
+    query_length: u32,
+    query_start: u32,
+    query_end: u32,
+    matching_bases: u32,
+    block_length: u32,
+}
+
+impl From<paf::PafRecord> for AlignHit {
+    fn from(r: paf::PafRecord) -> Self {
+        AlignHit {
+            query_name: r.query_name,
+            target_name: r.target_name,
+            query_length: r.query_length,
+            query_start: r.query_start,
+            query_end: r.query_end,
+            matching_bases: r.matching_bases,
+            block_length: r.block_length,
+        }
+    }
+}
+
+impl From<blast_tab::BlastHit> for AlignHit {
+    fn from(h: blast_tab::BlastHit) -> Self {
+        AlignHit {
+            query_name: h.query_name,
+            target_name: h.target_name,
+            query_length: h.query_length,
+            query_start: h.query_start,
+            query_end: h.query_end,
+            matching_bases: h.matching_bases,
+            block_length: h.alignment_length,
+        }
+    }
+}
+
+/// Run the selected aligner and return hits reduced to `AlignHit`, cleaning
+/// up the intermediate alignment file afterward.
+#[allow(clippy::too_many_arguments)]
+fn align(
+    aligner: Aligner,
+    minimap_preset: &str,
+    threads: usize,
+    reference: &Path,
+    query: &Path,
+    outdir: &Path,
+    pfx: &str,
+    label: &str,
+) -> Result<Vec<AlignHit>> {
+    let log_path = prefixed_join(outdir, pfx, &format!("{label}.log"));
+
+    let hits = match aligner {
+        Aligner::Minimap2 => {
+            let paf_path = prefixed_join(outdir, pfx, &format!("{label}.paf"));
+            minimap2::xreact_align(minimap_preset, reference, query, &paf_path, &log_path)?;
+            let records = paf::parse_paf_records(&paf_path)?;
+            log::info!("PAF records ({label}): {}", records.len());
+            let hits: Vec<AlignHit> = records.into_iter().map(AlignHit::from).collect();
+            if let Err(e) = fs::remove_file(&paf_path) {
+                log::debug!("Could not remove {}: {}", paf_path.display(), e);
+            }
+            hits
+        }
+        Aligner::Blast => {
+            let tsv_path = prefixed_join(outdir, pfx, &format!("{label}.blast.tsv"));
+            blastn::xreact_align(reference, query, &tsv_path, &log_path, threads)?;
+            let records = blast_tab::parse_blast_hits(&tsv_path)?;
+            log::info!("BLAST hits ({label}): {}", records.len());
+            let hits: Vec<AlignHit> = records.into_iter().map(AlignHit::from).collect();
+            if let Err(e) = fs::remove_file(&tsv_path) {
+                log::debug!("Could not remove {}: {}", tsv_path.display(), e);
+            }
+            hits
+        }
+    };
+
+    Ok(hits)
 }
 
 struct HitRecord {
@@ -58,7 +143,10 @@ pub fn execute(args: &XreactArgs) -> Result<()> {
     }
 
     fs::create_dir_all(args.outdir)?;
-    minimap2::check_available()?;
+    match args.aligner {
+        Aligner::Minimap2 => minimap2::check_available()?,
+        Aligner::Blast => blastn::check_available()?,
+    }
 
     log::info!("=============================================");
     log::info!("BaitBench - Cross-Reactivity Analysis");
@@ -71,7 +159,10 @@ pub fn execute(args: &XreactArgs) -> Result<()> {
     }
     log::info!("Self mode : {}", args.self_mode);
     log::info!("Threshold : {:.1}%", args.threshold);
-    log::info!("Preset    : {}", args.minimap_preset);
+    match args.aligner {
+        Aligner::Minimap2 => log::info!("Aligner   : minimap2 (preset {})", args.minimap_preset),
+        Aligner::Blast => log::info!("Aligner   : blast ({} threads)", args.threads),
+    }
     log::info!("Output    : {}", args.outdir.display());
 
     let pfx = args.output_prefix;
@@ -95,20 +186,17 @@ pub fn execute(args: &XreactArgs) -> Result<()> {
         let n_refs = fasta::count_sequences(&reference_path)?;
         log::info!("Reference sequences: {}", n_refs);
 
-        let paf_path = prefixed_join(args.outdir, pfx, "against.paf");
-        let log_path = prefixed_join(args.outdir, pfx, "against.log");
-
         log::info!("Aligning probes against reference...");
-        minimap2::xreact_align(
+        let records = align(
+            args.aligner,
             args.minimap_preset,
+            args.threads,
             &reference_path,
             args.probes,
-            &paf_path,
-            &log_path,
+            args.outdir,
+            pfx,
+            "against",
         )?;
-
-        let records = paf::parse_paf_records(&paf_path)?;
-        log::info!("PAF records (against): {}", records.len());
 
         for rec in &records {
             if rec.query_length == 0 {
@@ -137,9 +225,6 @@ pub fn execute(args: &XreactArgs) -> Result<()> {
             }
         }
 
-        if let Err(e) = fs::remove_file(&paf_path) {
-            log::debug!("Could not remove {}: {}", paf_path.display(), e);
-        }
         if args.against.len() > 1 {
             let combined = prefixed_join(args.outdir, pfx, "against_combined.fa");
             if let Err(e) = fs::remove_file(&combined) {
@@ -150,20 +235,18 @@ pub fn execute(args: &XreactArgs) -> Result<()> {
 
     // Self mode
     if args.self_mode {
-        let paf_path = prefixed_join(args.outdir, pfx, "self.paf");
-        let log_path = prefixed_join(args.outdir, pfx, "self.log");
-
         log::info!("Aligning probes against themselves...");
-        minimap2::xreact_align(
+        let records = align(
+            args.aligner,
             args.minimap_preset,
+            args.threads,
             args.probes,
             args.probes,
-            &paf_path,
-            &log_path,
+            args.outdir,
+            pfx,
+            "self",
         )?;
-
-        let records = paf::parse_paf_records(&paf_path)?;
-        log::info!("PAF records (self, including self-hits): {}", records.len());
+        log::info!("Alignment hits (self, including self-hits): {}", records.len());
 
         for rec in &records {
             // Skip self-hits
@@ -194,10 +277,6 @@ pub fn execute(args: &XreactArgs) -> Result<()> {
                     mode: "self",
                 });
             }
-        }
-
-        if let Err(e) = fs::remove_file(&paf_path) {
-            log::debug!("Could not remove {}: {}", paf_path.display(), e);
         }
     }
 
@@ -348,7 +427,19 @@ fn write_run_params(path: &Path, args: &XreactArgs) -> Result<()> {
     }
     writeln!(w, "self\t--self\t{}", args.self_mode)?;
     writeln!(w, "threshold\t--threshold\t{:.1}", args.threshold)?;
-    writeln!(w, "minimap_preset\t--minimap-preset\t{}", args.minimap_preset)?;
+    let aligner_str = match args.aligner {
+        Aligner::Minimap2 => "minimap2",
+        Aligner::Blast => "blast",
+    };
+    writeln!(w, "aligner\t--aligner\t{}", aligner_str)?;
+    match args.aligner {
+        Aligner::Minimap2 => {
+            writeln!(w, "minimap_preset\t--minimap-preset\t{}", args.minimap_preset)?;
+        }
+        Aligner::Blast => {
+            writeln!(w, "threads\t--threads\t{}", args.threads)?;
+        }
+    }
     writeln!(w, "outdir\t-o\t{}", args.outdir.display())?;
 
     w.flush()?;

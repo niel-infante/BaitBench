@@ -158,6 +158,8 @@ baitbench assess-probes \
 
 `--threshold 80` reports any probe with ≥80% homology to the human genome (matching bases / probe length × 100).
 
+By default the cross-reactivity step uses the embedded minimap2 aligner. If you need to catch weaker or shorter homologous regions that minimap2's minimizer seeding can miss, add `--aligner blast` (requires BLAST+ on PATH); `build-probes` accepts the same flag and passes it through when it auto-chains into `assess-probes`.
+
 ---
 
 ## Reading the coverage report

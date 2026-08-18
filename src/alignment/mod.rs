@@ -1,3 +1,4 @@
+pub mod blast_tab;
 pub mod cigar;
 pub mod coverage;
 pub mod paf;

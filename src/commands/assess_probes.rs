@@ -5,10 +5,10 @@ use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::{Path, PathBuf};
 
 use crate::cleanup;
-use crate::cli::ReportMode;
+use crate::cli::{Aligner, ReportMode};
 use crate::commands::report::{rmd_output_path, substitute_rmd_params};
 use crate::commands::{probe_coverage, xreact};
-use crate::external::{minimap2, rscript};
+use crate::external::{blastn, minimap2, rscript};
 use crate::fasta;
 use crate::io_utils::{abs_path_str, prefixed_join};
 
@@ -17,6 +17,7 @@ pub struct AssessProbesArgs<'a> {
     pub probes: &'a Path,
     pub genomes: &'a [PathBuf],
     pub threshold: f64,
+    pub aligner: Aligner,
     pub minimap_preset: &'a str,
     pub proximity: usize,
     pub outdir: &'a Path,
@@ -51,6 +52,9 @@ pub fn execute(args: &AssessProbesArgs) -> Result<()> {
 
     fs::create_dir_all(args.outdir)?;
     minimap2::check_available()?;
+    if args.aligner == Aligner::Blast {
+        blastn::check_available()?;
+    }
 
     let pfx = args.output_prefix;
     let from_build = args.build_stats_file.is_some();
@@ -66,7 +70,10 @@ pub fn execute(args: &AssessProbesArgs) -> Result<()> {
         }
     }
     log::info!("Threshold: {:.1}%", args.threshold);
-    log::info!("Preset   : {}", args.minimap_preset);
+    match args.aligner {
+        Aligner::Minimap2 => log::info!("Aligner  : minimap2 (preset {})", args.minimap_preset),
+        Aligner::Blast => log::info!("Aligner  : blast ({} threads)", args.threads),
+    }
     log::info!("Proximity: {} bp", args.proximity);
     log::info!("Output   : {}", args.outdir.display());
     if from_build {
@@ -131,7 +138,9 @@ pub fn execute(args: &AssessProbesArgs) -> Result<()> {
         against: args.genomes,
         self_mode: true,
         threshold: args.threshold,
+        aligner: args.aligner,
         minimap_preset: args.minimap_preset,
+        threads: args.threads,
         outdir: args.outdir,
         output_prefix: &xreact_prefix,
         report: ReportMode::None,
@@ -309,7 +318,19 @@ fn write_run_params(path: &Path, args: &AssessProbesArgs) -> Result<()> {
         writeln!(w, "genomes\t--genomes\t{}", g.display())?;
     }
     writeln!(w, "threshold\t--threshold\t{:.1}", args.threshold)?;
-    writeln!(w, "minimap_preset\t--minimap-preset\t{}", args.minimap_preset)?;
+    let aligner_str = match args.aligner {
+        Aligner::Minimap2 => "minimap2",
+        Aligner::Blast => "blast",
+    };
+    writeln!(w, "aligner\t--aligner\t{}", aligner_str)?;
+    match args.aligner {
+        Aligner::Minimap2 => {
+            writeln!(w, "minimap_preset\t--minimap-preset\t{}", args.minimap_preset)?;
+        }
+        Aligner::Blast => {
+            writeln!(w, "threads\t--threads\t{}", args.threads)?;
+        }
+    }
     writeln!(w, "proximity\t--proximity\t{}", args.proximity)?;
     writeln!(w, "outdir\t-o\t{}", args.outdir.display())?;
     if args.no_individual_targets {

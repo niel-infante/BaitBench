@@ -7,8 +7,7 @@
 ///   Level 3 — fragment center = probe_center ± uniform jitter (±frag_len/4)
 ///   Level 4 — fragment length from Normal(mean, sd) clamped to [min, max]
 ///
-/// Background fragments are drawn uniformly, weighted by sequence_weight × seq_len,
-/// exactly as in the existing generate_fragments() function.
+/// Background fragments are drawn uniformly, weighted by sequence_weight × seq_len.
 use anyhow::{bail, Context, Result};
 use rand::distributions::WeightedIndex;
 use rand::prelude::*;
@@ -34,8 +33,6 @@ pub enum SimulateMode {
 /// A single probe alignment hit against the reference.
 #[derive(Debug)]
 pub struct ProbeHit {
-    #[allow(dead_code)]
-    pub probe_name: String,
     pub seq_id: String,
     pub start: usize, // 0-based, inclusive
     pub end: usize,   // 0-based, exclusive
@@ -241,10 +238,9 @@ pub fn load_probe_hits(
         };
 
         hits_by_probe
-            .entry(probe_name.clone())
+            .entry(probe_name)
             .or_default()
             .push(ProbeHit {
-                probe_name,
                 seq_id: rname.to_string(),
                 start,
                 end,
@@ -380,9 +376,8 @@ pub fn sample_capture_fragments(
 
 /// Sample `n_background` background fragments, weighted by sequence_weight × seq_len.
 ///
-/// Reuses the same logic as generate_fragments() but returns (header, sequence)
-/// pairs rather than writing to a file directly (so they can be interleaved with
-/// capture fragments before writing).
+/// Returns (header, sequence) pairs rather than writing to a file directly (so
+/// they can be interleaved with capture fragments before writing).
 pub fn sample_background_fragments(
     sequences: &HashMap<String, String>,
     weights: &HashMap<String, f64>,

@@ -686,9 +686,19 @@ pub enum Commands {
         #[arg(long, default_value = "80.0")]
         threshold: f64,
 
-        /// Minimap2 alignment preset
+        /// Alignment backend. minimap2 (default) is fast and embedded (no external install).
+        /// blast uses blastn-short and can find weaker/shorter homology that minimap2's
+        /// minimizer seeding misses, at the cost of speed; requires blastn + makeblastdb on PATH.
+        #[arg(long, default_value = "minimap2")]
+        aligner: Aligner,
+
+        /// Minimap2 alignment preset (--aligner minimap2 only)
         #[arg(long, default_value = "sr")]
         minimap_preset: String,
+
+        /// Number of threads for blastn search (--aligner blast only). Defaults to all cores.
+        #[arg(long)]
+        threads: Option<usize>,
 
         /// Output directory
         #[arg(short, long, default_value = "./xreact_results")]
@@ -880,6 +890,13 @@ pub enum Commands {
         #[arg(long, default_value = "80.0")]
         threshold: f64,
 
+        /// Alignment backend for the assessment's cross-reactivity step. minimap2 (default) is
+        /// fast and embedded (no external install). blast uses blastn-short and can find
+        /// weaker/shorter homology that minimap2's minimizer seeding misses, at the cost of
+        /// speed; requires blastn + makeblastdb on PATH. Uses --threads.
+        #[arg(long, default_value = "minimap2")]
+        aligner: Aligner,
+
         /// Minimap2 alignment preset for assessment steps
         #[arg(long, default_value = "sr")]
         minimap_preset: String,
@@ -995,6 +1012,13 @@ pub enum Commands {
         /// Minimum homology percentage for cross-reactivity detection
         #[arg(long, default_value = "80.0")]
         threshold: f64,
+
+        /// Alignment backend for the cross-reactivity step. minimap2 (default) is fast and
+        /// embedded (no external install). blast uses blastn-short and can find weaker/shorter
+        /// homology that minimap2's minimizer seeding misses, at the cost of speed; requires
+        /// blastn + makeblastdb on PATH. Uses --threads.
+        #[arg(long, default_value = "minimap2")]
+        aligner: Aligner,
 
         /// Minimap2 alignment preset
         #[arg(long, default_value = "sr")]
@@ -1326,6 +1350,16 @@ pub enum ProbeMethod {
     /// All --pt-* flags apply. Requires cd-hit-est.
     #[value(name = "probetools-lite")]
     ProbeToolsLite,
+}
+
+#[derive(Clone, Copy, ValueEnum, Debug, PartialEq, Eq)]
+pub enum Aligner {
+    /// Embedded rammap/minimap2 aligner (fast, no external install)
+    #[value(name = "minimap2")]
+    Minimap2,
+    /// blastn-short (more sensitive for short/divergent homology, requires BLAST+ on PATH)
+    #[value(name = "blast")]
+    Blast,
 }
 
 #[derive(Clone, Copy, ValueEnum, Debug, PartialEq, Eq)]

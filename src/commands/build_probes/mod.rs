@@ -7,7 +7,7 @@ use anyhow::Result;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::cli::{ProbeMethod, ReportMode};
+use crate::cli::{Aligner, ProbeMethod, ReportMode};
 use crate::commands::assess_probes;
 use crate::external::{cdhit, rscript};
 use crate::external::catch as external_catch;
@@ -40,6 +40,7 @@ pub struct BuildProbesArgs<'a> {
     pub threads: usize,
     pub genomes: &'a [PathBuf],
     pub threshold: f64,
+    pub aligner: Aligner,
     pub minimap_preset: &'a str,
     pub proximity: usize,
     pub skip_assess: bool,
@@ -311,6 +312,7 @@ pub fn execute(args: &BuildProbesArgs) -> Result<()> {
             probes: &probes_final_path,
             genomes: args.genomes,
             threshold: args.threshold,
+            aligner: args.aligner,
             minimap_preset: args.minimap_preset,
             proximity: args.proximity,
             outdir: args.outdir,

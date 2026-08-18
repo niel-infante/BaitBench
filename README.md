@@ -282,7 +282,7 @@ Results are written to `<outdir>/<run_name>/` and include:
 
 ## Dependencies
 
-- [BLAST+](https://blast.ncbi.nlm.nih.gov/) -- cross-reactivity analysis (`xreact`)
+- [BLAST+](https://blast.ncbi.nlm.nih.gov/) -- cross-reactivity analysis (`--aligner blast` on `xreact`, `assess-probes`, or `build-probes`; optional, the default `--aligner minimap2` needs no external install)
 - [cd-hit](https://github.com/weizhongli/cdhit) -- sequence clustering (used by `build-probes`)
 - [CATCH](https://github.com/broadinstitute/catch) -- optimization-based probe design (optional; required for `build-probes --method catch`)
 - [R](https://www.r-project.org/) with ggplot2, rmarkdown -- report generation (optional)

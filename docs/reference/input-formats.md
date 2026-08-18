@@ -163,7 +163,7 @@ The `--ct-calibration` flag accepts two quoted strings, each in `"CT,fraction"` 
 
 | Tool | Purpose | Required? |
 |------|---------|-----------|
-| blastn (BLAST+) | Cross-reactivity analysis (`xreact`) | Only if `baitbench xreact` is used |
+| blastn (BLAST+) | Cross-reactivity analysis (`--aligner blast` on `xreact`, `assess-probes`, or `build-probes`) | Only if `--aligner blast` is used; the default `--aligner minimap2` needs no external install |
 | cd-hit-est | Sequence clustering (`build-probes`, `tool collapse`) | Only if `baitbench build-probes` or `baitbench tool collapse` is used |
 | R + packages | HTML report generation | Only if `--report full` is used |
 | art_modern | Illumina read simulation | Only if `--read-simulator art` is used |
