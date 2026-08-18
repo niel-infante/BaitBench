@@ -75,7 +75,7 @@ These calibrate the CT-to-fraction conversion. Only used when `--ct` is specifie
 | Num sequences | `--num-sequences` | all | Number of reads to sample with replacement. If not set, all captured fragments become reads. |
 | Read simulator | `--read-simulator` | `perfect` | `perfect` (trim, no errors), `art` (Illumina via ART-modern), `badread` (ONT/PacBio via Badread) |
 | Sequencer profile | `--sequencer-profile` | `HiSeq2500_150bp` / `ont` | Chemistry/error model. Required when `--read-simulator` is `art` or `badread`. |
-| Coverage depth | `--coverage-depth` | 1.0 | Reads generated per fragment (art/badread only). |
+| Coverage depth | `--coverage-depth` | 1.0 | Reads generated per fragment (art/badread only). See the `art` section below if it produces 0 reads on short fragments. |
 | Output format | `--output-format` | `fasta` | Output format: `fasta` or `fastq`. `fastq` preserves quality scores; perfect simulator writes dummy Q40 scores. |
 | Paired-end | `--paired-end` | false | Paired-end output (art only). Produces reads.fa + reads_R2.fa. |
 | PE fragment mean | `--pe-frag-len-mean` | 200 | Mean insert size for paired-end (art + `--paired-end` only) |
@@ -100,6 +100,15 @@ Uses [ART-modern](https://github.com/YU-Zhejian/art_modern) to simulate Illumina
 | `MiSeq_250bp` | Illumina MiSeq | 250 bp |
 
 Run `art_modern --list-profiles` for all built-in profiles.
+
+**Coverage-depth floor**: art_modern splits `--coverage-depth` across `--threads` internally
+(BaitBench pins art_modern's `--parallel` to its own `--threads`, default 1). On short
+(~150–350 bp) fragments, a high `--threads` combined with the default `--coverage-depth 1.0`
+can push per-thread coverage below art_modern's internal minimum and produce 0 reads.
+BaitBench detects this (0 reads from non-empty input) and errors out rather than silently
+continuing with an empty read set. If you hit it, raise `--coverage-depth` (e.g. `5`) and use
+`--num-sequences` to subsample back down to your intended read count — `--num-sequences` is
+applied *after* sequencing, so it doesn't reintroduce the problem.
 
 #### `--read-simulator badread` — ONT / PacBio CLR long reads
 
@@ -132,7 +141,7 @@ Additional flags for `badread` only:
 
 | Parameter | Flag | Default | Description |
 |-----------|------|---------|-------------|
-| Threads | `--threads` | 1 | Threads for external tools (BLAST, cd-hit-est) |
+| Threads | `--threads` | 1 | Threads for external tools (BLAST, cd-hit-est) and for art_modern's `--parallel` (`--read-simulator art`) |
 | Output dir | `--outdir`, `-o` | ./results | Output directory. A timestamped subdirectory is created for each run. |
 | Output prefix | `--output-prefix` | (empty) | String prepended to every auto-generated output filename |
 | Run name | `--run-name` | auto | Custom name for the run. Default: `run_YYYYMMDD_HHMMSS` |

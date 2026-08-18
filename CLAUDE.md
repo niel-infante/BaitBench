@@ -86,7 +86,7 @@ genomes.fa + targets.fa + distractors.fa [+ sample.tsv] [+ mapping.tsv]
 | `src/thermodynamics.rs` | SantaLucia (1998) nearest-neighbor TNN model: `ThermoModel` struct (temp_c, na_conc_m), `delta_g()` (stacking + initiation terms + Owczarzy salt correction), `boltzmann_score()` |
 | `src/commands/simulate.rs` | Thermodynamic/simple probe-biased fragment simulation (replaces simulate+capture+enrich) |
 | `src/sampling/thermo_sim.rs` | ProbeHit, SimulateMode, load_probe_hits, sample_capture_fragments, sample_background_fragments, write_fragments |
-| `src/commands/sequence.rs` | Simulate sequencing: dispatches `ReadSimulator` enum (perfect/art/badread); `art_modern.rs` handles read renaming via SAM RNAME field; `badread.rs` via the `{ref_name},{start}-{end}` field in read descriptions |
+| `src/commands/sequence.rs` | Simulate sequencing: dispatches `ReadSimulator` enum (perfect/art/badread); `art_modern.rs` handles read renaming via SAM RNAME field; `badread.rs` via the `{ref_name},{start}-{end}` field in read descriptions; `check_reads_generated()` bails if a simulator produces 0 reads from non-empty input instead of silently passing an empty file downstream (art_modern's `--parallel` default of "all CPUs" divides `--coverage-depth` across threads/strands and can drop short-fragment output to 0 — BaitBench pins `--parallel` to `--threads` to avoid this by default) |
 | `src/commands/filter.rs` | Optional host read filtering |
 | `src/commands/map_reads.rs` | Map reads back to reference |
 | `src/commands/generate_list.rs` | SAM parsing → per-reference counts |

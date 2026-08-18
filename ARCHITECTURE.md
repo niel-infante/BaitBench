@@ -78,7 +78,7 @@ src/
 ├── probetools.rs        # ProbeTools-Lite probe design: design_probes() — iterative k-mer enumeration → cd-hit-est clustering → greedy batch selection → minimap2 coverage → low-cov extraction (reimplementation of Kuchinski et al. 2022)
 ├── external/
 │   ├── minimap2.rs      # minimap2 wrapper: map_reads (SAM, optional reads_r2 for PE), host_align (optional reads_r2), probe_align(max_secondary), xreact_align
-│   ├── art_modern.rs    # ART-modern wrapper: check_available, run_simulation (Illumina SE/PE reads + SAM for renaming)
+│   ├── art_modern.rs    # ART-modern wrapper: check_available, run_simulation (Illumina SE/PE reads + SAM for renaming; takes threads, passed as `--parallel` — pinned rather than left at art_modern's own "all CPUs" default, which divides --coverage-depth across threads/strands and can silently zero out short-fragment output)
 │   ├── badread.rs       # badread wrapper: check_available, profile_params (ont/ont-2020/pacbio → error+qscore models), run_simulation (long reads; FASTQ to stdout)
 │   ├── blastn.rs        # BLAST+ wrapper: check_available, xreact_align (makeblastdb + blastn-short → tabular hits; empty query/reference short-circuits to an empty result instead of erroring; used by xreact --aligner blast, incl. when chained from assess-probes/build-probes)
 │   ├── cdhit.rs         # cd-hit-est wrapper: check_available, cluster (sequence clustering by identity)
@@ -129,7 +129,7 @@ Every command module exports an `Args` struct and an `execute(&Args) -> Result<(
 |---------|-------------|------------|-------------|
 | `prepare` | `PrepareArgs` | targets, distractors, sample, distractor_fraction, genomes, sample_target_map, groups, distractor_groups | combined_reference.fa, weights.txt, ID lists, distractor_groups.tsv (always); target_groups.tsv (if --groups); genome mode also: mapping_reference.fa, genomes.txt, sample_target_map.txt |
 | `simulate` | `SimulateArgs` | reference, weights, probes, num_fragments, capture_fraction, simulate_mode, hybridization_temperature, seed, fragment_length_*, threads | fragments.fa (probe-biased + background) |
-| `sequence` | `SequenceArgs` | input, output, output_r2, read_length, num_sequences, seed, simulator (perfect/art/badread), sequencer_profile, coverage_depth, paired_end, pe_frag_len_mean, pe_frag_len_sd, output_format | reads.fa/.fq (SE) or reads.fa/.fq + reads_R2.fa/.fq (PE); extension determined by output_format; errors injected by art_modern or badread when simulator ≠ perfect |
+| `sequence` | `SequenceArgs` | input, output, output_r2, read_length, num_sequences, seed, simulator (perfect/art/badread), sequencer_profile, coverage_depth, threads (art only, → art_modern `--parallel`), paired_end, pe_frag_len_mean, pe_frag_len_sd, output_format | reads.fa/.fq (SE) or reads.fa/.fq + reads_R2.fa/.fq (PE); extension determined by output_format; errors injected by art_modern or badread when simulator ≠ perfect; `check_reads_generated()` bails if art_modern/badread produce 0 reads from non-empty input |
 | `filter` | `FilterArgs` | host, reads, reads_r2, minimap_preset | filtered.fa/.fq (+ filtered_R2.fa/.fq for PE); format detected automatically from input |
 | `map_reads` | `MapArgs` | reference, reads, reads_r2, minimap_preset | mapped.sam |
 | `generate_list` | `ListArgs` | sam | detected.list |

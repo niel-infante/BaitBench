@@ -427,6 +427,12 @@ pub enum Commands {
         #[arg(long, default_value = "1.0")]
         coverage_depth: f64,
 
+        /// Parallelism for art_modern (art only, maps to its `--parallel`). Left at art_modern's
+        /// own default (all CPUs) this can divide coverage-depth across threads/strands and
+        /// silently drop short-fragment output to 0 reads; pin it explicitly instead.
+        #[arg(long, default_value = "1")]
+        threads: usize,
+
         /// Enable paired-end output (art only).
         #[arg(long)]
         paired_end: bool,

@@ -336,6 +336,7 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
                     simulator: sequence::ReadSimulator::Perfect,
                     sequencer_profile: String::new(),
                     coverage_depth: 1.0,
+                    threads: args.threads,
                     paired_end: false,
                     pe_frag_len_mean: 200,
                     pe_frag_len_sd: 50,

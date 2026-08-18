@@ -25,14 +25,14 @@ pub fn check_available() -> Result<()> {
 /// ```
 /// art_modern --i-file <input> --o-fastq <out_r1> --o-sam <out_sam>
 ///            --read_len <n> --builtin_qual_file <profile>
-///            --i-fcov <depth> --lc se
+///            --i-fcov <depth> --lc se --parallel <threads>
 /// ```
 ///
 /// Paired-end:
 /// ```
 /// art_modern --i-file <input> --o-fastq <out_r1> --o-fastq2 <out_r2> --o-sam <out_sam>
 ///            --read_len <n> --builtin_qual_file <profile>
-///            --i-fcov <depth> --lc pe
+///            --i-fcov <depth> --lc pe --parallel <threads>
 ///            --pe_frag_dist_mean <pe_mean> --pe_frag_dist_std_dev <pe_sd>
 /// ```
 ///
@@ -50,17 +50,25 @@ pub fn run_simulation(
     paired_end: bool,
     pe_frag_len_mean: usize,
     pe_frag_len_sd: usize,
+    threads: usize,
 ) -> Result<()> {
     let log = File::create(log_file)
         .with_context(|| format!("Cannot create log: {}", log_file.display()))?;
 
+    // art_modern's `--parallel` defaults to 0 ("all CPUs"), which divides the requested
+    // `--i-fcov` across (cores × strands) internally. On short fragments this can push
+    // per-thread coverage below art_modern's internal minimum and silently yield 0 reads
+    // even though the process exits successfully. Pin it to BaitBench's own `--threads`
+    // (never 0, which would re-trigger the "all CPUs" default) so parallelism is explicit
+    // and predictable instead of scaling with whatever machine the pipeline happens to run on.
     let mut cmd = Command::new("art_modern");
     cmd.arg("--i-file").arg(input)
         .arg("--o-fastq").arg(output_r1)
         .arg("--o-sam").arg(output_sam)
         .arg("--read_len").arg(read_len.to_string())
         .arg("--builtin_qual_file").arg(profile)
-        .arg("--i-fcov").arg(coverage_depth.to_string());
+        .arg("--i-fcov").arg(coverage_depth.to_string())
+        .arg("--parallel").arg(threads.max(1).to_string());
 
     if paired_end {
         let r2 = output_r2.ok_or_else(|| anyhow::anyhow!("output_r2 required for paired-end"))?;

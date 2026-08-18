@@ -9,6 +9,7 @@ use rand::{Rng, SeedableRng};
 
 use crate::cli::OutputFormat;
 use crate::external::{art_modern, badread};
+use crate::fasta;
 use crate::io_utils::extract_source_id;
 
 /// Which tool generates reads from captured fragments.
@@ -52,6 +53,11 @@ pub struct SequenceArgs<'a> {
     pub sequencer_profile: String,
     /// Reads generated per fragment relative to fragment length (Art/Pbsim only).
     pub coverage_depth: f64,
+    /// Parallelism for the underlying simulator (Art only, maps to `--parallel`).
+    /// Pinning this to BaitBench's own `--threads` avoids art_modern's `--parallel 0`
+    /// ("all CPUs") default, which divides `coverage_depth` across cores/strands and can
+    /// silently drop short-fragment output to 0 reads.
+    pub threads: usize,
     /// Enable paired-end output (Art only).
     pub paired_end: bool,
     /// Mean insert size for paired-end (Art + paired_end only).
@@ -208,7 +214,10 @@ fn execute_art(args: &SequenceArgs) -> Result<()> {
         args.paired_end,
         args.pe_frag_len_mean,
         args.pe_frag_len_sd,
+        args.threads,
     )?;
+
+    check_reads_generated(&tmp_r1, args.input, "art_modern", args.coverage_depth, &log)?;
 
     let qname_to_frag = parse_sam_qname_to_rname(&tmp_sam)?;
 
@@ -301,6 +310,8 @@ fn execute_badread(args: &SequenceArgs) -> Result<()> {
         args.badread_random_reads,
         args.badread_chimeras,
     )?;
+
+    check_reads_generated(&tmp_fastq, args.input, "badread", args.coverage_depth, &log_path)?;
 
     let fastq_out = matches!(args.output_format, OutputFormat::Fastq);
 
@@ -451,6 +462,39 @@ fn badread_fastq_to_fastq(fastq: &Path, out_path: &Path) -> Result<()> {
 }
 
 // ── Shared helpers ─────────────────────────────────────────────────────────────
+
+/// Bail with an actionable error if a read simulator produced 0 reads from non-empty
+/// input, instead of letting an empty FASTA/FASTQ flow silently through the rest of the
+/// pipeline (where it surfaces only as every sample target reading FN in the final report).
+fn check_reads_generated(
+    reads_path: &Path,
+    input_fragments: &Path,
+    tool: &str,
+    coverage_depth: f64,
+    log_file: &Path,
+) -> Result<()> {
+    if fasta::count_reads(reads_path)? > 0 {
+        return Ok(());
+    }
+    let fragments_in = fasta::count_reads(input_fragments)?;
+    if fragments_in == 0 {
+        bail!(
+            "{} produced 0 reads: input {} contains no fragments.",
+            tool, input_fragments.display()
+        );
+    }
+    bail!(
+        "{tool} produced 0 reads from {fragments_in} input fragments at --coverage-depth {coverage_depth}. \
+        This usually means the requested coverage is spread too thin for these fragment lengths \
+        (for `art`, high --threads divides coverage across threads/strands and can push short \
+        fragments below {tool}'s internal per-job minimum). Try a higher --coverage-depth (e.g. 5) — \
+        BaitBench applies --num-sequences *after* sequencing, so pairing a higher --coverage-depth \
+        with --num-sequences lets you land on your intended read count without hitting this floor. \
+        Check {log} for details.",
+        tool = tool, fragments_in = fragments_in, coverage_depth = coverage_depth,
+        log = log_file.display(),
+    );
+}
 
 fn write_trimmed(writer: &mut impl Write, header: &str, seq: &str, read_length: usize) -> Result<()> {
     writeln!(writer, "{}", header)?;

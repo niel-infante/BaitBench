@@ -270,6 +270,7 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         simulator: args.simulator,
         sequencer_profile: args.sequencer_profile.clone(),
         coverage_depth: args.coverage_depth,
+        threads: args.threads,
         paired_end: args.paired_end,
         pe_frag_len_mean: args.pe_frag_len_mean,
         pe_frag_len_sd: args.pe_frag_len_sd,
