@@ -1,0 +1,1326 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="In-silico probe capture simulation and evaluation">
+    
+    <link rel="canonical" href="https://niel-infante.github.io/BaitBench/reference/parameters/">
+    <link rel="shortcut icon" href="../../img/favicon.ico">
+
+    
+    <title>Parameters - BaitBench</title>
+    
+
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.12.0/css/all.css">
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.12.0/css/v4-shims.css">
+    <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/hack-font@3.3.0/build/web/hack.min.css">
+    <link href='//rsms.me/inter/inter.css' rel='stylesheet' type='text/css'>
+    <link href='//fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,700italic,400,300,600,700&subset=latin-ext,latin' rel='stylesheet' type='text/css'>
+    <link href="../../css/bootstrap-custom.min.css" rel="stylesheet">
+    <link href="../../css/base.min.css" rel="stylesheet">
+    <link href="../../css/cinder.min.css" rel="stylesheet">
+
+    
+        
+        <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/highlightjs/cdn-release@9.18.0/build/styles/github.min.css">
+        
+    
+
+    <!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+            <script src="https://cdn.jsdelivr.net/npm/html5shiv@3.7.3/dist/html5shiv.min.js"></script>
+            <script src="https://cdn.jsdelivr.net/npm/respond.js@1.4.2/dest/respond.min.js"></script>
+        <![endif]-->
+
+    
+
+     
+</head>
+
+<body>
+
+    <div class="navbar navbar-default navbar-fixed-top" role="navigation">
+    <div class="container">
+
+        <!-- Collapsed navigation -->
+        <div class="navbar-header">
+            <!-- Expander button -->
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            
+
+            <!-- Main title -->
+
+            
+              <a class="navbar-brand" href="../..">BaitBench</a>
+            
+        </div>
+
+        <!-- Expanded navigation -->
+        <div class="navbar-collapse collapse">
+                <!-- Main navigation -->
+                <ul class="nav navbar-nav">
+                
+                
+                    <li >
+                        <a href="../..">Home</a>
+                    </li>
+                
+                
+                
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">Tutorials <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="../../tutorials/">Tutorials</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../tutorials/installation/">Installation</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../tutorials/first-run/">Your First Simulation</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../tutorials/genome-mode/">Genome Mode (Bacteria)</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">How-To Guides <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="../../how-to/">How-To Guides</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/prepare-input-files/">Prepare Input Files</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/choose-simulation-mode/">Choose a Simulation Mode</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/set-parameters/">Set Parameters</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/interpret-results/">Interpret Results</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/design-and-assess-probes/">Design and Assess Probes</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/analyze-cross-reactivity/">Analyze Cross-Reactivity</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/troubleshoot/">Troubleshoot</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                
+                    <li class="dropdown active">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">Reference <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="../">Reference</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../commands/">Commands</a>
+</li>
+
+                        
+                            
+<li class="active">
+    <a href="./">Parameters</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../input-formats/">Input Formats</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../output-formats/">Output Formats</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../reports/">Reports</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">Explanation <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="../../explanation/">Explanation</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../explanation/what-is-probe-capture/">What Is Probe Capture?</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../explanation/pipeline-overview/">Pipeline Overview</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../explanation/simulation-modes/">Simulation Modes</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../explanation/metrics-and-classification/">Metrics and Classification</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../explanation/thermodynamic-scoring/">Thermodynamic Scoring</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../explanation/ct-scores/">CT Scores</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../explanation/low-complexity-filtering/">Low-Complexity Filtering</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                </ul>
+
+            <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="#" data-toggle="modal" data-target="#mkdocs_search_modal">
+                            <i class="fas fa-search"></i> Search
+                        </a>
+                    </li>
+                    <li >
+                        <a rel="prev" href="../commands/">
+                            <i class="fas fa-arrow-left"></i> Previous
+                        </a>
+                    </li>
+                    <li >
+                        <a rel="next" href="../input-formats/">
+                            Next <i class="fas fa-arrow-right"></i>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="https://github.com/niel-infante/BaitBench">niel-infante/BaitBench</a>
+                    </li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+    <div class="container">
+        
+        
+        <div class="col-md-3"><div class="bs-sidebar hidden-print affix well" role="complementary">
+    <ul class="nav bs-sidenav">
+        <li class="first-level active"><a href="#parameters">Parameters</a></li>
+            <li class="second-level"><a href="#input-files">Input Files</a></li>
+                
+            <li class="second-level"><a href="#fragment-generation">Fragment Generation</a></li>
+                
+            <li class="second-level"><a href="#target-abundance">Target Abundance</a></li>
+                
+            <li class="second-level"><a href="#ct-score-parameters">CT Score Parameters</a></li>
+                
+            <li class="second-level"><a href="#simulation-parameters">Simulation Parameters</a></li>
+                
+            <li class="second-level"><a href="#sequencing-parameters">Sequencing Parameters</a></li>
+                
+                <li class="third-level"><a href="#read-simulator-details">Read Simulator Details</a></li>
+            <li class="second-level"><a href="#execution-parameters">Execution Parameters</a></li>
+                
+            <li class="second-level"><a href="#probe-building-parameters">Probe Building Parameters</a></li>
+                
+                <li class="third-level"><a href="#assessment-parameters">Assessment Parameters</a></li>
+                <li class="third-level"><a href="#-method-catch-lite-method-catch-parameters">--method catch-lite / --method catch Parameters</a></li>
+                <li class="third-level"><a href="#-method-syotti-lite-parameters">--method syotti-lite Parameters</a></li>
+                <li class="third-level"><a href="#-method-probetools-lite-parameters">--method probetools-lite Parameters</a></li>
+            <li class="second-level"><a href="#ct-score-calculation">CT Score Calculation</a></li>
+                
+                <li class="third-level"><a href="#ct-reference-table">CT Reference Table</a></li>
+                <li class="third-level"><a href="#custom-one-point-calibration">Custom One-Point Calibration</a></li>
+                <li class="third-level"><a href="#two-point-calibration">Two-Point Calibration</a></li>
+                <li class="third-level"><a href="#tips">Tips</a></li>
+    </ul>
+</div></div>
+        <div class="col-md-9" role="main">
+
+<h1 id="parameters">Parameters<a class="headerlink" href="#parameters" title="Permanent link">&para;</a></h1>
+<p>Complete parameter reference for <code>baitbench run</code> and related subcommands.</p>
+<hr />
+<h2 id="input-files">Input Files<a class="headerlink" href="#input-files" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Flag</th>
+<th>Default</th>
+<th>Applies to</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Targets</td>
+<td><code>--targets</code>, <code>-t</code></td>
+<td>required</td>
+<td>run, prepare, probe-coverage, coverage-curve</td>
+<td>FASTA of target sequences the probes are designed to capture</td>
+</tr>
+<tr>
+<td>Genomes</td>
+<td><code>--genomes</code>, <code>-g</code></td>
+<td>none</td>
+<td>run, prepare, coverage-curve</td>
+<td>FASTA of full genomes for fragment generation (genome mode)</td>
+</tr>
+<tr>
+<td>Distractors</td>
+<td><code>--distractors</code>, <code>-d</code></td>
+<td>required</td>
+<td>run, prepare, coverage-curve</td>
+<td>FASTA of background sequences. Can be specified multiple times.</td>
+</tr>
+<tr>
+<td>Probes</td>
+<td><code>--probes</code>, <code>-p</code></td>
+<td>required</td>
+<td>run, coverage-curve</td>
+<td>FASTA of probe sequences</td>
+</tr>
+<tr>
+<td>Sample</td>
+<td><code>--sample</code></td>
+<td>all targets</td>
+<td>run, coverage-curve</td>
+<td>Sample targets or genomes: TSV file path OR inline IDs with optional weights. See <a href="../input-formats/#sample-manifest">Sample Manifest</a></td>
+</tr>
+<tr>
+<td>Sample-target map</td>
+<td><code>--sample-target-map</code></td>
+<td>none</td>
+<td>run, prepare, coverage-curve</td>
+<td>TSV mapping genome IDs to target IDs (genome mode). See <a href="../input-formats/#sample-target-map">Sample-Target Map</a></td>
+</tr>
+<tr>
+<td>Groups</td>
+<td><code>--groups</code></td>
+<td>none</td>
+<td>run, prepare</td>
+<td>TSV mapping target sequence IDs to group names. See <a href="../input-formats/#groups-file">Groups File</a></td>
+</tr>
+<tr>
+<td>Distractor groups</td>
+<td><code>--distractor-groups</code></td>
+<td>none</td>
+<td>run, prepare</td>
+<td>TSV mapping distractor sequence IDs to group names (overrides default file-stem grouping). See <a href="../input-formats/#groups-file">Groups File</a></td>
+</tr>
+<tr>
+<td>Host FASTA</td>
+<td><code>--host-fasta</code></td>
+<td>none</td>
+<td>run, coverage-curve</td>
+<td>Host genome for read filtering</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="fragment-generation">Fragment Generation<a class="headerlink" href="#fragment-generation" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Flag</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Num fragments</td>
+<td><code>--num-fragments</code></td>
+<td>10000</td>
+<td>Fragments to generate. More = better statistical power, slower.</td>
+</tr>
+<tr>
+<td>Fragment length mean</td>
+<td><code>--fragment-length-mean</code></td>
+<td>175</td>
+<td>Mean fragment length in bp</td>
+</tr>
+<tr>
+<td>Fragment length min</td>
+<td><code>--fragment-length-min</code></td>
+<td>150</td>
+<td>Minimum fragment length in bp</td>
+</tr>
+<tr>
+<td>Fragment length max</td>
+<td><code>--fragment-length-max</code></td>
+<td>200</td>
+<td>Maximum fragment length in bp</td>
+</tr>
+</tbody>
+</table>
+<p>Fragment lengths follow a truncated normal distribution clamped to [min, max].</p>
+<hr />
+<h2 id="target-abundance">Target Abundance<a class="headerlink" href="#target-abundance" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Flag</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Distractor fraction</td>
+<td><code>--distractor-fraction</code> (<code>-f</code> on <code>prepare</code> only)</td>
+<td>0.9</td>
+<td>Fraction of fragments from distractors (0–1). Higher = lower target abundance. <strong>Mutually exclusive with <code>--ct</code></strong></td>
+</tr>
+<tr>
+<td>CT score</td>
+<td><code>--ct</code></td>
+<td>none</td>
+<td>qPCR CT value. Converted to distractor fraction via calibration formula. Lower CT = more target. <strong>Mutually exclusive with <code>--distractor-fraction</code></strong></td>
+</tr>
+</tbody>
+</table>
+<p>If neither is specified, defaults to <code>--distractor-fraction 0.9</code>.</p>
+<hr />
+<h2 id="ct-score-parameters">CT Score Parameters<a class="headerlink" href="#ct-score-parameters" title="Permanent link">&para;</a></h2>
+<p>These calibrate the CT-to-fraction conversion. Only used when <code>--ct</code> is specified. See <a href="#ct-score-calculation">CT Score Calculation</a> below.</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Flag</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CT baseline</td>
+<td><code>--ct-baseline</code></td>
+<td>20.0</td>
+<td>CT value at which target fraction equals the baseline fraction</td>
+</tr>
+<tr>
+<td>CT baseline fraction</td>
+<td><code>--ct-baseline-fraction</code></td>
+<td>0.01</td>
+<td>Target fraction at the baseline CT</td>
+</tr>
+<tr>
+<td>CT efficiency</td>
+<td><code>--ct-efficiency</code></td>
+<td>1.0</td>
+<td>PCR amplification efficiency (0–1). Default 1.0 = 100% efficiency (doubling per cycle). Real assays typically 0.90–0.98.</td>
+</tr>
+<tr>
+<td>CT calibration</td>
+<td><code>--ct-calibration</code></td>
+<td>none</td>
+<td>Two-point calibration: <code>"CT1,FRAC1" "CT2,FRAC2"</code>. Derives efficiency automatically. Mutually exclusive with <code>--ct-baseline</code>, <code>--ct-baseline-fraction</code>, <code>--ct-efficiency</code>.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="simulation-parameters">Simulation Parameters<a class="headerlink" href="#simulation-parameters" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Flag</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Simulate mode</td>
+<td><code>--simulate-mode</code></td>
+<td>thermodynamic</td>
+<td><code>thermodynamic</code> (SantaLucia TNN Boltzmann weighting) or <code>simple</code> (uniform probe-site weights)</td>
+</tr>
+<tr>
+<td>Hybridisation temperature</td>
+<td><code>--hybridization-temperature</code></td>
+<td>70.0</td>
+<td>Hybridisation temperature in °C. Only used in thermodynamic mode.</td>
+</tr>
+<tr>
+<td>Capture fraction</td>
+<td><code>--capture-fraction</code></td>
+<td>0.5</td>
+<td>Fraction of fragments drawn from probe binding sites (0.0–1.0); remainder are background.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="sequencing-parameters">Sequencing Parameters<a class="headerlink" href="#sequencing-parameters" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Flag</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Read length</td>
+<td><code>--read-length</code></td>
+<td>120</td>
+<td>Trim captured fragments to this length (bp). Used by <code>perfect</code> and <code>art</code>. Not applicable for <code>badread</code>.</td>
+</tr>
+<tr>
+<td>Num sequences</td>
+<td><code>--num-sequences</code></td>
+<td>all</td>
+<td>Number of reads to sample with replacement. If not set, all captured fragments become reads.</td>
+</tr>
+<tr>
+<td>Read simulator</td>
+<td><code>--read-simulator</code></td>
+<td><code>perfect</code></td>
+<td><code>perfect</code> (trim, no errors), <code>art</code> (Illumina via ART-modern), <code>badread</code> (ONT/PacBio via Badread)</td>
+</tr>
+<tr>
+<td>Sequencer profile</td>
+<td><code>--sequencer-profile</code></td>
+<td><code>HiSeq2500_150bp</code> / <code>ont</code></td>
+<td>Chemistry/error model. Required when <code>--read-simulator</code> is <code>art</code> or <code>badread</code>.</td>
+</tr>
+<tr>
+<td>Coverage depth</td>
+<td><code>--coverage-depth</code></td>
+<td>1.0</td>
+<td>Reads generated per fragment (art/badread only). See the <code>art</code> section below if it produces 0 reads on short fragments.</td>
+</tr>
+<tr>
+<td>Output format</td>
+<td><code>--output-format</code></td>
+<td><code>fasta</code></td>
+<td>Output format: <code>fasta</code> or <code>fastq</code>. <code>fastq</code> preserves quality scores; perfect simulator writes dummy Q40 scores.</td>
+</tr>
+<tr>
+<td>Paired-end</td>
+<td><code>--paired-end</code></td>
+<td>false</td>
+<td>Paired-end output (art only). Produces reads.fa + reads_R2.fa.</td>
+</tr>
+<tr>
+<td>PE fragment mean</td>
+<td><code>--pe-frag-len-mean</code></td>
+<td>200</td>
+<td>Mean insert size for paired-end (art + <code>--paired-end</code> only)</td>
+</tr>
+<tr>
+<td>PE fragment SD</td>
+<td><code>--pe-frag-len-sd</code></td>
+<td>50</td>
+<td>Insert size std-dev for paired-end (art + <code>--paired-end</code> only)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="read-simulator-details">Read Simulator Details<a class="headerlink" href="#read-simulator-details" title="Permanent link">&para;</a></h3>
+<h4 id="-read-simulator-perfect-default"><code>--read-simulator perfect</code> (default)<a class="headerlink" href="#-read-simulator-perfect-default" title="Permanent link">&para;</a></h4>
+<p>Trims each captured fragment to <code>--read-length</code> bp from its start. No errors introduced. One read per fragment. Fragment names are preserved as-is.</p>
+<h4 id="-read-simulator-art-illumina-short-reads"><code>--read-simulator art</code> — Illumina short reads<a class="headerlink" href="#-read-simulator-art-illumina-short-reads" title="Permanent link">&para;</a></h4>
+<p>Uses <a href="https://github.com/YU-Zhejian/art_modern">ART-modern</a> to simulate Illumina-realistic base-call errors and quality scores. Requires <code>art_modern</code> on PATH (via conda: <code>conda install -c bioconda art_modern</code>).</p>
+<p><code>--sequencer-profile</code> selects the built-in quality profile. Common values:</p>
+<table>
+<thead>
+<tr>
+<th>Profile</th>
+<th>Platform</th>
+<th>Read length</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>HiSeq2500_150bp</code> (default)</td>
+<td>Illumina HiSeq 2500</td>
+<td>150 bp</td>
+</tr>
+<tr>
+<td><code>HiSeq2500_100bp</code></td>
+<td>Illumina HiSeq 2500</td>
+<td>100 bp</td>
+</tr>
+<tr>
+<td><code>MiSeq_250bp</code></td>
+<td>Illumina MiSeq</td>
+<td>250 bp</td>
+</tr>
+</tbody>
+</table>
+<p>Run <code>art_modern --list-profiles</code> for all built-in profiles.</p>
+<p><strong>Coverage-depth floor</strong>: art_modern splits <code>--coverage-depth</code> across <code>--threads</code> internally
+(BaitBench pins art_modern's <code>--parallel</code> to its own <code>--threads</code>, default 1). On short
+(~150–350 bp) fragments, a high <code>--threads</code> combined with the default <code>--coverage-depth 1.0</code>
+can push per-thread coverage below art_modern's internal minimum and produce 0 reads.
+BaitBench detects this (0 reads from non-empty input) and errors out rather than silently
+continuing with an empty read set. If you hit it, raise <code>--coverage-depth</code> (e.g. <code>5</code>) and use
+<code>--num-sequences</code> to subsample back down to your intended read count — <code>--num-sequences</code> is
+applied <em>after</em> sequencing, so it doesn't reintroduce the problem.</p>
+<h4 id="-read-simulator-badread-ont-pacbio-clr-long-reads"><code>--read-simulator badread</code> — ONT / PacBio CLR long reads<a class="headerlink" href="#-read-simulator-badread-ont-pacbio-clr-long-reads" title="Permanent link">&para;</a></h4>
+<p>Uses <a href="https://github.com/rrwick/Badread">Badread</a> to simulate long-read sequencing. Requires <code>badread</code> on PATH (via conda: <code>conda install -c conda-forge badread</code>).</p>
+<p><code>--sequencer-profile</code> selects the chemistry:</p>
+<table>
+<thead>
+<tr>
+<th>Profile</th>
+<th>Platform</th>
+<th>Error model</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ont</code> (default)</td>
+<td>ONT R10.4.1 / Kit14</td>
+<td>nanopore2023</td>
+</tr>
+<tr>
+<td><code>ont-2020</code></td>
+<td>ONT R9.4.1</td>
+<td>nanopore2020</td>
+</tr>
+<tr>
+<td><code>pacbio</code></td>
+<td>PacBio CLR</td>
+<td>pacbio2016</td>
+</tr>
+</tbody>
+</table>
+<p><code>--read-length</code> is not used for badread — read length is bounded by fragment length and a per-profile lognormal distribution. Paired-end is not supported for long reads.</p>
+<p>Additional flags for <code>badread</code> only:</p>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--long-read-length-mean</code></td>
+<td>profile default: 9000 (<code>ont</code>/<code>ont-2020</code>), 15000 (<code>pacbio</code>)</td>
+<td>Mean read length for badread (bp)</td>
+</tr>
+<tr>
+<td><code>--long-read-length-sd</code></td>
+<td>profile default: 7000 (<code>ont</code>/<code>ont-2020</code>), 13000 (<code>pacbio</code>)</td>
+<td>Standard deviation of read length for badread (bp)</td>
+</tr>
+<tr>
+<td><code>--badread-glitches</code></td>
+<td>badread's own default</td>
+<td>Badread glitch parameters (<code>rate,size,skip</code>).</td>
+</tr>
+<tr>
+<td><code>--badread-junk-reads</code></td>
+<td>badread's own default (~1%)</td>
+<td>Percentage of junk reads in badread output</td>
+</tr>
+<tr>
+<td><code>--badread-random-reads</code></td>
+<td>badread's own default (~1%)</td>
+<td>Percentage of random reads in badread output</td>
+</tr>
+<tr>
+<td><code>--badread-chimeras</code></td>
+<td>badread's own default (~1%)</td>
+<td>Percentage of chimeric reads in badread output</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="execution-parameters">Execution Parameters<a class="headerlink" href="#execution-parameters" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Flag</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Threads</td>
+<td><code>--threads</code></td>
+<td>1</td>
+<td>Threads for external tools (BLAST, cd-hit-est) and for art_modern's <code>--parallel</code> (<code>--read-simulator art</code>)</td>
+</tr>
+<tr>
+<td>Output dir</td>
+<td><code>--outdir</code>, <code>-o</code></td>
+<td>./results</td>
+<td>Output directory. A timestamped subdirectory is created for each run.</td>
+</tr>
+<tr>
+<td>Output prefix</td>
+<td><code>--output-prefix</code></td>
+<td>(empty)</td>
+<td>String prepended to every auto-generated output filename</td>
+</tr>
+<tr>
+<td>Run name</td>
+<td><code>--run-name</code></td>
+<td>auto</td>
+<td>Custom name for the run. Default: <code>run_YYYYMMDD_HHMMSS</code></td>
+</tr>
+<tr>
+<td>Report mode</td>
+<td><code>--report</code></td>
+<td><code>both-r</code></td>
+<td><code>full</code> (render HTML), <code>none</code> (skip), <code>rmd</code> (editable RMarkdown), <code>both-r</code> (HTML and RMarkdown)</td>
+</tr>
+<tr>
+<td>Seed</td>
+<td><code>--seed</code>, <code>-s</code></td>
+<td>random</td>
+<td>Random seed for reproducibility. Without this, results vary between runs.</td>
+</tr>
+<tr>
+<td>Verbose</td>
+<td><code>--verbose</code></td>
+<td>false</td>
+<td>Enable debug logging (global flag)</td>
+</tr>
+<tr>
+<td>Minimap preset</td>
+<td><code>--minimap-preset</code></td>
+<td>auto</td>
+<td>Alignment preset for read mapping. Auto-selected based on simulator: <code>sr</code> for perfect/art, <code>map-ont</code> for ONT badread, <code>map-pb</code> for PacBio badread. Override with explicit value if needed.</td>
+</tr>
+<tr>
+<td>Host minimap preset</td>
+<td><code>--host-minimap-preset</code></td>
+<td>sr</td>
+<td>Alignment preset for host read filtering</td>
+</tr>
+<tr>
+<td>Cleanup</td>
+<td><code>--cleanup</code></td>
+<td>false</td>
+<td>Delete intermediate files after completion</td>
+</tr>
+<tr>
+<td>Identify</td>
+<td><code>--identify</code></td>
+<td>false</td>
+<td>Enable species-level identification after metrics (genome mode, requires <code>--sample-target-map</code>)</td>
+</tr>
+<tr>
+<td>Identity threshold</td>
+<td><code>--identity-threshold</code></td>
+<td>90.0</td>
+<td>Minimum sequence identity % for target similarity in <code>run</code>, <code>panel-qc</code>, <code>identify</code></td>
+</tr>
+<tr>
+<td>Min unique targets</td>
+<td><code>--min-unique-targets</code></td>
+<td>1</td>
+<td>Minimum unique target detections to call species PRESENT in <code>run</code>, <code>identify</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="probe-building-parameters">Probe Building Parameters<a class="headerlink" href="#probe-building-parameters" title="Permanent link">&para;</a></h2>
+<p>Used by <code>baitbench build-probes</code>. All method-specific flags are silently ignored when a different method is selected.</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Flag</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Targets</td>
+<td><code>-t</code> / <code>--targets</code></td>
+<td><em>(required)</em></td>
+<td>Target sequences FASTA</td>
+</tr>
+<tr>
+<td>Method</td>
+<td><code>--method</code></td>
+<td><code>tile</code></td>
+<td>Probe design algorithm: <code>tile</code>, <code>catch-lite</code>, <code>catch</code>, <code>syotti-lite</code>, <code>probetools-lite</code></td>
+</tr>
+<tr>
+<td>Probe length</td>
+<td><code>--probe-length</code></td>
+<td>120</td>
+<td>Probe length in bp</td>
+</tr>
+<tr>
+<td>Step (tile)</td>
+<td><code>--step</code></td>
+<td>-60</td>
+<td>Step from end of each probe to start of next: negative = overlap, 0 = perfectly tiled, positive = gap (<code>tile</code> method only)</td>
+</tr>
+<tr>
+<td>Max N fraction</td>
+<td><code>--max-n-frac</code></td>
+<td>0.05</td>
+<td>Max fraction of ambiguous (N) bases in a target sequence; sequences above this are removed before design</td>
+</tr>
+<tr>
+<td>No-N in probes</td>
+<td><code>--no-n-in-probes</code></td>
+<td>false</td>
+<td>Replace N bases in designed probes: each N → T unless adjacent to T, then A/C/G</td>
+</tr>
+<tr>
+<td>Min GC</td>
+<td><code>--min-gc</code></td>
+<td>0.20</td>
+<td>Minimum GC fraction (0–1) to keep a probe</td>
+</tr>
+<tr>
+<td>Max GC</td>
+<td><code>--max-gc</code></td>
+<td>0.80</td>
+<td>Maximum GC fraction (0–1) to keep a probe</td>
+</tr>
+<tr>
+<td>DUST threshold</td>
+<td><code>--dust-threshold</code></td>
+<td>2.0</td>
+<td>DUST score threshold for low-complexity filtering (Morgulis et al. 2006)</td>
+</tr>
+<tr>
+<td>DUST window</td>
+<td><code>--dust-window</code></td>
+<td>64</td>
+<td>Window size in bases for DUST scoring</td>
+</tr>
+<tr>
+<td>Max masked fraction</td>
+<td><code>--max-masked-frac</code></td>
+<td>0.25</td>
+<td>Max fraction of DUST-masked bases to keep a probe; set to 1.0 to disable complexity filtering</td>
+</tr>
+<tr>
+<td>Collapse threshold</td>
+<td><code>--collapse-threshold</code></td>
+<td>0.95</td>
+<td>cd-hit-est identity threshold for initial target collapse</td>
+</tr>
+<tr>
+<td>Dedup threshold</td>
+<td><code>--dedup-threshold</code></td>
+<td>0.95</td>
+<td>cd-hit-est identity threshold for final probe deduplication</td>
+</tr>
+<tr>
+<td>Threads</td>
+<td><code>--threads</code></td>
+<td>5</td>
+<td>Number of threads for cd-hit-est, and for the blastn search when the assessment step uses <code>--aligner blast</code></td>
+</tr>
+<tr>
+<td>Output directory</td>
+<td><code>-o</code> / <code>--outdir</code></td>
+<td><code>./build_probes_results</code></td>
+<td>Output directory</td>
+</tr>
+<tr>
+<td>Output prefix</td>
+<td><code>--output-prefix</code></td>
+<td><em>(none)</em></td>
+<td>String prepended to every output filename</td>
+</tr>
+<tr>
+<td>Report</td>
+<td><code>--report</code></td>
+<td><code>both-r</code></td>
+<td>Report mode: <code>full</code> (HTML only), <code>rmd</code> (RMarkdown only), <code>both-r</code> (HTML + RMarkdown), <code>none</code> (skip)</td>
+</tr>
+<tr>
+<td>Cleanup</td>
+<td><code>--cleanup</code></td>
+<td>false</td>
+<td>Delete intermediate files after completion</td>
+</tr>
+<tr>
+<td>Skip assess</td>
+<td><code>--skip-assess</code></td>
+<td>false</td>
+<td>Skip the automatic probe assessment step (coverage + cross-reactivity)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="assessment-parameters">Assessment Parameters<a class="headerlink" href="#assessment-parameters" title="Permanent link">&para;</a></h3>
+<p>These apply to the <code>assess-probes</code> step that <code>build-probes</code> chains into automatically (unless <code>--skip-assess</code> is set).</p>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--genomes</code></td>
+<td><em>(none)</em></td>
+<td>Genome FASTA(s) for cross-reactivity checking; can be specified multiple times</td>
+</tr>
+<tr>
+<td><code>--threshold</code></td>
+<td>80.0</td>
+<td>Minimum homology (%) for cross-reactivity detection</td>
+</tr>
+<tr>
+<td><code>--aligner</code></td>
+<td><code>minimap2</code></td>
+<td>Alignment backend for the cross-reactivity step: <code>minimap2</code> (fast, embedded) or <code>blast</code> (blastn-short; more sensitive to weak/short homology, requires BLAST+ on PATH, uses <code>--threads</code>)</td>
+</tr>
+<tr>
+<td><code>--minimap-preset</code></td>
+<td><code>sr</code></td>
+<td>Minimap2 alignment preset for coverage/assessment alignments (always used regardless of <code>--aligner</code>)</td>
+</tr>
+<tr>
+<td><code>--proximity</code></td>
+<td>50</td>
+<td>Proximity distance (bp) for pull-down zone metric in coverage assessment</td>
+</tr>
+<tr>
+<td><code>--refine-threshold</code></td>
+<td>80.0</td>
+<td>1× coverage threshold (%) below which targets are re-analyzed in refinement iterations</td>
+</tr>
+<tr>
+<td><code>--refine-iterations</code></td>
+<td><em>(none)</em></td>
+<td>Number of refinement iterations to run on low-coverage targets</td>
+</tr>
+<tr>
+<td><code>--refine-until-stable</code></td>
+<td>false</td>
+<td>Repeat refinement until no targets remain below <code>--refine-threshold</code> or the set stabilizes (conflicts with <code>--refine-iterations</code>)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="-method-catch-lite-method-catch-parameters"><code>--method catch-lite</code> / <code>--method catch</code> Parameters<a class="headerlink" href="#-method-catch-lite-method-catch-parameters" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--catch-probe-stride</code></td>
+<td>60</td>
+<td>Step between candidate probe start positions during tiling</td>
+</tr>
+<tr>
+<td><code>--catch-mismatches</code></td>
+<td>5</td>
+<td>Maximum Hamming-distance mismatches for a probe to cover a target window</td>
+</tr>
+<tr>
+<td><code>--catch-extension</code></td>
+<td>0</td>
+<td>Extend covered interval by this many bp on each side of a probe match</td>
+</tr>
+<tr>
+<td><code>--catch-coverage</code></td>
+<td>1.0</td>
+<td>Minimum fraction of each target sequence that must be covered</td>
+</tr>
+<tr>
+<td><code>--catch-minhash-threshold</code></td>
+<td>0.6</td>
+<td>Jaccard similarity threshold for MinHash near-duplicate removal (0.0 = disabled)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="-method-syotti-lite-parameters"><code>--method syotti-lite</code> Parameters<a class="headerlink" href="#-method-syotti-lite-parameters" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--syotti-mismatches</code></td>
+<td>40</td>
+<td>Maximum Hamming-distance mismatches for a bait to cover a reference window</td>
+</tr>
+<tr>
+<td><code>--syotti-seed-len</code></td>
+<td>20</td>
+<td>Seed length (k-mer size) for the approximate search index</td>
+</tr>
+</tbody>
+</table>
+<h3 id="-method-probetools-lite-parameters"><code>--method probetools-lite</code> Parameters<a class="headerlink" href="#-method-probetools-lite-parameters" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--pt-step</code></td>
+<td>1</td>
+<td>Sliding window step between k-mer positions during enumeration (1 = every position)</td>
+</tr>
+<tr>
+<td><code>--pt-identity</code></td>
+<td>0.9</td>
+<td>cd-hit-est identity threshold for k-mer clustering</td>
+</tr>
+<tr>
+<td><code>--pt-coverage</code></td>
+<td>0.9</td>
+<td>Target coverage fraction (10th-percentile across all targets) to reach before stopping</td>
+</tr>
+<tr>
+<td><code>--pt-batch-size</code></td>
+<td>100</td>
+<td>Number of probes to add per iteration</td>
+</tr>
+<tr>
+<td><code>--pt-max-panel-size</code></td>
+<td>none</td>
+<td>Hard cap on total probes; no cap if omitted</td>
+</tr>
+<tr>
+<td><code>--pt-min-depth</code></td>
+<td>1</td>
+<td>Minimum per-position depth to count a position as covered</td>
+</tr>
+<tr>
+<td><code>--pt-max-iterations</code></td>
+<td>20</td>
+<td>Maximum iterations regardless of coverage progress</td>
+</tr>
+<tr>
+<td><code>--pt-min-coverage-gain</code></td>
+<td>0.001</td>
+<td>Stop if 10th-percentile coverage improves by less than this between iterations</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="ct-score-calculation">CT Score Calculation<a class="headerlink" href="#ct-score-calculation" title="Permanent link">&para;</a></h2>
+<p>CT (cycle threshold) from qPCR expresses target abundance. Lower CT = more target DNA. BaitBench converts CT to distractor fraction using:</p>
+<pre><code>target_fraction = ct_baseline_fraction × (1 + E)^(ct_baseline - ct)
+distractor_fraction = 1 - target_fraction
+</code></pre>
+<p>Where:
+- <code>ct_baseline</code> is a known reference CT (default: 20.0)
+- <code>ct_baseline_fraction</code> is the target fraction at that CT (default: 0.01)
+- <code>E</code> is the PCR efficiency (default: 1.0 = 100% = doubling per cycle)
+- <code>ct</code> is the CT value you want to simulate</p>
+<p>At default efficiency (E = 1.0), the formula simplifies to: <code>target_fraction = 0.01 × 2^(20 - ct)</code>.</p>
+<h3 id="ct-reference-table">CT Reference Table<a class="headerlink" href="#ct-reference-table" title="Permanent link">&para;</a></h3>
+<p>Default calibration: CT 20 = 1% target, 100% efficiency.</p>
+<table>
+<thead>
+<tr>
+<th>CT</th>
+<th>Target fraction</th>
+<th>Distractor fraction</th>
+<th>Interpretation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>10</td>
+<td>100%*</td>
+<td>0%</td>
+<td>Pure target (capped at 100%)</td>
+</tr>
+<tr>
+<td>15</td>
+<td>32%</td>
+<td>68%</td>
+<td>Very high abundance</td>
+</tr>
+<tr>
+<td>18</td>
+<td>4%</td>
+<td>96%</td>
+<td>High abundance</td>
+</tr>
+<tr>
+<td>20</td>
+<td>1%</td>
+<td>99%</td>
+<td>Moderate (baseline)</td>
+</tr>
+<tr>
+<td>22</td>
+<td>0.25%</td>
+<td>99.75%</td>
+<td>Low-moderate</td>
+</tr>
+<tr>
+<td>25</td>
+<td>0.031%</td>
+<td>99.97%</td>
+<td>Low abundance</td>
+</tr>
+<tr>
+<td>28</td>
+<td>0.004%</td>
+<td>99.996%</td>
+<td>Very low</td>
+</tr>
+<tr>
+<td>30</td>
+<td>0.001%</td>
+<td>99.999%</td>
+<td>Near limit of detection</td>
+</tr>
+<tr>
+<td>35</td>
+<td>0.00003%</td>
+<td>~100%</td>
+<td>Extremely low</td>
+</tr>
+<tr>
+<td>40</td>
+<td>0.000001%</td>
+<td>~100%</td>
+<td>At qPCR detection limit</td>
+</tr>
+</tbody>
+</table>
+<p>*Target fractions above 100% are capped at 100%.</p>
+<h3 id="custom-one-point-calibration">Custom One-Point Calibration<a class="headerlink" href="#custom-one-point-calibration" title="Permanent link">&para;</a></h3>
+<p>If your assay calibration differs, specify <code>--ct-baseline</code> and <code>--ct-baseline-fraction</code>:</p>
+<pre><code class="language-bash"># CT 25 = 0.1% target in your assay
+baitbench run \
+  --targets targets.fa \
+  --distractors distractors.fa \
+  --probes probes.fa \
+  --ct 30 \
+  --ct-baseline 25 \
+  --ct-baseline-fraction 0.001 \
+  --num-fragments 10000 \
+  --outdir results
+</code></pre>
+<h3 id="two-point-calibration">Two-Point Calibration<a class="headerlink" href="#two-point-calibration" title="Permanent link">&para;</a></h3>
+<p>If you have two reference measurements, BaitBench derives efficiency automatically:</p>
+<pre><code class="language-bash">--ct-calibration &quot;20,0.01&quot; &quot;25,0.0003&quot;
+</code></pre>
+<p>Derived efficiency: <code>E = (f1/f2)^(1/(CT2 - CT1)) - 1</code>. The derived value is logged for verification. Mutually exclusive with <code>--ct-baseline</code>, <code>--ct-baseline-fraction</code>, and <code>--ct-efficiency</code>.</p>
+<h3 id="tips">Tips<a class="headerlink" href="#tips" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Match your experimental system.</strong> Use empirical CT-to-fraction data to set calibration parameters.</li>
+<li><strong>Sweep CT values.</strong> Use <code>coverage-curve --ct-values 20 25 30</code> to find the limit of detection.</li>
+<li><strong>Remember the log scale.</strong> Each 1-CT unit is a ~2× change; a 10-CT range spans ~1000×.</li>
+</ul></div>
+        
+        
+    </div>
+
+    
+      <footer class="col-md-12 text-center">
+          
+          
+            <hr>
+            <p>
+            <small>Documentation built with <a href="http://www.mkdocs.org/">MkDocs</a>.</small>
+            </p>
+          
+
+          
+          
+      </footer>
+    
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+    <script src="../../js/bootstrap-3.0.3.min.js"></script>
+
+    
+    <script src="//cdn.jsdelivr.net/gh/highlightjs/cdn-release@9.18.0/build/highlight.min.js"></script>
+        
+    <script>hljs.initHighlightingOnLoad();</script>
+    
+
+    <script>var base_url = "../.."</script>
+    
+    <script src="../../js/base.js"></script>
+    <script src="../../search/main.js"></script>
+
+    <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">
+                    <span aria-hidden="true">&times;</span>
+                    <span class="sr-only">Close</span>
+                </button>
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
+            </div>
+            <div class="modal-body">
+                <p>
+                    From here you can search these documents. Enter
+                    your search terms below.
+                </p>
+                <form>
+                    <div class="form-group">
+                        <input type="text" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+    </body>
+
+</html>

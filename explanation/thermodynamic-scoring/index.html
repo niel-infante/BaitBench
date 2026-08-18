@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="In-silico probe capture simulation and evaluation">
+    
+    <link rel="canonical" href="https://niel-infante.github.io/BaitBench/explanation/thermodynamic-scoring/">
+    <link rel="shortcut icon" href="../../img/favicon.ico">
+
+    
+    <title>Thermodynamic Scoring - BaitBench</title>
+    
+
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.12.0/css/all.css">
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.12.0/css/v4-shims.css">
+    <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/hack-font@3.3.0/build/web/hack.min.css">
+    <link href='//rsms.me/inter/inter.css' rel='stylesheet' type='text/css'>
+    <link href='//fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,700italic,400,300,600,700&subset=latin-ext,latin' rel='stylesheet' type='text/css'>
+    <link href="../../css/bootstrap-custom.min.css" rel="stylesheet">
+    <link href="../../css/base.min.css" rel="stylesheet">
+    <link href="../../css/cinder.min.css" rel="stylesheet">
+
+    
+        
+        <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/highlightjs/cdn-release@9.18.0/build/styles/github.min.css">
+        
+    
+
+    <!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+            <script src="https://cdn.jsdelivr.net/npm/html5shiv@3.7.3/dist/html5shiv.min.js"></script>
+            <script src="https://cdn.jsdelivr.net/npm/respond.js@1.4.2/dest/respond.min.js"></script>
+        <![endif]-->
+
+    
+
+     
+</head>
+
+<body>
+
+    <div class="navbar navbar-default navbar-fixed-top" role="navigation">
+    <div class="container">
+
+        <!-- Collapsed navigation -->
+        <div class="navbar-header">
+            <!-- Expander button -->
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            
+
+            <!-- Main title -->
+
+            
+              <a class="navbar-brand" href="../..">BaitBench</a>
+            
+        </div>
+
+        <!-- Expanded navigation -->
+        <div class="navbar-collapse collapse">
+                <!-- Main navigation -->
+                <ul class="nav navbar-nav">
+                
+                
+                    <li >
+                        <a href="../..">Home</a>
+                    </li>
+                
+                
+                
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">Tutorials <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="../../tutorials/">Tutorials</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../tutorials/installation/">Installation</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../tutorials/first-run/">Your First Simulation</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../tutorials/genome-mode/">Genome Mode (Bacteria)</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">How-To Guides <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="../../how-to/">How-To Guides</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/prepare-input-files/">Prepare Input Files</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/choose-simulation-mode/">Choose a Simulation Mode</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/set-parameters/">Set Parameters</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/interpret-results/">Interpret Results</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/design-and-assess-probes/">Design and Assess Probes</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/analyze-cross-reactivity/">Analyze Cross-Reactivity</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/troubleshoot/">Troubleshoot</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">Reference <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="../../reference/">Reference</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../reference/commands/">Commands</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../reference/parameters/">Parameters</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../reference/input-formats/">Input Formats</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../reference/output-formats/">Output Formats</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../reference/reports/">Reports</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                
+                    <li class="dropdown active">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">Explanation <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="../">Explanation</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../what-is-probe-capture/">What Is Probe Capture?</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../pipeline-overview/">Pipeline Overview</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../simulation-modes/">Simulation Modes</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../metrics-and-classification/">Metrics and Classification</a>
+</li>
+
+                        
+                            
+<li class="active">
+    <a href="./">Thermodynamic Scoring</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../ct-scores/">CT Scores</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../low-complexity-filtering/">Low-Complexity Filtering</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                </ul>
+
+            <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="#" data-toggle="modal" data-target="#mkdocs_search_modal">
+                            <i class="fas fa-search"></i> Search
+                        </a>
+                    </li>
+                    <li >
+                        <a rel="prev" href="../metrics-and-classification/">
+                            <i class="fas fa-arrow-left"></i> Previous
+                        </a>
+                    </li>
+                    <li >
+                        <a rel="next" href="../ct-scores/">
+                            Next <i class="fas fa-arrow-right"></i>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="https://github.com/niel-infante/BaitBench">niel-infante/BaitBench</a>
+                    </li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+    <div class="container">
+        
+        
+        <div class="col-md-3"><div class="bs-sidebar hidden-print affix well" role="complementary">
+    <ul class="nav bs-sidenav">
+        <li class="first-level active"><a href="#thermodynamic-scoring">Thermodynamic Scoring</a></li>
+            <li class="second-level"><a href="#why-thermodynamics">Why Thermodynamics?</a></li>
+                
+            <li class="second-level"><a href="#the-santalucia-nearest-neighbor-model">The SantaLucia Nearest-Neighbor Model</a></li>
+                
+            <li class="second-level"><a href="#computing-g-three-contributions">Computing ΔG: Three Contributions</a></li>
+                
+                <li class="third-level"><a href="#1-stacking-terms">1. Stacking terms</a></li>
+                <li class="third-level"><a href="#2-initiation-terms">2. Initiation terms</a></li>
+                <li class="third-level"><a href="#3-salt-correction-owczarzy-et-al-1997">3. Salt correction (Owczarzy et al. 1997)</a></li>
+            <li class="second-level"><a href="#boltzmann-weighting">Boltzmann Weighting</a></li>
+                
+            <li class="second-level"><a href="#from-scores-to-fragment-sampling">From Scores to Fragment Sampling</a></li>
+                
+                <li class="third-level"><a href="#why-a-uniform-probe-draw-still-favours-well-tiled-targets">Why a uniform probe draw still favours well-tiled targets</a></li>
+            <li class="second-level"><a href="#simple-mode-vs-thermodynamic-mode">Simple Mode vs Thermodynamic Mode</a></li>
+                
+    </ul>
+</div></div>
+        <div class="col-md-9" role="main">
+
+<h1 id="thermodynamic-scoring">Thermodynamic Scoring<a class="headerlink" href="#thermodynamic-scoring" title="Permanent link">&para;</a></h1>
+<p>BaitBench's thermodynamic simulation mode uses the SantaLucia (1998) nearest-neighbor (NN) model to score probe-target hybridization and weight the probability of fragment capture. This page explains the model and how it translates to capture efficiency predictions.</p>
+<hr />
+<h2 id="why-thermodynamics">Why Thermodynamics?<a class="headerlink" href="#why-thermodynamics" title="Permanent link">&para;</a></h2>
+<p>A probe captures its target if the probe-target duplex is stable enough under the hybridization conditions. Stability is determined by:</p>
+<ol>
+<li><strong>Sequence composition</strong>: GC base pairs form three hydrogen bonds (stronger) vs AT/AU two bonds (weaker)</li>
+<li><strong>Context effects</strong>: the stability of each base pair depends on its neighbours (nearest-neighbor effects)</li>
+<li><strong>Temperature</strong>: higher temperature destabilises duplexes; mismatches are more disruptive at high temperature</li>
+<li><strong>Salt concentration</strong>: Na⁺ ions screen the negative phosphate backbone charges, stabilising duplexes</li>
+</ol>
+<p>A simple GC-content model misses all the context effects. The SantaLucia (1998) model captures them by summing stacking energies for each adjacent base-pair step — the dominant contribution to duplex stability.</p>
+<hr />
+<h2 id="the-santalucia-nearest-neighbor-model">The SantaLucia Nearest-Neighbor Model<a class="headerlink" href="#the-santalucia-nearest-neighbor-model" title="Permanent link">&para;</a></h2>
+<p>The nearest-neighbor model expresses ΔG of duplex formation as:</p>
+<pre><code>ΔG°(T) = ΔH° - T × ΔS°
+</code></pre>
+<p>Where ΔH° and ΔS° are the enthalpy and entropy of hybridization, each computed by summing over all adjacent dinucleotide steps in the sequence:</p>
+<pre><code>ΔH° = Σ ΔH°(stacking) + ΔH°(initiation)
+ΔS° = Σ ΔS°(stacking) + ΔS°(initiation)
+</code></pre>
+<p>SantaLucia (1998) provides a unified table of 10 unique nearest-neighbor parameters (the 16 possible dinucleotide steps reduce to 10 by symmetry). BaitBench uses these published values directly.</p>
+<hr />
+<h2 id="computing-g-three-contributions">Computing ΔG: Three Contributions<a class="headerlink" href="#computing-g-three-contributions" title="Permanent link">&para;</a></h2>
+<p>A worked example, from an aligned probe-reference pair through to the sampling weight it produces:</p>
+<p><a href="../../diagrams/paper_thermodynamic_scoring.png"><img alt="Thermodynamic scoring of a probe-reference alignment" src="../../diagrams/paper_thermodynamic_scoring.png" /></a></p>
+<p><em>One mismatch at position 3 breaks the stacking chain, so only 5 of the 7 possible stacking steps contribute. Click to enlarge.</em></p>
+<h3 id="1-stacking-terms">1. Stacking terms<a class="headerlink" href="#1-stacking-terms" title="Permanent link">&para;</a></h3>
+<p>For each consecutive base-pair dinucleotide in the probe-target alignment (5'→3'), BaitBench looks up the stacking ΔH° and ΔS° from the SantaLucia (1998) table. Mismatched positions contribute zero stacking energy (they break the consecutive run).</p>
+<p>This means a probe with 3 mismatches in a run of otherwise matched positions loses the stacking contributions of all bases adjacent to those mismatches, not just the mismatches themselves. Clustered mismatches are disproportionately destabilising.</p>
+<h3 id="2-initiation-terms">2. Initiation terms<a class="headerlink" href="#2-initiation-terms" title="Permanent link">&para;</a></h3>
+<p>Two initiation penalties are added, one for the <strong>first</strong> Watson-Crick pair of the aligned duplex and one for the <strong>last</strong>. SantaLucia (1998) gives separate AT and GC initiation parameters, and BaitBench applies whichever matches each terminal pair.</p>
+<p>Initiation is only charged when at least one stacking step exists. An isolated Watson-Crick pair flanked by mismatches cannot form a stable duplex, so paying its initiation cost would produce ΔG &gt; 0 — implying the probe is actively repelled, which is unphysical.</p>
+<h3 id="3-salt-correction-owczarzy-et-al-1997">3. Salt correction (Owczarzy et al. 1997)<a class="headerlink" href="#3-salt-correction-owczarzy-et-al-1997" title="Permanent link">&para;</a></h3>
+<p>The SantaLucia parameters are derived at 1 M Na⁺. For realistic hybridization buffers, BaitBench corrects the <strong>entropy</strong> term for the actual Na⁺ concentration:</p>
+<pre><code>ΔS([Na⁺]) = ΔS(1 M) + 0.368 × (n_wc - 1) × ln([Na⁺])
+</code></pre>
+<p>Where <code>n_wc</code> is the number of Watson-Crick paired positions and <code>[Na⁺]</code> is molar. At 1 M, <code>ln(1) = 0</code> and no correction applies. At lower salt the correction is negative, making ΔG less favourable — matching the physical fact that duplexes are less stable when there are fewer cations to screen the phosphate backbone. As with initiation, the correction is skipped when there is no stacking.</p>
+<p>The three contributions are then combined at the hybridization temperature:</p>
+<pre><code>ΔG = ΔH°(stacking + initiation) - T × ΔS°(stacking + initiation + salt) / 1000
+</code></pre>
+<p>With T in Kelvin, ΔH° in kcal/mol, ΔS° in cal/(mol·K), and ΔG in kcal/mol. More negative = more stable.</p>
+<hr />
+<h2 id="boltzmann-weighting">Boltzmann Weighting<a class="headerlink" href="#boltzmann-weighting" title="Permanent link">&para;</a></h2>
+<p>After computing ΔG for each probe alignment at each position, BaitBench converts it to a capture score:</p>
+<pre><code>score = exp(-ΔG / (R × T))
+</code></pre>
+<p>Where:
+- R = 1.987 × 10⁻³ kcal/(mol·K) (gas constant)
+- T = hybridization temperature in Kelvin
+- ΔG is in kcal/mol</p>
+<p>A favourable (negative) ΔG gives a score &gt; 1. The score is <strong>clamped to a minimum of 1.0</strong>: probes can enrich fragments relative to background but never deplete them, so a duplex too weak to be stable (ΔG &gt; 0) simply falls back to the neutral baseline rather than suppressing the site. Positions with no probe alignment are not in the captured pool at all.</p>
+<p>These scores are used as sampling weights: positions with higher Boltzmann scores generate more captured fragments.</p>
+<hr />
+<h2 id="from-scores-to-fragment-sampling">From Scores to Fragment Sampling<a class="headerlink" href="#from-scores-to-fragment-sampling" title="Permanent link">&para;</a></h2>
+<p>Every fragment reaches <code>fragments.fa</code> by one of exactly two routes:</p>
+<p><a href="../../diagrams/paper_fragment_sampling.png"><img alt="Two routes by which a fragment is selected: probe-biased sampling and background sampling" src="../../diagrams/paper_fragment_sampling.png" /></a></p>
+<p><em><code>--capture-fraction</code> is the only parameter controlling the ratio between the two arms. Within the probe-biased arm the probe is drawn uniformly, and only then is the probe-fragment pair weighted. Click to enlarge.</em></p>
+<p><strong>Captured fragments</strong> (governed by <code>--capture-fraction</code>) are drawn in two stages. First a <strong>probe is chosen uniformly at random</strong> from those with at least one scoring hit — affinity plays no part in this step, so a strong probe is picked no more often than a weak one. Only then is one of <em>that probe's</em> hits chosen, weighted by</p>
+<pre><code>score = exp(-ΔG / RT) × w_seq
+</code></pre>
+<p>so the two competing influences — thermodynamic affinity and how abundant the source sequence is in the specimen — act together, and act only at this second stage.</p>
+<h3 id="why-a-uniform-probe-draw-still-favours-well-tiled-targets">Why a uniform probe draw still favours well-tiled targets<a class="headerlink" href="#why-a-uniform-probe-draw-still-favours-well-tiled-targets" title="Permanent link">&para;</a></h3>
+<p>Picking the probe uniformly might look like it flattens out any advantage from dense tiling, but it does the opposite. Every probe is drawn equally often, so a target covered by 20 probes gets 20 chances per round while one covered by 2 gets only 2.</p>
+<p><strong>Probe count therefore acts as an implicit weight across targets.</strong> Affinity and abundance never compete between targets — they compete only <em>within</em> a single probe's hit list, deciding which of that probe's binding sites is used once the probe has already been chosen.</p>
+<p>This is worth keeping in mind when comparing panel designs: a set-cover method that achieves the same coverage with fewer probes per target will, all else equal, pull down proportionally less material from that target than a dense tiling design.</p>
+<p><strong>Background fragments</strong> (governed by <code>1 - capture-fraction</code>) bleed through without any probe involvement. A sequence is picked with probability proportional to <code>weight × length</code>, then a position uniformly along it — probe sites included. These represent non-specific co-capture: fragments that end up in the library without being bound by a probe (e.g., in solution adjacent to a captured molecule, or through non-specific binding).</p>
+<p>At <code>--capture-fraction 0.5</code> (the default), 50% of a sequence's fragments come from probe-covered positions (thermodynamically weighted) and 50% come from uniform background sampling. Background reads spread thinly across the entire sequence, producing low depth per position. Probe-captured reads concentrate at binding sites, producing high local depth — this is what creates the characteristic "spike" pattern in captured vs non-captured sequences.</p>
+<hr />
+<h2 id="simple-mode-vs-thermodynamic-mode">Simple Mode vs Thermodynamic Mode<a class="headerlink" href="#simple-mode-vs-thermodynamic-mode" title="Permanent link">&para;</a></h2>
+<p>In <code>--simulate-mode simple</code>, the Boltzmann weighting step is skipped. All alignments above the minimum match threshold are treated as equally likely to capture. This removes temperature and sequence composition effects.</p>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Thermodynamic</th>
+<th>Simple</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Mismatch penalty</td>
+<td>Yes — via ΔG</td>
+<td>No</td>
+</tr>
+<tr>
+<td>Temperature effect</td>
+<td>Yes — <code>--hybridization-temperature</code> affects capture</td>
+<td>No</td>
+</tr>
+<tr>
+<td>GC content effect</td>
+<td>Yes — high-GC probes capture more efficiently</td>
+<td>No</td>
+</tr>
+<tr>
+<td>Probe-position weighting</td>
+<td>Boltzmann-weighted</td>
+<td>Uniform over covered positions</td>
+</tr>
+<tr>
+<td>Use case</td>
+<td>Realistic efficiency prediction</td>
+<td>Coverage testing, speed</td>
+</tr>
+</tbody>
+</table>
+<p>Thermodynamic mode is more accurate; simple mode is faster and useful for understanding which positions probes cover at all, independent of efficiency.</p></div>
+        
+        
+    </div>
+
+    
+      <footer class="col-md-12 text-center">
+          
+          
+            <hr>
+            <p>
+            <small>Documentation built with <a href="http://www.mkdocs.org/">MkDocs</a>.</small>
+            </p>
+          
+
+          
+          
+      </footer>
+    
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+    <script src="../../js/bootstrap-3.0.3.min.js"></script>
+
+    
+    <script src="//cdn.jsdelivr.net/gh/highlightjs/cdn-release@9.18.0/build/highlight.min.js"></script>
+        
+    <script>hljs.initHighlightingOnLoad();</script>
+    
+
+    <script>var base_url = "../.."</script>
+    
+    <script src="../../js/base.js"></script>
+    <script src="../../search/main.js"></script>
+
+    <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">
+                    <span aria-hidden="true">&times;</span>
+                    <span class="sr-only">Close</span>
+                </button>
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
+            </div>
+            <div class="modal-body">
+                <p>
+                    From here you can search these documents. Enter
+                    your search terms below.
+                </p>
+                <form>
+                    <div class="form-group">
+                        <input type="text" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+    </body>
+
+</html>

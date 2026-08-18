@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="In-silico probe capture simulation and evaluation">
+    
+    <link rel="canonical" href="https://niel-infante.github.io/BaitBench/">
+    <link rel="shortcut icon" href="img/favicon.ico">
+
+    
+    <title>Home - BaitBench</title>
+    
+
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.12.0/css/all.css">
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.12.0/css/v4-shims.css">
+    <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/hack-font@3.3.0/build/web/hack.min.css">
+    <link href='//rsms.me/inter/inter.css' rel='stylesheet' type='text/css'>
+    <link href='//fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,700italic,400,300,600,700&subset=latin-ext,latin' rel='stylesheet' type='text/css'>
+    <link href="css/bootstrap-custom.min.css" rel="stylesheet">
+    <link href="css/base.min.css" rel="stylesheet">
+    <link href="css/cinder.min.css" rel="stylesheet">
+
+    
+        
+        <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/highlightjs/cdn-release@9.18.0/build/styles/github.min.css">
+        
+    
+
+    <!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+            <script src="https://cdn.jsdelivr.net/npm/html5shiv@3.7.3/dist/html5shiv.min.js"></script>
+            <script src="https://cdn.jsdelivr.net/npm/respond.js@1.4.2/dest/respond.min.js"></script>
+        <![endif]-->
+
+    
+
+     
+</head>
+
+<body class="homepage" >
+
+    <div class="navbar navbar-default navbar-fixed-top" role="navigation">
+    <div class="container">
+
+        <!-- Collapsed navigation -->
+        <div class="navbar-header">
+            <!-- Expander button -->
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            
+
+            <!-- Main title -->
+
+            
+              <a class="navbar-brand" href=".">BaitBench</a>
+            
+        </div>
+
+        <!-- Expanded navigation -->
+        <div class="navbar-collapse collapse">
+                <!-- Main navigation -->
+                <ul class="nav navbar-nav">
+                
+                
+                    <li class="active">
+                        <a href=".">Home</a>
+                    </li>
+                
+                
+                
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">Tutorials <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="tutorials/">Tutorials</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="tutorials/installation/">Installation</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="tutorials/first-run/">Your First Simulation</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="tutorials/genome-mode/">Genome Mode (Bacteria)</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">How-To Guides <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="how-to/">How-To Guides</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="how-to/prepare-input-files/">Prepare Input Files</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="how-to/choose-simulation-mode/">Choose a Simulation Mode</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="how-to/set-parameters/">Set Parameters</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="how-to/interpret-results/">Interpret Results</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="how-to/design-and-assess-probes/">Design and Assess Probes</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="how-to/analyze-cross-reactivity/">Analyze Cross-Reactivity</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="how-to/troubleshoot/">Troubleshoot</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">Reference <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="reference/">Reference</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="reference/commands/">Commands</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="reference/parameters/">Parameters</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="reference/input-formats/">Input Formats</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="reference/output-formats/">Output Formats</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="reference/reports/">Reports</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">Explanation <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="explanation/">Explanation</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="explanation/what-is-probe-capture/">What Is Probe Capture?</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="explanation/pipeline-overview/">Pipeline Overview</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="explanation/simulation-modes/">Simulation Modes</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="explanation/metrics-and-classification/">Metrics and Classification</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="explanation/thermodynamic-scoring/">Thermodynamic Scoring</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="explanation/ct-scores/">CT Scores</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="explanation/low-complexity-filtering/">Low-Complexity Filtering</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                </ul>
+
+            <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="#" data-toggle="modal" data-target="#mkdocs_search_modal">
+                            <i class="fas fa-search"></i> Search
+                        </a>
+                    </li>
+                    <li class="disabled">
+                        <a rel="prev" >
+                            <i class="fas fa-arrow-left"></i> Previous
+                        </a>
+                    </li>
+                    <li >
+                        <a rel="next" href="tutorials/">
+                            Next <i class="fas fa-arrow-right"></i>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="https://github.com/niel-infante/BaitBench">niel-infante/BaitBench</a>
+                    </li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+    <div class="container">
+        
+        
+        <div class="col-md-3"><div class="bs-sidebar hidden-print affix well" role="complementary">
+    <ul class="nav bs-sidenav">
+        <li class="first-level active"><a href="#baitbench">BaitBench</a></li>
+            <li class="second-level"><a href="#documentation">Documentation</a></li>
+                
+            <li class="second-level"><a href="#quick-start">Quick Start</a></li>
+                
+    </ul>
+</div></div>
+        <div class="col-md-9" role="main">
+
+<h1 id="baitbench">BaitBench<a class="headerlink" href="#baitbench" title="Permanent link">&para;</a></h1>
+<p>BaitBench is an in-silico probe capture simulation tool for evaluating how well a probeset performs. It answers questions like:</p>
+<ul>
+<li>Does the probeset capture all target sequences?</li>
+<li>Does it reject background (distractor) sequences?</li>
+<li>Can it discriminate between organisms within the target panel?</li>
+<li>How does performance change at different target abundances (CT values)?</li>
+<li>What sequencing depth is needed for adequate genome coverage?</li>
+</ul>
+<hr />
+<h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h2>
+<p>BaitBench's documentation is organized around four kinds of content:</p>
+<table>
+<thead>
+<tr>
+<th>Section</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="tutorials/"><strong>Tutorials</strong></a></td>
+<td>Step-by-step walkthroughs for newcomers. Start here.</td>
+</tr>
+<tr>
+<td><a href="how-to/"><strong>How-To Guides</strong></a></td>
+<td>Goal-oriented guides for specific tasks (input prep, parameter tuning, interpreting results).</td>
+</tr>
+<tr>
+<td><a href="reference/"><strong>Reference</strong></a></td>
+<td>Complete, precise information: every subcommand, flag, output column, and file format.</td>
+</tr>
+<tr>
+<td><a href="explanation/"><strong>Explanation</strong></a></td>
+<td>Background and concepts: the thermodynamic model, classification system, pipeline design.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="quick-start">Quick Start<a class="headerlink" href="#quick-start" title="Permanent link">&para;</a></h2>
+<style>
+.qs-wrap { border: 2px solid #b0bec5; border-radius: 8px; overflow: hidden; margin: 1.5em 0; }
+.qs-tabs { display: flex; background: #dde4ec; border-bottom: 2px solid #b0bec5; }
+.qs-tab {
+  padding: 16px 36px; cursor: pointer; border: none; background: none;
+  font-size: 1.4rem; font-weight: 700; color: #455a64;
+  border-right: 1px solid #b0bec5;
+}
+.qs-tab:last-child { border-right: none; }
+.qs-tab:hover { background: #cdd6e0; color: #1a252f; }
+.qs-tab.active { background: #fff; color: #1565c0; border-bottom: 4px solid #1565c0; margin-bottom: -2px; }
+.qs-panel { display: none; padding: 28px 32px; background: #fff; line-height: 1.6; }
+.qs-panel.active { display: block; }
+.qs-panel p { margin: 0.8em 0; }
+.qs-panel h4 { margin: 1.6em 0 0.5em; font-size: 1.3rem; font-weight: 700; border-bottom: 1px solid #eee; padding-bottom: 4px; }
+.qs-panel hr { border: none; border-top: 1px solid #ddd; margin: 1.6em 0; }
+.qs-panel ol, .qs-panel ul { padding-left: 1.6em; margin: 0.6em 0; }
+.qs-panel li { margin: 0.4em 0; }
+.qs-panel pre { background: #f4f6f8; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px 18px; overflow-x: auto; margin: 0.8em 0; }
+.qs-panel pre, .qs-panel pre * { font-family: 'Menlo', 'Consolas', 'Monaco', monospace; color: #24292f !important; background: none !important; }
+.qs-panel code { font-family: 'Menlo', 'Consolas', 'Monaco', monospace; color: #24292f !important; background: #f0f3f5 !important; border: 1px solid #d0d7de; border-radius: 4px; padding: 1px 5px; }
+</style>
+
+<div class="qs-wrap">
+<div class="qs-tabs">
+  <button class="qs-tab active" onclick="qsTab(event,'cli')">Command Line</button>
+  <button class="qs-tab" onclick="qsTab(event,'mac')">Mac GUI</button>
+  <button class="qs-tab" onclick="qsTab(event,'win')">Windows GUI</button>
+</div>
+
+<div id="qs-cli" class="qs-panel active">
+<pre><code># 1. Clone the repository
+git clone https://github.com/niel-infante/BaitBench.git
+cd BaitBench
+
+# 2. Install dependencies (requires conda)
+conda env create -f environment.yml
+conda activate baitbench
+
+# 3. Build (requires the Rust toolchain — https://rustup.rs)
+cargo build --release
+
+# 4. Run a simulation
+./target/release/baitbench run \
+  --targets targets.fa \
+  --distractors distractors.fa \
+  --probes probes.fa \
+  --outdir results/</code></pre>
+<p>See <a href="tutorials/first-run.md">Your First Simulation</a> for a complete walkthrough.</p>
+</div>
+
+<div id="qs-mac" class="qs-panel">
+<p><strong>Download:</strong> <a href="https://github.com/niel-infante/BaitBench/releases/latest">BaitBench-macOS.dmg — latest release</a> (Apple Silicon only)</p>
+<p>The app is currently <strong>unsigned and unnotarized</strong>, so macOS will block it on first launch. Steps to allow it are below.</p>
+<hr>
+<h4>Step 1 — Install BaitBench</h4>
+<ol>
+  <li>Open your <strong>Downloads</strong> folder and double-click <strong>BaitBench-macOS.dmg</strong>. A window will open showing the BaitBench icon and an Applications shortcut.</li>
+  <li>Drag the <strong>BaitBench</strong> icon onto the <strong>Applications</strong> folder shortcut in that window to install it.</li>
+  <li>You can now eject the disk image by pressing the Eject button next to it in the Finder sidebar, or simply close the window.</li>
+</ol>
+<hr>
+<h4>Step 2 — Allow BaitBench to open</h4>
+<p>Because the app is unsigned, macOS will block it the first time. The steps differ slightly by macOS version.</p>
+<p><strong>macOS 15 Sequoia and later</strong></p>
+<ol>
+  <li>Double-click <strong>BaitBench</strong> in your Applications folder. You will see <em>"BaitBench can't be opened because Apple cannot check it for malicious software."</em> Click <strong>Done</strong> (not Move to Trash).</li>
+  <li>Open <strong>System Settings → Privacy &amp; Security</strong>.</li>
+  <li>Scroll down to the Security section. You should see <em>"BaitBench was blocked from use because it is not from an identified developer."</em></li>
+  <li>Click <strong>Open Anyway</strong> and authenticate with Touch ID or your password.</li>
+  <li>Double-click <strong>BaitBench</strong> again — it will now open. You only need to do this once.</li>
+</ol>
+<p><strong>macOS 13 Ventura and macOS 14 Sonoma</strong></p>
+<ol>
+  <li><strong>Right-click</strong> (or Control-click) <strong>BaitBench</strong> in your Applications folder and choose <strong>Open</strong>.</li>
+  <li>Click <strong>Open</strong> in the dialog that appears. You only need to do this once.</li>
+  <li>If right-click does not work, follow the Sequoia steps above — they work on all versions.</li>
+</ol>
+<p><strong>Optional: Terminal shortcut (any macOS version)</strong></p>
+<p>If you are comfortable with the Terminal app, you can remove the quarantine flag directly instead of going through System Settings. Open Terminal and run:</p>
+<pre><code>xattr -dr com.apple.quarantine /Applications/BaitBench.app</code></pre>
+<p>Then double-click <strong>BaitBench</strong> normally. You only need to do this once.</p>
+<hr>
+<h4>Step 3 — First launch setup</h4>
+<p>The first time BaitBench opens it will check for the pipeline tools it needs. You will be offered two options:</p>
+<ul>
+  <li><strong>Set up automatically</strong> — BaitBench will install <a href="https://www.anaconda.com/docs/getting-started/installation">conda</a> if needed and create the <code>baitbench</code> environment for you. This takes 5–10 minutes.</li>
+  <li><strong>Use an existing environment</strong> — if you already have a <code>baitbench</code> conda environment, BaitBench will detect it automatically or let you browse to it.</li>
+</ul>
+<p>After setup completes, BaitBench is ready to use.</p>
+</div>
+
+<div id="qs-win" class="qs-panel">
+<p><strong>Download:</strong> <a href="https://github.com/niel-infante/BaitBench/releases/latest">BaitBench-Windows.msi — latest release</a></p>
+<p>The installer is currently <strong>unsigned</strong>, so Windows SmartScreen will warn you on first run.</p>
+<hr>
+<h4>Step 1 — Install BaitBench</h4>
+<ol>
+  <li>Open your <strong>Downloads</strong> folder and double-click <strong>BaitBench-Windows.msi</strong>.</li>
+  <li>You will see a SmartScreen warning: <em>"Windows protected your PC"</em>. Click <strong>More info</strong>, then click <strong>Run anyway</strong>.</li>
+  <li>Follow the installer prompts. BaitBench will be added to your Start menu.</li>
+</ol>
+<hr>
+<h4>Step 2 — First launch setup</h4>
+<p>The first time BaitBench opens it will check for the pipeline tools it needs. You will be offered two options:</p>
+<ul>
+  <li><strong>Set up automatically</strong> — BaitBench will install <a href="https://www.anaconda.com/docs/getting-started/installation">conda</a> if needed and create the <code>baitbench</code> environment for you. This takes 5–10 minutes.</li>
+  <li><strong>Use an existing environment</strong> — if you already have a <code>baitbench</code> conda environment, BaitBench will detect it automatically or let you browse to it.</li>
+</ul>
+<p>After setup completes, BaitBench is ready to use.</p>
+</div>
+
+</div>
+
+<script>
+function qsTab(e, id) {
+  document.querySelectorAll('.qs-tab').forEach(function(t){ t.classList.remove('active'); });
+  document.querySelectorAll('.qs-panel').forEach(function(p){ p.classList.remove('active'); });
+  e.target.classList.add('active');
+  document.getElementById('qs-' + id).classList.add('active');
+}
+</script></div>
+        
+        
+    </div>
+
+    
+      <footer class="col-md-12 text-center">
+          
+          
+            <hr>
+            <p>
+            <small>Documentation built with <a href="http://www.mkdocs.org/">MkDocs</a>.</small>
+            </p>
+          
+
+          
+          
+      </footer>
+    
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+    <script src="js/bootstrap-3.0.3.min.js"></script>
+
+    
+    <script src="//cdn.jsdelivr.net/gh/highlightjs/cdn-release@9.18.0/build/highlight.min.js"></script>
+        
+    <script>hljs.initHighlightingOnLoad();</script>
+    
+
+    <script>var base_url = "."</script>
+    
+    <script src="js/base.js"></script>
+    <script src="search/main.js"></script>
+
+    <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">
+                    <span aria-hidden="true">&times;</span>
+                    <span class="sr-only">Close</span>
+                </button>
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
+            </div>
+            <div class="modal-body">
+                <p>
+                    From here you can search these documents. Enter
+                    your search terms below.
+                </p>
+                <form>
+                    <div class="form-group">
+                        <input type="text" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+    </body>
+
+</html>
+
+<!--
+MkDocs version : 1.6.1
+Build Date UTC : 2026-08-18 22:30:00.796076+00:00
+-->

@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="In-silico probe capture simulation and evaluation">
+    
+    <link rel="canonical" href="https://niel-infante.github.io/BaitBench/tutorials/genome-mode/">
+    <link rel="shortcut icon" href="../../img/favicon.ico">
+
+    
+    <title>Genome Mode (Bacteria) - BaitBench</title>
+    
+
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.12.0/css/all.css">
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.12.0/css/v4-shims.css">
+    <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/hack-font@3.3.0/build/web/hack.min.css">
+    <link href='//rsms.me/inter/inter.css' rel='stylesheet' type='text/css'>
+    <link href='//fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,700italic,400,300,600,700&subset=latin-ext,latin' rel='stylesheet' type='text/css'>
+    <link href="../../css/bootstrap-custom.min.css" rel="stylesheet">
+    <link href="../../css/base.min.css" rel="stylesheet">
+    <link href="../../css/cinder.min.css" rel="stylesheet">
+
+    
+        
+        <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/highlightjs/cdn-release@9.18.0/build/styles/github.min.css">
+        
+    
+
+    <!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+            <script src="https://cdn.jsdelivr.net/npm/html5shiv@3.7.3/dist/html5shiv.min.js"></script>
+            <script src="https://cdn.jsdelivr.net/npm/respond.js@1.4.2/dest/respond.min.js"></script>
+        <![endif]-->
+
+    
+
+     
+</head>
+
+<body>
+
+    <div class="navbar navbar-default navbar-fixed-top" role="navigation">
+    <div class="container">
+
+        <!-- Collapsed navigation -->
+        <div class="navbar-header">
+            <!-- Expander button -->
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            
+
+            <!-- Main title -->
+
+            
+              <a class="navbar-brand" href="../..">BaitBench</a>
+            
+        </div>
+
+        <!-- Expanded navigation -->
+        <div class="navbar-collapse collapse">
+                <!-- Main navigation -->
+                <ul class="nav navbar-nav">
+                
+                
+                    <li >
+                        <a href="../..">Home</a>
+                    </li>
+                
+                
+                
+                    <li class="dropdown active">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">Tutorials <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="../">Tutorials</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../installation/">Installation</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../first-run/">Your First Simulation</a>
+</li>
+
+                        
+                            
+<li class="active">
+    <a href="./">Genome Mode (Bacteria)</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">How-To Guides <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="../../how-to/">How-To Guides</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/prepare-input-files/">Prepare Input Files</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/choose-simulation-mode/">Choose a Simulation Mode</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/set-parameters/">Set Parameters</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/interpret-results/">Interpret Results</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/design-and-assess-probes/">Design and Assess Probes</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/analyze-cross-reactivity/">Analyze Cross-Reactivity</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/troubleshoot/">Troubleshoot</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">Reference <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="../../reference/">Reference</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../reference/commands/">Commands</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../reference/parameters/">Parameters</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../reference/input-formats/">Input Formats</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../reference/output-formats/">Output Formats</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../reference/reports/">Reports</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">Explanation <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="../../explanation/">Explanation</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../explanation/what-is-probe-capture/">What Is Probe Capture?</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../explanation/pipeline-overview/">Pipeline Overview</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../explanation/simulation-modes/">Simulation Modes</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../explanation/metrics-and-classification/">Metrics and Classification</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../explanation/thermodynamic-scoring/">Thermodynamic Scoring</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../explanation/ct-scores/">CT Scores</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../explanation/low-complexity-filtering/">Low-Complexity Filtering</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                </ul>
+
+            <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="#" data-toggle="modal" data-target="#mkdocs_search_modal">
+                            <i class="fas fa-search"></i> Search
+                        </a>
+                    </li>
+                    <li >
+                        <a rel="prev" href="../first-run/">
+                            <i class="fas fa-arrow-left"></i> Previous
+                        </a>
+                    </li>
+                    <li >
+                        <a rel="next" href="../../how-to/">
+                            Next <i class="fas fa-arrow-right"></i>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="https://github.com/niel-infante/BaitBench">niel-infante/BaitBench</a>
+                    </li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+    <div class="container">
+        
+        
+        <div class="col-md-3"><div class="bs-sidebar hidden-print affix well" role="complementary">
+    <ul class="nav bs-sidenav">
+        <li class="first-level active"><a href="#genome-mode-simulating-bacterial-capture">Genome Mode: Simulating Bacterial Capture</a></li>
+            <li class="second-level"><a href="#why-genome-mode-matters">Why genome mode matters</a></li>
+                
+            <li class="second-level"><a href="#the-dataset">The dataset</a></li>
+                
+                <li class="third-level"><a href="#the-two-file-split">The two-file split</a></li>
+                <li class="third-level"><a href="#the-sample-target-map">The sample-target-map</a></li>
+            <li class="second-level"><a href="#run-the-simulation">Run the simulation</a></li>
+                
+            <li class="second-level"><a href="#pipeline-differences-in-genome-mode">Pipeline differences in genome mode</a></li>
+                
+            <li class="second-level"><a href="#reading-the-results">Reading the results</a></li>
+                
+                <li class="third-level"><a href="#group_detailtsv">group_detail.tsv</a></li>
+                <li class="third-level"><a href="#detected_detailtsv">detected_detail.tsv</a></li>
+                <li class="third-level"><a href="#correctly-vs-incorrectly-mapped-reads">Correctly vs incorrectly mapped reads</a></li>
+            <li class="second-level"><a href="#key-metrics">Key metrics</a></li>
+                
+            <li class="second-level"><a href="#next-steps">Next steps</a></li>
+                
+    </ul>
+</div></div>
+        <div class="col-md-9" role="main">
+
+<h1 id="genome-mode-simulating-bacterial-capture">Genome Mode: Simulating Bacterial Capture<a class="headerlink" href="#genome-mode-simulating-bacterial-capture" title="Permanent link">&para;</a></h1>
+<p>Standard mode works well for viruses, where the full genome is also the probe target. Bacteria are different: a typical metagenomics probe panel targets a short conserved region — the 16S rRNA gene (~1500 bp) — but the organism itself has a genome of several megabases. Probe hybridization occurs against whatever DNA is in the sample, not just the 16S gene.</p>
+<p><strong>Genome mode</strong> (<code>--genomes</code>) models this correctly. Fragments are generated from full bacterial genomes, but reads are mapped back to the 16S target sequences. This tutorial walks through a genome mode run using two bacteria included in the tutorial dataset.</p>
+<p><strong>Time:</strong> about 10 minutes.<br />
+<strong>Prerequisite:</strong> Complete <a href="../first-run/">Your First Simulation</a> first — this tutorial builds on what was introduced there.</p>
+<hr />
+<h2 id="why-genome-mode-matters">Why genome mode matters<a class="headerlink" href="#why-genome-mode-matters" title="Permanent link">&para;</a></h2>
+<p>In standard mode, every fragment comes from a target sequence. For a bacterium this would mean simulating reads only from the 16S gene, which misses an important reality: most of the DNA in a sample comes from the rest of the genome, not from the probe-targeted region. Genome mode generates fragments proportionally from the full genome, applies thermodynamic scoring to find which fragments overlap probe-binding sites, and then maps reads back to the 16S reference — just as a real capture-sequencing experiment would.</p>
+<hr />
+<h2 id="the-dataset">The dataset<a class="headerlink" href="#the-dataset" title="Permanent link">&para;</a></h2>
+<p>The tutorial bacterial dataset is in <code>examples/tutorial-genome/</code>:</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Contents</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>genomes.fa</code></td>
+<td>2 full bacterial genome fragments (~8500 bp each): <em>M. tuberculosis</em> H37Rv and <em>S. aureus</em> MRSA252</td>
+</tr>
+<tr>
+<td><code>targets.fa</code></td>
+<td>2 16S rRNA sequences (~1500 bp each), one per bacterium</td>
+</tr>
+<tr>
+<td><code>distractors.fa</code></td>
+<td>1 human mitochondrial DNA fragment (background)</td>
+</tr>
+<tr>
+<td><code>probes.fa</code></td>
+<td>70 probes tiling the two 16S target sequences</td>
+</tr>
+<tr>
+<td><code>sample.tsv</code></td>
+<td>Sample manifest: both bacteria are present in this specimen</td>
+</tr>
+<tr>
+<td><code>sample_target_map.tsv</code></td>
+<td>Maps each genome ID to its corresponding 16S target ID</td>
+</tr>
+</tbody>
+</table>
+<h3 id="the-two-file-split">The two-file split<a class="headerlink" href="#the-two-file-split" title="Permanent link">&para;</a></h3>
+<p>This is the key difference from standard mode:</p>
+<table>
+<thead>
+<tr>
+<th>Role</th>
+<th>Standard mode</th>
+<th>Genome mode</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fragment generation</td>
+<td><code>--targets</code></td>
+<td><strong><code>--genomes</code></strong></td>
+</tr>
+<tr>
+<td>Read mapping</td>
+<td><code>--targets</code></td>
+<td><code>--targets</code></td>
+</tr>
+</tbody>
+</table>
+<p>In genome mode <code>--targets</code> is still required, but it serves only as the mapping reference — the sequences you expect reads to map <em>to</em>. Fragment generation draws from <code>--genomes</code> instead.</p>
+<h3 id="the-sample-target-map">The sample-target-map<a class="headerlink" href="#the-sample-target-map" title="Permanent link">&para;</a></h3>
+<p><code>--sample</code> accepts genome IDs (not target IDs) in genome mode. The sample-target-map tells BaitBench which target ID corresponds to each genome:</p>
+<pre><code># sample_target_map.tsv
+Mycobacterium_tuberculosis_H37Rv    Mycobacterium_tuberculosis_H37Rv_16S
+Staphylococcus_aureus_MRSA252       Staphylococcus_aureus_MRSA252_16S
+</code></pre>
+<p>This matters for classification: a read originating from <em>M. tuberculosis</em> H37Rv that maps to its 16S target is correctly mapped; a read from <em>S. aureus</em> that accidentally maps to the MTB 16S target would be flagged as incorrectly mapped.</p>
+<p>If you omit <code>--sample-target-map</code>, BaitBench tries to auto-link by name — a genome ID matches a target if the target ID starts with <code>{genome_id}|</code> or is identical. For this dataset the names differ, so we supply the map explicitly.</p>
+<hr />
+<h2 id="run-the-simulation">Run the simulation<a class="headerlink" href="#run-the-simulation" title="Permanent link">&para;</a></h2>
+<pre><code class="language-bash">conda activate baitbench
+
+./target/release/baitbench run \
+  --targets   examples/tutorial-genome/targets.fa \
+  --genomes   examples/tutorial-genome/genomes.fa \
+  --distractors examples/tutorial-genome/distractors.fa \
+  --probes    examples/tutorial-genome/probes.fa \
+  --sample    examples/tutorial-genome/sample.tsv \
+  --sample-target-map examples/tutorial-genome/sample_target_map.tsv \
+  --num-fragments 3000 \
+  --capture-fraction 0.6 \
+  --seed 42 \
+  --report none \
+  --outdir results/tutorial-genome
+</code></pre>
+<hr />
+<h2 id="pipeline-differences-in-genome-mode">Pipeline differences in genome mode<a class="headerlink" href="#pipeline-differences-in-genome-mode" title="Permanent link">&para;</a></h2>
+<p>The log will look familiar, but two things are different in the <strong>Prepare</strong> step:</p>
+<pre><code>[INFO ] Combining genomes + distractors to .../combined_reference.fa...
+[INFO ] Combining targets + distractors to .../mapping_reference.fa...
+[INFO ] Sample-target-map: 2 explicit, 0 auto-linked, 0 untargeted
+</code></pre>
+<p>Genome mode creates <strong>two</strong> reference files instead of one:</p>
+<ul>
+<li><code>combined_reference.fa</code> — genomes + distractors, used for fragment simulation (step 2)</li>
+<li><code>mapping_reference.fa</code> — targets + distractors, used for read mapping (step 5)</li>
+</ul>
+<p>The sample-target-map summary confirms 2 explicit links were loaded, 0 were resolved by auto-naming, and 0 genomes are untargeted (a genome without a matching target would still generate fragments but be excluded from TP/FP/FN/TN accounting).</p>
+<p>In the <strong>Simulate</strong> step, all 70 probes aligned successfully to the combined reference (the 16S sequences are embedded within the genome fragments):</p>
+<pre><code>[INFO ] Loaded 70 probe hits (0 skipped) from .../fragments.probe_hits.sam
+[INFO ] Sampling 1800 capture fragments (capture_fraction=0.60) + 1200 background fragments
+</code></pre>
+<hr />
+<h2 id="reading-the-results">Reading the results<a class="headerlink" href="#reading-the-results" title="Permanent link">&para;</a></h2>
+<h3 id="group_detailtsv">group_detail.tsv<a class="headerlink" href="#group_detailtsv" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>group_name</th>
+<th>category</th>
+<th>detected</th>
+<th>classification</th>
+<th>total_reads</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Staphylococcus_aureus_MRSA252_16S</td>
+<td>sample</td>
+<td>true</td>
+<td><strong>TP</strong></td>
+<td>969</td>
+</tr>
+<tr>
+<td>Mycobacterium_tuberculosis_H37Rv_16S</td>
+<td>sample</td>
+<td>true</td>
+<td><strong>TP</strong></td>
+<td>897</td>
+</tr>
+<tr>
+<td>distractors</td>
+<td>distractor</td>
+<td>true</td>
+<td><strong>FP_distractor</strong></td>
+<td>813</td>
+</tr>
+</tbody>
+</table>
+<p>Both bacteria are detected via their 16S targets. The human mitochondrial distractor is also detected — human mitochondria carry their own 12S and 16S ribosomal RNA genes, which share enough similarity with bacterial 16S probes to produce cross-reactive reads. This is a real phenomenon in 16S metagenomic panels and one reason probe cross-reactivity analysis (<code>baitbench xreact</code>) is worth running.</p>
+<h3 id="detected_detailtsv">detected_detail.tsv<a class="headerlink" href="#detected_detailtsv" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>reference_id</th>
+<th>reads_assigned</th>
+<th>avg_coverage</th>
+<th>pct_covered_5x</th>
+<th>pct_covered_20x</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Staphylococcus_aureus_MRSA252_16S</td>
+<td>969</td>
+<td>76.7×</td>
+<td>100.0%</td>
+<td>97.7%</td>
+</tr>
+<tr>
+<td>Mycobacterium_tuberculosis_H37Rv_16S</td>
+<td>897</td>
+<td>71.0×</td>
+<td>98.9%</td>
+<td>96.1%</td>
+</tr>
+<tr>
+<td>Human_mtDNA_frag</td>
+<td>813</td>
+<td>48.8×</td>
+<td>96.0%</td>
+<td>92.7%</td>
+</tr>
+</tbody>
+</table>
+<p>Coverage depth on the 16S targets is high and uniform: both bacteria reach &gt;97% breadth at 20×. The human distractor also has high depth (92.7% at 20×) — unlike the thin background signal seen in the virus tutorial, this reflects genuine cross-reactive probe binding to mitochondrial ribosomal sequences rather than accidental k-mer matches.</p>
+<h3 id="correctly-vs-incorrectly-mapped-reads">Correctly vs incorrectly mapped reads<a class="headerlink" href="#correctly-vs-incorrectly-mapped-reads" title="Permanent link">&para;</a></h3>
+<p>The log reports a metric not present in standard mode:</p>
+<pre><code>[INFO ]   Reads correctly mapped: 1866
+[INFO ]   Reads incorrectly mapped: 813
+[INFO ]   Reads unmapped: 321
+</code></pre>
+<p>In genome mode, a read is <strong>correctly mapped</strong> if it came from genome G and mapped to a target T where G→T is in the sample-target-map. The 813 incorrectly mapped reads are the distractor reads: they originated from the human mitochondrial sequence and mapped to bacterial 16S targets (the genome-target link for human DNA is not in the map).</p>
+<p>The 321 unmapped reads came from the non-16S flanking regions of the bacterial genomes. Those fragments were generated as background, but the flanking genomic sequence has no probes and little similarity to the 16S mapping reference, so they do not map — which is the expected behaviour.</p>
+<hr />
+<h2 id="key-metrics">Key metrics<a class="headerlink" href="#key-metrics" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Value</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Sensitivity</td>
+<td>1.0000</td>
+<td>Both bacteria detected</td>
+</tr>
+<tr>
+<td>Specificity</td>
+<td>0.0000</td>
+<td>The only non-sample entity (human distractor) was detected</td>
+</tr>
+<tr>
+<td>Precision</td>
+<td>0.6667</td>
+<td>2 of 3 detected entities are true positives</td>
+</tr>
+<tr>
+<td>F1</td>
+<td>0.8000</td>
+<td>Harmonic mean of sensitivity and precision</td>
+</tr>
+</tbody>
+</table>
+<p>Specificity is 0 here because there is only one distractor group and it was detected. In a real panel with several distractor organisms, only a subset would typically cross-react, giving a non-zero specificity.</p>
+<hr />
+<h2 id="next-steps">Next steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Try omitting <code>--sample-target-map</code> and observe whether BaitBench auto-links names correctly (it will not for this dataset, since the names do not follow the <code>{genome_id}|{target_id}</code> convention).</li>
+<li>Try <code>--ct 25</code> instead of the default distractor fraction to simulate a clinical specimen at a specific CT value.</li>
+<li>Run <code>baitbench xreact --probes examples/tutorial-genome/probes.fa --against examples/tutorial-genome/distractors.fa</code> to quantify the probe cross-reactivity against human mitochondrial DNA.</li>
+<li>See <a href="../../how-to/analyze-cross-reactivity/">Analyze Cross-Reactivity</a> for the full cross-reactivity workflow.</li>
+</ul></div>
+        
+        
+    </div>
+
+    
+      <footer class="col-md-12 text-center">
+          
+          
+            <hr>
+            <p>
+            <small>Documentation built with <a href="http://www.mkdocs.org/">MkDocs</a>.</small>
+            </p>
+          
+
+          
+          
+      </footer>
+    
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+    <script src="../../js/bootstrap-3.0.3.min.js"></script>
+
+    
+    <script src="//cdn.jsdelivr.net/gh/highlightjs/cdn-release@9.18.0/build/highlight.min.js"></script>
+        
+    <script>hljs.initHighlightingOnLoad();</script>
+    
+
+    <script>var base_url = "../.."</script>
+    
+    <script src="../../js/base.js"></script>
+    <script src="../../search/main.js"></script>
+
+    <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">
+                    <span aria-hidden="true">&times;</span>
+                    <span class="sr-only">Close</span>
+                </button>
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
+            </div>
+            <div class="modal-body">
+                <p>
+                    From here you can search these documents. Enter
+                    your search terms below.
+                </p>
+                <form>
+                    <div class="form-group">
+                        <input type="text" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+    </body>
+
+</html>
