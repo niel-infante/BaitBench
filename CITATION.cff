@@ -23,8 +23,8 @@ authors:
     affiliation: University of Nebraska Medical Center
 repository-code: "https://github.com/niel-infante/BaitBench"
 license: MIT
-version: 0.1.5
-date-released: "2026-07-21"
+version: 1.0.0
+date-released: "2026-10-02"
 keywords:
   - hybrid capture
   - target enrichment
