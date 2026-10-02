@@ -6,6 +6,14 @@ Observed during real-data validation against ZymoBIOMICS D6331 (21-species gut m
 
 The result: rare species (M. smithii, A. muciniphila) whose 16S probes are largely specific to them see disproportionate enrichment relative to their input weight. In a real bait-capture reaction, those probes would encounter far fewer target molecules and capture far fewer fragments. BaitBench doesn't model this because it doesn't account for probe saturation or competition between species for probe binding sites.
 
+## Additional validation: Borrelia LOD titration (BB_LOD_deep_dive)
+
+Independently confirmed by a second dataset. An LOD (limit-of-detection) titration series (NTC, Pos1, Pos2, s1E0–s1E6) was run through `baitbench run --genomes`, simulating *Borrelia burgdorferi* (AE000783.1) diluted into *Ixodes scapularis* host background, and compared against a real dilution series (`coverage_steps_LOD_4Path_BB_AE000783.1.png`). The simulated coverage came out nearly flat (~78.5% BB fraction) across NTC–s1E5 instead of reproducing the real ~20,000-fold drop-off — same root cause as the ZymoBIOMICS finding above, confirmed by code inspection of `sample_capture_fragments()` in `src/sampling/thermo_sim.rs`: Level-1 probe selection is abundance-blind, and `--capture-fraction` fills a fixed quota via with-replacement resampling regardless of how little real target DNA exists.
+
+**D1 alone is unlikely to fix this case.** D1 corrects *competition between targets* sharing a capture budget (the ZymoBIOMICS scenario — multiple species competing for one quota). The LOD setup is a single target diluted against a distractor with no competing probes, so there's no alternative probe for D1's reweighting to shift mass toward — BB's probes remain the only eligible pool at every dilution step, and the quota-filling resampling persists regardless of weighting. A capacity/budget mechanism (D2) or the Bernoulli-filter approach (Option C, `capture-probabilistic-model.md`) is more likely needed, since both let total captured yield actually decline when real target DNA is scarce instead of resampling to fill a fixed quota.
+
+**Action item:** once D2 (or another capacity-limiting fix) is implemented, re-run the BB LOD titration pipeline (`BB_LOD_deep_dive`) as a regression/validation check to confirm the flat plateau resolves into a real titration curve.
+
 ## Sketched approaches
 
 ### D1 — Expected-yield-weighted Level-1 probe selection

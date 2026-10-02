@@ -1,0 +1,54 @@
+cff-version: 1.2.0
+message: "If you use BaitBench, please cite it as below."
+title: BaitBench
+abstract: >-
+  A comprehensive tool for building, assessing, and predicting outcomes for
+  hybrid capture enrichment probes. BaitBench unifies probe design, alignment-based
+  probe assessment, and thermodynamic simulation of capture and sequencing in a
+  single installation, allowing probe panels to be evaluated in silico before
+  synthesis.
+type: software
+authors:
+  - given-names: "Aniello M."
+    family-names: Infante
+    orcid: "https://orcid.org/0000-0002-1669-8795"
+    affiliation: University of Nebraska Medical Center
+  - given-names: "Brandon D."
+    family-names: Hollingsworth
+    orcid: "https://orcid.org/0000-0002-1772-8191"
+    affiliation: University of South Carolina
+  - given-names: "Shaun T."
+    family-names: Cross
+    orcid: "https://orcid.org/0000-0003-0846-1488"
+    affiliation: University of Nebraska Medical Center
+repository-code: "https://github.com/niel-infante/BaitBench"
+license: MIT
+version: 0.1.5
+date-released: "2026-07-21"
+keywords:
+  - hybrid capture
+  - target enrichment
+  - probe design
+  - bait design
+  - simulation
+  - metagenomics
+  - bioinformatics
+
+# Once the manuscript is published, uncomment and complete this block so that
+# citations resolve to the paper rather than the software archive.
+# preferred-citation:
+#   type: article
+#   title: "BaitBench: a comprehensive tool for building, assessing, and predicting outcomes for hybrid capture enrichment probes"
+#   authors:
+#     - given-names: "Aniello M."
+#       family-names: Infante
+#       orcid: "https://orcid.org/0000-0002-1669-8795"
+#     - given-names: "Brandon D."
+#       family-names: Hollingsworth
+#       orcid: "https://orcid.org/0000-0002-1772-8191"
+#     - given-names: "Shaun T."
+#       family-names: Cross
+#       orcid: "https://orcid.org/0000-0003-0846-1488"
+#   journal: Bioinformatics
+#   year: 2026
+#   doi: ""
