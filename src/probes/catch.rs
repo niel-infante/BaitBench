@@ -1,8 +1,13 @@
-// Optimization-based probe design equivalent to CATCH (Metsky et al. 2019).
+// Optimization-based probe design following CATCH (Metsky et al. 2019).
 //
 // Implements single-dataset mode with Hamming distance coverage model.
 // CATCH reference: Capturing sequence diversity in metagenomes with comprehensive
 // and scalable probe design. Nature Biotechnology 37, 160–168 (2019).
+//
+// Strand handling (see `Strand`): with `Strand::Forward` the coverage model matches
+// CATCH, which scores a probe only against the target as given. `Strand::Both` also
+// credits reverse-complement matches, which is the more physical model for capture of
+// double-stranded DNA but produces smaller panels that are not comparable to CATCH's.
 //
 // Architecture: coverage model → candidate generation → MinHash dedup →
 //               coverage computation → greedy set cover → output.
@@ -33,6 +38,20 @@ pub enum CoverageModel {
     /// Full probe must align with ≤ `mismatches` Hamming distance.
     /// Equivalent to LCF-k with `lcf_threshold = probe_len` (the CATCH default).
     Hamming { mismatches: usize, extension: usize },
+}
+
+/// Which orientations count as coverage when scoring a probe against a target.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Strand {
+    /// Score the probe against the target as given, like CATCH. Panel sizes are
+    /// directly comparable to `design.py`.
+    Forward,
+    /// Also credit a probe whose reverse complement matches the target. Physically
+    /// appropriate for double-stranded capture, where a bait equal to revcomp(R)
+    /// hybridizes to the + strand of a fragment containing R. Not valid for
+    /// single-stranded targets (e.g. RNA-virus baits capture one orientation only),
+    /// and yields smaller panels that cannot be compared with CATCH's.
+    Both,
 }
 
 impl CoverageModel {
@@ -77,8 +96,11 @@ fn build_kmer_index(seqs: &[Vec<u8>], seed_len: usize) -> HashMap<Vec<u8>, Vec<(
     index
 }
 
-/// Find all (seq_idx, cov_start, cov_end) triples where `probe` hybridizes,
-/// using seed-and-extend with the coverage model. Checks both forward and RC.
+/// Find all (seq_idx, cov_start, cov_end) triples where `probe` hybridizes to a
+/// target's forward strand, using seed-and-extend with the coverage model.
+///
+/// Only the orientation of `probe` as supplied is checked; the caller decides whether
+/// to additionally pass the reverse complement (see `Strand`).
 fn find_matches_with_model(
     index: &HashMap<Vec<u8>, Vec<(usize, usize)>>,
     seqs: &[Vec<u8>],
@@ -321,6 +343,7 @@ pub fn design_probes(
     extension: usize,
     coverage_frac: f64,
     minhash_threshold: f64,
+    strand: Strand,
 ) -> Result<usize> {
     const SEED_LEN: usize = 10;
     const MINHASH_SEED: u64 = 42;
@@ -435,8 +458,10 @@ pub fn design_probes(
 
     for (probe, _) in &candidates {
         let mut hits = find_matches_with_model(&index, &seqs, probe, SEED_LEN, &model);
-        let rc = reverse_complement(probe);
-        hits.extend(find_matches_with_model(&index, &seqs, &rc, SEED_LEN, &model));
+        if strand == Strand::Both {
+            let rc = reverse_complement(probe);
+            hits.extend(find_matches_with_model(&index, &seqs, &rc, SEED_LEN, &model));
+        }
         hits.sort_unstable();
         hits.dedup();
         probe_coverage.push(hits);
@@ -444,8 +469,12 @@ pub fn design_probes(
 
     // ── Step 6: Greedy set cover ─────────────────────────────────────────────
     log::info!(
-        "CATCH: greedy set cover (coverage_frac={:.2}, {} candidates, {} targets)...",
+        "CATCH: greedy set cover (coverage_frac={:.2}, strand={}, {} candidates, {} targets)...",
         coverage_frac,
+        match strand {
+            Strand::Forward => "forward",
+            Strand::Both => "both",
+        },
         candidates.len(),
         seqs.len()
     );
@@ -519,6 +548,45 @@ pub fn design_probes(
 
     log::info!("CATCH: set cover selected {} probes", solution.len());
 
+    // Report realized coverage rather than assuming the request was met. The greedy
+    // loop also exits when no candidate adds further gain, so `coverage_frac` is a
+    // target, not a guarantee.
+    let total_bp: usize = seq_lens.iter().sum();
+    let covered_bp: usize = seq_lens
+        .iter()
+        .zip(uncovered_bp.iter())
+        .map(|(&total, &unc)| total.saturating_sub(unc))
+        .sum();
+    let short_targets = (0..seqs.len())
+        .filter(|&si| {
+            seq_lens[si] > 0
+                && ((seq_lens[si] - uncovered_bp[si]) as f64 / seq_lens[si] as f64) < coverage_frac
+        })
+        .count();
+    let realized = if total_bp > 0 {
+        covered_bp as f64 / total_bp as f64
+    } else {
+        1.0
+    };
+    log::info!(
+        "CATCH: realized coverage {:.4} ({}/{} bp); {} of {} targets below the requested {:.2}",
+        realized,
+        covered_bp,
+        total_bp,
+        short_targets,
+        seqs.len(),
+        coverage_frac
+    );
+    if short_targets > 0 {
+        log::warn!(
+            "CATCH: {} target(s) did not reach the requested coverage of {:.2} \
+             (no remaining candidate probe could cover them). Realized coverage {:.4}.",
+            short_targets,
+            coverage_frac,
+            realized
+        );
+    }
+
     // ── Step 7: Write output ──────────────────────────────────────────────────
     let out_file =
         File::create(output).with_context(|| format!("Cannot create {}", output.display()))?;
@@ -540,4 +608,138 @@ pub fn design_probes(
         output.display()
     );
     Ok(solution.len())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+
+    /// Deterministic pseudo-random DNA so tests do not depend on an RNG crate.
+    fn make_seq(len: usize, seed: u64) -> String {
+        let mut s = String::with_capacity(len);
+        let mut x = seed.wrapping_mul(6364136223846793005).wrapping_add(1);
+        for _ in 0..len {
+            x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            s.push(match (x >> 33) % 4 {
+                0 => 'A',
+                1 => 'C',
+                2 => 'G',
+                _ => 'T',
+            });
+        }
+        s
+    }
+
+    fn rc_str(s: &str) -> String {
+        s.chars()
+            .rev()
+            .map(|c| match c {
+                'A' => 'T',
+                'T' => 'A',
+                'C' => 'G',
+                'G' => 'C',
+                other => other,
+            })
+            .collect()
+    }
+
+    fn write_fasta(dir: &std::path::Path, name: &str, recs: &[(String, String)]) -> std::path::PathBuf {
+        let p = dir.join(name);
+        let mut f = File::create(&p).unwrap();
+        for (id, seq) in recs {
+            writeln!(f, ">{}", id).unwrap();
+            writeln!(f, "{}", seq).unwrap();
+        }
+        p
+    }
+
+    fn count_probes(p: &std::path::Path) -> usize {
+        std::fs::read_to_string(p)
+            .unwrap()
+            .lines()
+            .filter(|l| l.starts_with('>'))
+            .count()
+    }
+
+    /// A target present only as the reverse complement of another target must be left
+    /// uncovered under Strand::Forward (CATCH-compatible) and so must receive its own
+    /// probes; under Strand::Both it is credited to the sibling and gets none.
+    #[test]
+    fn strand_forward_does_not_credit_reverse_complement() {
+        let dir = tempfile::tempdir().unwrap();
+        let a = make_seq(480, 11);
+        let b = rc_str(&a); // identical gene, deposited on the opposite strand
+        let input = write_fasta(
+            dir.path(),
+            "in.fa",
+            &[("fwd".to_string(), a), ("rev".to_string(), b)],
+        );
+
+        let out_fwd = dir.path().join("fwd.fa");
+        let n_fwd = design_probes(&input, &out_fwd, 120, 120, 5, 0, 1.0, 0.0, Strand::Forward).unwrap();
+
+        let out_both = dir.path().join("both.fa");
+        let n_both = design_probes(&input, &out_both, 120, 120, 5, 0, 1.0, 0.0, Strand::Both).unwrap();
+
+        assert_eq!(n_fwd, count_probes(&out_fwd));
+        assert_eq!(n_both, count_probes(&out_both));
+        // Forward must tile both copies; Both can cover one with the other's probes.
+        assert!(
+            n_fwd > n_both,
+            "forward-only should need more probes than strand-agnostic ({} vs {})",
+            n_fwd, n_both
+        );
+        assert_eq!(n_fwd, 8, "two 480 bp targets at stride 120 need 4 probes each");
+        assert_eq!(n_both, 4, "strand-agnostic should cover both copies with 4 probes");
+    }
+
+    /// Forward-only design must fully cover every target it is given.
+    #[test]
+    fn strand_forward_covers_every_target() {
+        let dir = tempfile::tempdir().unwrap();
+        let recs: Vec<(String, String)> = (0..5)
+            .map(|i| (format!("t{}", i), make_seq(360, 100 + i)))
+            .collect();
+        let input = write_fasta(dir.path(), "in.fa", &recs);
+        let out = dir.path().join("p.fa");
+        let n = design_probes(&input, &out, 120, 120, 5, 0, 1.0, 0.0, Strand::Forward).unwrap();
+        // 5 unrelated targets x 360 bp / 120 bp stride, no extension => 3 probes each.
+        assert_eq!(n, 15);
+    }
+
+    /// The coverage model must accept an exact match and reject one over the limit.
+    #[test]
+    fn coverage_model_respects_mismatch_budget() {
+        let model = CoverageModel::Hamming { mismatches: 5, extension: 0 };
+        let target: Vec<u8> = make_seq(120, 7).into_bytes();
+        assert_eq!(model.covers(&target, &target, 0), Some((0, 120)));
+
+        let mut probe = target.clone();
+        for p in probe.iter_mut().take(6) {
+            *p = if *p == b'A' { b'C' } else { b'A' };
+        }
+        assert_eq!(model.covers(&probe, &target, 0), None, "6 mismatches must not cover");
+    }
+
+    /// Cover extension widens the credited interval and is clamped to the target.
+    #[test]
+    fn cover_extension_is_clamped_to_target_bounds() {
+        let model = CoverageModel::Hamming { mismatches: 0, extension: 50 };
+        let target: Vec<u8> = make_seq(200, 3).into_bytes();
+        let probe = target[40..160].to_vec();
+        assert_eq!(model.covers(&probe, &target, 40), Some((0, 200)));
+    }
+
+    /// An N in the target counts as a mismatch, so a window of Ns is uncoverable.
+    #[test]
+    fn n_bases_count_as_mismatches() {
+        let model = CoverageModel::Hamming { mismatches: 5, extension: 0 };
+        let mut target: Vec<u8> = make_seq(120, 5).into_bytes();
+        let probe = target.clone();
+        for b in target.iter_mut().take(6) {
+            *b = b'N';
+        }
+        assert_eq!(model.covers(&probe, &target, 0), None);
+    }
 }

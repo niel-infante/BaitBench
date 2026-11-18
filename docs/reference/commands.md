@@ -283,6 +283,7 @@ baitbench build-probes \
   [--catch-extension 0] \
   [--catch-coverage 1.0] \
   [--catch-minhash-threshold 0.6] \
+  [--catch-strand forward] \
   [--syotti-mismatches 40] \
   [--syotti-seed-len 20] \
   [--no-n-in-probes] \
@@ -346,6 +347,7 @@ A final probe is always anchored to the sequence end regardless of step.
 | `--catch-extension` | 0 | Flanking bp beyond probe boundaries counted as covered |
 | `--catch-coverage` | 1.0 | Fraction of each target that must be covered (0.0–1.0) |
 | `--catch-minhash-threshold` | 0.6 | Jaccard similarity threshold for near-deduplication; 0.0 disables |
+| `--catch-strand` | forward | Orientations counted as coverage: `forward` (CATCH-compatible) or `both` (also credits reverse-complement matches). `catch-lite` only |
 
 ### syotti-lite parameters
 

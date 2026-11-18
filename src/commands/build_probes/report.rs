@@ -37,6 +37,10 @@ pub fn write_run_params(path: &Path, args: &BuildProbesArgs, cdhit_available: bo
     writeln!(w, "catch_extension\t--catch-extension\t{}", args.catch_extension)?;
     writeln!(w, "catch_coverage\t--catch-coverage\t{:.2}", args.catch_coverage)?;
     writeln!(w, "catch_minhash_threshold\t--catch-minhash-threshold\t{:.2}", args.catch_minhash_threshold)?;
+    writeln!(w, "catch_strand\t--catch-strand\t{}", match args.catch_strand {
+        crate::cli::ProbeStrand::Forward => "forward",
+        crate::cli::ProbeStrand::Both => "both",
+    })?;
     writeln!(w, "min_gc\t--min-gc\t{:.2}", args.min_gc)?;
     writeln!(w, "max_gc\t--max-gc\t{:.2}", args.max_gc)?;
     writeln!(w, "max_n_frac\t--max-n-frac\t{:.2}", args.max_n_frac)?;

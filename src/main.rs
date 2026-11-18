@@ -671,6 +671,7 @@ fn main() -> Result<()> {
             catch_extension,
             catch_coverage,
             catch_minhash_threshold,
+            catch_strand,
             min_gc,
             max_gc,
             max_n_frac,
@@ -715,6 +716,7 @@ fn main() -> Result<()> {
                 catch_extension,
                 catch_coverage,
                 catch_minhash_threshold,
+                catch_strand,
                 min_gc,
                 max_gc,
                 max_n_frac,
@@ -949,6 +951,7 @@ fn main() -> Result<()> {
                 extension,
                 coverage,
                 minhash_threshold,
+                strand,
             } => {
                 catch::design_probes(
                     &targets,
@@ -959,6 +962,7 @@ fn main() -> Result<()> {
                     extension,
                     coverage,
                     minhash_threshold,
+                    strand.into(),
                 )?;
             }
 

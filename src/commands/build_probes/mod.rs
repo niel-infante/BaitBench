@@ -29,6 +29,7 @@ pub struct BuildProbesArgs<'a> {
     pub catch_extension: usize,
     pub catch_coverage: f64,
     pub catch_minhash_threshold: f64,
+    pub catch_strand: crate::cli::ProbeStrand,
     pub min_gc: f64,
     pub max_gc: f64,
     pub dust_threshold: f64,
@@ -165,14 +166,16 @@ pub fn execute(args: &BuildProbesArgs) -> Result<()> {
         ProbeMethod::CatchLite => {
             log::info!(
                 "Step 4: Building probes (catch-lite, length={}, stride={}, mismatches={}, \
-                 extension={}, coverage={:.2}, minhash={:.2})...",
+                 extension={}, coverage={:.2}, minhash={:.2}, strand={:?})...",
                 args.probe_length, args.catch_probe_stride, args.catch_mismatches,
                 args.catch_extension, args.catch_coverage, args.catch_minhash_threshold,
+                args.catch_strand,
             );
             catch::design_probes(
                 &length_filtered_path, &probes_raw_path, args.probe_length,
                 args.catch_probe_stride, args.catch_mismatches, args.catch_extension,
                 args.catch_coverage, args.catch_minhash_threshold,
+                args.catch_strand.into(),
             )?;
         }
         ProbeMethod::SyottiLite => {
@@ -192,6 +195,12 @@ pub fn execute(args: &BuildProbesArgs) -> Result<()> {
                 args.probe_length, args.catch_probe_stride, args.catch_mismatches,
                 args.catch_extension, args.catch_coverage, args.catch_minhash_threshold,
             );
+            if args.catch_strand == crate::cli::ProbeStrand::Both {
+                log::warn!(
+                    "--catch-strand both is ignored with --method catch: the external CATCH \
+                     tool scores probes against the target as given (forward only)."
+                );
+            }
             external_catch::check_available()?;
             external_catch::design_probes(
                 &length_filtered_path, &probes_raw_path, args.probe_length,

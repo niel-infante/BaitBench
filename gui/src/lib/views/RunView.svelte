@@ -99,6 +99,7 @@
   let bp_catchExtension = '0';
   let bp_catchCoverage = '1.0';
   let bp_catchMinhashThreshold = '0.6';
+  let bp_catchStrand = 'forward';
   let bp_syottiMismatches = '40';
   let bp_syottiSeedLen = '20';
   let bp_ptStep = '1';
@@ -242,6 +243,7 @@
       case 'build-probes': return { ...shared,
         bp_targets, bp_method, bp_probeLength, bp_step,
         bp_catchStride, bp_catchMismatches, bp_catchExtension, bp_catchCoverage, bp_catchMinhashThreshold,
+        bp_catchStrand,
         bp_syottiMismatches, bp_syottiSeedLen,
         bp_ptStep, bp_ptIdentity, bp_ptCoverage, bp_ptBatchSize, bp_ptMaxPanelSize,
         bp_ptMinDepth, bp_ptMaxIterations, bp_ptMinCoverageGain,
@@ -329,6 +331,7 @@
         bp_catchStride = str('bp_catchStride', '60'); bp_catchMismatches = str('bp_catchMismatches', '5');
         bp_catchExtension = str('bp_catchExtension', '0'); bp_catchCoverage = str('bp_catchCoverage', '1.0');
         bp_catchMinhashThreshold = str('bp_catchMinhashThreshold', '0.6');
+        bp_catchStrand = str('bp_catchStrand', 'forward');
         bp_syottiMismatches = str('bp_syottiMismatches', '40'); bp_syottiSeedLen = str('bp_syottiSeedLen', '20');
         bp_ptStep = str('bp_ptStep', '1'); bp_ptIdentity = str('bp_ptIdentity', '0.9');
         bp_ptCoverage = str('bp_ptCoverage', '0.9'); bp_ptBatchSize = str('bp_ptBatchSize', '100');
@@ -530,6 +533,7 @@
           if (bp_catchExtension !== '0') add('--catch-extension', bp_catchExtension);
           if (bp_catchCoverage !== '1.0') add('--catch-coverage', bp_catchCoverage);
           if (bp_catchMinhashThreshold !== '0.6') add('--catch-minhash-threshold', bp_catchMinhashThreshold);
+          if (bp_catchStrand !== 'forward') add('--catch-strand', bp_catchStrand);
         }
         if (bp_method === 'syotti-lite') {
           add('--syotti-mismatches', bp_syottiMismatches);
@@ -1189,6 +1193,13 @@
               <div class="field-row">
                 <label class="field-label" for="bp-catchmh" data-tooltip="Probes with MinHash Jaccard similarity above this threshold are considered duplicates and merged during CATCH set-cover. Lower value = more aggressive deduplication.">MinHash dedup threshold <span class="tip">?</span></label>
                 <input id="bp-catchmh" class="text-input short" type="number" step="0.01" min="0" max="1" bind:value={bp_catchMinhashThreshold} />
+              </div>
+              <div class="field-row">
+                <label class="field-label" for="bp-catchstrand" data-tooltip="Which orientations count as coverage. forward scores probes against the target as given, matching CATCH, so panel sizes are comparable to the original tool. both also credits reverse-complement matches: more physical for double-stranded DNA capture, but not valid for single-stranded (RNA) targets.">Strand <span class="tip">?</span></label>
+                <select id="bp-catchstrand" class="text-input short" bind:value={bp_catchStrand}>
+                  <option value="forward">forward (CATCH-compatible)</option>
+                  <option value="both">both (dsDNA only)</option>
+                </select>
               </div>
             {:else if bp_method === 'syotti-lite'}
               <div class="field-row">

@@ -844,6 +844,12 @@ pub enum Commands {
         #[arg(long, default_value = "0.6")]
         catch_minhash_threshold: f64,
 
+        /// Orientations that count as coverage. forward matches CATCH (comparable panel
+        /// sizes); both also credits reverse-complement matches, which suits double-stranded
+        /// capture but not single-stranded (RNA) targets. Used with --method catch-lite only.
+        #[arg(long, value_enum, default_value = "forward")]
+        catch_strand: ProbeStrand,
+
         /// Minimum GC fraction to keep a probe (0-1)
         #[arg(long, default_value = "0.20")]
         min_gc: f64,
@@ -1293,6 +1299,12 @@ pub enum ToolCommands {
         #[arg(long, default_value = "1.0")]
         coverage: f64,
 
+        /// Orientations that count as coverage. forward matches CATCH (comparable
+        /// panel sizes); both also credits reverse-complement matches, which suits
+        /// double-stranded capture but not single-stranded (RNA) targets.
+        #[arg(long, value_enum, default_value = "forward")]
+        strand: ProbeStrand,
+
         /// MinHash Jaccard similarity threshold for deduplication
         #[arg(long, default_value = "0.6")]
         minhash_threshold: f64,
@@ -1356,6 +1368,27 @@ pub enum ProbeMethod {
     /// All --pt-* flags apply. Requires cd-hit-est.
     #[value(name = "probetools-lite")]
     ProbeToolsLite,
+}
+
+/// Which orientations count as coverage in catch-lite's probe design.
+#[derive(Clone, Copy, ValueEnum, Debug, PartialEq, Eq)]
+pub enum ProbeStrand {
+    /// Score probes against the target as given, like CATCH. Panel sizes are
+    /// comparable to the original tool (default).
+    Forward,
+    /// Also credit a probe whose reverse complement matches the target. More physical
+    /// for double-stranded capture, but not valid for single-stranded (e.g. RNA)
+    /// targets, and yields panels that cannot be compared with CATCH's.
+    Both,
+}
+
+impl From<ProbeStrand> for crate::probes::catch::Strand {
+    fn from(s: ProbeStrand) -> Self {
+        match s {
+            ProbeStrand::Forward => crate::probes::catch::Strand::Forward,
+            ProbeStrand::Both => crate::probes::catch::Strand::Both,
+        }
+    }
 }
 
 #[derive(Clone, Copy, ValueEnum, Debug, PartialEq, Eq)]

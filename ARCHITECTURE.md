@@ -74,7 +74,7 @@ src/
 │   └── tool_dustview.rs # `baitbench tool dustview` handler: execute() — sDUST masking visualization on FASTA sequences
 ├── sdust.rs             # sDUST low-complexity detection: sdust(), masked_fraction() (Morgulis et al. 2006)
 ├── syotti.rs            # Syotti greedy bait design: design_probes() — k-mer hash index, seed-and-extend, greedy set-cover (Alanko et al. 2022)
-├── catch.rs             # Native CATCH probe design: design_probes() — tiling → MinHash dedup → greedy set cover (reimplementation of Metsky et al. 2019)
+├── catch.rs             # Native CATCH probe design: design_probes() — tiling → MinHash dedup → greedy set cover (reimplementation of Metsky et al. 2019). Strand enum: Forward (CATCH-compatible, default) vs Both (also credits reverse-complement hits). Logs realized coverage and warns on shortfall.
 ├── probetools.rs        # ProbeTools-Lite probe design: design_probes() — iterative k-mer enumeration → cd-hit-est clustering → greedy batch selection → minimap2 coverage → low-cov extraction (reimplementation of Kuchinski et al. 2022)
 ├── external/
 │   ├── minimap2.rs      # minimap2 wrapper: map_reads (SAM, optional reads_r2 for PE), host_align (optional reads_r2), probe_align(max_secondary), xreact_align

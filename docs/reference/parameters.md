@@ -207,6 +207,29 @@ These apply to the `assess-probes` step that `build-probes` chains into automati
 | `--catch-extension` | 0 | Extend covered interval by this many bp on each side of a probe match |
 | `--catch-coverage` | 1.0 | Minimum fraction of each target sequence that must be covered |
 | `--catch-minhash-threshold` | 0.6 | Jaccard similarity threshold for MinHash near-duplicate removal (0.0 = disabled) |
+| `--catch-strand` | forward | Orientations counted as coverage: `forward` scores probes against the target as given (matches CATCH; panel sizes comparable to the original tool), `both` also credits reverse-complement matches. See [Strand handling](#strand-handling-catch-lite). |
+
+#### Strand handling (catch-lite)
+
+`--catch-strand` (and `--strand` on `baitbench tool catch`) controls which orientations
+count when deciding whether a probe already covers a target region.
+
+- **`forward`** (default) scores a probe against the target as given. This is what
+  CATCH does, so panel sizes are directly comparable to `design.py` and to published
+  panels built with it.
+- **`both`** additionally credits a probe whose *reverse complement* matches the
+  target. In hybrid capture of double-stranded DNA this is the more physical model — a
+  bait equal to `revcomp(R)` hybridizes to the + strand of a fragment containing `R`
+  and does capture it — so fewer probes are needed when a target set contains genes
+  deposited on opposite strands.
+
+Use `both` only for double-stranded targets. It is **not** valid for single-stranded
+targets such as RNA-virus baits, where a bait captures one orientation only, and the
+resulting panel sizes cannot be compared with CATCH's.
+
+Because the greedy search also stops when no remaining candidate adds coverage,
+`--catch-coverage` is a target rather than a guarantee. catch-lite logs the realized
+coverage and warns when any target falls short of the requested fraction.
 
 ### `--method syotti-lite` Parameters
 
