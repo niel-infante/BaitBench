@@ -106,6 +106,92 @@ pub struct ThermoModel {
     pub na_conc_m: f64,
 }
 
+/// Internal-mismatch nearest-neighbour parameters.
+///
+/// Sources (as compiled in SantaLucia & Hicks 2004, *Annu Rev Biophys Biomol Struct*
+/// 33:415-440, and transcribed in biopython's `MeltingTemp.DNA_IMM1`):
+///   Allawi & SantaLucia (1997) *Biochemistry* 36:10581-10594  (G.T)
+///   Allawi & SantaLucia (1998) *Biochemistry* 37:9435-9444    (G.A)
+///   Allawi & SantaLucia (1998) *Biochemistry* 37:2170-2179    (C.T)
+///   Allawi & SantaLucia (1998) *Nucleic Acids Res* 26:2694-2701 (A.C)
+///   Peyret et al. (1999) *Biochemistry* 38:3468-3477          (A.A, C.C, G.G, T.T)
+///
+/// 51 steps: 48 where exactly one end of the dinucleotide is a mismatch, plus 3
+/// published tandem (both-ends-mismatched) G.T steps. All 12 single-mismatch types are
+/// covered (A/A A/C A/G C/A C/C C/T G/A G/G G/T T/C T/G T/T).
+///
+/// The key packs the dinucleotide step as four 2-bit base codes,
+/// `[prev_top, prev_bot, curr_top, curr_bot]`, where "top" is the probe strand and
+/// "bottom" the strand it hybridizes to — matching the `XY/WZ` convention of the
+/// published tables, in which the bottom strand runs 3'->5'.
+///
+/// Before this table existed the code used "SkipStacking": any step touching a
+/// mismatch contributed exactly zero. That treats a weakened stack as a broken one and
+/// substantially overestimates the penalty for scattered mismatches — which matters
+/// most for probes designed against relatives of the sampled organism, the case the
+/// capture model is being rebuilt to handle.
+#[inline]
+fn mismatch_params(prev_top: u8, prev_bot: u8, curr_top: u8, curr_bot: u8) -> Option<NnParams> {
+    if prev_top > 3 || prev_bot > 3 || curr_top > 3 || curr_bot > 3 {
+        return None; // N or any other ambiguous base: no published parameters
+    }
+    let key = (prev_top << 6) | (prev_bot << 4) | (curr_top << 2) | curr_bot;
+    match key {
+        0b00110000 => Some(NnParams::new(1.2, 1.7)), // AA/TA
+        0b00110001 => Some(NnParams::new(2.3, 4.6)), // AA/TC
+        0b00110010 => Some(NnParams::new(-0.6, -2.3)), // AA/TG
+        0b00110100 => Some(NnParams::new(5.3, 14.6)), // AC/TA
+        0b00110101 => Some(NnParams::new(0.0, -4.4)), // AC/TC
+        0b00110111 => Some(NnParams::new(0.7, 0.2)), // AC/TT
+        0b00111000 => Some(NnParams::new(-0.7, -2.3)), // AG/TA
+        0b00111010 => Some(NnParams::new(-3.1, -9.5)), // AG/TG
+        0b00111011 => Some(NnParams::new(1.0, 0.9)), // AG/TT
+        0b00111101 => Some(NnParams::new(-1.2, -6.2)), // AT/TC
+        0b00111110 => Some(NnParams::new(-2.5, -8.3)), // AT/TG
+        0b00111111 => Some(NnParams::new(-2.7, -10.8)), // AT/TT
+        0b01100000 => Some(NnParams::new(-0.9, -4.2)), // CA/GA
+        0b01100001 => Some(NnParams::new(1.9, 3.7)), // CA/GC
+        0b01100010 => Some(NnParams::new(-0.7, -2.3)), // CA/GG
+        0b01100100 => Some(NnParams::new(0.6, -0.6)), // CC/GA
+        0b01100101 => Some(NnParams::new(-1.5, -7.2)), // CC/GC
+        0b01100111 => Some(NnParams::new(-0.8, -4.5)), // CC/GT
+        0b01101000 => Some(NnParams::new(-4.0, -13.2)), // CG/GA
+        0b01101010 => Some(NnParams::new(-4.9, -15.3)), // CG/GG
+        0b01101011 => Some(NnParams::new(-4.1, -11.7)), // CG/GT
+        0b01101101 => Some(NnParams::new(-1.5, -6.1)), // CT/GC
+        0b01101110 => Some(NnParams::new(-2.8, -8.0)), // CT/GG
+        0b01101111 => Some(NnParams::new(-5.0, -15.8)), // CT/GT
+        0b10010000 => Some(NnParams::new(-2.9, -9.8)), // GA/CA
+        0b10010001 => Some(NnParams::new(5.2, 14.2)), // GA/CC
+        0b10010010 => Some(NnParams::new(-0.6, -1.0)), // GA/CG
+        0b10010100 => Some(NnParams::new(-0.7, -3.8)), // GC/CA
+        0b10010101 => Some(NnParams::new(3.6, 8.9)), // GC/CC
+        0b10010111 => Some(NnParams::new(2.3, 5.4)), // GC/CT
+        0b10011000 => Some(NnParams::new(0.5, 3.2)), // GG/CA
+        0b10011010 => Some(NnParams::new(-6.0, -15.8)), // GG/CG
+        0b10011011 => Some(NnParams::new(3.3, 10.4)), // GG/CT
+        0b10011101 => Some(NnParams::new(5.2, 13.5)), // GT/CC
+        0b10011110 => Some(NnParams::new(-4.4, -12.3)), // GT/CG
+        0b10011111 => Some(NnParams::new(-2.2, -8.4)), // GT/CT
+        0b10111011 => Some(NnParams::new(5.8, 16.3)), // GG/TT  // tandem
+        0b10111110 => Some(NnParams::new(4.1, 9.5)), // GT/TG  // tandem
+        0b11000000 => Some(NnParams::new(4.7, 12.9)), // TA/AA
+        0b11000001 => Some(NnParams::new(3.4, 8.0)), // TA/AC
+        0b11000010 => Some(NnParams::new(0.7, 0.7)), // TA/AG
+        0b11000100 => Some(NnParams::new(7.6, 20.2)), // TC/AA
+        0b11000101 => Some(NnParams::new(6.1, 16.4)), // TC/AC
+        0b11000111 => Some(NnParams::new(1.2, 0.7)), // TC/AT
+        0b11001000 => Some(NnParams::new(3.0, 7.4)), // TG/AA
+        0b11001010 => Some(NnParams::new(1.6, 3.6)), // TG/AG
+        0b11001011 => Some(NnParams::new(-0.1, -1.7)), // TG/AT
+        0b11001101 => Some(NnParams::new(1.0, 0.7)), // TT/AC
+        0b11001110 => Some(NnParams::new(-1.3, -5.3)), // TT/AG
+        0b11001111 => Some(NnParams::new(0.2, -1.5)), // TT/AT
+        0b11101011 => Some(NnParams::new(-1.4, -6.2)), // TG/GT  // tandem
+        _ => None,
+    }
+}
+
 impl ThermoModel {
     pub fn new(temp_c: f64, na_conc_m: f64) -> Self {
         ThermoModel { temp_c, na_conc_m }
@@ -202,8 +288,19 @@ pub fn delta_g(aligned_pairs: &[(u8, u8)], model: &ThermoModel) -> f64 {
                 sum_dh += params.dh;
                 sum_ds += params.ds;
                 has_stacking = true;
+            } else if let Some(params) = mismatch_params(pt, pb, top, bot) {
+                // One (or, for the three published tandem G.T steps, both) ends of the
+                // step is a mismatch. A mismatch weakens the stack rather than breaking
+                // it, so charge the published internal-mismatch parameters.
+                //
+                // `has_stacking` is deliberately NOT set here: mismatch stacking alone
+                // cannot nucleate a duplex, so it must not unlock the initiation and
+                // salt terms. Those still require at least one WC|WC step.
+                sum_dh += params.dh;
+                sum_ds += params.ds;
             }
-            // If either is a mismatch, skip this step (SkipStacking)
+            // Steps with no published parameters (ambiguous bases, unlisted tandem
+            // mismatches) contribute nothing, as before.
         }
 
         prev_top = Some(top);
@@ -357,14 +454,29 @@ mod tests {
 
     #[test]
     fn isolated_wc_pairs_no_stacking_score_neutral_at_low_salt() {
-        // Two isolated WC pairs with a mismatch between them — no consecutive stacking.
-        // At 50 mM Na+, salt correction must NOT be applied (has_stacking = false),
-        // otherwise sum_ds would go negative with sum_dh = 0, giving ΔG > 0 and score < 1.
+        // Two isolated WC pairs with a mismatch between them. The mismatch steps now
+        // carry published internal-mismatch parameters, so ΔG is no longer exactly
+        // zero — but the invariant that matters is unchanged: without a WC|WC step
+        // there is no nucleated duplex, so initiation and the salt correction must stay
+        // locked, and the probe must not look like a binder.
         let pairs = vec![(b'A', b'T'), (b'A', b'A'), (b'G', b'C')]; // AT, mismatch, GC
-        let dg = delta_g(&pairs, &model_50mm());
-        assert_eq!(dg, 0.0, "Isolated WC pairs at 50 mM should give ΔG = 0 (no stacking), got {}", dg);
-        let score = boltzmann_score(dg, &model_50mm());
-        assert!((score - 1.0).abs() < 1e-9, "Score should be 1.0, got {}", score);
+
+        let dg_1m = delta_g(&pairs, &model_1m());
+        let dg_50mm = delta_g(&pairs, &model_50mm());
+        assert_eq!(
+            dg_1m, dg_50mm,
+            "salt correction must not apply without a WC|WC stacking step"
+        );
+
+        assert!(
+            dg_1m > 0.0,
+            "isolated WC pairs flanked by a mismatch must not be a stable duplex, got {dg_1m}"
+        );
+        let score = boltzmann_score(dg_50mm, &model_50mm());
+        assert!(
+            (score - 1.0).abs() < 1e-9,
+            "an unstable duplex must clamp to the neutral score, got {score}"
+        );
     }
 
     #[test]
@@ -394,6 +506,50 @@ mod tests {
             dg_50mm > dg_1m,
             "ΔG at 50 mM ({:.4}) should be more positive than at 1 M ({:.4})",
             dg_50mm, dg_1m
+        );
+    }
+
+    #[test]
+    /// The Stage 2.5 gate: a probe with one internal mismatch must sit strictly between
+    /// a perfect match and a fully mismatched probe. Under SkipStacking the mismatch
+    /// deleted both adjacent stacking steps and charged nothing for them, overstating
+    /// the penalty.
+    fn one_internal_mismatch_scores_between_perfect_and_none() {
+        let m = model_50mm();
+        let probe = b"ACGTACGTACGTACGTACGT";
+
+        let perfect: Vec<(u8, u8)> = probe
+            .iter()
+            .map(|&b| (b, super::wc_complement(super::nt_to_idx(b))))
+            .map(|(b, c)| (b, b"ACGT"[c as usize]))
+            .collect();
+
+        let mut one_mm = perfect.clone();
+        one_mm[10].1 = one_mm[10].0; // self-pair: a mismatch at a central position
+
+        let all_mm: Vec<(u8, u8)> = probe.iter().map(|&b| (b, b)).collect();
+
+        let dg_perfect = delta_g(&perfect, &m);
+        let dg_one = delta_g(&one_mm, &m);
+        let dg_none = delta_g(&all_mm, &m);
+
+        assert!(dg_perfect < dg_one, "one mismatch must be less stable than none");
+        assert!(dg_one < dg_none, "one mismatch must be more stable than all mismatches");
+    }
+
+    /// Mismatch steps must contribute energy rather than being skipped, but must not
+    /// unlock initiation or the salt correction on their own.
+    #[test]
+    fn mismatch_steps_contribute_without_nucleating() {
+        let m = model_1m();
+        // A single WC|mismatch step: no WC|WC step anywhere, so has_stacking stays false.
+        let pairs = vec![(b'A', b'T'), (b'G', b'T')]; // AG/TT is in the table
+        let dg = delta_g(&pairs, &m);
+        assert_ne!(dg, 0.0, "a published mismatch step must contribute energy");
+        assert_eq!(
+            dg,
+            delta_g(&pairs, &model_50mm()),
+            "salt must stay locked without a WC|WC step"
         );
     }
 

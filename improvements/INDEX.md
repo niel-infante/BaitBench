@@ -13,3 +13,4 @@ phases of work. Supersedes several of the capture entries below; read it first.
 - [Sequencing: paired-end support](paired-end-support.md) — extend simulate/sequence/filter/map pipeline to emit R1+R2 FASTQ pairs; already partially threaded through (`SequenceArgs.output_r2`)
 - [Sequencing: long read testing](long-read-testing.md) — validate and benchmark the Badread long-read simulator path; add long-read presets and a `coverage-curve` long-read mode
 - [Validation: mutation distribution tolerance](mutation-distribution-validation.md) — test whether BaitBench shows TITAN-RNA's uniform-vs-natural mutation tolerance gap (10% vs 27%, PMID 40501929)
+- [Aligner: reuse seed-extend](seed-extend-wider-use.md) — the local seed-and-extend written for `simulate` probably fits xreact, assess-probes, panel-qc; also consolidates three duplicate k-mer index implementations
