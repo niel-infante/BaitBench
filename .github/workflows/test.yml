@@ -1,0 +1,58 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+  pull_request:
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: cargo test / clippy / fmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Cache cargo registry and build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      # Non-blocking for now: the pre-existing codebase has 392 rustfmt diffs across
+      # 51 files. Reformatting mid-rework would bury the simulation changes in noise,
+      # so this reports only. Make it blocking after a dedicated `cargo fmt` commit.
+      - name: Format (informational)
+        run: cargo fmt --check
+        continue-on-error: true
+
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Unit and integration tests
+        run: cargo test --all-targets
+
+      # Regressions the simulation rework must turn green. They are #[ignore]d so the
+      # suite stays green meanwhile; this step reports progress without failing CI.
+      # Remove continue-on-error as each one is fixed.
+      - name: Known-failing simulation regressions (informational)
+        run: cargo test --test simulation -- --ignored
+        continue-on-error: true

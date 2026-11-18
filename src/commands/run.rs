@@ -35,6 +35,7 @@ pub struct RunArgs<'a> {
     pub ct_calibration: Option<Vec<String>>,
     pub seed: Option<u64>,
     pub simulate_mode: SimulateMode,
+    pub probe_aligner: crate::cli::ProbeAligner,
     pub hybridization_temperature: f64,
     /// Na+ concentration in molar (converted from CLI mM)
     pub na_conc_m: f64,
@@ -178,6 +179,11 @@ pub fn execute(args: &RunArgs) -> Result<()> {
             writeln!(f, "ct_efficiency\t--ct-efficiency\t{}", args.ct_efficiency)?;
         }
         writeln!(f, "simulate_mode\t--simulate-mode\t{}", sim_mode_str)?;
+        writeln!(f, "probe_aligner\t--probe-aligner\t{}", match args.probe_aligner {
+            crate::cli::ProbeAligner::Minimap2 => "minimap2",
+            crate::cli::ProbeAligner::SeedExtend => "seed-extend",
+            crate::cli::ProbeAligner::Blast => "blast",
+        })?;
         writeln!(f, "hybridization_temperature\t--hybridization-temperature\t{}", args.hybridization_temperature)?;
         writeln!(f, "salt_concentration\t--salt-concentration\t{}", args.na_conc_m * 1000.0)?;
         writeln!(f, "capture_fraction\t--capture-fraction\t{}", args.capture_fraction)?;
@@ -241,6 +247,7 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         num_fragments: args.num_fragments,
         capture_fraction: args.capture_fraction,
         simulate_mode: args.simulate_mode,
+        aligner: args.probe_aligner,
         hybridization_temperature: args.hybridization_temperature,
         na_conc_m: args.na_conc_m,
         seed: args.seed,

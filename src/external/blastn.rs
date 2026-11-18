@@ -42,6 +42,97 @@ pub fn check_available() -> Result<()> {
 ///
 /// Output columns (tab-separated, no header): qseqid, sseqid, qlen, qstart,
 /// qend, nident, length — parsed by `alignment::blast_tab::parse_blast_hits`.
+/// Align probes to a reference for capture simulation, emitting the aligned sequences.
+///
+/// Output columns: `qseqid sseqid sstart send sstrand qseq sseq`.
+///
+/// `qseq`/`sseq` are the gapped alignment strings, so the probe/reference base pairs
+/// that `delta_g()` needs can be read straight off them — no CIGAR or MD
+/// reconstruction, and no orientation handling, because BLAST reports both strands in
+/// alignment orientation.
+///
+/// This exists because minimizer seeding loses divergent probes. On the MTEC bacterial
+/// panel against *B. burgdorferi* B31, blastn-short finds 14 of the nifS/clpA probes
+/// where the embedded aligner finds 6 — and the 6 are a strict subset. Probe density
+/// drives per-locus capture efficiency, so dropping 57% of the probes at a locus
+/// distorts the simulation in exactly the regime divergent panels care about.
+pub fn probe_align(
+    reference: &Path,
+    probes: &Path,
+    output_tsv: &Path,
+    log_file: &Path,
+    threads: usize,
+) -> Result<()> {
+    if fasta::count_sequences(reference)? == 0 || fasta::count_sequences(probes)? == 0 {
+        File::create(output_tsv)
+            .with_context(|| format!("Cannot create: {}", output_tsv.display()))?;
+        File::create(log_file)
+            .with_context(|| format!("Cannot create log: {}", log_file.display()))?;
+        return Ok(());
+    }
+
+    let db_prefix = output_tsv.with_extension("blastdb");
+    let log = File::create(log_file)
+        .with_context(|| format!("Cannot create log: {}", log_file.display()))?;
+
+    let makeblastdb_status = Command::new("makeblastdb")
+        .arg("-in")
+        .arg(reference)
+        .args(["-dbtype", "nucl"])
+        .arg("-out")
+        .arg(&db_prefix)
+        .stdout(log.try_clone().context("Cannot duplicate log handle")?)
+        .stderr(log.try_clone().context("Cannot duplicate log handle")?)
+        .status()
+        .context("Failed to execute makeblastdb")?;
+    if !makeblastdb_status.success() {
+        cleanup_blast_db(&db_prefix);
+        bail!(
+            "makeblastdb failed (exit code {:?}); see {}",
+            makeblastdb_status.code(),
+            log_file.display()
+        );
+    }
+
+    let blastn_status = Command::new("blastn")
+        .args(["-task", "blastn-short"])
+        .arg("-db")
+        .arg(&db_prefix)
+        .arg("-query")
+        .arg(probes)
+        .arg("-out")
+        .arg(output_tsv)
+        .args(["-outfmt", "6 qseqid sseqid sstart send sstrand qseq sseq"])
+        .args(["-evalue", "1000"])
+        .args(["-dust", "no"])
+        // Without these, blastn-short (word size 7) returns an enormous number of tiny
+        // spurious HSPs — 882k for a 228-probe panel against a single 0.9 Mb
+        // chromosome. Such fragments cannot nucleate a duplex, but they would still
+        // enter level-2 sampling and dilute the genuine hits.
+        //
+        // The thresholds match those used to derive the reference probe intervals for
+        // this panel (`probes_merged.bed`): at least half the probe aligned, at no
+        // worse than 80% identity. 80% over 120 bp is 24 mismatches, far more
+        // permissive than minimizer seeding, so the divergent probes are retained.
+        .args(["-perc_identity", "80"])
+        .args(["-qcov_hsp_perc", "50"])
+        .args(["-num_threads", &threads.to_string()])
+        .stdout(std::process::Stdio::null())
+        .stderr(log)
+        .status()
+        .context("Failed to execute blastn")?;
+
+    cleanup_blast_db(&db_prefix);
+    if !blastn_status.success() {
+        bail!(
+            "blastn failed (exit code {:?}); see {}",
+            blastn_status.code(),
+            log_file.display()
+        );
+    }
+    Ok(())
+}
+
 pub fn xreact_align(
     reference: &Path,
     query: &Path,

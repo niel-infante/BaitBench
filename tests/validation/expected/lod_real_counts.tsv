@@ -1,0 +1,15 @@
+# Real B. burgdorferi mapped-read counts, MTEC_probes/borrelia_LOD/LOD_4Path/all_counts.tsv
+# ~20,000-fold dynamic range NTC -> Pos1. Gate: simulated BB fraction must track this,
+# not sit at a flat plateau (the pre-rework model gave 78.50% for every condition).
+condition	bb_reads	total_reads	bb_fraction
+NTC	37	889112	0.00004161
+s1E0	42	1427181	0.00002943
+s1E001	76	1293469	0.00005876
+s1E1	52	1220321	0.00004261
+s1E2	364	1717313	0.00021196
+s1E3	1630	1501888	0.00108530
+s1E4	27320	1897789	0.01439570
+s1E5	117025	1407198	0.08316172
+s1E6	901904	1551186	0.58142866
+Pos1	748104	940248	0.79564540
+Pos2	891310	1197058	0.74458380

@@ -59,6 +59,17 @@ fn write_sam_header<W: Write>(w: &mut W, aligner: &Aligner) -> Result<()> {
     Ok(())
 }
 
+/// Write one mapped SAM record.
+///
+/// SEQ is emitted in **reference orientation**: for a reverse-strand mapping the query
+/// is reverse-complemented, as the SAM specification requires. rammap returns CIGAR and
+/// MD in reference orientation, so writing the forward query alongside them would
+/// describe an alignment that does not exist — and `sampling::thermo_sim` would then
+/// compute ΔG by pairing bases that were never opposite each other.
+///
+/// Soft clips are emitted so the CIGAR's query length matches SEQ. rammap's `cigar_str`
+/// covers only the aligned block; without the clips a record whose alignment starts
+/// past the first base is invalid SAM, and every downstream query index is shifted.
 fn write_sam_mapped<W: Write>(
     w: &mut W,
     qname: &str,
@@ -66,7 +77,35 @@ fn write_sam_mapped<W: Write>(
     flag: u16,
     m: &rammap::Mapping,
 ) -> Result<()> {
-    let cigar = m.cigar.as_deref().unwrap_or("*");
+    let is_reverse = m.strand == Strand::Reverse;
+    let oriented: String = if is_reverse {
+        String::from_utf8_lossy(&crate::seq_utils::reverse_complement(qseq.as_bytes())).into_owned()
+    } else {
+        qseq.to_string()
+    };
+
+    let cigar = match m.cigar.as_deref() {
+        Some(core) => {
+            let qlen = qseq.len();
+            // Clip lengths are expressed in reference orientation.
+            let (head, tail) = if is_reverse {
+                (qlen.saturating_sub(m.query_end), m.query_start)
+            } else {
+                (m.query_start, qlen.saturating_sub(m.query_end))
+            };
+            let mut c = String::with_capacity(core.len() + 12);
+            if head > 0 {
+                c.push_str(&format!("{}S", head));
+            }
+            c.push_str(core);
+            if tail > 0 {
+                c.push_str(&format!("{}S", tail));
+            }
+            c
+        }
+        None => "*".to_string(),
+    };
+
     write!(
         w,
         "{}\t{}\t{}\t{}\t{}\t{}\t*\t0\t0\t{}\t*\tNM:i:{}",
@@ -76,7 +115,7 @@ fn write_sam_mapped<W: Write>(
         m.target_start + 1,
         m.mapq,
         cigar,
-        qseq,
+        oriented,
         m.edit_distance,
     )?;
     if let Some(ref md) = m.md {
@@ -204,6 +243,25 @@ pub fn probe_align(
     // Enable secondary alignments (the SR preset suppresses them by default).
     aligner.options_mut().flags.remove(AlignFlags::NO_PRINT_2ND);
     aligner.options_mut().filtering.best_n = max_secondary as i32;
+
+    // Retune for divergent probes. The `sr` preset is built for near-identical short
+    // reads: mismatch_penalty = 8 means a 120-mer at 80% identity scores
+    // 96*2 - 24*8 = 0 and is discarded before alignment is attempted. Probes designed
+    // against relatives of the sampled organism routinely sit in that range, and
+    // because probe density drives per-locus capture efficiency, silently dropping
+    // them distorts the simulation.
+    //
+    // k/w are index-build parameters and not reachable through rammap's public API,
+    // but the scoring and chaining thresholds are. Lowering them recovers divergent
+    // hits without changing the aligner or paying BLAST's runtime.
+    {
+        let o = aligner.options_mut();
+        o.scoring.mismatch_penalty = 4; // rammap default; `sr` doubles it
+        o.chaining.min_cnt = 1; // one seed is enough to anchor a 120-mer
+        o.chaining.min_chain_score = 10;
+        o.alignment.min_dp_max = 20;
+        o.filtering.pri_ratio = 0.1; // keep weaker secondaries for competition
+    }
     // Enable MD tags for thermo_sim.rs.
     aligner.output_config_mut().do_md = true;
 
@@ -256,11 +314,33 @@ fn write_probe_alignments<W: Write>(
     if mappings.is_empty() {
         return write_sam_unmapped(w, name, seq);
     }
+
+    // Rank secondaries before truncating at `max_secondary`. rammap returns mappings in
+    // its own order, so taking the first N kept an arbitrary subset rather than the
+    // best ones whenever a probe had more hits than the cap — which is exactly the
+    // case for conserved regions tiled across many references.
+    let mut ordered: Vec<&rammap::Mapping> = mappings.iter().filter(|m| !m.is_supplementary).collect();
+    ordered.sort_by(|a, b| {
+        // Primary first, then by identity (fewest edits per aligned base), then by
+        // alignment length. Ties broken on target name/position so the output is
+        // deterministic regardless of the order rammap produced.
+        let ident = |m: &rammap::Mapping| {
+            if m.block_len > 0 {
+                m.edit_distance as f64 / m.block_len as f64
+            } else {
+                f64::MAX
+            }
+        };
+        b.is_primary
+            .cmp(&a.is_primary)
+            .then(ident(a).partial_cmp(&ident(b)).unwrap_or(std::cmp::Ordering::Equal))
+            .then(b.block_len.cmp(&a.block_len))
+            .then(a.target_name.cmp(&b.target_name))
+            .then(a.target_start.cmp(&b.target_start))
+    });
+
     let mut secondary_count = 0usize;
-    for m in mappings {
-        if m.is_supplementary {
-            continue;
-        }
+    for m in ordered {
         if m.is_primary {
             let flag = if m.strand == Strand::Reverse { FLAG_REVERSE } else { 0 };
             write_sam_mapped(w, name, seq, flag, m)?;

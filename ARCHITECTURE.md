@@ -52,7 +52,11 @@ src/
 │   ├── blast_tab.rs     # blastn outfmt-6 tabular parsing: structured BlastHit
 │   ├── coverage.rs      # CIGAR-based per-position coverage from SAM
 │   ├── paf.rs           # Structured PafRecord parsing from PAF
-│   └── sam.rs           # SAM parsing: read counts, mappings, mapped IDs
+│   ├── sam.rs           # SAM parsing: read counts, mappings, mapped IDs
+│   └── seed_extend.rs   # Built-in ungapped LOCAL seed-and-extend probe aligner: ProbeIndex
+│                        # (2-bit CSR k-mer index over the PROBES, not the reference, so memory
+│                        # scales with the panel), find_local_hits, Kadane best-segment extension.
+│                        # Places partial matches that read mappers discard. Not a BLAST clone.
 ├── thermodynamics.rs    # SantaLucia (1998) nearest-neighbor TNN model: delta_g(), boltzmann_score()
 ├── commands/
 │   ├── run.rs           # Full pipeline orchestrator (steps 1-7 + report)
@@ -87,7 +91,7 @@ src/
 │   ├── reader.rs        # parse_fasta (id→seq), parse_fasta_ids, count_sequences
 │   └── writer.rs        # extract_by_ids (streaming), concatenate_fastas
 └── sampling/
-    ├── thermo_sim.rs    # Thermodynamic simulation: load_probe_hits (SAM→ProbeHit), sample_capture_fragments, sample_background_fragments, write_fragments; SimulateMode enum
+    ├── thermo_sim.rs    # Thermodynamic simulation: load_probe_hits (SAM→ProbeHit), load_probe_hits_blast (blastn tabular→ProbeHit), aligned_pairs (reads real reference bases, not MD), sample_capture_fragments, sample_background_fragments, write_fragments. Sampler key vectors and hit lists are sorted so --seed is reproducible across processes.
     └── weights.rs       # parse_weights, generate_weights (sample/distractor fraction)
 
 R/

@@ -7,6 +7,10 @@ Steps to complete before tagging a new BaitBench release.
 ## 1. Build and Test
 
 - [ ] `cargo build --release` succeeds with no warnings
+- [ ] `cargo test --all-targets` passes
+- [ ] `cargo clippy --all-targets -- -D warnings` is clean
+- [ ] Check progress on known-failing regressions:
+      `cargo test --test simulation -- --ignored` (see `tests/simulation.rs`)
 - [ ] Run the minimal example end-to-end and confirm results look correct:
   ```bash
   ./target/release/baitbench run \

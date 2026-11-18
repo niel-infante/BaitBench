@@ -1,3 +1,8 @@
+// Many command entry points take long parameter lists mirroring their CLI flags.
+// Converting them to args structs is a separate refactor (several are already done,
+// e.g. BuildProbesArgs/SimulateArgs); until then this lint is noise.
+#![allow(clippy::too_many_arguments)]
+
 mod alignment;
 mod cleanup;
 mod cli;
@@ -215,6 +220,7 @@ fn main() -> Result<()> {
             ct_calibration,
             seed,
             simulate_mode,
+            probe_aligner,
             hybridization_temperature,
             salt_concentration,
             capture_fraction,
@@ -274,6 +280,7 @@ fn main() -> Result<()> {
             let host_minimap_preset = host_minimap_preset.unwrap_or_else(|| preset.to_string());
 
             run::execute(&run::RunArgs {
+                probe_aligner,
                 targets: &targets,
                 genomes: genomes.as_deref(),
                 distractors: &distractors,
@@ -371,6 +378,7 @@ fn main() -> Result<()> {
             num_fragments,
             capture_fraction,
             simulate_mode,
+            probe_aligner,
             hybridization_temperature,
             salt_concentration,
             seed,
@@ -391,6 +399,7 @@ fn main() -> Result<()> {
                 num_fragments,
                 capture_fraction,
                 simulate_mode: sim_mode,
+                aligner: probe_aligner,
                 hybridization_temperature,
                 na_conc_m: salt_concentration / 1000.0,
                 seed,
@@ -900,6 +909,9 @@ fn main() -> Result<()> {
             };
 
             coverage_curve::execute(&coverage_curve::CoverageCurveArgs {
+                // coverage-curve has no --probe-aligner yet; it keeps the embedded aligner,
+                // which is also what its probe-reporting columns use.
+                probe_aligner: cli::ProbeAligner::SeedExtend,
                 targets: &targets,
                 genomes: genomes.as_deref(),
                 distractors: &distractors,

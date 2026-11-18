@@ -1,0 +1,13 @@
+# Per-locus capture efficiency relative to rplB, measured from mosdepth coverage.
+# Mean over the high-signal conditions s1E4,s1E5,s1E6,Pos1,Pos2; the ratios are
+# constant across the dilution series (see BB_Paper/LODLoci/FINDINGS.md), so the
+# gate is: reproduce these values AND keep them flat across conditions.
+gene	start	end	rel_efficiency
+nifS	79582	80146	0.0698
+clpA	377259	378043	0.0900
+clpX	637979	640472	0.5632
+uvrA	889721	893774	0.6158
+pyrG	587461	590268	0.7080
+recG	595930	599191	0.7858
+16S/16s	443987	446717	0.9809
+rplB	497610	499647	1.0000

@@ -64,6 +64,68 @@ These calibrate the CT-to-fraction conversion. Only used when `--ct` is specifie
 | Simulate mode | `--simulate-mode` | thermodynamic | `thermodynamic` (SantaLucia TNN Boltzmann weighting) or `simple` (uniform probe-site weights) |
 | Hybridisation temperature | `--hybridization-temperature` | 70.0 | Hybridisation temperature in °C. Only used in thermodynamic mode. |
 | Capture fraction | `--capture-fraction` | 0.5 | Fraction of fragments drawn from probe binding sites (0.0–1.0); remainder are background. |
+| Probe aligner | `--probe-aligner` | seed-extend | How probes are placed on the reference for capture scoring: `seed-extend` (built-in local aligner), `minimap2` (embedded read mapper), or `blast` (blastn-short, requires BLAST+). See [Probe alignment sensitivity](#probe-alignment-sensitivity). |
+
+### Probe alignment sensitivity
+
+Probes are placed on the reference before any thermodynamics are computed, so a probe
+the aligner fails to place is invisible to the simulation. This matters because
+per-locus capture efficiency is driven primarily by **probe density** — losing probes
+at a locus directly distorts its predicted coverage.
+
+Probe binding is a **local** phenomenon: 60 bp of perfect duplex out of a 120 bp probe
+hybridizes and captures perfectly well. Read mappers solve the opposite problem —
+placing a query end-to-end — and discard partial matches.
+
+Measured on the MTEC bacterial panel against *Borrelia burgdorferi* B31, for the nifS
+and clpA loci whose probes come only from related *Borrelia* species:
+
+| `--probe-aligner` | Probes placed (of 228) | Time |
+|---|---:|---:|
+| `seed-extend` (default) | **77 (33.8%)** | 0.19 s |
+| `blast` | 74 (32.5%) | 16.3 s |
+| `minimap2` | 21 (9.2%) | 0.43 s |
+
+- **`seed-extend`** — built-in ungapped local seed-and-extend. Reports partial
+  placements, needs no external tools, and is the default. It is **not** a BLAST
+  reimplementation: there is no gapped extension, no two-hit heuristic, no
+  Karlin–Altschul statistics, no scoring matrices and no masking.
+- **`minimap2`** — the embedded read mapper, retuned for divergent probes (the `sr`
+  preset's `mismatch_penalty` of 8 rejects a 120-mer at 80% identity outright). Fastest
+  on well-matched panels, but places probes end-to-end so partial matches are missed.
+- **`blast`** — `blastn-short` with `-perc_identity 80 -qcov_hsp_perc 50`. Retained as
+  an independent check; roughly 85× slower than `seed-extend` here. Without those two
+  filters `blastn-short` returns a flood of tiny spurious HSPs (882k for this panel
+  against one 0.9 Mb chromosome).
+
+BaitBench reports the fraction of probes placed, and warns when it falls below 50% on
+the read-mapper path.
+
+#### How `seed-extend` works
+
+1. Index every k-mer of both orientations of every probe (default seed length 10),
+   2-bit encoded into a flat CSR table rather than a hash map.
+2. Stream the reference, maintaining a rolling seed code, and collect candidate
+   diagonals. Seeds occurring in more than `max_seed_occ` probe positions are skipped
+   as uninformative.
+3. For each candidate, take the best-scoring contiguous segment (+1 match, −2 mismatch)
+   by Kadane's algorithm — this is the ungapped local extension.
+4. Keep segments covering at least 50% of the probe at at least 80% identity.
+
+The **probes** are indexed, not the reference. Indexing the reference costs one entry
+per base: ~1.5 GB for a 93 Mb mock community and ~36 GB for a 2.25 GB host genome.
+Probe panels are under a megabyte, so memory scales with the panel instead.
+
+The reference scan is parallelised across reference sequences, bounded by `--threads`
+(a scoped rayon pool, so it will not take every core on a shared machine). On the 93 Mb
+D6331 mock community with the 16,007-probe RES panel it takes ~40 s on 10 threads,
+against ~215 s on one.
+
+`max_seed_occ` caps how many probe positions a seed may occur in before it is skipped
+as uninformative, the analogue of minimap2's `mid_occ`. On typical panels it is
+inactive — the average bucket holds only a few entries — but it bounds the cost on
+pathological inputs such as low-complexity or homopolymer probes.
+
 
 ---
 

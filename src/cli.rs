@@ -114,6 +114,15 @@ pub enum Commands {
         #[arg(long, default_value = "thermodynamic")]
         simulate_mode: SimulateMode,
 
+        /// Aligner used to place probes on the reference for capture scoring.
+        /// minimap2 is embedded and needs no install. blast (blastn-short) is markedly
+        /// more sensitive for divergent probes — on a panel designed against relatives
+        /// of the target it recovers probes minimizer seeding misses — at the cost of
+        /// requiring BLAST+ on PATH. Probe density drives per-locus capture, so prefer
+        /// blast when the panel and the sampled organism are not closely related.
+        #[arg(long, value_enum, default_value = "seed-extend")]
+        probe_aligner: ProbeAligner,
+
         /// Hybridization temperature in °C (only used with --simulate-mode thermodynamic)
         #[arg(long, default_value = "70.0")]
         hybridization_temperature: f64,
@@ -353,6 +362,15 @@ pub enum Commands {
         /// Simulation mode: thermodynamic (TNN Boltzmann weighting) or simple (uniform probe-site weights)
         #[arg(long, default_value = "thermodynamic")]
         simulate_mode: SimulateMode,
+
+        /// Aligner used to place probes on the reference for capture scoring.
+        /// minimap2 is embedded and needs no install. blast (blastn-short) is markedly
+        /// more sensitive for divergent probes — on a panel designed against relatives
+        /// of the target it recovers probes minimizer seeding misses — at the cost of
+        /// requiring BLAST+ on PATH. Probe density drives per-locus capture, so prefer
+        /// blast when the panel and the sampled organism are not closely related.
+        #[arg(long, value_enum, default_value = "seed-extend")]
+        probe_aligner: ProbeAligner,
 
         /// Hybridization temperature in °C (only used with --simulate-mode thermodynamic)
         #[arg(long, default_value = "70.0")]
@@ -1397,6 +1415,28 @@ pub enum Aligner {
     #[value(name = "minimap2")]
     Minimap2,
     /// blastn-short (more sensitive for short/divergent homology, requires BLAST+ on PATH)
+    #[value(name = "blast")]
+    Blast,
+}
+
+/// How probes are placed on the reference before capture scoring.
+///
+/// Distinct from [`Aligner`], which selects the backend for cross-reactivity reporting.
+/// Probe placement is a local-alignment problem — a probe matching over part of its
+/// length still forms a capturing duplex — so it has its own, larger set of choices.
+#[derive(Clone, Copy, ValueEnum, Debug, PartialEq, Eq)]
+pub enum ProbeAligner {
+    /// Embedded rammap/minimap2, retuned for divergent probes. Fastest; places probes
+    /// end-to-end, so partial matches are missed.
+    #[value(name = "minimap2")]
+    Minimap2,
+    /// Built-in ungapped local seed-and-extend. Places probes matching over part of
+    /// their length, with no external dependency. Not a BLAST reimplementation: no
+    /// gapped extension, E-values, scoring matrices or masking.
+    #[value(name = "seed-extend")]
+    SeedExtend,
+    /// blastn-short. Most sensitive, and the slowest by a wide margin; requires BLAST+
+    /// on PATH.
     #[value(name = "blast")]
     Blast,
 }

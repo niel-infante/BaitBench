@@ -30,6 +30,7 @@ pub struct CoverageCurveArgs<'a> {
     pub swept_params: Vec<String>,         // which params are swept (for dir naming + report)
     // Simulate params
     pub simulate_mode: SimulateMode,
+    pub probe_aligner: crate::cli::ProbeAligner,
     pub temp_values: Vec<f64>,             // hybridization temperature values (1+ entries)
     /// Na+ concentration in molar (converted from CLI mM)
     pub na_conc_m: f64,
@@ -596,6 +597,7 @@ fn run_simulate(
         num_fragments: args.num_fragments,
         capture_fraction,
         simulate_mode: args.simulate_mode,
+        aligner: args.probe_aligner,
         hybridization_temperature,
         na_conc_m: args.na_conc_m,
         seed: args.seed,
