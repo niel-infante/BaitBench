@@ -378,7 +378,7 @@ fn rank_centroids(
             (name, seq, size)
         })
         .collect();
-    ranked.sort_by(|a, b| b.2.cmp(&a.2)); // descending by cluster size
+    ranked.sort_by_key(|a| std::cmp::Reverse(a.2)); // descending by cluster size
     Ok(ranked)
 }
 

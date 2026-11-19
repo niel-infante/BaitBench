@@ -69,7 +69,7 @@ fn replace_ns(seq: &str) -> (String, usize) {
         if result[i] == b'N' {
             let left = if i > 0 { result[i - 1] } else { b'X' };
             let right = if i + 1 < result.len() { result[i + 1] } else { b'X' };
-            let replacement = [b'T', b'A', b'C', b'G']
+            let replacement = b"TACG"
                 .iter()
                 .copied()
                 .find(|&b| b != left && b != right)
@@ -79,4 +79,60 @@ fn replace_ns(seq: &str) -> (String, usize) {
         }
     }
     (String::from_utf8(result).unwrap_or_default(), count)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// With neither neighbour a T, the first candidate wins.
+    #[test]
+    fn n_becomes_t_when_unambiguous() {
+        assert_eq!(replace_ns("ANA"), ("ATA".to_string(), 1));
+    }
+
+    /// T is skipped when it would duplicate a neighbour, falling through to A.
+    #[test]
+    fn replacement_avoids_both_neighbours() {
+        assert_eq!(replace_ns("TNG"), ("TAG".to_string(), 1));
+        assert_eq!(replace_ns("GNT"), ("GAT".to_string(), 1));
+        // T and A both excluded by the flanks, so C is taken.
+        assert_eq!(replace_ns("TNA"), ("TCA".to_string(), 1));
+    }
+
+    /// The left neighbour comes from the already-modified output, so a run of Ns does
+    /// not collapse into a homopolymer.
+    #[test]
+    fn consecutive_ns_do_not_repeat() {
+        let (fixed, n) = replace_ns("NN");
+        assert_eq!(n, 2);
+        assert_eq!(fixed, "TA");
+        let (fixed, n) = replace_ns("ANNA");
+        assert_eq!(n, 2);
+        assert_eq!(fixed.len(), 4);
+        let b = fixed.as_bytes();
+        assert_ne!(b[1], b[2], "adjacent replacements must differ: {fixed}");
+        assert!(!fixed.contains('N'));
+    }
+
+    /// Ends have no neighbour on one side; the sentinel must not block a candidate.
+    #[test]
+    fn ns_at_the_ends_are_replaced() {
+        assert_eq!(replace_ns("NA"), ("TA".to_string(), 1));
+        assert_eq!(replace_ns("AN"), ("AT".to_string(), 1));
+        assert_eq!(replace_ns("N"), ("T".to_string(), 1));
+    }
+
+    /// A sequence without N is returned untouched and reports no replacements.
+    #[test]
+    fn sequence_without_n_is_unchanged() {
+        assert_eq!(replace_ns("ACGT"), ("ACGT".to_string(), 0));
+    }
+
+    /// `replace_ns` matches uppercase only; `fix_n_bases` uppercases first (see its
+    /// read loop), so lowercase input is handled there rather than here.
+    #[test]
+    fn lowercase_n_is_not_matched_here() {
+        assert_eq!(replace_ns("ana"), ("ana".to_string(), 0));
+    }
 }

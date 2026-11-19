@@ -615,7 +615,7 @@ pub fn compute_gap_details(
     }
 
     // Sort by gap_length descending so the report table shows worst gaps first.
-    records.sort_by(|a, b| b.gap_length.cmp(&a.gap_length));
+    records.sort_by_key(|a| std::cmp::Reverse(a.gap_length));
 
     let gap_path = prefixed_join(outdir, prefix, "gap_details.tsv");
     let file = File::create(&gap_path)
