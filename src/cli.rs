@@ -164,6 +164,20 @@ pub enum Commands {
         #[arg(long, default_value = "0.5", hide = true)]
         min_overlap_frac: f64,
 
+        /// Cache probe placements at this path and reuse them on later runs.
+        ///
+        /// Placing a probe panel on a large reference is by far the slowest step of a
+        /// simulation, and it depends only on the probes and the reference — not on
+        /// abundance, temperature, salt or capture efficiency. A titration series,
+        /// replicate set or parameter sweep over the same panel and genomes therefore
+        /// recomputes an identical alignment every run.
+        ///
+        /// The file is written on the first run and reused afterwards. It is stamped
+        /// with the probes file, reference file and aligner it came from, and is
+        /// recomputed (with the reason logged) if any of those change.
+        #[arg(long, value_name = "PATH")]
+        probe_hits: Option<PathBuf>,
+
         /// Minimap2 preset for read mapping. Auto-selected when omitted:
         /// `sr` for perfect/art, `map-ont` for badread ont/ont-2020, `map-pb` for badread pacbio.
         #[arg(long)]
@@ -419,6 +433,20 @@ pub enum Commands {
         // thermodynamics; see improvements/partial-duplex-capture.md.
         #[arg(long, default_value = "0.5", hide = true)]
         min_overlap_frac: f64,
+
+        /// Cache probe placements at this path and reuse them on later runs.
+        ///
+        /// Placing a probe panel on a large reference is by far the slowest step of a
+        /// simulation, and it depends only on the probes and the reference — not on
+        /// abundance, temperature, salt or capture efficiency. A titration series,
+        /// replicate set or parameter sweep over the same panel and genomes therefore
+        /// recomputes an identical alignment every run.
+        ///
+        /// The file is written on the first run and reused afterwards. It is stamped
+        /// with the probes file, reference file and aligner it came from, and is
+        /// recomputed (with the reason logged) if any of those change.
+        #[arg(long, value_name = "PATH")]
+        probe_hits: Option<PathBuf>,
 
         /// Simulation mode: thermodynamic (per-site occupancy from TNN ΔG) or simple
         /// (one shared occupancy for every placed probe, no temperature dependency)
@@ -1234,6 +1262,12 @@ pub enum Commands {
         #[arg(long, num_args = 2, value_name = "CT,FRAC",
               conflicts_with_all = ["ct_efficiency", "ct_baseline", "ct_baseline_fraction"])]
         ct_calibration: Option<Vec<String>>,
+
+        /// Cache probe placements at this path and reuse them across the sweep and on
+        /// later runs. Defaults to one cache per prepared reference inside the output
+        /// directory, so a sweep already pays for alignment once per CT value.
+        #[arg(long, value_name = "PATH")]
+        probe_hits: Option<PathBuf>,
 
         /// Capture-fraction values to sweep (space-separated). Conflicts with --capture-fraction.
         #[arg(long, num_args = 1.., conflicts_with = "capture_fraction")]

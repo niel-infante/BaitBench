@@ -32,6 +32,8 @@ pub struct CoverageCurveArgs<'a> {
     // Simulate params
     pub simulate_mode: SimulateMode,
     pub probe_aligner: crate::cli::ProbeAligner,
+    /// User-chosen probe-placement cache; defaults to one per prepared reference.
+    pub probe_hits: Option<&'a Path>,
     pub temp_values: Vec<f64>,             // hybridization temperature values (1+ entries)
     /// Na+ concentration in molar (converted from CLI mM)
     pub na_conc_m: f64,
@@ -600,6 +602,14 @@ fn run_simulate(
 ) -> Result<()> {
     let pfx = &args.output_prefix;
 
+    // Every combination in a sweep aligns the same probes against the same prepared
+    // reference, so the placement cache is shared across the whole sweep. It lives
+    // beside that reference rather than in a per-combination directory, because CT and
+    // distractor-fraction are what change the reference; temperature, capture fraction
+    // and num-sequences do not.
+    let default_cache = prefixed_join(prep_dir, pfx, "probe_hits.tsv");
+    let probe_hits: &Path = args.probe_hits.unwrap_or(&default_cache);
+
     // Skip if already done (idempotent)
     if prefixed_join(sim_dir, pfx, "fragments.fa").exists() {
         log::info!("  Reusing cached simulate from {}", sim_dir.display());
@@ -620,6 +630,7 @@ fn run_simulate(
         background_retention: thermo_sim::DEFAULT_BACKGROUND_RETENTION,
         probe_concentration: None,
         min_overlap_frac: thermo_sim::DEFAULT_MIN_OVERLAP_FRAC,
+        probe_hits: Some(probe_hits),
         simulate_mode: args.simulate_mode,
         aligner: args.probe_aligner,
         hybridization_temperature,

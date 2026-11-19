@@ -138,6 +138,19 @@ fn resolve_ct_params(
 
 /// Resolve distractor fraction from --distractor-fraction and --ct flags.
 /// Clap enforces mutual exclusivity; this resolves the final value.
+/// Default thread count for subcommands where `--threads` is optional.
+///
+/// Deliberately not every core. These commands run for minutes to hours on a machine
+/// someone is still using; taking the last core makes it unresponsive for the duration
+/// and buys very little, since the work is already memory-bandwidth bound well before
+/// the final two threads. An explicit `--threads N` is always honoured as given.
+fn default_threads() -> usize {
+    let n = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(4);
+    n.saturating_sub(2).max(1)
+}
+
 fn resolve_distractor_fraction(
     distractor_fraction: Option<f64>,
     ct: Option<f64>,
@@ -236,6 +249,7 @@ fn main() -> Result<()> {
             background_retention,
             probe_concentration,
             min_overlap_frac,
+            probe_hits,
             minimap_preset,
             host_minimap_preset,
             fragment_length_mean,
@@ -318,6 +332,7 @@ fn main() -> Result<()> {
                 background_retention,
                 probe_concentration,
                 min_overlap_frac,
+                probe_hits: probe_hits.as_deref(),
                 minimap_preset,
                 host_minimap_preset,
                 fragment_length_mean,
@@ -395,6 +410,7 @@ fn main() -> Result<()> {
             background_retention,
             probe_concentration,
             min_overlap_frac,
+            probe_hits,
             simulate_mode,
             probe_aligner,
             hybridization_temperature,
@@ -419,6 +435,7 @@ fn main() -> Result<()> {
                 background_retention,
                 probe_concentration,
                 min_overlap_frac,
+                probe_hits: probe_hits.as_deref(),
                 simulate_mode: sim_mode,
                 aligner: probe_aligner,
                 hybridization_temperature,
@@ -631,9 +648,7 @@ fn main() -> Result<()> {
             report,
             cleanup,
         } => {
-            let threads = threads.unwrap_or_else(|| {
-                std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4)
-            });
+            let threads = threads.unwrap_or_else(default_threads);
             xreact::execute(&xreact::XreactArgs {
                 probes: &probes,
                 against: &against.unwrap_or_default(),
@@ -806,9 +821,7 @@ fn main() -> Result<()> {
             no_individual_targets,
             threads,
         } => {
-            let threads = threads.unwrap_or_else(|| {
-                std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4)
-            });
+            let threads = threads.unwrap_or_else(default_threads);
             assess_probes::execute(&assess_probes::AssessProbesArgs {
                 targets: &targets,
                 probes: &probes,
@@ -833,6 +846,7 @@ fn main() -> Result<()> {
         }
 
         Commands::CoverageCurve {
+            probe_hits,
             targets,
             genomes,
             distractors,
@@ -937,6 +951,7 @@ fn main() -> Result<()> {
                 // coverage-curve has no --probe-aligner yet; it keeps the embedded aligner,
                 // which is also what its probe-reporting columns use.
                 probe_aligner: cli::ProbeAligner::SeedExtend,
+                probe_hits: probe_hits.as_deref(),
                 targets: &targets,
                 genomes: genomes.as_deref(),
                 distractors: &distractors,

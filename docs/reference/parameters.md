@@ -92,7 +92,45 @@ Both are gone.
 The realized composition is reported rather than requested. `simulate` logs it and
 writes it to `fragments.model_stats.tsv`, and `metrics` carries it into the summary as
 `model_yield_fraction`, `model_on_target_fraction` and `model_enrichment`.
+| Probe-hit cache | `--probe-hits` | none | Path to a probe-placement cache. Written on the first run, reused on every later run with the same panel, reference and aligner. See [Caching probe placements](#caching-probe-placements). |
 | Probe aligner | `--probe-aligner` | seed-extend | How probes are placed on the reference for capture scoring: `seed-extend` (built-in local aligner), `minimap2` (embedded read mapper), or `blast` (blastn-short, requires BLAST+). See [Probe alignment sensitivity](#probe-alignment-sensitivity). |
+
+### Caching probe placements
+
+Placing a probe panel on a reference is the slowest step of a simulation — on a large
+panel against a multi-gigabyte genome it can run for over an hour — and it depends only
+on **the probes and the reference**. Abundance, temperature, salt, capture efficiency,
+fragment length and seed do not move a single probe. A titration series, a replicate
+set or a parameter sweep therefore recomputes an identical alignment on every run.
+
+`--probe-hits PATH` stores that work at a location you choose:
+
+```bash
+# First run computes the alignment and writes the cache.
+baitbench run ... --probe-hits ~/caches/mtec_vs_4path.tsv --outdir run_ct20
+
+# Every later run with the same panel and reference reuses it, whatever else changes.
+baitbench run ... --probe-hits ~/caches/mtec_vs_4path.tsv --outdir run_ct25 --ct 25
+baitbench run ... --probe-hits ~/caches/mtec_vs_4path.tsv --outdir run_hot --hybridization-temperature 65
+```
+
+The cache holds the placements and their aligned base pairs, **not** the free energy.
+ΔG is recomputed each run, which costs almost nothing, so one cache stays valid across
+`--hybridization-temperature`, `--salt-concentration` and `--simulate-mode` sweeps.
+
+**Validity.** The file is stamped with a content hash of the probes and of the
+reference, plus the aligner used. If any differ it is recomputed and the reason is
+logged. Content, not timestamps: `prepare` rebuilds `combined_reference.fa` in every run
+directory, so a timestamp check would miss every time.
+
+**One combination per file.** A cache holds one (probes, reference, aligner) triple.
+Pointing one path at two different panels is safe but self-defeating — each run discards
+the other's work — and BaitBench warns when it happens. Give each combination its own
+path.
+
+`coverage-curve` does this automatically, keeping one cache per prepared reference
+inside its output directory, so a sweep pays for alignment once per CT value. Pass
+`--probe-hits` to put it somewhere durable instead.
 
 ### Probe alignment sensitivity
 

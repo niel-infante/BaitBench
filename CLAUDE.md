@@ -106,6 +106,7 @@ genomes.fa + targets.fa + distractors.fa [+ sample.tsv] [+ mapping.tsv]
 | `src/external/cdhit.rs` | cd-hit-est wrapper: check_available, cluster |
 | `src/fasta/` | FASTA parsing, writing, extract-by-ID (replaces seqtk) |
 | `src/alignment/paf.rs` | PAF format parser for minimap2 output |
+| `src/alignment/probe_cache.rs` | Persistent probe-placement cache: `Placement`, `CacheKey` (content-hashed), read/write, `Miss` reasons |
 | `src/alignment/sam.rs` | SAM format parser |
 | `src/sampling/` | Weights calculation and fragment sampling |
 | `src/cleanup.rs` | Post-pipeline cleanup: delete intermediate files/dirs, keep report inputs |
@@ -166,6 +167,26 @@ Read source is extracted from the fragment name pattern `{seq_id}_fragment_{n}` 
 - Non-sample genomes: weight = 0.0 (untargeted genomes not in sample also get 0)
 - Distractors: same formula as standard mode
 - Weights are assigned to genome IDs + distractor IDs (not target IDs)
+
+### Probe-Placement Cache (`--probe-hits`)
+
+Placing probes on the reference is the slowest step of a simulation and depends only on
+the probes and the reference — not on abundance, temperature, salt, capture efficiency
+or seed. `--probe-hits PATH` writes the placements on the first run and reuses them on
+every later run, at a path the user chooses so it persists across runs and output dirs.
+
+- Cached: placement geometry **and** the aligned base pairs. **Not** ΔG — that is
+  recomputed per run (`score_placements`), which is what keeps one cache valid across a
+  `--hybridization-temperature` / `--salt-concentration` / `--simulate-mode` sweep.
+- Validity: FNV-1a **content** hash of the parsed probes and reference, plus the
+  aligner name. Content rather than mtime because `prepare` rewrites
+  `combined_reference.fa` on every run — a timestamp key would never hit.
+- One file holds one (probes, reference, aligner) triple; alternating panels through a
+  single path warns, because each run would discard the other's work.
+- `coverage-curve` keeps one cache per prepared reference automatically, so a sweep
+  aligns once per CT value.
+
+Implementation: `src/alignment/probe_cache.rs`.
 
 ### Capture Model
 

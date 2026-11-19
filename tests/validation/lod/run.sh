@@ -56,6 +56,10 @@ for cond in $LOD_CONDITIONS; do
             --hybridization-temperature 58 --salt-concentration 1000
             --read-simulator perfect --read-length 101
             --threads "$THREADS"
+            # The 9 diluted conditions share one reference (4Path + Ixodes); Pos1/Pos2
+            # drop the distractor and so need their own. Keying the cache by that
+            # distinction is what lets one ~100-minute alignment serve nine runs.
+            --probe-hits "$PROBE_CACHE_DIR/lod_mtec_$([[ "$use_distractor" == yes ]] && echo with_iscap || echo no_distractor).tsv"
             --seed 42 --report none --outdir "$outdir")
         if [[ "$use_distractor" == "yes" ]]; then
             args+=(--distractors "$REF_ISCAP" --distractor-fraction "$df")

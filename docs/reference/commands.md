@@ -91,6 +91,7 @@ baitbench simulate \
   --probes probes.fa \
   --num-fragments 10000 \
   --output fragments.fa \
+  [--probe-hits placements.tsv] \
   [--capture-fraction 0.5] \
   [--background-retention 0.001] \
   [--hybridization-temperature 70] \
@@ -105,6 +106,8 @@ baitbench simulate \
 Each fragment is retained with probability `1 - (1 - p_ns) * prod(1 - theta_i)` over the probes overlapping it, where `theta` is Langmuir occupancy from the duplex ΔG and `p_ns` is `--background-retention`. `--capture-fraction` sets the panel's capture efficiency, not the composition of the output: composition emerges from abundance × efficiency. See [Thermodynamic scoring](../explanation/thermodynamic-scoring.md).
 
 Fragment lengths follow a truncated normal distribution clamped to [min, max]. Fragments are named `{seq_id}_fragment_{n} start={pos} length={len}`.
+
+`--probe-hits` caches probe placements across runs; see [Caching probe placements](parameters.md#caching-probe-placements).
 
 **Outputs:**
 - `fragments.fa` — the retained fragment library

@@ -253,6 +253,7 @@ baitbench assess-probes \
 | `--simulate-mode` | thermodynamic | `thermodynamic` (occupancy from TNN ΔG) or `simple` (one shared occupancy per placed probe) |
 | `--hybridization-temperature` | 70.0 | Hybridization temperature in °C (thermodynamic mode only) |
 | `--capture-fraction` | 0.5 | Capture efficiency: of fragments carrying a probe's site, the fraction pulled down. Output composition emerges from abundance × efficiency rather than being set here. |
+| `--probe-hits` | none | Cache probe placements at this path and reuse them on later runs; the slowest step depends only on probes + reference |
 | `--background-retention` | 0.001 | Probability a fragment overlapping no probe is retained anyway; sets how much enrichment capture achieves |
 | `--seed` | random | Random seed for reproducibility |
 | `--outdir` | ./results | Output directory |

@@ -222,9 +222,16 @@ A previous `boltzmann_score(dg, model)` returned `exp(-ΔG/RT)` clamped to a min
 **`thermo_sim.rs`:**
 - `SimulateMode` — enum: `Thermodynamic` | `Simple`
 - `ProbeHit` — struct: seq_id, start (0-based), end (exclusive), `dg` (duplex ΔG, kcal/mol, **without** the sequence weight folded in). `SIMPLE_DG = 0.0` is used for every hit in `Simple` mode, giving one shared temperature-independent occupancy.
-- `load_probe_hits(sam_path, sequences, weights, mode, model) → HashMap<String, Vec<ProbeHit>>` — parses SAM, computes ΔG from `aligned_pairs`; skips unmapped and weight-0 sequences
-- `load_probe_hits_blast(tsv_path, weights, mode, model) → …` — same from blastn tabular
-- `probe_hits_seed_extend(sequences, probes_path, weights, mode, model, threads) → …` — same via the built-in aligner, no intermediate file
+- `load_probe_hits(sam_path, sequences, weights) → Vec<Placement>` — parses SAM into placements via `aligned_pairs`; skips unmapped and weight-0 sequences
+- `load_probe_hits_blast(tsv_path, weights) → Vec<Placement>` — same from blastn tabular
+- `probe_hits_seed_extend(sequences, probes_path, weights, threads) → Vec<Placement>` — same via the built-in aligner, no intermediate file
+- `score_placements(placements, mode, model) → HashMap<String, Vec<ProbeHit>>` — the only per-run thermodynamic work. Split from the aligners so placements can be cached and reused across temperature/salt/mode changes.
+
+**Probe-placement cache (`alignment/probe_cache.rs`).** Placement is the slowest step of a simulation and depends only on the probes and the reference, so `--probe-hits PATH` persists it.
+- `Placement { probe_name, seq_id, start, end, reverse, pairs }` — `pairs` is the ΔG-ready form (reference side already complemented), normalised across all three aligners
+- `CacheKey::new(probes, reference, aligner)` — FNV-1a **content** hashes of the parsed sequences, not path/size/mtime: `prepare` rewrites `combined_reference.fa` every run, so a timestamp key would never hit. FNV rather than `DefaultHasher`, whose output is not stable across Rust releases and would invalidate every cache on a toolchain upgrade.
+- `write(path, key, placements)` / `read(path, key) -> Result<Vec<Placement>, Miss>` — `Miss` distinguishes `Absent`, `Unreadable` and `Stale { field }` so the caller can name what changed
+- ΔG is deliberately **not** cached, which is what keeps one cache valid across a `--hybridization-temperature` sweep
 
 **Capture model (per-fragment retention).** Replaces the former quota sampler, in which a probe was drawn *uniformly* (so ΔG had no influence on which probe captured) and a fixed `capture_fraction` quota pinned the realized composition — capping the realized distractor fraction at `1 - capture_fraction` (reviewer item 6).
 
@@ -331,6 +338,7 @@ All wrappers follow the pattern: `check_available() → bool/Result`, then speci
 | `target_groups.tsv` | TSV (seq_id group_name) | prepare (only if `--groups`) | metrics, report |
 | `distractor_groups.tsv` | TSV (seq_id group_name) | prepare (always; auto or `--distractor-groups`) | metrics, report |
 | `fragments.fa` | FASTA | simulate | sequence, metrics |
+| probe-hit cache (user-named, `--probe-hits`) | TSV with `#`-prefixed provenance header; one row per placement | simulate | simulate (later runs) |
 | `fragments.model_stats.tsv` | TSV: `parameter<TAB>value` (probe_concentration, background_retention, capture_efficiency_target, yield_fraction, on_target_fraction, enrichment) | simulate | metrics |
 | `fragments.retention.tsv` | TSV: seq_id, weight, n_starts, covered_starts, retention_mass, specific_mass, efficiency, on_target_fraction, max_p_retain, max_p_specific | simulate | diagnostic only |
 | `reads.fa` / `reads.fq` | FASTA or FASTQ | sequence | filter/map_reads |

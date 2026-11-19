@@ -35,6 +35,7 @@ use std::path::Path;
 
 use crate::alignment::cigar::{cigar_ref_len, expand_cigar, CigarOp};
 use crate::sampling::FragmentLengthParams;
+use crate::alignment::probe_cache::Placement;
 use crate::thermodynamics::{delta_g, langmuir_occupancy, ThermoModel};
 
 /// Simulate mode — controls how probe hit scores are computed.
@@ -138,6 +139,8 @@ fn wc_complement_base(b: u8) -> u8 {
 
 /// SAM flag bits
 const FLAG_UNMAPPED: u16 = 0x4;
+/// SAM 0x10: the alignment is to the reverse strand.
+const FLAG_REVERSE: u16 = 0x10;
 
 /// Place probes with the built-in ungapped local seed-and-extend aligner and score them.
 ///
@@ -153,10 +156,8 @@ pub fn probe_hits_seed_extend(
     sequences: &HashMap<String, String>,
     probes_path: &Path,
     weights: &HashMap<String, f64>,
-    mode: SimulateMode,
-    model: &ThermoModel,
     threads: usize,
-) -> Result<HashMap<String, Vec<ProbeHit>>> {
+) -> Result<Vec<Placement>> {
     use crate::alignment::seed_extend::{find_local_hits, ProbeIndex, SeedExtendParams};
 
     // Only sequences that can actually contribute fragments are worth aligning to.
@@ -182,58 +183,41 @@ pub fn probe_hits_seed_extend(
     let index = ProbeIndex::build(&probe_seqs, params.seed_len);
     let per_probe = find_local_hits(&index, &ref_seqs, &params, threads);
 
-    let mut hits_by_probe: HashMap<String, Vec<ProbeHit>> = HashMap::new();
-    let mut n_parsed = 0usize;
+    let mut placements: Vec<Placement> = Vec::new();
     for (pi, hits) in per_probe.iter().enumerate() {
         if hits.is_empty() {
             continue;
         }
         let name = probe_names[pi].to_string();
-        let entry = hits_by_probe.entry(name).or_default();
         for h in hits {
             let seq_id = ref_ids[h.seq_idx].to_string();
-            let seq_weight = weights.get(&seq_id).copied().unwrap_or(0.0);
-            if seq_weight <= 0.0 {
+            if weights.get(&seq_id).copied().unwrap_or(0.0) <= 0.0 {
                 continue;
             }
-            let dg = match mode {
-                SimulateMode::Thermodynamic => {
-                    // Pairs come back as (probe, reference); delta_g wants the base on
-                    // the strand the probe binds, i.e. the reference's complement.
-                    let pairs: Vec<(u8, u8)> = h
-                        .pairs
-                        .iter()
-                        .map(|&(p, r)| (p, wc_complement_base(r)))
-                        .collect();
-                    delta_g(&pairs, model)
-                }
-                SimulateMode::Simple => SIMPLE_DG,
-            };
-            entry.push(ProbeHit {
+            // seed-extend reports raw (probe, reference) pairs; the SAM and blast
+            // paths already complement. Normalise here so a Placement always holds
+            // exactly what delta_g consumes, whatever produced it.
+            placements.push(Placement {
+                probe_name: name.clone(),
                 seq_id,
                 start: h.ref_start,
                 end: h.ref_end,
-                dg,
+                reverse: h.reverse,
+                pairs: h
+                    .pairs
+                    .iter()
+                    .map(|&(p, r)| (p, wc_complement_base(r)))
+                    .collect(),
             });
-            n_parsed += 1;
         }
-    }
-
-    for hits in hits_by_probe.values_mut() {
-        hits.sort_unstable_by(|a, b| {
-            a.seq_id
-                .cmp(&b.seq_id)
-                .then(a.start.cmp(&b.start))
-                .then(a.end.cmp(&b.end))
-        });
     }
 
     log::info!(
         "Placed {} probe hits with seed-and-extend over {} reference sequences",
-        n_parsed,
+        placements.len(),
         ref_seqs.len()
     );
-    Ok(hits_by_probe)
+    Ok(placements)
 }
 
 /// Load probe hits from a blastn tabular file produced by `external::blastn::probe_align`.
@@ -247,14 +231,12 @@ pub fn probe_hits_seed_extend(
 pub fn load_probe_hits_blast(
     tsv_path: &Path,
     weights: &HashMap<String, f64>,
-    mode: SimulateMode,
-    model: &ThermoModel,
-) -> Result<HashMap<String, Vec<ProbeHit>>> {
+) -> Result<Vec<Placement>> {
     let file = File::open(tsv_path)
         .with_context(|| format!("Cannot open BLAST output: {}", tsv_path.display()))?;
     let reader = BufReader::new(file);
 
-    let mut hits_by_probe: HashMap<String, Vec<ProbeHit>> = HashMap::new();
+    let mut placements: Vec<Placement> = Vec::new();
     let mut n_parsed = 0usize;
     let mut n_skipped = 0usize;
 
@@ -285,39 +267,26 @@ pub fn load_probe_hits_blast(
         let start = lo.saturating_sub(1);
         let end = hi;
 
-        let dg = match mode {
-            SimulateMode::Thermodynamic => {
-                let mut pairs: Vec<(u8, u8)> = Vec::with_capacity(qseq.len());
-                for (&q, &r) in qseq.iter().zip(sseq.iter()) {
-                    if q == b'-' || r == b'-' {
-                        continue; // gap column: no base pair, as in aligned_pairs
-                    }
-                    pairs.push((
-                        q.to_ascii_uppercase(),
-                        wc_complement_base(r.to_ascii_uppercase()),
-                    ));
-                }
-                delta_g(&pairs, model)
+        let mut pairs: Vec<(u8, u8)> = Vec::with_capacity(qseq.len());
+        for (&q, &r) in qseq.iter().zip(sseq.iter()) {
+            if q == b'-' || r == b'-' {
+                continue; // gap column: no base pair, as in aligned_pairs
             }
-            SimulateMode::Simple => SIMPLE_DG,
-        };
+            pairs.push((
+                q.to_ascii_uppercase(),
+                wc_complement_base(r.to_ascii_uppercase()),
+            ));
+        }
 
-        hits_by_probe.entry(probe_name).or_default().push(ProbeHit {
+        placements.push(Placement {
+            probe_name,
             seq_id: rname.to_string(),
             start,
             end,
-            dg,
+            reverse: sstart > send,
+            pairs,
         });
         n_parsed += 1;
-    }
-
-    for hits in hits_by_probe.values_mut() {
-        hits.sort_unstable_by(|a, b| {
-            a.seq_id
-                .cmp(&b.seq_id)
-                .then(a.start.cmp(&b.start))
-                .then(a.end.cmp(&b.end))
-        });
     }
 
     log::info!(
@@ -326,7 +295,7 @@ pub fn load_probe_hits_blast(
         n_skipped,
         tsv_path.display()
     );
-    Ok(hits_by_probe)
+    Ok(placements)
 }
 
 /// Parse a probe-vs-reference SAM file and return hits grouped by probe name.
@@ -339,14 +308,12 @@ pub fn load_probe_hits(
     sam_path: &Path,
     sequences: &HashMap<String, String>,
     weights: &HashMap<String, f64>,
-    mode: SimulateMode,
-    model: &ThermoModel,
-) -> Result<HashMap<String, Vec<ProbeHit>>> {
+) -> Result<Vec<Placement>> {
     let file = File::open(sam_path)
         .with_context(|| format!("Cannot open SAM file: {}", sam_path.display()))?;
     let reader = BufReader::new(file);
 
-    let mut hits_by_probe: HashMap<String, Vec<ProbeHit>> = HashMap::new();
+    let mut placements: Vec<Placement> = Vec::new();
     let mut n_parsed = 0usize;
     let mut n_skipped = 0usize;
 
@@ -386,46 +353,26 @@ pub fn load_probe_hits(
         let start = pos.saturating_sub(1); // SAM is 1-based
         let end = start + ref_len;
 
-        let dg = match mode {
-            SimulateMode::Thermodynamic => {
-                // SEQ is already in reference orientation, so pairs can be read
-                // straight off the reference.
-                let reference = match sequences.get(rname) {
-                    Some(r) => r.as_bytes(),
-                    None => {
-                        n_skipped += 1;
-                        continue;
-                    }
-                };
-                let pairs = aligned_pairs(seq, reference, start, cigar);
-                delta_g(&pairs, model)
+        // SEQ is already in reference orientation, so pairs can be read straight off
+        // the reference.
+        let reference = match sequences.get(rname) {
+            Some(r) => r.as_bytes(),
+            None => {
+                n_skipped += 1;
+                continue;
             }
-            SimulateMode::Simple => SIMPLE_DG,
         };
 
-        hits_by_probe
-            .entry(probe_name)
-            .or_default()
-            .push(ProbeHit {
-                seq_id: rname.to_string(),
-                start,
-                end,
-                dg,
-            });
+        placements.push(Placement {
+            probe_name,
+            seq_id: rname.to_string(),
+            start,
+            end,
+            reverse: flag & FLAG_REVERSE != 0,
+            pairs: aligned_pairs(seq, reference, start, cigar),
+        });
 
         n_parsed += 1;
-    }
-
-    // Probes are read from a HashMap upstream, so SAM record order — and therefore the
-    // order of each probe's hit list — varies between runs. Level-2 sampling indexes
-    // into these lists, so sort them for reproducibility under a fixed --seed.
-    for hits in hits_by_probe.values_mut() {
-        hits.sort_unstable_by(|a, b| {
-            a.seq_id
-                .cmp(&b.seq_id)
-                .then(a.start.cmp(&b.start))
-                .then(a.end.cmp(&b.end))
-        });
     }
 
     log::info!(
@@ -435,7 +382,7 @@ pub fn load_probe_hits(
         sam_path.display()
     );
 
-    Ok(hits_by_probe)
+    Ok(placements)
 }
 
 
@@ -450,6 +397,49 @@ pub fn write_fragments(fragments: &[(String, String)], output: &Path) -> Result<
     }
     writer.flush()?;
     Ok(())
+}
+
+/// Turn placements into scored hits, grouped by probe.
+///
+/// Split from the aligners so that the expensive part (finding where probes land) can
+/// be cached and reused, while the cheap part (free energy at this temperature and
+/// salt) is redone every run. That is what lets one cached alignment serve a whole
+/// temperature sweep — and it is why `Placement` stores base pairs rather than a ΔG.
+///
+/// Hit lists are sorted because the sampler indexes into them, and `HashMap` iteration
+/// order varies between processes, which would otherwise leak into a seeded run.
+pub fn score_placements(
+    placements: &[Placement],
+    mode: SimulateMode,
+    model: &ThermoModel,
+) -> HashMap<String, Vec<ProbeHit>> {
+    let mut hits_by_probe: HashMap<String, Vec<ProbeHit>> = HashMap::new();
+    for p in placements {
+        let dg = match mode {
+            // `pairs` already holds the base the probe binds, so this is the whole of
+            // the per-run work.
+            SimulateMode::Thermodynamic => delta_g(&p.pairs, model),
+            SimulateMode::Simple => SIMPLE_DG,
+        };
+        hits_by_probe
+            .entry(p.probe_name.clone())
+            .or_default()
+            .push(ProbeHit {
+                seq_id: p.seq_id.clone(),
+                start: p.start,
+                end: p.end,
+                dg,
+            });
+    }
+    for hits in hits_by_probe.values_mut() {
+        hits.sort_unstable_by(|a, b| {
+            a.seq_id
+                .cmp(&b.seq_id)
+                .then(a.start.cmp(&b.start))
+                .then(a.end.cmp(&b.end))
+        });
+    }
+    hits_by_probe
 }
 
 // ─── Retention model ──────────────────────────────────────────────────────────

@@ -3,6 +3,7 @@ use std::path::Path;
 
 use crate::external::{blastn, minimap2};
 use crate::fasta;
+use crate::alignment::probe_cache;
 use crate::sampling::{thermo_sim, weights, FragmentLengthParams};
 use crate::sampling::thermo_sim::SimulateMode;
 use crate::thermodynamics::ThermoModel;
@@ -24,6 +25,9 @@ pub struct SimulateArgs<'a> {
     pub probe_concentration: Option<f64>,
     /// Fraction of a probe's site a fragment must carry to be captured by it.
     pub min_overlap_frac: f64,
+    /// Optional path to a probe-placement cache. Reused when it matches this probes
+    /// file, reference and aligner; written after alignment when it does not exist.
+    pub probe_hits: Option<&'a Path>,
     pub simulate_mode: SimulateMode,
     /// Hybridization temperature in °C (thermodynamic mode only)
     pub hybridization_temperature: f64,
@@ -62,82 +66,132 @@ pub fn execute(args: &SimulateArgs) -> Result<()> {
     log::info!("Parsing weights file...");
     let wts = weights::parse_weights(args.weights)?;
 
-    // --- Step 1: Align probes to reference ---
+    // --- Step 1: Place probes on the reference ---
     //
     // The aligner choice matters more here than it looks. Minimizer seeding loses
     // divergent probes, and probe density drives per-locus capture, so a panel built
     // against relatives of the sampled organism can be substantially truncated before
-    // the thermodynamic model sees it. `--aligner blast` (blastn-short) recovers those.
+    // the thermodynamic model sees it. `--probe-aligner blast` recovers those.
+    //
+    // This is also the most expensive step by a wide margin, and it depends only on the
+    // probes and the reference. `--probe-hits` persists the result so a titration
+    // series, a replicate set or a parameter sweep pays for it once.
     use crate::cli::ProbeAligner;
-    let temp_hits = match args.aligner {
-        ProbeAligner::Blast => args.output.with_extension("probe_hits.tsv"),
-        _ => args.output.with_extension("probe_hits.sam"),
+    let aligner_name = match args.aligner {
+        ProbeAligner::Minimap2 => "minimap2",
+        ProbeAligner::SeedExtend => "seed-extend",
+        ProbeAligner::Blast => "blast",
     };
-    let temp_log = args.output.with_extension("probe_align.log");
+    let thermo_model = ThermoModel::new(args.hybridization_temperature, args.na_conc_m);
 
-    log::info!(
-        "Aligning probes to reference ({})...",
-        match args.aligner {
-            ProbeAligner::Minimap2 => "rammap, sr preset retuned for divergent probes",
-            ProbeAligner::SeedExtend => "built-in ungapped local seed-and-extend",
-            ProbeAligner::Blast => "blastn-short",
+    // Parsed once and reused: for the cache key below and for the alignment-rate
+    // report further down.
+    let probe_seqs = fasta::parse_fasta(args.probes)?;
+    let cache_key = args
+        .probe_hits
+        .map(|_| probe_cache::CacheKey::new(&probe_seqs, &sequences, aligner_name));
+
+    let mut placements: Option<Vec<probe_cache::Placement>> = None;
+    let mut replacing_stale = false;
+    if let (Some(path), Some(key)) = (args.probe_hits, cache_key.as_ref()) {
+        match probe_cache::read(path, key) {
+            Ok(p) => {
+                log::info!(
+                    "Reusing {} cached probe placements from {}",
+                    p.len(),
+                    path.display()
+                );
+                placements = Some(p);
+            }
+            Err(miss) => {
+                replacing_stale = matches!(miss, probe_cache::Miss::Stale { .. });
+                log::info!("Computing probe placements ({}): {}", path.display(), miss);
+            }
         }
-    );
-    match args.aligner {
-        ProbeAligner::Blast => {
-            blastn::check_available()?;
-            blastn::probe_align(
-                args.reference,
-                args.probes,
-                &temp_hits,
-                &temp_log,
-                args.threads,
-            )?;
-        }
-        ProbeAligner::Minimap2 => {
-            minimap2::probe_align(
-                "sr",
-                args.reference,
-                args.probes,
-                &temp_hits,
-                &temp_log,
-                args.threads,
-                1000,
-            )?;
-        }
-        ProbeAligner::SeedExtend => {} // done in-process below, no intermediate file
     }
 
-    // --- Step 2: Load and score probe hits ---
-    let thermo_model = ThermoModel::new(args.hybridization_temperature, args.na_conc_m);
-    log::info!(
-        "{}",
-        match args.aligner {
-            ProbeAligner::Blast => "Loading probe hits from blastn output...",
-            ProbeAligner::SeedExtend => "Scoring probe placements...",
-            ProbeAligner::Minimap2 => "Loading probe hits from SAM...",
+    let placements = match placements {
+        Some(p) => p,
+        None => {
+            let temp_hits = match args.aligner {
+                ProbeAligner::Blast => args.output.with_extension("probe_hits.tsv"),
+                _ => args.output.with_extension("probe_hits.sam"),
+            };
+            let temp_log = args.output.with_extension("probe_align.log");
+
+            log::info!(
+                "Aligning probes to reference ({})...",
+                match args.aligner {
+                    ProbeAligner::Minimap2 => "rammap, sr preset retuned for divergent probes",
+                    ProbeAligner::SeedExtend => "built-in ungapped local seed-and-extend",
+                    ProbeAligner::Blast => "blastn-short",
+                }
+            );
+            let computed = match args.aligner {
+                ProbeAligner::Blast => {
+                    blastn::check_available()?;
+                    blastn::probe_align(
+                        args.reference,
+                        args.probes,
+                        &temp_hits,
+                        &temp_log,
+                        args.threads,
+                    )?;
+                    thermo_sim::load_probe_hits_blast(&temp_hits, &wts)?
+                }
+                ProbeAligner::Minimap2 => {
+                    minimap2::probe_align(
+                        "sr",
+                        args.reference,
+                        args.probes,
+                        &temp_hits,
+                        &temp_log,
+                        args.threads,
+                        1000,
+                    )?;
+                    thermo_sim::load_probe_hits(&temp_hits, &sequences, &wts)?
+                }
+                ProbeAligner::SeedExtend => thermo_sim::probe_hits_seed_extend(
+                    &sequences,
+                    args.probes,
+                    &wts,
+                    args.threads,
+                )?,
+            };
+
+            let _ = std::fs::remove_file(&temp_hits);
+            let _ = std::fs::remove_file(&temp_log);
+
+            if let (Some(path), Some(key)) = (args.probe_hits, cache_key.as_ref()) {
+                if replacing_stale {
+                    // One file holds one (probes, reference, aligner) combination.
+                    // Alternating two panels through a single path is not wrong, but
+                    // every run then rebuilds the alignment it just discarded, which
+                    // looks like the cache simply not working.
+                    log::warn!(
+                        "Replacing the cache at {} — it was built for different inputs. \
+                         Give each probes/reference combination its own --probe-hits \
+                         path, or they will take turns overwriting each other.",
+                        path.display()
+                    );
+                }
+                probe_cache::write(path, key, &computed)?;
+                log::info!(
+                    "Wrote {} probe placements to {} for reuse",
+                    computed.len(),
+                    path.display()
+                );
+            }
+            computed
         }
-    );
-    let hits_by_probe = match args.aligner {
-        ProbeAligner::Blast => {
-            thermo_sim::load_probe_hits_blast(&temp_hits, &wts, args.simulate_mode, &thermo_model)?
-        }
-        ProbeAligner::SeedExtend => thermo_sim::probe_hits_seed_extend(
-            &sequences,
-            args.probes,
-            &wts,
-            args.simulate_mode,
-            &thermo_model,
-            args.threads,
-        )?,
-        ProbeAligner::Minimap2 => thermo_sim::load_probe_hits(
-            &temp_hits,
-            &sequences,
-            &wts,
-            args.simulate_mode,
-            &thermo_model,
-        )?,
     };
+
+    // --- Step 2: Score the placements at this temperature and salt ---
+    //
+    // Cheap, and deliberately not cached: it is what makes one stored alignment valid
+    // across a --hybridization-temperature or --simulate-mode sweep.
+    let hits_by_probe =
+        thermo_sim::score_placements(&placements, args.simulate_mode, &thermo_model);
 
     let n_probes_with_hits = hits_by_probe.len();
     let n_total_hits: usize = hits_by_probe.values().map(|v| v.len()).sum();
@@ -147,9 +201,7 @@ pub fn execute(args: &SimulateArgs) -> Result<()> {
     // aligner's seeding before the thermodynamic model ever sees them, and probe
     // density is the dominant driver of per-locus capture. Silently simulating with a
     // fraction of the panel produces plausible-looking but wrong coverage.
-    let n_probes_total = fasta::parse_fasta(args.probes)
-        .map(|p| p.len())
-        .unwrap_or(n_probes_with_hits);
+    let n_probes_total = probe_seqs.len();
     let align_rate = if n_probes_total > 0 {
         n_probes_with_hits as f64 / n_probes_total as f64
     } else {
@@ -277,10 +329,6 @@ pub fn execute(args: &SimulateArgs) -> Result<()> {
     // --- Step 4: Write output ---
     log::info!("Writing {} fragments to {}", all_fragments.len(), args.output.display());
     thermo_sim::write_fragments(&all_fragments, args.output)?;
-
-    // --- Cleanup temp files ---
-    let _ = std::fs::remove_file(&temp_hits);
-    let _ = std::fs::remove_file(&temp_log);
 
     log::info!(
         "Simulate complete: {} fragments written",

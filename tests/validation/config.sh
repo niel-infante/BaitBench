@@ -45,8 +45,19 @@ EXPECTED_DIR="$VALIDATION_DIR/expected"
 # Probe placement dominates runtime and scales close to linearly, but baitbench
 # defaults to --threads 1. Without this the full gate runs ~6x slower than the machine
 # allows (measured 215s -> 35s at 10 threads on the MTEC panel).
-: "${THREADS:=$( (command -v nproc >/dev/null && nproc) || sysctl -n hw.ncpu 2>/dev/null || echo 1 )}"
+_ncpu=$( (command -v nproc >/dev/null && nproc) || sysctl -n hw.ncpu 2>/dev/null || echo 1 )
+# Leave 2 cores free: these gates run for hours and the machine is in use meanwhile.
+# Override by exporting THREADS explicitly.
+: "${THREADS:=$(( _ncpu > 3 ? _ncpu - 2 : 1 ))}"
+unset _ncpu
 export THREADS
+
+# Probe placements depend only on the panel and the reference, so all 11 LOD conditions
+# and all 3 mock replicates share one each. These live outside VALIDATION_OUT so that
+# wiping results does not throw the expensive part away.
+: "${PROBE_CACHE_DIR:=${TMPDIR:-/tmp}/baitbench_probe_cache}"
+mkdir -p "$PROBE_CACHE_DIR" 2>/dev/null || true
+export PROBE_CACHE_DIR
 
 # Fast mode keeps the inner loop to minutes; full mode is the release gate.
 if [[ "${VALIDATION_MODE:-fast}" == "fast" ]]; then
