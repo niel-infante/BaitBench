@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="In-silico probe capture simulation and evaluation">
+    
+    <link rel="canonical" href="https://niel-infante.github.io/BaitBench/explanation/low-complexity-filtering/">
+    <link rel="shortcut icon" href="../../img/favicon.ico">
+
+    
+    <title>Low-Complexity Filtering - BaitBench</title>
+    
+
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.12.0/css/all.css">
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.12.0/css/v4-shims.css">
+    <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/hack-font@3.3.0/build/web/hack.min.css">
+    <link href='//rsms.me/inter/inter.css' rel='stylesheet' type='text/css'>
+    <link href='//fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,700italic,400,300,600,700&subset=latin-ext,latin' rel='stylesheet' type='text/css'>
+    <link href="../../css/bootstrap-custom.min.css" rel="stylesheet">
+    <link href="../../css/base.min.css" rel="stylesheet">
+    <link href="../../css/cinder.min.css" rel="stylesheet">
+
+    
+        
+        <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/highlightjs/cdn-release@9.18.0/build/styles/github.min.css">
+        
+    
+
+    <!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+            <script src="https://cdn.jsdelivr.net/npm/html5shiv@3.7.3/dist/html5shiv.min.js"></script>
+            <script src="https://cdn.jsdelivr.net/npm/respond.js@1.4.2/dest/respond.min.js"></script>
+        <![endif]-->
+
+    
+
+     
+</head>
+
+<body>
+
+    <div class="navbar navbar-default navbar-fixed-top" role="navigation">
+    <div class="container">
+
+        <!-- Collapsed navigation -->
+        <div class="navbar-header">
+            <!-- Expander button -->
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            
+
+            <!-- Main title -->
+
+            
+              <a class="navbar-brand" href="../..">BaitBench</a>
+            
+        </div>
+
+        <!-- Expanded navigation -->
+        <div class="navbar-collapse collapse">
+                <!-- Main navigation -->
+                <ul class="nav navbar-nav">
+                
+                
+                    <li >
+                        <a href="../..">Home</a>
+                    </li>
+                
+                
+                
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">Tutorials <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="../../tutorials/">Tutorials</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../tutorials/installation/">Installation</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../tutorials/first-run/">Your First Simulation</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../tutorials/genome-mode/">Genome Mode (Bacteria)</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">How-To Guides <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="../../how-to/">How-To Guides</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/prepare-input-files/">Prepare Input Files</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/choose-simulation-mode/">Choose a Simulation Mode</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/set-parameters/">Set Parameters</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/interpret-results/">Interpret Results</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/design-and-assess-probes/">Design and Assess Probes</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/analyze-cross-reactivity/">Analyze Cross-Reactivity</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/troubleshoot/">Troubleshoot</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">Reference <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="../../reference/">Reference</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../reference/commands/">Commands</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../reference/parameters/">Parameters</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../reference/input-formats/">Input Formats</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../reference/output-formats/">Output Formats</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../reference/reports/">Reports</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                
+                    <li class="dropdown active">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">Explanation <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="../">Explanation</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../what-is-probe-capture/">What Is Probe Capture?</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../pipeline-overview/">Pipeline Overview</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../simulation-modes/">Simulation Modes</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../metrics-and-classification/">Metrics and Classification</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../thermodynamic-scoring/">Thermodynamic Scoring</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../ct-scores/">CT Scores</a>
+</li>
+
+                        
+                            
+<li class="active">
+    <a href="./">Low-Complexity Filtering</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                </ul>
+
+            <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="#" data-toggle="modal" data-target="#mkdocs_search_modal">
+                            <i class="fas fa-search"></i> Search
+                        </a>
+                    </li>
+                    <li >
+                        <a rel="prev" href="../ct-scores/">
+                            <i class="fas fa-arrow-left"></i> Previous
+                        </a>
+                    </li>
+                    <li class="disabled">
+                        <a rel="next" >
+                            Next <i class="fas fa-arrow-right"></i>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="https://github.com/niel-infante/BaitBench">niel-infante/BaitBench</a>
+                    </li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+    <div class="container">
+        
+        
+        <div class="col-md-3"><div class="bs-sidebar hidden-print affix well" role="complementary">
+    <ul class="nav bs-sidenav">
+        <li class="first-level active"><a href="#low-complexity-filtering-sdust">Low-Complexity Filtering (sDUST)</a></li>
+            <li class="second-level"><a href="#why-filter-low-complexity-probes">Why Filter Low-Complexity Probes?</a></li>
+                
+            <li class="second-level"><a href="#how-sdust-works">How sDUST Works</a></li>
+                
+                <li class="third-level"><a href="#the-score-formula">The Score Formula</a></li>
+                <li class="third-level"><a href="#score-examples">Score Examples</a></li>
+                <li class="third-level"><a href="#the-sliding-window">The Sliding Window</a></li>
+            <li class="second-level"><a href="#from-masking-to-filtering-three-parameters">From Masking to Filtering: Three Parameters</a></li>
+                
+                <li class="third-level"><a href="#-dust-threshold-t">--dust-threshold (T)</a></li>
+                <li class="third-level"><a href="#-dust-window-w">--dust-window (W)</a></li>
+                <li class="third-level"><a href="#-max-masked-frac">--max-masked-frac</a></li>
+            <li class="second-level"><a href="#practical-examples">Practical Examples</a></li>
+                
+                <li class="third-level"><a href="#example-1-poly-a-tail">Example 1: Poly-A tail</a></li>
+                <li class="third-level"><a href="#example-2-short-dinucleotide-run-in-an-otherwise-complex-probe">Example 2: Short dinucleotide run in an otherwise complex probe</a></li>
+                <li class="third-level"><a href="#example-3-pure-trinucleotide-repeat-probe">Example 3: Pure trinucleotide repeat probe</a></li>
+                <li class="third-level"><a href="#example-4-acgtacgt-repeat">Example 4: ACGTACGT... repeat</a></li>
+            <li class="second-level"><a href="#visualising-masking">Visualising Masking</a></li>
+                
+            <li class="second-level"><a href="#choosing-cutoffs">Choosing Cutoffs</a></li>
+                
+    </ul>
+</div></div>
+        <div class="col-md-9" role="main">
+
+<h1 id="low-complexity-filtering-sdust">Low-Complexity Filtering (sDUST)<a class="headerlink" href="#low-complexity-filtering-sdust" title="Permanent link">&para;</a></h1>
+<p>BaitBench uses the sDUST algorithm (<a href="https://pubmed.ncbi.nlm.nih.gov/16796549/">Morgulis et al. 2006</a>) to detect and remove probes whose sequences contain repetitive or low-complexity regions. This page explains why that matters, how the algorithm works, how the three parameters interact, and how to choose appropriate cutoffs for your panel.</p>
+<hr />
+<h2 id="why-filter-low-complexity-probes">Why Filter Low-Complexity Probes?<a class="headerlink" href="#why-filter-low-complexity-probes" title="Permanent link">&para;</a></h2>
+<p>Probe sequences like <code>AAAAAAAAAAAAAAAAAAAA</code> or <code>ATATATATATATATATAT</code> are chemically valid but problematic in capture experiments:</p>
+<ul>
+<li><strong>Non-specific binding</strong>: Simple repeats are ubiquitous in eukaryotic genomes. A poly-A probe will bind anything with a poly-T stretch — host DNA, adapters, other viruses — producing false-positive capture and wasted sequencing capacity.</li>
+<li><strong>Poor thermodynamic discrimination</strong>: Low-complexity probes tend to form stable but non-specific duplexes; thermodynamic scoring cannot reliably distinguish real targets from background.</li>
+<li><strong>Parasitic amplification</strong>: In PCR-based library preparation, primer-like repeats can seed off-target amplification.</li>
+</ul>
+<p>The goal of low-complexity filtering is to remove probes whose sequences are so repetitive that they cannot reliably discriminate between their intended target and everything else.</p>
+<hr />
+<h2 id="how-sdust-works">How sDUST Works<a class="headerlink" href="#how-sdust-works" title="Permanent link">&para;</a></h2>
+<p>sDUST scores the complexity of a sequence window by asking: <strong>how non-uniformly distributed are the 3-mers in this window?</strong></p>
+<p>There are 64 possible 3-mers (trinucleotides) over the four DNA bases. In a random sequence, all 64 appear roughly equally. In a poly-A stretch, only one appears — <code>AAA</code>. In a dinucleotide repeat like <code>ATATAT...</code>, only two appear — <code>ATA</code> and <code>TAT</code>. sDUST formalises this intuition into a score.</p>
+<h3 id="the-score-formula">The Score Formula<a class="headerlink" href="#the-score-formula" title="Permanent link">&para;</a></h3>
+<p>For a window containing <em>L</em> overlapping trinucleotides, let <em>c_i</em> be the count of the <em>i</em>-th trinucleotide type. The DUST score is:</p>
+<pre><code>score = Σ c_i × (c_i − 1) / 2
+        ─────────────────────────
+               L − 1
+</code></pre>
+<p>This is the number of <strong>coincident trinucleotide pairs</strong> (pairs of positions with the same 3-mer) divided by the maximum possible. Intuitively, a high score means many trinucleotide slots are occupied by the same few types — a hallmark of repetitiveness.</p>
+<h3 id="score-examples">Score Examples<a class="headerlink" href="#score-examples" title="Permanent link">&para;</a></h3>
+<p>The default window is 64 bases, which contains 62 overlapping trinucleotides (<em>L</em> = 62):</p>
+<table>
+<thead>
+<tr>
+<th>Sequence type</th>
+<th>Score</th>
+<th>Interpretation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>AAAA...</code> (poly-A)</td>
+<td>~31</td>
+<td>Only 1 distinct trinucleotide; maximally repetitive</td>
+</tr>
+<tr>
+<td><code>ATAT...</code> (dinucleotide repeat)</td>
+<td>~4.2</td>
+<td>2 distinct trinucleotides; clearly low-complexity</td>
+</tr>
+<tr>
+<td><code>ACGACG...</code> (trinucleotide repeat)</td>
+<td>~2.1</td>
+<td>3 distinct trinucleotides; borderline at default threshold</td>
+</tr>
+<tr>
+<td><code>ACGTACGT...</code> (4-mer repeat)</td>
+<td>~1.4</td>
+<td>Not masked at default threshold</td>
+</tr>
+<tr>
+<td>Random DNA</td>
+<td>~0.5</td>
+<td>All 64 trinucleotides roughly equal; high-complexity</td>
+</tr>
+</tbody>
+</table>
+<p>A region is flagged as low-complexity when its score exceeds the threshold <em>T</em> (default 2.0). The algorithm slides this window across the probe and collects all flagged regions.</p>
+<h3 id="the-sliding-window">The Sliding Window<a class="headerlink" href="#the-sliding-window" title="Permanent link">&para;</a></h3>
+<p>sDUST does not score a fixed window and move on — it finds the highest-scoring <strong>suffix</strong> of each window position. This makes it sensitive to sub-window repetitive runs that are flanked by complex sequence. Concretely:</p>
+<ul>
+<li>A 20 bp poly-A tail on an otherwise complex 120 bp probe will be correctly identified as low-complexity even though the window that includes it also contains flanking complex sequence.</li>
+<li>The output is a set of masked intervals on the probe sequence, not a single per-probe score.</li>
+</ul>
+<p>Non-ACGT bases (including N) reset the window: they are treated as sequence breaks, so an N-heavy stretch is scored independently on each side.</p>
+<hr />
+<h2 id="from-masking-to-filtering-three-parameters">From Masking to Filtering: Three Parameters<a class="headerlink" href="#from-masking-to-filtering-three-parameters" title="Permanent link">&para;</a></h2>
+<p>BaitBench uses three parameters to control how sDUST is applied during <code>build-probes</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Default</th>
+<th>What it controls</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--dust-threshold</code></td>
+<td>2.0</td>
+<td>Score <em>T</em> above which a window is considered low-complexity</td>
+</tr>
+<tr>
+<td><code>--dust-window</code></td>
+<td>64</td>
+<td>Window size <em>W</em> in bases</td>
+</tr>
+<tr>
+<td><code>--max-masked-frac</code></td>
+<td>0.25</td>
+<td>Maximum fraction of a probe's bases that can be low-complexity before the probe is rejected</td>
+</tr>
+</tbody>
+</table>
+<h3 id="-dust-threshold-t"><code>--dust-threshold</code> (<em>T</em>)<a class="headerlink" href="#-dust-threshold-t" title="Permanent link">&para;</a></h3>
+<p>This is the original DUST threshold parameter. The default of 2.0 comes from the Morgulis et al. (2006) paper and is widely used in bioinformatics tools (NCBI BLAST, RepeatMasker, seqtk).</p>
+<table>
+<thead>
+<tr>
+<th>T value</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1.0</td>
+<td>Stricter — also catches weak repeats like 4-mer repeats</td>
+</tr>
+<tr>
+<td>2.0</td>
+<td>Default — catches mono-, di-, and trinucleotide repeats</td>
+</tr>
+<tr>
+<td>3.0</td>
+<td>Permissive — only strong repeats (mono- and dinucleotide)</td>
+</tr>
+<tr>
+<td>5.0</td>
+<td>Very permissive — only catches near-perfect mononucleotide runs</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Recommendation</strong>: Leave <code>--dust-threshold</code> at 2.0 for almost all use cases. The original authors calibrated this value empirically and it is the de facto standard across the field. Use <code>--max-masked-frac</code> to tune how strict the filtering is, not the threshold.</p>
+<h3 id="-dust-window-w"><code>--dust-window</code> (<em>W</em>)<a class="headerlink" href="#-dust-window-w" title="Permanent link">&para;</a></h3>
+<p>The window size controls how far back the algorithm looks when computing local complexity. Larger windows dilute short repetitive runs (a 10 bp poly-A inside a 200 bp window barely moves the score); smaller windows are more sensitive to short runs.</p>
+<p>For typical probe lengths (80–150 bp), the default of 64 is well-matched. You might consider:</p>
+<ul>
+<li><strong>Longer probes (&gt;200 bp)</strong>: increase to 128 or 256 to score the full probe in one pass and avoid fragmented masking at window boundaries.</li>
+<li><strong>Very short probes (&lt;50 bp)</strong>: decrease to 32 so the window is not larger than the probe itself.</li>
+</ul>
+<h3 id="-max-masked-frac"><code>--max-masked-frac</code><a class="headerlink" href="#-max-masked-frac" title="Permanent link">&para;</a></h3>
+<p>This is the primary knob for controlling stringency in BaitBench. It sets the maximum fraction of a probe's bases that can fall inside sDUST-flagged regions before the probe is discarded.</p>
+<table>
+<thead>
+<tr>
+<th><code>--max-masked-frac</code></th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0.0</td>
+<td>Reject any probe with even one masked base</td>
+</tr>
+<tr>
+<td>0.10</td>
+<td>Reject probes with more than 12 masked bases (of 120 bp)</td>
+</tr>
+<tr>
+<td>0.25 <em>(default)</em></td>
+<td>Reject probes with more than 30 masked bases (of 120 bp)</td>
+</tr>
+<tr>
+<td>0.50</td>
+<td>Only reject probes that are mostly low-complexity</td>
+</tr>
+<tr>
+<td>1.0</td>
+<td>Disable filtering entirely</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="practical-examples">Practical Examples<a class="headerlink" href="#practical-examples" title="Permanent link">&para;</a></h2>
+<h3 id="example-1-poly-a-tail">Example 1: Poly-A tail<a class="headerlink" href="#example-1-poly-a-tail" title="Permanent link">&para;</a></h3>
+<p>A 120 bp probe with a 40 bp poly-A tail:</p>
+<pre><code>ACGTCGATCGGCATGCATCG...ACGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+└──────── 80 bp complex ──────────┘└────────── 40 bp poly-A ──────────┘
+</code></pre>
+<ul>
+<li>sDUST flags the 40 bp poly-A region (score ≈ 31, far above T=2.0)</li>
+<li>Masked fraction = 40/120 = 0.33</li>
+<li>At <code>--max-masked-frac 0.25</code>: <strong>rejected</strong> (0.33 &gt; 0.25)</li>
+<li>At <code>--max-masked-frac 0.50</code>: <strong>kept</strong> (0.33 &lt; 0.50)</li>
+</ul>
+<h3 id="example-2-short-dinucleotide-run-in-an-otherwise-complex-probe">Example 2: Short dinucleotide run in an otherwise complex probe<a class="headerlink" href="#example-2-short-dinucleotide-run-in-an-otherwise-complex-probe" title="Permanent link">&para;</a></h3>
+<p>A 120 bp probe with a 20 bp <code>ATATAT...</code> run in the middle:</p>
+<ul>
+<li>Masked fraction = 20/120 = 0.17</li>
+<li>At default <code>--max-masked-frac 0.25</code>: <strong>kept</strong> (0.17 &lt; 0.25)</li>
+<li>At <code>--max-masked-frac 0.10</code>: <strong>rejected</strong> (0.17 &gt; 0.10)</li>
+</ul>
+<h3 id="example-3-pure-trinucleotide-repeat-probe">Example 3: Pure trinucleotide repeat probe<a class="headerlink" href="#example-3-pure-trinucleotide-repeat-probe" title="Permanent link">&para;</a></h3>
+<p>A 120 bp probe made entirely of <code>ACGACG...</code>:</p>
+<ul>
+<li>Score ≈ 2.1 at T=2.0 → entire probe flagged</li>
+<li>Masked fraction = 1.0</li>
+<li><strong>Rejected</strong> at any <code>--max-masked-frac</code> below 1.0</li>
+</ul>
+<h3 id="example-4-acgtacgt-repeat">Example 4: <code>ACGTACGT...</code> repeat<a class="headerlink" href="#example-4-acgtacgt-repeat" title="Permanent link">&para;</a></h3>
+<p>A 120 bp probe made of repeating <code>ACGT</code>:</p>
+<ul>
+<li>Score ≈ 1.4 at T=2.0 → <strong>not flagged</strong> (below threshold)</li>
+<li>Masked fraction = 0</li>
+<li><strong>Kept</strong> at any threshold</li>
+</ul>
+<p>This shows the algorithm is not overly conservative: regular but non-trivial repeats pass through.</p>
+<hr />
+<h2 id="visualising-masking">Visualising Masking<a class="headerlink" href="#visualising-masking" title="Permanent link">&para;</a></h2>
+<p>The <a href="../../reference/commands/#tool-dustview"><code>baitbench tool dustview</code></a> command shows exactly which regions of a FASTA file would be masked by sDUST, using the same threshold and window parameters. This is useful for auditing probes that were unexpectedly removed, or for choosing <code>--max-masked-frac</code> based on the actual masking patterns in your probe set.</p>
+<hr />
+<h2 id="choosing-cutoffs">Choosing Cutoffs<a class="headerlink" href="#choosing-cutoffs" title="Permanent link">&para;</a></h2>
+<p><strong>Start with the defaults.</strong> The defaults (T=2.0, W=64, max-masked-frac=0.25) are appropriate for most probe panels. They catch probes that would genuinely cause non-specific binding while keeping probes with minor repetitive content.</p>
+<p><strong>Tighten <code>--max-masked-frac</code> if</strong> you are targeting sequences that are intrinsically repetitive (e.g., viral genomes rich in dinucleotide repeats) and you want to maximise specificity, even at the cost of reduced coverage.</p>
+<p><strong>Loosen <code>--max-masked-frac</code> (or set to 1.0 to disable) if</strong> your targets require probes in regions that are unavoidably low-complexity — for example, tandem repeat regions that are nonetheless diagnostically relevant. Inspect the <code>assess-probes</code> coverage report to see whether those regions end up covered.</p>
+<p><strong>Adjust <code>--dust-threshold</code> only if</strong> you have specific reasons to deviate from the standard. Lower it (e.g., 1.5) to catch moderate 4-mer repeats; raise it (e.g., 3.0) if you are getting false positives from sequences that BLAST handles without issue.</p></div>
+        
+        
+    </div>
+
+    
+      <footer class="col-md-12 text-center">
+          
+          
+            <hr>
+            <p>
+            <small>Documentation built with <a href="http://www.mkdocs.org/">MkDocs</a>.</small>
+            </p>
+          
+
+          
+          
+      </footer>
+    
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+    <script src="../../js/bootstrap-3.0.3.min.js"></script>
+
+    
+    <script src="//cdn.jsdelivr.net/gh/highlightjs/cdn-release@9.18.0/build/highlight.min.js"></script>
+        
+    <script>hljs.initHighlightingOnLoad();</script>
+    
+
+    <script>var base_url = "../.."</script>
+    
+    <script src="../../js/base.js"></script>
+    <script src="../../search/main.js"></script>
+
+    <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">
+                    <span aria-hidden="true">&times;</span>
+                    <span class="sr-only">Close</span>
+                </button>
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
+            </div>
+            <div class="modal-body">
+                <p>
+                    From here you can search these documents. Enter
+                    your search terms below.
+                </p>
+                <form>
+                    <div class="form-group">
+                        <input type="text" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+    </body>
+
+</html>

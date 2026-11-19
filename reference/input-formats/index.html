@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="In-silico probe capture simulation and evaluation">
+    
+    <link rel="canonical" href="https://niel-infante.github.io/BaitBench/reference/input-formats/">
+    <link rel="shortcut icon" href="../../img/favicon.ico">
+
+    
+    <title>Input Formats - BaitBench</title>
+    
+
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.12.0/css/all.css">
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.12.0/css/v4-shims.css">
+    <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/hack-font@3.3.0/build/web/hack.min.css">
+    <link href='//rsms.me/inter/inter.css' rel='stylesheet' type='text/css'>
+    <link href='//fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,700italic,400,300,600,700&subset=latin-ext,latin' rel='stylesheet' type='text/css'>
+    <link href="../../css/bootstrap-custom.min.css" rel="stylesheet">
+    <link href="../../css/base.min.css" rel="stylesheet">
+    <link href="../../css/cinder.min.css" rel="stylesheet">
+
+    
+        
+        <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/highlightjs/cdn-release@9.18.0/build/styles/github.min.css">
+        
+    
+
+    <!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+            <script src="https://cdn.jsdelivr.net/npm/html5shiv@3.7.3/dist/html5shiv.min.js"></script>
+            <script src="https://cdn.jsdelivr.net/npm/respond.js@1.4.2/dest/respond.min.js"></script>
+        <![endif]-->
+
+    
+
+     
+</head>
+
+<body>
+
+    <div class="navbar navbar-default navbar-fixed-top" role="navigation">
+    <div class="container">
+
+        <!-- Collapsed navigation -->
+        <div class="navbar-header">
+            <!-- Expander button -->
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            
+
+            <!-- Main title -->
+
+            
+              <a class="navbar-brand" href="../..">BaitBench</a>
+            
+        </div>
+
+        <!-- Expanded navigation -->
+        <div class="navbar-collapse collapse">
+                <!-- Main navigation -->
+                <ul class="nav navbar-nav">
+                
+                
+                    <li >
+                        <a href="../..">Home</a>
+                    </li>
+                
+                
+                
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">Tutorials <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="../../tutorials/">Tutorials</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../tutorials/installation/">Installation</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../tutorials/first-run/">Your First Simulation</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../tutorials/genome-mode/">Genome Mode (Bacteria)</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">How-To Guides <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="../../how-to/">How-To Guides</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/prepare-input-files/">Prepare Input Files</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/choose-simulation-mode/">Choose a Simulation Mode</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/set-parameters/">Set Parameters</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/interpret-results/">Interpret Results</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/design-and-assess-probes/">Design and Assess Probes</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/analyze-cross-reactivity/">Analyze Cross-Reactivity</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/troubleshoot/">Troubleshoot</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                
+                    <li class="dropdown active">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">Reference <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="../">Reference</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../commands/">Commands</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../parameters/">Parameters</a>
+</li>
+
+                        
+                            
+<li class="active">
+    <a href="./">Input Formats</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../output-formats/">Output Formats</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../reports/">Reports</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">Explanation <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="../../explanation/">Explanation</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../explanation/what-is-probe-capture/">What Is Probe Capture?</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../explanation/pipeline-overview/">Pipeline Overview</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../explanation/simulation-modes/">Simulation Modes</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../explanation/metrics-and-classification/">Metrics and Classification</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../explanation/thermodynamic-scoring/">Thermodynamic Scoring</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../explanation/ct-scores/">CT Scores</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../explanation/low-complexity-filtering/">Low-Complexity Filtering</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                </ul>
+
+            <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="#" data-toggle="modal" data-target="#mkdocs_search_modal">
+                            <i class="fas fa-search"></i> Search
+                        </a>
+                    </li>
+                    <li >
+                        <a rel="prev" href="../parameters/">
+                            <i class="fas fa-arrow-left"></i> Previous
+                        </a>
+                    </li>
+                    <li >
+                        <a rel="next" href="../output-formats/">
+                            Next <i class="fas fa-arrow-right"></i>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="https://github.com/niel-infante/BaitBench">niel-infante/BaitBench</a>
+                    </li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+    <div class="container">
+        
+        
+        <div class="col-md-3"><div class="bs-sidebar hidden-print affix well" role="complementary">
+    <ul class="nav bs-sidenav">
+        <li class="first-level active"><a href="#input-formats">Input Formats</a></li>
+            <li class="second-level"><a href="#fasta-files">FASTA Files</a></li>
+                
+            <li class="second-level"><a href="#sample-manifest">Sample Manifest</a></li>
+                
+                <li class="third-level"><a href="#inline-ids-on-the-command-line">Inline IDs (on the command line)</a></li>
+                <li class="third-level"><a href="#tsv-file">TSV file</a></li>
+            <li class="second-level"><a href="#sample-target-map">Sample-Target Map</a></li>
+                
+                <li class="third-level"><a href="#auto-linking">Auto-linking</a></li>
+                <li class="third-level"><a href="#untargeted-genomes">Untargeted genomes</a></li>
+            <li class="second-level"><a href="#groups-file">Groups File</a></li>
+                
+                <li class="third-level"><a href="#target-groups-groups">Target groups (--groups)</a></li>
+                <li class="third-level"><a href="#distractor-groups-distractor-groups">Distractor groups (--distractor-groups)</a></li>
+            <li class="second-level"><a href="#ct-calibration-points">CT Calibration Points</a></li>
+                
+            <li class="second-level"><a href="#dependencies">Dependencies</a></li>
+                
+                <li class="third-level"><a href="#external-runtime-installed-via-conda">External (runtime, installed via conda)</a></li>
+                <li class="third-level"><a href="#rust-crates-build-time-managed-by-cargo">Rust crates (build-time, managed by Cargo)</a></li>
+    </ul>
+</div></div>
+        <div class="col-md-9" role="main">
+
+<h1 id="input-formats">Input Formats<a class="headerlink" href="#input-formats" title="Permanent link">&para;</a></h1>
+<p>Precise specifications for all files accepted by BaitBench.</p>
+<hr />
+<h2 id="fasta-files">FASTA Files<a class="headerlink" href="#fasta-files" title="Permanent link">&para;</a></h2>
+<p>Standard FASTA format. The sequence ID is the first whitespace-delimited word of the header:</p>
+<pre><code>&gt;dengue_1 Dengue virus type 1
+ATGCTAGCTAGCTAGC...
+&gt;zika_virus
+GCTAGCTAGCTAGCTA...
+</code></pre>
+<p><strong>Requirements:</strong></p>
+<ul>
+<li>Sequence IDs must be unique within each file</li>
+<li>Sequence IDs must not contain spaces (use underscores instead)</li>
+<li>IDs must be consistent across related input files: sample manifest IDs must match FASTA headers, sample-target-map IDs must match genome and target FASTA headers</li>
+</ul>
+<p>Accepted by <code>--targets</code>, <code>--genomes</code>, <code>--distractors</code>, <code>--probes</code>, <code>--host-fasta</code>, <code>--filter-genomes</code>.</p>
+<hr />
+<h2 id="sample-manifest">Sample Manifest<a class="headerlink" href="#sample-manifest" title="Permanent link">&para;</a></h2>
+<p>The <code>--sample</code> flag accepts two formats:</p>
+<h3 id="inline-ids-on-the-command-line">Inline IDs (on the command line)<a class="headerlink" href="#inline-ids-on-the-command-line" title="Permanent link">&para;</a></h3>
+<pre><code class="language-bash">--sample id1 id2 id3
+</code></pre>
+<p>All IDs default to weight 1.0. A numeric value following an ID sets that ID's weight:</p>
+<pre><code class="language-bash">--sample dengue_1 5 zika_virus chikungunya 0.5
+# Result: dengue_1=5.0, zika_virus=1.0, chikungunya=0.5
+</code></pre>
+<h3 id="tsv-file">TSV file<a class="headerlink" href="#tsv-file" title="Permanent link">&para;</a></h3>
+<p>If a single argument is given that is the path to an existing file, it is parsed as a TSV manifest:</p>
+<pre><code># Optional comment lines starting with #
+dengue_1    5.0
+zika_virus
+chikungunya 0.5
+</code></pre>
+<ul>
+<li>First column: sequence ID (required)</li>
+<li>Second column: weight (optional, defaults to 1.0)</li>
+<li>Empty lines and lines starting with <code>#</code> are ignored</li>
+<li>Tab-separated</li>
+</ul>
+<p><strong>Standard mode:</strong> IDs must match target FASTA headers.<br />
+<strong>Genome mode:</strong> IDs must match genome FASTA headers.</p>
+<hr />
+<h2 id="sample-target-map">Sample-Target Map<a class="headerlink" href="#sample-target-map" title="Permanent link">&para;</a></h2>
+<p>TSV file mapping genome IDs to target IDs. Used with <code>--genomes</code> via <code>--sample-target-map</code>:</p>
+<pre><code># genome_id target_id
+e_coli  e_coli_16S
+e_coli  e_coli_gyrB
+influenza_a influenza_a
+</code></pre>
+<ul>
+<li>One mapping per line: <code>genome_id&lt;TAB&gt;target_id</code></li>
+<li>Multiple targets per genome supported (one line per mapping)</li>
+<li>Lines starting with <code>#</code> are ignored</li>
+<li>Empty lines are ignored</li>
+</ul>
+<h3 id="auto-linking">Auto-linking<a class="headerlink" href="#auto-linking" title="Permanent link">&para;</a></h3>
+<p>When <code>--sample-target-map</code> is omitted, BaitBench auto-links genomes to targets by:</p>
+<ol>
+<li><strong>Exact match</strong>: genome ID equals a target ID (e.g., genome <code>influenza_a</code> → target <code>influenza_a</code>)</li>
+<li><strong>Prefix match</strong>: target ID starts with <code>{genome_id}|</code> (e.g., genome <code>Bartonella_grahamii</code> → targets <code>Bartonella_grahamii|ompB</code>, <code>Bartonella_grahamii|16S</code>)</li>
+</ol>
+<p>The <code>organism|gene</code> naming convention enables auto-linking without an explicit map:</p>
+<pre><code># genomes.fa
+&gt;Bartonella_grahamii
+ATGC...
+
+# targets.fa
+&gt;Bartonella_grahamii|ompB
+ATGC...
+&gt;Bartonella_grahamii|16S
+ATGC...
+</code></pre>
+<p>With this naming, <code>Bartonella_grahamii</code> auto-links to both <code>Bartonella_grahamii|ompB</code> and <code>Bartonella_grahamii|16S</code>.</p>
+<h3 id="untargeted-genomes">Untargeted genomes<a class="headerlink" href="#untargeted-genomes" title="Permanent link">&para;</a></h3>
+<p>Sample genomes with no matching target (via explicit map or auto-linking) become "untargeted" — they generate fragments but are not expected to produce reads mapping to any target. These are tracked separately and excluded from TP/FP/FN/TN counts.</p>
+<p><strong>Validation:</strong> BaitBench errors if the map references genome or target IDs not found in their respective FASTA files.</p>
+<hr />
+<h2 id="groups-file">Groups File<a class="headerlink" href="#groups-file" title="Permanent link">&para;</a></h2>
+<p>TSV file mapping sequence IDs to group names. Used by <code>--groups</code> (target grouping) and <code>--distractor-groups</code> (distractor grouping):</p>
+<pre><code># Optional comment lines starting with #
+# seq_id    group_name
+West_Nile_virus_0001    West_Nile_virus
+West_Nile_virus_0002    West_Nile_virus
+West_Nile_virus_0003    West_Nile_virus
+Dengue_virus_1_6275 Dengue_virus_1
+Dengue_virus_2_8773 Dengue_virus_2
+</code></pre>
+<ul>
+<li>One mapping per line: <code>seq_id&lt;TAB&gt;group_name</code></li>
+<li>Lines starting with <code>#</code> are ignored</li>
+<li>Empty lines are ignored</li>
+<li>Leading <code>&gt;</code> characters on sequence IDs are stripped automatically</li>
+</ul>
+<h3 id="target-groups-groups">Target groups (<code>--groups</code>)<a class="headerlink" href="#target-groups-groups" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Sequence IDs must exist in the targets FASTA (BaitBench errors on unknown IDs)</li>
+<li>Sequences not listed form singleton groups (their own ID is the group name)</li>
+<li>Without <code>--groups</code>, each target sequence is its own singleton group</li>
+</ul>
+<h3 id="distractor-groups-distractor-groups">Distractor groups (<code>--distractor-groups</code>)<a class="headerlink" href="#distractor-groups-distractor-groups" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Overrides the default automatic grouping by FASTA file stem</li>
+<li>Without <code>--distractor-groups</code>, all contigs from each <code>--distractors</code> FASTA file are grouped together using the file stem (e.g., all contigs in <code>Aaegypti.fa</code> → group <code>"Aaegypti"</code>)</li>
+</ul>
+<hr />
+<h2 id="ct-calibration-points">CT Calibration Points<a class="headerlink" href="#ct-calibration-points" title="Permanent link">&para;</a></h2>
+<p>The <code>--ct-calibration</code> flag accepts two quoted strings, each in <code>"CT,fraction"</code> format:</p>
+<pre><code class="language-bash">--ct-calibration &quot;20,0.01&quot; &quot;25,0.0003&quot;
+</code></pre>
+<ul>
+<li>CT value and target fraction separated by a comma, no spaces</li>
+<li>Must provide exactly two points</li>
+<li>Both CT values must be distinct</li>
+<li>Fractions must be in (0, 1]</li>
+</ul>
+<hr />
+<h2 id="dependencies">Dependencies<a class="headerlink" href="#dependencies" title="Permanent link">&para;</a></h2>
+<h3 id="external-runtime-installed-via-conda">External (runtime, installed via conda)<a class="headerlink" href="#external-runtime-installed-via-conda" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Purpose</th>
+<th>Required?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>blastn (BLAST+)</td>
+<td>Cross-reactivity analysis (<code>--aligner blast</code> on <code>xreact</code>, <code>assess-probes</code>, or <code>build-probes</code>)</td>
+<td>Only if <code>--aligner blast</code> is used; the default <code>--aligner minimap2</code> needs no external install</td>
+</tr>
+<tr>
+<td>cd-hit-est</td>
+<td>Sequence clustering (<code>build-probes</code>, <code>tool collapse</code>)</td>
+<td>Only if <code>baitbench build-probes</code> or <code>baitbench tool collapse</code> is used</td>
+</tr>
+<tr>
+<td>R + packages</td>
+<td>HTML report generation</td>
+<td>Only if <code>--report full</code> is used</td>
+</tr>
+<tr>
+<td>art_modern</td>
+<td>Illumina read simulation</td>
+<td>Only if <code>--read-simulator art</code> is used</td>
+</tr>
+<tr>
+<td>badread</td>
+<td>ONT / PacBio read simulation</td>
+<td>Only if <code>--read-simulator badread</code> is used</td>
+</tr>
+</tbody>
+</table>
+<p>Alignment is handled by the rammap library compiled into the BaitBench binary — no external minimap2 installation required.</p>
+<p>Install via:</p>
+<pre><code class="language-bash">conda env create -f environment.yml
+conda activate baitbench
+</code></pre>
+<h3 id="rust-crates-build-time-managed-by-cargo">Rust crates (build-time, managed by Cargo)<a class="headerlink" href="#rust-crates-build-time-managed-by-cargo" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Crate</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>clap</td>
+<td>CLI argument parsing</td>
+</tr>
+<tr>
+<td>anyhow</td>
+<td>Error handling</td>
+</tr>
+<tr>
+<td>serde, serde_json</td>
+<td>Serialization (JSON output)</td>
+</tr>
+<tr>
+<td>rand, rand_distr</td>
+<td>Random sampling and distributions</td>
+</tr>
+<tr>
+<td>chrono</td>
+<td>Timestamps</td>
+</tr>
+<tr>
+<td>log, env_logger</td>
+<td>Logging</td>
+</tr>
+</tbody>
+</table></div>
+        
+        
+    </div>
+
+    
+      <footer class="col-md-12 text-center">
+          
+          
+            <hr>
+            <p>
+            <small>Documentation built with <a href="http://www.mkdocs.org/">MkDocs</a>.</small>
+            </p>
+          
+
+          
+          
+      </footer>
+    
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+    <script src="../../js/bootstrap-3.0.3.min.js"></script>
+
+    
+    <script src="//cdn.jsdelivr.net/gh/highlightjs/cdn-release@9.18.0/build/highlight.min.js"></script>
+        
+    <script>hljs.initHighlightingOnLoad();</script>
+    
+
+    <script>var base_url = "../.."</script>
+    
+    <script src="../../js/base.js"></script>
+    <script src="../../search/main.js"></script>
+
+    <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">
+                    <span aria-hidden="true">&times;</span>
+                    <span class="sr-only">Close</span>
+                </button>
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
+            </div>
+            <div class="modal-body">
+                <p>
+                    From here you can search these documents. Enter
+                    your search terms below.
+                </p>
+                <form>
+                    <div class="form-group">
+                        <input type="text" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+    </body>
+
+</html>

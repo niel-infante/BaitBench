@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="In-silico probe capture simulation and evaluation">
+    
+    <link rel="canonical" href="https://niel-infante.github.io/BaitBench/explanation/thermodynamic-scoring/">
+    <link rel="shortcut icon" href="../../img/favicon.ico">
+
+    
+    <title>Thermodynamic Scoring - BaitBench</title>
+    
+
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.12.0/css/all.css">
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.12.0/css/v4-shims.css">
+    <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/hack-font@3.3.0/build/web/hack.min.css">
+    <link href='//rsms.me/inter/inter.css' rel='stylesheet' type='text/css'>
+    <link href='//fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,700italic,400,300,600,700&subset=latin-ext,latin' rel='stylesheet' type='text/css'>
+    <link href="../../css/bootstrap-custom.min.css" rel="stylesheet">
+    <link href="../../css/base.min.css" rel="stylesheet">
+    <link href="../../css/cinder.min.css" rel="stylesheet">
+
+    
+        
+        <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/highlightjs/cdn-release@9.18.0/build/styles/github.min.css">
+        
+    
+
+    <!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+            <script src="https://cdn.jsdelivr.net/npm/html5shiv@3.7.3/dist/html5shiv.min.js"></script>
+            <script src="https://cdn.jsdelivr.net/npm/respond.js@1.4.2/dest/respond.min.js"></script>
+        <![endif]-->
+
+    
+
+     
+</head>
+
+<body>
+
+    <div class="navbar navbar-default navbar-fixed-top" role="navigation">
+    <div class="container">
+
+        <!-- Collapsed navigation -->
+        <div class="navbar-header">
+            <!-- Expander button -->
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            
+
+            <!-- Main title -->
+
+            
+              <a class="navbar-brand" href="../..">BaitBench</a>
+            
+        </div>
+
+        <!-- Expanded navigation -->
+        <div class="navbar-collapse collapse">
+                <!-- Main navigation -->
+                <ul class="nav navbar-nav">
+                
+                
+                    <li >
+                        <a href="../..">Home</a>
+                    </li>
+                
+                
+                
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">Tutorials <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="../../tutorials/">Tutorials</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../tutorials/installation/">Installation</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../tutorials/first-run/">Your First Simulation</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../tutorials/genome-mode/">Genome Mode (Bacteria)</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">How-To Guides <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="../../how-to/">How-To Guides</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/prepare-input-files/">Prepare Input Files</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/choose-simulation-mode/">Choose a Simulation Mode</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/set-parameters/">Set Parameters</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/interpret-results/">Interpret Results</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/design-and-assess-probes/">Design and Assess Probes</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/analyze-cross-reactivity/">Analyze Cross-Reactivity</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/troubleshoot/">Troubleshoot</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">Reference <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="../../reference/">Reference</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../reference/commands/">Commands</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../reference/parameters/">Parameters</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../reference/input-formats/">Input Formats</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../reference/output-formats/">Output Formats</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../reference/reports/">Reports</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                
+                    <li class="dropdown active">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">Explanation <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="../">Explanation</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../what-is-probe-capture/">What Is Probe Capture?</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../pipeline-overview/">Pipeline Overview</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../simulation-modes/">Simulation Modes</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../metrics-and-classification/">Metrics and Classification</a>
+</li>
+
+                        
+                            
+<li class="active">
+    <a href="./">Thermodynamic Scoring</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../ct-scores/">CT Scores</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../low-complexity-filtering/">Low-Complexity Filtering</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                </ul>
+
+            <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="#" data-toggle="modal" data-target="#mkdocs_search_modal">
+                            <i class="fas fa-search"></i> Search
+                        </a>
+                    </li>
+                    <li >
+                        <a rel="prev" href="../metrics-and-classification/">
+                            <i class="fas fa-arrow-left"></i> Previous
+                        </a>
+                    </li>
+                    <li >
+                        <a rel="next" href="../ct-scores/">
+                            Next <i class="fas fa-arrow-right"></i>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="https://github.com/niel-infante/BaitBench">niel-infante/BaitBench</a>
+                    </li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+    <div class="container">
+        
+        
+        <div class="col-md-3"><div class="bs-sidebar hidden-print affix well" role="complementary">
+    <ul class="nav bs-sidenav">
+        <li class="first-level active"><a href="#thermodynamic-scoring">Thermodynamic Scoring</a></li>
+            <li class="second-level"><a href="#why-thermodynamics">Why Thermodynamics?</a></li>
+                
+            <li class="second-level"><a href="#the-santalucia-nearest-neighbor-model">The SantaLucia Nearest-Neighbor Model</a></li>
+                
+            <li class="second-level"><a href="#computing-g-three-contributions">Computing ΔG: Three Contributions</a></li>
+                
+                <li class="third-level"><a href="#1-stacking-terms">1. Stacking terms</a></li>
+                <li class="third-level"><a href="#2-initiation-terms">2. Initiation terms</a></li>
+                <li class="third-level"><a href="#3-salt-correction-owczarzy-et-al-1997">3. Salt correction (Owczarzy et al. 1997)</a></li>
+            <li class="second-level"><a href="#from-g-to-occupancy">From ΔG to Occupancy</a></li>
+                
+            <li class="second-level"><a href="#from-occupancy-to-fragment-sampling">From Occupancy to Fragment Sampling</a></li>
+                
+                <li class="third-level"><a href="#why-this-makes-composition-emerge">Why this makes composition emerge</a></li>
+                <li class="third-level"><a href="#sampling-without-rejection">Sampling without rejection</a></li>
+                <li class="third-level"><a href="#what-capture-fraction-sets">What --capture-fraction sets</a></li>
+            <li class="second-level"><a href="#simple-mode-vs-thermodynamic-mode">Simple Mode vs Thermodynamic Mode</a></li>
+                
+    </ul>
+</div></div>
+        <div class="col-md-9" role="main">
+
+<h1 id="thermodynamic-scoring">Thermodynamic Scoring<a class="headerlink" href="#thermodynamic-scoring" title="Permanent link">&para;</a></h1>
+<p>BaitBench's thermodynamic simulation mode uses the SantaLucia (1998) nearest-neighbor (NN) model to compute the stability of each probe-target duplex, then converts that stability into a per-fragment capture probability. This page explains the model and how it translates to capture efficiency predictions.</p>
+<hr />
+<h2 id="why-thermodynamics">Why Thermodynamics?<a class="headerlink" href="#why-thermodynamics" title="Permanent link">&para;</a></h2>
+<p>A probe captures its target if the probe-target duplex is stable enough under the hybridization conditions. Stability is determined by:</p>
+<ol>
+<li><strong>Sequence composition</strong>: GC base pairs form three hydrogen bonds (stronger) vs AT/AU two bonds (weaker)</li>
+<li><strong>Context effects</strong>: the stability of each base pair depends on its neighbours (nearest-neighbor effects)</li>
+<li><strong>Temperature</strong>: higher temperature destabilises duplexes; mismatches are more disruptive at high temperature</li>
+<li><strong>Salt concentration</strong>: Na⁺ ions screen the negative phosphate backbone charges, stabilising duplexes</li>
+</ol>
+<p>A simple GC-content model misses all the context effects. The SantaLucia (1998) model captures them by summing stacking energies for each adjacent base-pair step — the dominant contribution to duplex stability.</p>
+<hr />
+<h2 id="the-santalucia-nearest-neighbor-model">The SantaLucia Nearest-Neighbor Model<a class="headerlink" href="#the-santalucia-nearest-neighbor-model" title="Permanent link">&para;</a></h2>
+<p>The nearest-neighbor model expresses ΔG of duplex formation as:</p>
+<pre><code>ΔG°(T) = ΔH° - T × ΔS°
+</code></pre>
+<p>Where ΔH° and ΔS° are the enthalpy and entropy of hybridization, each computed by summing over all adjacent dinucleotide steps in the sequence:</p>
+<pre><code>ΔH° = Σ ΔH°(stacking) + ΔH°(initiation)
+ΔS° = Σ ΔS°(stacking) + ΔS°(initiation)
+</code></pre>
+<p>SantaLucia (1998) provides a unified table of 10 unique nearest-neighbor parameters (the 16 possible dinucleotide steps reduce to 10 by symmetry). BaitBench uses these published values directly.</p>
+<hr />
+<h2 id="computing-g-three-contributions">Computing ΔG: Three Contributions<a class="headerlink" href="#computing-g-three-contributions" title="Permanent link">&para;</a></h2>
+<p>A worked example, from an aligned probe-reference pair through to the sampling weight it produces:</p>
+<p><a href="../../diagrams/paper_thermodynamic_scoring.png"><img alt="Thermodynamic scoring of a probe-reference alignment" src="../../diagrams/paper_thermodynamic_scoring.png" /></a></p>
+<p><em>One mismatch at position 3 breaks the stacking chain, so only 5 of the 7 possible stacking steps contribute. Click to enlarge.</em></p>
+<h3 id="1-stacking-terms">1. Stacking terms<a class="headerlink" href="#1-stacking-terms" title="Permanent link">&para;</a></h3>
+<p>For each consecutive base-pair dinucleotide in the probe-target alignment (5'→3'), BaitBench looks up the stacking ΔH° and ΔS° from the SantaLucia (1998) table. Mismatched positions contribute zero stacking energy (they break the consecutive run).</p>
+<p>This means a probe with 3 mismatches in a run of otherwise matched positions loses the stacking contributions of all bases adjacent to those mismatches, not just the mismatches themselves. Clustered mismatches are disproportionately destabilising.</p>
+<h3 id="2-initiation-terms">2. Initiation terms<a class="headerlink" href="#2-initiation-terms" title="Permanent link">&para;</a></h3>
+<p>Two initiation penalties are added, one for the <strong>first</strong> Watson-Crick pair of the aligned duplex and one for the <strong>last</strong>. SantaLucia (1998) gives separate AT and GC initiation parameters, and BaitBench applies whichever matches each terminal pair.</p>
+<p>Initiation is only charged when at least one stacking step exists. An isolated Watson-Crick pair flanked by mismatches cannot form a stable duplex, so paying its initiation cost would produce ΔG &gt; 0 — implying the probe is actively repelled, which is unphysical.</p>
+<h3 id="3-salt-correction-owczarzy-et-al-1997">3. Salt correction (Owczarzy et al. 1997)<a class="headerlink" href="#3-salt-correction-owczarzy-et-al-1997" title="Permanent link">&para;</a></h3>
+<p>The SantaLucia parameters are derived at 1 M Na⁺. For realistic hybridization buffers, BaitBench corrects the <strong>entropy</strong> term for the actual Na⁺ concentration:</p>
+<pre><code>ΔS([Na⁺]) = ΔS(1 M) + 0.368 × (n_wc - 1) × ln([Na⁺])
+</code></pre>
+<p>Where <code>n_wc</code> is the number of Watson-Crick paired positions and <code>[Na⁺]</code> is molar. At 1 M, <code>ln(1) = 0</code> and no correction applies. At lower salt the correction is negative, making ΔG less favourable — matching the physical fact that duplexes are less stable when there are fewer cations to screen the phosphate backbone. As with initiation, the correction is skipped when there is no stacking.</p>
+<p>The three contributions are then combined at the hybridization temperature:</p>
+<pre><code>ΔG = ΔH°(stacking + initiation) - T × ΔS°(stacking + initiation + salt) / 1000
+</code></pre>
+<p>With T in Kelvin, ΔH° in kcal/mol, ΔS° in cal/(mol·K), and ΔG in kcal/mol. More negative = more stable.</p>
+<hr />
+<h2 id="from-g-to-occupancy">From ΔG to Occupancy<a class="headerlink" href="#from-g-to-occupancy" title="Permanent link">&para;</a></h2>
+<p>ΔG says how stable a duplex is; capture needs a <em>probability</em>. BaitBench converts one
+to the other with the Langmuir isotherm for reversible binding, P + T ⇌ PT:</p>
+<pre><code>K     = [probe] · exp(-ΔG / (R × T))
+theta = K / (1 + K)
+</code></pre>
+<p>Where:
+- R = 1.987 × 10⁻³ kcal/(mol·K) (gas constant)
+- T = hybridization temperature in Kelvin
+- ΔG is in kcal/mol
+- <code>[probe]</code> is the probe concentration, in the arbitrary units absorbed into K</p>
+<p><code>theta</code> is the <strong>occupancy</strong>: the probability that this probe is bound to this site at
+equilibrium. Three properties matter, none of which a raw Boltzmann weight
+<code>exp(-ΔG/RT)</code> has:</p>
+<ul>
+<li><strong>It is bounded in [0, 1]</strong>, so it can be used directly as a probability. The raw
+  weight is unbounded — a perfect 120-mer at 65 °C gives ΔG ≈ −92 kcal/mol and
+  <code>exp(-ΔG/RT)</code> ≈ 1e59, which works as a relative weight within one probe's hit list
+  but cannot be a capture probability.</li>
+<li><strong>It saturates.</strong> A strong binder approaches <code>theta</code> = 1 and goes no further, so
+  capture cannot be manufactured for an organism that has little template present.</li>
+<li><strong>It is concentration-dependent</strong>, which is the knob <code>--capture-fraction</code> back-solves.</li>
+</ul>
+<p>In the weak-binding limit (K ≪ 1), <code>theta</code> ≈ K ∝ <code>exp(-ΔG/RT)</code>, so this generalises
+Boltzmann weighting rather than discarding it.</p>
+<p>Occupancy is evaluated as a logistic in log space, <code>theta = 1/(1 + exp(-ln K))</code>,
+because K itself overflows a 64-bit float for a well-matched probe.</p>
+<blockquote>
+<p><strong>Earlier versions</strong> used <code>exp(-ΔG/RT)</code> clamped to a minimum of 1.0, on the reasoning
+that probes can enrich fragments but never deplete them. Occupancy needs no such
+clamp: it is a probability by construction, and an unfavourable ΔG simply puts
+<code>theta</code> near zero, so a bad probe contributes almost nothing instead of looking
+neutral.</p>
+</blockquote>
+<hr />
+<h2 id="from-occupancy-to-fragment-sampling">From Occupancy to Fragment Sampling<a class="headerlink" href="#from-occupancy-to-fragment-sampling" title="Permanent link">&para;</a></h2>
+<p>There are no longer two routes into <code>fragments.fa</code>. Every fragment in the library has a
+single retention probability:</p>
+<pre><code>p_retain(f) = 1 - (1 - p_ns) · prod_i (1 - theta_i)
+</code></pre>
+<p>over the probes <code>i</code> whose alignments overlap fragment <code>f</code>, where <code>p_ns</code> is non-specific
+carryover (<code>--background-retention</code>).</p>
+<p>Read directly: a fragment escapes capture only if <em>every</em> overlapping probe fails to
+bind it <strong>and</strong> it is not carried over. A fragment overlapping no probe reduces to
+<code>p_ns</code>. A fragment overlapping several gets carryover plus each probe's independent
+chance, so <strong>probe density compounds</strong>: twenty probes at <code>theta</code> = 0.2 retain a
+fragment 99% of the time, two retain it 36% of the time.</p>
+<p>Affinity and probe density now act on the same quantity, which they did not before.
+There is no stage at which a probe is chosen uniformly, so a strong probe really does
+capture more than a weak one.</p>
+<h3 id="why-this-makes-composition-emerge">Why this makes composition emerge<a class="headerlink" href="#why-this-makes-composition-emerge" title="Permanent link">&para;</a></h3>
+<p><code>p_retain</code> is a property of a fragment, not of the library. So the expected number of
+fragments retained from a reference is <code>abundance × retention</code>, and the output's
+composition follows from the input's rather than being imposed on it. Two consequences
+the previous model could not produce:</p>
+<ul>
+<li><strong>A dilution series titrates.</strong> Halving an organism's abundance halves its reads,
+  because retention is unchanged by what else is in the tube.</li>
+<li><strong>Per-locus efficiency is separable from abundance</strong>, which is what real capture data
+  shows: relative capture between loci of the same organism stays roughly constant
+  across a dilution series spanning orders of magnitude, while absolute yield tracks
+  input.</li>
+</ul>
+<h3 id="sampling-without-rejection">Sampling without rejection<a class="headerlink" href="#sampling-without-rejection" title="Permanent link">&para;</a></h3>
+<p>Drawing fragments by accept/reject would be hopeless at realistic enrichments: in a
+library that is 99.996% off-target at <code>p_ns</code> ≈ 1e-3, roughly a thousand candidates are
+discarded per keeper.</p>
+<p>Instead, note that <code>p_retain</code> is <strong>piecewise constant in position</strong> — it changes only
+where some probe's overlap window begins or ends. So for each reference BaitBench
+decomposes positions into runs of constant <code>p_retain</code>, integrates them exactly into a
+<strong>retention mass</strong> <code>M = Σ p_retain</code>, and samples in two stages:</p>
+<ol>
+<li>a reference, with probability proportional to <code>weight × M</code>;</li>
+<li>a start position within it, proportional to <code>p_retain</code>.</li>
+</ol>
+<p>Every draw is a keeper, the cost is proportional to the number of runs rather than the
+number of attempts, and the overall yield and enrichment fall out analytically instead
+of being estimated by counting rejections. They are reported in
+<code>fragments.model_stats.tsv</code>, and per-reference in <code>fragments.retention.tsv</code>.</p>
+<p>Because there is no quota split, capture and carryover fragments are interleaved in
+output order by construction.</p>
+<h3 id="what-capture-fraction-sets">What <code>--capture-fraction</code> sets<a class="headerlink" href="#what-capture-fraction-sets" title="Permanent link">&para;</a></h3>
+<p><code>--capture-fraction</code> is a preset over <code>[probe]</code>: of the fragments carrying enough of a
+probe's target site, the fraction the probes pull down. Capture efficiency is monotone
+in concentration, so BaitBench inverts it by bisection once, before sampling.</p>
+<p>It describes the panel and the protocol — <strong>not</strong> the output. It is deliberately
+independent of library composition, because a parameter that targeted the realized
+on-target fraction would make the solver compensate for added distractor, pinning
+composition exactly as the old quota did.</p>
+<hr />
+<h2 id="simple-mode-vs-thermodynamic-mode">Simple Mode vs Thermodynamic Mode<a class="headerlink" href="#simple-mode-vs-thermodynamic-mode" title="Permanent link">&para;</a></h2>
+<p>In <code>--simulate-mode simple</code>, ΔG is not computed. Every placed probe is assigned the
+same occupancy, so all alignments are equally likely to capture and both temperature
+and sequence composition drop out. Probe <em>density</em> still matters — overlapping probes
+compound as above — so simple mode is a useful null model: it shows what coverage looks
+like when only "is this position covered, and by how many probes" is in play.</p>
+<p>Measured on the minimal example, both targets come out at efficiency ≈ 0.50 in simple
+mode, against 0.896 and 0.097 in thermodynamic mode. The aggregate is the same, because
+<code>--capture-fraction</code> pins it; the mode decides how it is distributed across loci.</p>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Thermodynamic</th>
+<th>Simple</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Mismatch penalty</td>
+<td>Yes — via ΔG</td>
+<td>No</td>
+</tr>
+<tr>
+<td>Temperature effect</td>
+<td>Yes — <code>--hybridization-temperature</code> affects capture</td>
+<td>No</td>
+</tr>
+<tr>
+<td>GC content effect</td>
+<td>Yes — high-GC probes capture more efficiently</td>
+<td>No</td>
+</tr>
+<tr>
+<td>Probe-position weighting</td>
+<td>Occupancy from ΔG</td>
+<td>One shared occupancy for every probe</td>
+</tr>
+<tr>
+<td>Probe density effect</td>
+<td>Yes</td>
+<td>Yes — density is independent of ΔG</td>
+</tr>
+<tr>
+<td>Use case</td>
+<td>Realistic efficiency prediction</td>
+<td>Coverage testing, speed</td>
+</tr>
+</tbody>
+</table>
+<p>Thermodynamic mode is more accurate; simple mode is faster and useful for understanding which positions probes cover at all, independent of efficiency.</p></div>
+        
+        
+    </div>
+
+    
+      <footer class="col-md-12 text-center">
+          
+          
+            <hr>
+            <p>
+            <small>Documentation built with <a href="http://www.mkdocs.org/">MkDocs</a>.</small>
+            </p>
+          
+
+          
+          
+      </footer>
+    
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+    <script src="../../js/bootstrap-3.0.3.min.js"></script>
+
+    
+    <script src="//cdn.jsdelivr.net/gh/highlightjs/cdn-release@9.18.0/build/highlight.min.js"></script>
+        
+    <script>hljs.initHighlightingOnLoad();</script>
+    
+
+    <script>var base_url = "../.."</script>
+    
+    <script src="../../js/base.js"></script>
+    <script src="../../search/main.js"></script>
+
+    <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">
+                    <span aria-hidden="true">&times;</span>
+                    <span class="sr-only">Close</span>
+                </button>
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
+            </div>
+            <div class="modal-body">
+                <p>
+                    From here you can search these documents. Enter
+                    your search terms below.
+                </p>
+                <form>
+                    <div class="form-group">
+                        <input type="text" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+    </body>
+
+</html>

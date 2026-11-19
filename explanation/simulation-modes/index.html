@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="In-silico probe capture simulation and evaluation">
+    
+    <link rel="canonical" href="https://niel-infante.github.io/BaitBench/explanation/simulation-modes/">
+    <link rel="shortcut icon" href="../../img/favicon.ico">
+
+    
+    <title>Simulation Modes - BaitBench</title>
+    
+
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.12.0/css/all.css">
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.12.0/css/v4-shims.css">
+    <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/hack-font@3.3.0/build/web/hack.min.css">
+    <link href='//rsms.me/inter/inter.css' rel='stylesheet' type='text/css'>
+    <link href='//fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,700italic,400,300,600,700&subset=latin-ext,latin' rel='stylesheet' type='text/css'>
+    <link href="../../css/bootstrap-custom.min.css" rel="stylesheet">
+    <link href="../../css/base.min.css" rel="stylesheet">
+    <link href="../../css/cinder.min.css" rel="stylesheet">
+
+    
+        
+        <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/highlightjs/cdn-release@9.18.0/build/styles/github.min.css">
+        
+    
+
+    <!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+            <script src="https://cdn.jsdelivr.net/npm/html5shiv@3.7.3/dist/html5shiv.min.js"></script>
+            <script src="https://cdn.jsdelivr.net/npm/respond.js@1.4.2/dest/respond.min.js"></script>
+        <![endif]-->
+
+    
+
+     
+</head>
+
+<body>
+
+    <div class="navbar navbar-default navbar-fixed-top" role="navigation">
+    <div class="container">
+
+        <!-- Collapsed navigation -->
+        <div class="navbar-header">
+            <!-- Expander button -->
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            
+
+            <!-- Main title -->
+
+            
+              <a class="navbar-brand" href="../..">BaitBench</a>
+            
+        </div>
+
+        <!-- Expanded navigation -->
+        <div class="navbar-collapse collapse">
+                <!-- Main navigation -->
+                <ul class="nav navbar-nav">
+                
+                
+                    <li >
+                        <a href="../..">Home</a>
+                    </li>
+                
+                
+                
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">Tutorials <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="../../tutorials/">Tutorials</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../tutorials/installation/">Installation</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../tutorials/first-run/">Your First Simulation</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../tutorials/genome-mode/">Genome Mode (Bacteria)</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">How-To Guides <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="../../how-to/">How-To Guides</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/prepare-input-files/">Prepare Input Files</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/choose-simulation-mode/">Choose a Simulation Mode</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/set-parameters/">Set Parameters</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/interpret-results/">Interpret Results</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/design-and-assess-probes/">Design and Assess Probes</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/analyze-cross-reactivity/">Analyze Cross-Reactivity</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../how-to/troubleshoot/">Troubleshoot</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">Reference <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="../../reference/">Reference</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../reference/commands/">Commands</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../reference/parameters/">Parameters</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../reference/input-formats/">Input Formats</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../reference/output-formats/">Output Formats</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../../reference/reports/">Reports</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                
+                    <li class="dropdown active">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">Explanation <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            
+<li >
+    <a href="../">Explanation</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../what-is-probe-capture/">What Is Probe Capture?</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../pipeline-overview/">Pipeline Overview</a>
+</li>
+
+                        
+                            
+<li class="active">
+    <a href="./">Simulation Modes</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../metrics-and-classification/">Metrics and Classification</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../thermodynamic-scoring/">Thermodynamic Scoring</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../ct-scores/">CT Scores</a>
+</li>
+
+                        
+                            
+<li >
+    <a href="../low-complexity-filtering/">Low-Complexity Filtering</a>
+</li>
+
+                        
+                        </ul>
+                    </li>
+                
+                
+                </ul>
+
+            <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="#" data-toggle="modal" data-target="#mkdocs_search_modal">
+                            <i class="fas fa-search"></i> Search
+                        </a>
+                    </li>
+                    <li >
+                        <a rel="prev" href="../pipeline-overview/">
+                            <i class="fas fa-arrow-left"></i> Previous
+                        </a>
+                    </li>
+                    <li >
+                        <a rel="next" href="../metrics-and-classification/">
+                            Next <i class="fas fa-arrow-right"></i>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="https://github.com/niel-infante/BaitBench">niel-infante/BaitBench</a>
+                    </li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+    <div class="container">
+        
+        
+        <div class="col-md-3"><div class="bs-sidebar hidden-print affix well" role="complementary">
+    <ul class="nav bs-sidenav">
+        <li class="first-level active"><a href="#simulation-modes">Simulation Modes</a></li>
+            <li class="second-level"><a href="#standard-mode">Standard Mode</a></li>
+                
+                <li class="third-level"><a href="#standard-mode-data-flow">Standard mode data flow</a></li>
+            <li class="second-level"><a href="#genome-mode">Genome Mode</a></li>
+                
+                <li class="third-level"><a href="#genome-mode-data-flow">Genome mode data flow</a></li>
+                <li class="third-level"><a href="#sample-target-map">Sample-target-map</a></li>
+            <li class="second-level"><a href="#weight-generation">Weight Generation</a></li>
+                
+                <li class="third-level"><a href="#standard-mode-weights">Standard mode weights</a></li>
+                <li class="third-level"><a href="#genome-mode-weights">Genome mode weights</a></li>
+            <li class="second-level"><a href="#thermodynamic-mode-vs-simple-mode">Thermodynamic Mode vs Simple Mode</a></li>
+                
+                <li class="third-level"><a href="#thermodynamic-mode-default">Thermodynamic mode (default)</a></li>
+                <li class="third-level"><a href="#simple-mode-simulate-mode-simple">Simple mode (--simulate-mode simple)</a></li>
+            <li class="second-level"><a href="#choosing-between-modes">Choosing Between Modes</a></li>
+                
+    </ul>
+</div></div>
+        <div class="col-md-9" role="main">
+
+<h1 id="simulation-modes">Simulation Modes<a class="headerlink" href="#simulation-modes" title="Permanent link">&para;</a></h1>
+<p>BaitBench has two top-level modes (standard and genome) and two simulation algorithms (thermodynamic and simple). These are independent choices that can be combined in any combination.</p>
+<hr />
+<h2 id="standard-mode">Standard Mode<a class="headerlink" href="#standard-mode" title="Permanent link">&para;</a></h2>
+<p>Standard mode is the default. All sequences in <code>--targets</code> are treated as the direct source of simulated fragments. Probes are aligned to these target sequences, and fragments are sampled from the target (and distractor) sequences according to probe affinity and sequence weight.</p>
+<p><strong>Use standard mode when:</strong>
+- Your probes are designed against the same sequences you're evaluating (e.g., virus panel probes tested on the same virus genomes)
+- Your targets are small enough to serve as the complete reference (viral genomes, amplicons, gene sequences)
+- You want to test whether the panel captures short, well-defined sequences</p>
+<h3 id="standard-mode-data-flow">Standard mode data flow<a class="headerlink" href="#standard-mode-data-flow" title="Permanent link">&para;</a></h3>
+<pre><code>probes.fa
+targets.fa    →  combined_reference.fa  →  fragment simulation  →  reads  →  map back to combined_reference.fa
+distractors.fa
+</code></pre>
+<p>All sequences (targets + distractors) are placed into one combined reference. Fragments are generated from this combined reference according to per-sequence weights, probe alignment scores, and the <code>--capture-fraction</code> parameter.</p>
+<h4 id="without-sample">Without <code>--sample</code><a class="headerlink" href="#without-sample" title="Permanent link">&para;</a></h4>
+<p>Every target is in the sample at weight 1.0:</p>
+<p><a href="../../diagrams/prepare_mode1_standard_nosample.png"><img alt="Prepare in standard mode without a sample manifest" src="../../diagrams/prepare_mode1_standard_nosample.png" /></a></p>
+<h4 id="with-sample">With <code>--sample</code><a class="headerlink" href="#with-sample" title="Permanent link">&para;</a></h4>
+<p>Only the manifest targets generate fragments; the rest get weight 0, so any read reaching them is a false positive:</p>
+<p><a href="../../diagrams/prepare_mode2_standard_sample.png"><img alt="Prepare in standard mode with a sample manifest" src="../../diagrams/prepare_mode2_standard_sample.png" /></a></p>
+<hr />
+<h2 id="genome-mode">Genome Mode<a class="headerlink" href="#genome-mode" title="Permanent link">&para;</a></h2>
+<p>Genome mode (<code>--genomes</code>) adds support for organisms where the probe targets are only a subset of the full genome. The canonical use case is 16S rRNA-based bacterial detection: probes cover the 16S gene, but a bacterial sample contains the entire chromosome. Fragments should come from the full genome (to accurately model the proportion of probe-binding vs. non-binding DNA in the library), but reads should be mapped back to the 16S reference sequences (where the probes were designed).</p>
+<p><strong>Use genome mode when:</strong>
+- Your probes target a specific gene within a larger genome (16S rRNA, <em>rpoB</em>, <em>gyrB</em>)
+- You want to accurately model the enrichment fold-change (most genomic DNA won't be captured)
+- You have bacteria or fungi in your panel</p>
+<h3 id="genome-mode-data-flow">Genome mode data flow<a class="headerlink" href="#genome-mode-data-flow" title="Permanent link">&para;</a></h3>
+<pre><code>probes.fa
+genomes.fa     →  combined_reference.fa  →  fragment simulation  →  reads  →  map back to mapping_reference.fa
+targets.fa   ↘                                                               ↗
+distractors.fa →  mapping_reference.fa  ──────────────────────────────────
+</code></pre>
+<p>Two reference files are created at the prepare step:
+- <strong>combined_reference.fa</strong> (genomes + distractors): the fragment source; probe alignment and weight assignment happen here
+- <strong>mapping_reference.fa</strong> (targets + distractors): the mapping reference; reads are aligned here after capture</p>
+<p>A read from a genomic fragment only maps successfully if it spans a region also present in the targets FASTA. This correctly models the expected enrichment: only the portion of the genome covered by the 16S sequence will generate mappable reads.</p>
+<h4 id="without-sample_1">Without <code>--sample</code><a class="headerlink" href="#without-sample_1" title="Permanent link">&para;</a></h4>
+<p>All genomes are in the sample; <code>prepare</code> builds both references and resolves the genome → target links:</p>
+<p><a href="../../diagrams/prepare_mode3_genomes_nosample.png"><img alt="Prepare in genome mode without a sample manifest" src="../../diagrams/prepare_mode3_genomes_nosample.png" /></a></p>
+<h4 id="with-sample_1">With <code>--sample</code><a class="headerlink" href="#with-sample_1" title="Permanent link">&para;</a></h4>
+<p>Only sample genomes generate fragments. Non-sample genomes get weight 0, but their target sequences remain in <code>mapping_reference.fa</code> — so reads from other sources can mis-map to them and be counted as <code>FP_target</code>:</p>
+<p><a href="../../diagrams/prepare_mode4_genomes_sample.png"><img alt="Prepare in genome mode with a sample manifest" src="../../diagrams/prepare_mode4_genomes_sample.png" /></a></p>
+<h3 id="sample-target-map">Sample-target-map<a class="headerlink" href="#sample-target-map" title="Permanent link">&para;</a></h3>
+<p>In genome mode, metrics require knowing which target IDs correspond to which genome IDs. BaitBench supports automatic linking (exact ID match or <code>genome_id|target_id</code> prefix convention) or an explicit <code>--sample-target-map</code> TSV:</p>
+<pre><code>Mtb_H37Rv    Mtb_H37Rv|16S_rRNA
+Mtb_H37Rv    Mtb_H37Rv|rpoB
+S_aureus     S_aureus|16S_rRNA
+</code></pre>
+<p>This many-to-one and one-to-many mapping allows one genome to have multiple target sequences and vice versa.</p>
+<hr />
+<h2 id="weight-generation">Weight Generation<a class="headerlink" href="#weight-generation" title="Permanent link">&para;</a></h2>
+<p>Weights determine how many fragments come from each sequence in the simulation. The weight model is designed to match the experimental design: sample sequences are present at known concentrations, non-sample sequences are absent, and distractors represent background DNA.</p>
+<h3 id="standard-mode-weights">Standard mode weights<a class="headerlink" href="#standard-mode-weights" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Sequence type</th>
+<th>Weight</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Sample targets</td>
+<td>From manifest (default 1.0 per sequence)</td>
+</tr>
+<tr>
+<td>Non-sample targets</td>
+<td>0.0 — not present in specimen</td>
+</tr>
+<tr>
+<td>Distractors</td>
+<td>Computed from distractor fraction (see below)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Distractor weight formula:</strong></p>
+<pre><code>distractor_weight = (distractor_fraction × total_sample_weight)
+                    / (n_distractors × (1 - distractor_fraction))
+</code></pre>
+<p>This formula ensures that if you sum all weights, the total distractor weight relative to total sample weight equals <code>distractor_fraction : (1 - distractor_fraction)</code>. For example, with <code>--distractor-fraction 0.9</code>, 90% of fragments come from distractor sequences and 10% from sample targets.</p>
+<p>Multiple distractor FASTA files are concatenated into one combined reference. All distractor sequences share the same per-sequence weight, regardless of sequence length.</p>
+<h3 id="genome-mode-weights">Genome mode weights<a class="headerlink" href="#genome-mode-weights" title="Permanent link">&para;</a></h3>
+<p>Same formula, but weights are assigned to genome IDs (not target IDs), and only sample genomes receive non-zero weights. Untargeted genomes — those in the genomes FASTA but with no match in the sample manifest and no target mapping — receive weight 0.</p>
+<hr />
+<h2 id="thermodynamic-mode-vs-simple-mode">Thermodynamic Mode vs Simple Mode<a class="headerlink" href="#thermodynamic-mode-vs-simple-mode" title="Permanent link">&para;</a></h2>
+<p>These are the two simulation algorithms, controlled by <code>--simulate-mode</code>.</p>
+<h3 id="thermodynamic-mode-default">Thermodynamic mode (default)<a class="headerlink" href="#thermodynamic-mode-default" title="Permanent link">&para;</a></h3>
+<p>Each probe-reference alignment is scored using the SantaLucia (1998) nearest-neighbor thermodynamic model. The score determines how likely a probe is to hybridize to a given sequence position at the specified hybridization temperature. Positions with high-affinity probe alignments generate proportionally more captured fragments; positions with low-affinity or no alignments contribute fewer fragments.</p>
+<p>This models the physical reality of probe capture: a probe with 3 mismatches captures its target less efficiently than a perfect-match probe, especially at high hybridization temperatures.</p>
+<p><strong>Use thermodynamic mode</strong> (the default) when you want realistic capture efficiency predictions that account for sequence divergence and hybridization conditions.</p>
+<h3 id="simple-mode-simulate-mode-simple">Simple mode (<code>--simulate-mode simple</code>)<a class="headerlink" href="#simple-mode-simulate-mode-simple" title="Permanent link">&para;</a></h3>
+<p>All probe alignments above the minimum match threshold are treated as equally likely to capture. There is no thermodynamic weighting — any position covered by a probe alignment generates fragments at the same rate as any other covered position.</p>
+<p><strong>Use simple mode</strong> when:
+- You want to test whether coverage (which positions are covered by probes at all) rather than affinity is the bottleneck
+- You are debugging probe placement and want to eliminate thermodynamic variability
+- You want faster runs (thermodynamic scoring is more computationally intensive)</p>
+<p>The difference is most pronounced for probes with multiple mismatches: in thermodynamic mode they capture poorly; in simple mode they capture at full rate.</p>
+<hr />
+<h2 id="choosing-between-modes">Choosing Between Modes<a class="headerlink" href="#choosing-between-modes" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Mode</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Virus panel (full genomes in targets.fa)</td>
+<td>Standard</td>
+</tr>
+<tr>
+<td>Bacteria (16S probes, full chromosome genomes)</td>
+<td>Genome</td>
+</tr>
+<tr>
+<td>Mixed panel with some bacteria, some viruses</td>
+<td>Genome (genomes.fa = bacteria; targets.fa = 16S + virus genomes)</td>
+</tr>
+<tr>
+<td>Realistic capture efficiency prediction</td>
+<td>Thermodynamic (default)</td>
+</tr>
+<tr>
+<td>Coverage gap analysis, probe placement testing</td>
+<td>Simple</td>
+</tr>
+<tr>
+<td>Quick iteration / parameter exploration</td>
+<td>Simple (faster)</td>
+</tr>
+</tbody>
+</table></div>
+        
+        
+    </div>
+
+    
+      <footer class="col-md-12 text-center">
+          
+          
+            <hr>
+            <p>
+            <small>Documentation built with <a href="http://www.mkdocs.org/">MkDocs</a>.</small>
+            </p>
+          
+
+          
+          
+      </footer>
+    
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+    <script src="../../js/bootstrap-3.0.3.min.js"></script>
+
+    
+    <script src="//cdn.jsdelivr.net/gh/highlightjs/cdn-release@9.18.0/build/highlight.min.js"></script>
+        
+    <script>hljs.initHighlightingOnLoad();</script>
+    
+
+    <script>var base_url = "../.."</script>
+    
+    <script src="../../js/base.js"></script>
+    <script src="../../search/main.js"></script>
+
+    <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">
+                    <span aria-hidden="true">&times;</span>
+                    <span class="sr-only">Close</span>
+                </button>
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
+            </div>
+            <div class="modal-body">
+                <p>
+                    From here you can search these documents. Enter
+                    your search terms below.
+                </p>
+                <form>
+                    <div class="form-group">
+                        <input type="text" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+    </body>
+
+</html>
