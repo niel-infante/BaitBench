@@ -166,10 +166,9 @@ pub fn probe_hits_seed_extend(
         .filter(|id| weights.get(*id).copied().unwrap_or(0.0) > 0.0)
         .collect();
     ref_ids.sort_unstable();
-    let ref_seqs: Vec<Vec<u8>> = ref_ids
-        .iter()
-        .map(|id| sequences[*id].as_bytes().to_vec())
-        .collect();
+    // Borrowed, not copied: `sequences` already holds every base, and duplicating a
+    // multi-gigabyte reference here doubled the peak for no benefit.
+    let ref_seqs: Vec<&[u8]> = ref_ids.iter().map(|id| sequences[*id].as_bytes()).collect();
 
     let probe_map = crate::fasta::parse_fasta(probes_path)?;
     let mut probe_names: Vec<&String> = probe_map.keys().collect();
@@ -184,30 +183,33 @@ pub fn probe_hits_seed_extend(
     let per_probe = find_local_hits(&index, &ref_seqs, &params, threads);
 
     let mut placements: Vec<Placement> = Vec::new();
-    for (pi, hits) in per_probe.iter().enumerate() {
+    // Consumed, not borrowed: each hit owns a pair vector the size of the probe, and
+    // with a cap of 1000 hits per probe a large panel holds well over a gigabyte of
+    // them. Moving the vectors out instead of collecting new ones avoids holding two
+    // copies of every alignment at the peak.
+    for (pi, hits) in per_probe.into_iter().enumerate() {
         if hits.is_empty() {
             continue;
         }
         let name = probe_names[pi].to_string();
-        for h in hits {
+        for mut h in hits {
             let seq_id = ref_ids[h.seq_idx].to_string();
             if weights.get(&seq_id).copied().unwrap_or(0.0) <= 0.0 {
                 continue;
             }
-            // seed-extend reports raw (probe, reference) pairs; the SAM and blast
-            // paths already complement. Normalise here so a Placement always holds
+            // seed-extend reports raw (probe, reference) pairs; the SAM and blast paths
+            // already complement. Normalise in place so a Placement always holds
             // exactly what delta_g consumes, whatever produced it.
+            for pair in h.pairs.iter_mut() {
+                pair.1 = wc_complement_base(pair.1);
+            }
             placements.push(Placement {
                 probe_name: name.clone(),
                 seq_id,
                 start: h.ref_start,
                 end: h.ref_end,
                 reverse: h.reverse,
-                pairs: h
-                    .pairs
-                    .iter()
-                    .map(|&(p, r)| (p, wc_complement_base(r)))
-                    .collect(),
+                pairs: std::mem::take(&mut h.pairs),
             });
         }
     }

@@ -8,29 +8,49 @@ use std::path::Path;
 /// Multi-line sequences are concatenated and uppercased.
 pub fn parse_fasta(path: &Path) -> Result<HashMap<String, String>> {
     let file = File::open(path).with_context(|| format!("Cannot open FASTA: {}", path.display()))?;
-    let reader = BufReader::new(file);
+    let mut reader = BufReader::new(file);
 
     let mut sequences = HashMap::new();
     let mut current_id: Option<String> = None;
-    let mut current_seq = Vec::new();
+    // One growing buffer, not a Vec<String> of lines joined at the end. A 2 GB genome
+    // at 60 bp per line is ~35 million lines, and the old form allocated a String for
+    // every one of them, then held both the fragments and the joined copy at once.
+    // That is the difference between a few seconds and minutes of allocator churn, and
+    // it is what pushed a large run into swap.
+    let mut current_seq = String::new();
+    let mut line = String::new();
 
-    for line in reader.lines() {
-        let line = line?;
-        let line = line.trim_end();
-        if line.starts_with('>') {
+    loop {
+        line.clear();
+        if reader.read_line(&mut line)? == 0 {
+            break;
+        }
+        let trimmed = line.trim_end();
+        if let Some(header) = trimmed.strip_prefix('>') {
             if let Some(id) = current_id.take() {
-                sequences.insert(id, current_seq.join(""));
-                current_seq.clear();
+                // Growth doubles capacity, so an unshrunk buffer can retain twice the
+                // sequence. Across hundreds of contigs that is gigabytes held for
+                // nothing.
+                current_seq.shrink_to_fit();
+                sequences.insert(id, std::mem::take(&mut current_seq));
             }
-            let id = line.strip_prefix('>').unwrap_or("").split_whitespace().next().unwrap_or("").to_string();
-            current_id = Some(id);
-        } else if !line.is_empty() {
-            current_seq.push(line.to_uppercase());
+            current_id = Some(
+                header
+                    .split_whitespace()
+                    .next()
+                    .unwrap_or("")
+                    .to_string(),
+            );
+        } else if !trimmed.is_empty() {
+            // Uppercase in place rather than allocating a per-line String. FASTA is
+            // ASCII, so this matches the previous to_uppercase() behaviour.
+            current_seq.extend(trimmed.chars().map(|c| c.to_ascii_uppercase()));
         }
     }
 
     if let Some(id) = current_id {
-        sequences.insert(id, current_seq.join(""));
+        current_seq.shrink_to_fit();
+        sequences.insert(id, current_seq);
     }
 
     Ok(sequences)

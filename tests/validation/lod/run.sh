@@ -69,12 +69,27 @@ for cond in $LOD_CONDITIONS; do
                 "$VALIDATION_OUT/lod/${cond}.log"; status=1; continue; }
     fi
 
-    detail=$(find "$outdir" -name group_detail.tsv -o -name detected_detail.tsv | head -1)
+    detail=$(find "$outdir" -name detected_detail.tsv | head -1)
+    summary=$(find "$outdir" -name results.tsv | head -1)
     if [[ -z "$detail" ]]; then
         printf '%-10s %12s %12s\n' "$cond" "$real_frac" "NO OUTPUT"; status=1; continue
     fi
-    sim_frac=$(awk -F'\t' 'NR==1{for(i=1;i<=NF;i++){if($i=="reads_assigned")r=i; if($i=="total_reads")r=i; if($i=="reference_id"||$i=="group_name")k=i}; next}
-                           {t+=$r; if($k ~ /^BB:/) b+=$r} END{if(t>0) printf "%.8f", b/t; else print "0"}' "$detail")
+    # Select B. burgdorferi reads by the `category` column, not by an id prefix. In
+    # genome mode the per-reference rows are keyed by TARGET id (Borrelia_x|gene), so
+    # matching /^BB:/ — the *genome* id — never matched and reported 0.00000000 for
+    # every condition, which looks exactly like a dead titration.
+    # Denominator is reads_sequenced, so unmapped reads count against the fraction the
+    # same way they do in the real counts.
+    sim_frac=$(awk -F'\t' '
+        NR==FNR {
+            if (FNR==1) { for(i=1;i<=NF;i++){ if($i=="reads_assigned") r=i; if($i=="category") c=i }; next }
+            t += $r; if ($c == "sample") b += $r
+            next
+        }
+        FNR==1 { for(i=1;i<=NF;i++) if($i=="reads_sequenced") rs=i; next }
+        { seq = $rs }
+        END { d = (seq > 0 ? seq : t); if (d > 0) printf "%.8f", b/d; else print "0" }
+    ' "$detail" "$summary")
     printf '%-10s %12s %12s\n' "$cond" "$real_frac" "$sim_frac"
 done
 

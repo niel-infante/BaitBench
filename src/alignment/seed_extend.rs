@@ -253,7 +253,7 @@ fn best_segment(probe: &[u8], reference: &[u8], penalty: f64) -> Option<(usize, 
 /// machine.
 pub fn find_local_hits(
     index: &ProbeIndex,
-    references: &[Vec<u8>],
+    references: &[&[u8]],
     params: &SeedExtendParams,
     threads: usize,
 ) -> Vec<Vec<LocalHit>> {
@@ -393,7 +393,7 @@ mod tests {
     fn finds_a_perfect_probe() {
         let probe = bytes(&REF[10..50]);
         let idx = ProbeIndex::build(std::slice::from_ref(&probe), 10);
-        let hits = find_local_hits(&idx, &[bytes(REF)], &SeedExtendParams::default(), 1);
+        let hits = find_local_hits(&idx, &[&bytes(REF)], &SeedExtendParams::default(), 1);
         assert_eq!(hits[0].len(), 1);
         let h = &hits[0][0];
         assert_eq!((h.ref_start, h.ref_end), (10, 50));
@@ -405,7 +405,7 @@ mod tests {
     fn finds_a_reverse_complement_probe() {
         let probe = reverse_complement(&bytes(&REF[10..50]));
         let idx = ProbeIndex::build(&[probe], 10);
-        let hits = find_local_hits(&idx, &[bytes(REF)], &SeedExtendParams::default(), 1);
+        let hits = find_local_hits(&idx, &[&bytes(REF)], &SeedExtendParams::default(), 1);
         assert_eq!(hits[0].len(), 1);
         assert!(hits[0][0].reverse);
         assert!((hits[0][0].identity - 1.0).abs() < 1e-9);
@@ -420,7 +420,7 @@ mod tests {
             *b = b'A'; // wreck the first 14 of 40 bases
         }
         let idx = ProbeIndex::build(&[probe], 10);
-        let hits = find_local_hits(&idx, &[bytes(REF)], &SeedExtendParams::default(), 1);
+        let hits = find_local_hits(&idx, &[&bytes(REF)], &SeedExtendParams::default(), 1);
         assert_eq!(hits[0].len(), 1, "partial match should still be placed");
         let h = &hits[0][0];
         assert!(h.ref_end - h.ref_start >= 20, "segment too short: {h:?}");
@@ -435,7 +435,7 @@ mod tests {
             *b = b'A'; // only 8 of 40 bases survive
         }
         let idx = ProbeIndex::build(&[probe], 10);
-        let hits = find_local_hits(&idx, &[bytes(REF)], &SeedExtendParams::default(), 1);
+        let hits = find_local_hits(&idx, &[&bytes(REF)], &SeedExtendParams::default(), 1);
         assert!(hits[0].is_empty());
     }
 
