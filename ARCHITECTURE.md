@@ -7,7 +7,8 @@ Quick reference for the codebase structure, module responsibilities, and key dat
 ### Standard Mode
 ```
 Step 1: prepare    → combined_reference.fa, weights.txt, targets.txt, distractors.txt, sample.txt
-Step 2: simulate   → fragments.fa  (probe-biased via TNN thermodynamics + background, controlled by --capture-fraction)
+Step 2: simulate   → fragments.fa  (per-fragment retention: Langmuir occupancy from TNN ΔG + non-specific carryover)
+                   → fragments.model_stats.tsv, fragments.retention.tsv
 Step 3: sequence   → reads.fa / reads.fq  (extension matches --output-format; default fasta)
 Step 4: filter     → filtered.fa / filtered.fq (optional, if --host-fasta)
 Step 5: map_reads  → mapped.sam  (against combined_reference.fa)
@@ -57,7 +58,7 @@ src/
 │                        # (2-bit CSR k-mer index over the PROBES, not the reference, so memory
 │                        # scales with the panel), find_local_hits, Kadane best-segment extension.
 │                        # Places partial matches that read mappers discard. Not a BLAST clone.
-├── thermodynamics.rs    # SantaLucia (1998) nearest-neighbor TNN model: delta_g(), boltzmann_score()
+├── thermodynamics.rs    # SantaLucia (1998) nearest-neighbor TNN model: delta_g(), langmuir_occupancy()
 ├── commands/
 │   ├── run.rs           # Full pipeline orchestrator (steps 1-7 + report)
 │   ├── prepare.rs       # Combine FASTAs, generate weights, write ID lists
@@ -91,12 +92,12 @@ src/
 │   ├── reader.rs        # parse_fasta (id→seq), parse_fasta_ids, count_sequences
 │   └── writer.rs        # extract_by_ids (streaming), concatenate_fastas
 └── sampling/
-    ├── thermo_sim.rs    # Thermodynamic simulation: load_probe_hits (SAM→ProbeHit), load_probe_hits_blast (blastn tabular→ProbeHit), aligned_pairs (reads real reference bases, not MD), sample_capture_fragments, sample_background_fragments, write_fragments. Sampler key vectors and hit lists are sorted so --seed is reproducible across processes.
+    ├── thermo_sim.rs    # Capture simulation: load_probe_hits (SAM→ProbeHit), load_probe_hits_blast, probe_hits_seed_extend, aligned_pairs (reads real reference bases, not MD), the per-fragment retention model (sweep_retention, build_retention_profile, build_profiles, capture_efficiency_at, solve_probe_concentration, retention_stats, sample_retention_fragments), write_retention_report, write_fragments. Sampler key vectors and hit lists are sorted so --seed is reproducible across processes.
     └── weights.rs       # parse_weights, generate_weights (sample/distractor fraction)
 
 R/
 ├── report.R             # CLI wrapper: parse args, invoke rmarkdown::render
-├── report.Rmd           # RMarkdown template: tables, ggplot2 figures, coverage plots
+├── report.Rmd           # RMarkdown template: capture-model table, Sankey pipeline flow, ggplot2 figures, coverage plots
 ├── probe_coverage.R     # CLI wrapper for probe coverage report
 ├── probe_coverage.Rmd   # RMarkdown template: probe tiling depth, gap analysis, proximity
 ├── coverage_curve.R     # CLI wrapper for coverage curve report
@@ -132,7 +133,7 @@ Every command module exports an `Args` struct and an `execute(&Args) -> Result<(
 | Command | Args struct | Key inputs | Key outputs |
 |---------|-------------|------------|-------------|
 | `prepare` | `PrepareArgs` | targets, distractors, sample, distractor_fraction, genomes, sample_target_map, groups, distractor_groups | combined_reference.fa, weights.txt, ID lists, distractor_groups.tsv (always); target_groups.tsv (if --groups); genome mode also: mapping_reference.fa, genomes.txt, sample_target_map.txt |
-| `simulate` | `SimulateArgs` | reference, weights, probes, num_fragments, capture_fraction, simulate_mode, hybridization_temperature, seed, fragment_length_*, threads | fragments.fa (probe-biased + background) |
+| `simulate` | `SimulateArgs` | reference, weights, probes, num_fragments, capture_fraction, background_retention, probe_concentration, min_overlap_frac, simulate_mode, aligner, hybridization_temperature, na_conc_m, seed, fragment_length_*, threads | fragments.fa, fragments.model_stats.tsv, fragments.retention.tsv |
 | `sequence` | `SequenceArgs` | input, output, output_r2, read_length, num_sequences, seed, simulator (perfect/art/badread), sequencer_profile, coverage_depth, threads (art only, → art_modern `--parallel`), paired_end, pe_frag_len_mean, pe_frag_len_sd, output_format | reads.fa/.fq (SE) or reads.fa/.fq + reads_R2.fa/.fq (PE); extension determined by output_format; errors injected by art_modern or badread when simulator ≠ perfect; `check_reads_generated()` bails if art_modern/badread produce 0 reads from non-empty input |
 | `filter` | `FilterArgs` | host, reads, reads_r2, minimap_preset | filtered.fa/.fq (+ filtered_R2.fa/.fq for PE); format detected automatically from input |
 | `map_reads` | `MapArgs` | reference, reads, reads_r2, minimap_preset | mapped.sam |
@@ -197,17 +198,21 @@ Every command module exports an `Args` struct and an `execute(&Args) -> Result<(
   1. NN stacking energy (SkipStacking: mismatches break stacking chain)
   2. Initiation terms (SantaLucia 1998 Table 2): AT (+2.3/+4.1) or GC (+0.1/−2.8) applied once per terminal WC pair, **only when at least one stacking step exists** (see design note below)
   3. Salt correction (Owczarzy et al. 1997): `ΔS += 0.368 × (n_wc−1) × ln([Na+])`; at 1 M Na+ ln(1)=0 so no correction; at 50 mM (~typical hybridization buffer) makes ΔG more positive (weaker binding)
-- `boltzmann_score(dg: f64, model: &ThermoModel) -> f64` — `exp(-ΔG / (R × T_K))` where R = 1.987e-3 kcal/(mol·K); score = 1 means neutral (no hybridization), > 1 means favorable binding, < 1 is not produced by this model
+- `langmuir_occupancy(dg: f64, probe_conc: f64, model: &ThermoModel) -> f64` — Langmuir isotherm occupancy `θ = K/(1+K)` with `K = [probe]·exp(-ΔG/RT)`, R = 1.987e-3 kcal/(mol·K); bounded in [0,1] and saturating
+- `ln_k_unit_conc(dg: f64, model: &ThermoModel) -> f64` — `-ΔG/RT`, i.e. ln K at unit probe concentration
+- `occupancy_from_ln_k(ln_k: f64) -> f64` — logistic of ln K, tails guarded at ±60; K itself overflows f64 for a well-matched probe
 
 #### Thermodynamic model design notes
 
-**Score semantics.** `boltzmann_score` is a Boltzmann factor proportional to the hybridization equilibrium constant. It is used as a relative sampling weight — only ratios between scores matter, not their absolute values. Score = 1 (ΔG = 0) is the neutral baseline: no thermodynamic tendency to bind.
+**Occupancy semantics.** ΔG becomes a *probability* via the Langmuir isotherm, not a relative weight. θ is bounded in [0,1], saturates for strong binders (so capture cannot be manufactured for absent template), and depends on probe concentration — the quantity `--capture-fraction` back-solves. In the weak-binding limit (K ≪ 1) θ ≈ K ∝ exp(-ΔG/RT), so this generalises Boltzmann weighting.
 
-**Initiation terms.** SantaLucia (1998) was designed to predict the *absolute* ΔG of duplex formation from two free strands in solution. Initiation parameters capture two physical costs: (1) the loss of translational/rotational entropy when two separate molecules associate, and (2) the instability of terminal base pairs, which are less constrained than interior ones. AT termini (+2.3/+4.1 kcal/mol) are more costly than GC termini (+0.1/−2.8) because A-T pairs have only two hydrogen bonds and are weaker duplex anchors. Initiation always adds positive ΔG (destabilising), reducing the Boltzmann score relative to stacking alone.
+A previous `boltzmann_score(dg, model)` returned `exp(-ΔG/RT)` clamped to a minimum of 1.0, on the reasoning that probes can enrich but never deplete. It was removed with the quota sampler: occupancy needs no clamp, and an unfavourable ΔG correctly gives θ ≈ 0 rather than a neutral weight.
 
-**Why initiation is conditional on stacking.** Initiation terms are only applied when at least one NN stacking step exists (i.e., ≥ 2 consecutive WC pairs). An isolated single WC pair flanked by mismatches on both sides cannot sustain a stable duplex — applying the initiation nucleation cost to it would produce ΔG > 0 and score < 1, implying the probe is actively repelled from that locus, which is unphysical. When no stacking exists, ΔG = 0 and score = 1 (neutral), matching the behaviour of RAmpSim (see below).
+**Initiation terms.** SantaLucia (1998) was designed to predict the *absolute* ΔG of duplex formation from two free strands in solution. Initiation parameters capture two physical costs: (1) the loss of translational/rotational entropy when two separate molecules associate, and (2) the instability of terminal base pairs, which are less constrained than interior ones. AT termini (+2.3/+4.1 kcal/mol) are more costly than GC termini (+0.1/−2.8) because A-T pairs have only two hydrogen bonds and are weaker duplex anchors. Initiation always adds positive ΔG (destabilising), lowering occupancy relative to stacking alone.
 
-**Comparison with RAmpSim.** RAmpSim (Rooney et al. 2025, biorxiv 2025.12.05.692407) implements the same SantaLucia NN stacking table and SkipStacking mismatch strategy but omits initiation and salt correction entirely. For a relative-scoring use case, the constant part of the initiation penalty cancels across all probes when normalising sampling weights. The residual effect — AT vs GC terminal distinction — is a secondary correction (~2 kcal/mol) that BaitBench preserves because it is physically real: probes with GC-rich termini form more stable duplexes than AT-rich ones, and this difference affects relative capture probabilities. The salt correction has a larger practical impact: at 50 mM Na+ (typical hybridization buffer), it reduces scores by an additional factor that scales with duplex length, meaningfully changing the relative ranking of long vs short probe hits.
+**Why initiation is conditional on stacking.** Initiation terms are only applied when at least one NN stacking step exists (i.e., ≥ 2 consecutive WC pairs). An isolated single WC pair flanked by mismatches on both sides cannot sustain a stable duplex — applying the initiation nucleation cost to it would charge a nucleation penalty to a duplex that never nucleated. When no stacking exists, ΔG = 0, matching the behaviour of RAmpSim (see below).
+
+**Comparison with RAmpSim.** RAmpSim (Rooney et al. 2025, biorxiv 2025.12.05.692407) implements the same SantaLucia NN stacking table and SkipStacking mismatch strategy but omits initiation and salt correction entirely. For a relative-scoring use case, the constant part of the initiation penalty cancels across all probes when normalising sampling weights. (BaitBench no longer normalises weights — occupancy is absolute — so the terms do not cancel here.) The residual effect — AT vs GC terminal distinction — is a secondary correction (~2 kcal/mol) that BaitBench preserves because it is physically real: probes with GC-rich termini form more stable duplexes than AT-rich ones, and this difference affects relative capture probabilities. The salt correction has a larger practical impact: at 50 mM Na+ (typical hybridization buffer), it reduces occupancy by an amount that scales with duplex length, meaningfully changing the relative ranking of long vs short probe hits.
 
 ### Sampling (`sampling/`)
 
@@ -216,14 +221,30 @@ Every command module exports an `Args` struct and an `execute(&Args) -> Result<(
 
 **`thermo_sim.rs`:**
 - `SimulateMode` — enum: `Thermodynamic` | `Simple`
-- `ProbeHit` — struct: probe_name, seq_id, start (0-based), end (exclusive), score
-- `load_probe_hits(sam_path, weights, mode, model: &ThermoModel) → HashMap<String, Vec<ProbeHit>>`
-  - Parses SAM; scores each hit as `boltzmann_score(delta_g(..., model), model) × seq_weight` (thermodynamic) or `seq_weight` (simple)
-  - Skips unmapped, secondary-flag-dropped, and weight-0 sequences
-- `sample_capture_fragments(hits_by_probe, sequences, n, length_params, seed, counter) → Vec<(header, seq)>`
-  - Two-level multinomial: probe (uniform) → hit (weighted by score) → fragment center (probe_center ± frag_len/4 jitter) → length (Normal)
-- `sample_background_fragments(sequences, weights, n, length_params, seed, counter) → Vec<(header, seq)>`
+- `ProbeHit` — struct: seq_id, start (0-based), end (exclusive), `dg` (duplex ΔG, kcal/mol, **without** the sequence weight folded in). `SIMPLE_DG = 0.0` is used for every hit in `Simple` mode, giving one shared temperature-independent occupancy.
+- `load_probe_hits(sam_path, sequences, weights, mode, model) → HashMap<String, Vec<ProbeHit>>` — parses SAM, computes ΔG from `aligned_pairs`; skips unmapped and weight-0 sequences
+- `load_probe_hits_blast(tsv_path, weights, mode, model) → …` — same from blastn tabular
+- `probe_hits_seed_extend(sequences, probes_path, weights, mode, model, threads) → …` — same via the built-in aligner, no intermediate file
+
+**Capture model (per-fragment retention).** Replaces the former quota sampler, in which a probe was drawn *uniformly* (so ΔG had no influence on which probe captured) and a fixed `capture_fraction` quota pinned the realized composition — capping the realized distractor fraction at `1 - capture_fraction` (reviewer item 6).
+
+- `RetentionParams { probe_concentration, background_retention, min_overlap_frac, frag_len }`
+- `RetentionSegment { start, end, p_retain, p_specific }` — a run of start positions of constant probability
+- `RetentionProfile { seq_id, segments, cum, mass, mass_specific, n_starts, covered_starts }`
+  - `mass = Σ len·p_retain` — expected fragments retained per unit abundance
+  - `sample_start(rng)` — draws a start position ∝ `p_retain` by binary search on `cum`
+- `sweep_retention(seq_len, hits, frag_len, p_ns, min_overlap_frac, emit) → n_starts` — the shared primitive. Emits one run per interval of constant probability by sweeping hit-window boundaries, accumulating `Σ ln(1-θ)` in log space (saturated hits counted separately, since ln 0 is not finite). A fragment must overlap a hit by `min_overlap_frac` of the hit length, putting the start window at `[h0 + m - L, h1 - m]`.
+- `build_retention_profile(seq_id, seq_len, hits, frag_len, p_ns, min_overlap_frac) → RetentionProfile`
+- `group_hits_by_sequence(hits_by_probe) → HitsBySequence` — `BTreeMap<String, Vec<(start, end, dg)>>`, sorted (hash order would otherwise leak into a seeded run)
+- `build_profiles(sequences, weights, by_seq, params, model) → Vec<RetentionProfile>` — includes references with no probe hits, which carry background-only mass and are most of a realistic library
+- `capture_efficiency_at(sequences, by_seq, params, model, conc) → f64` — pooled mean `p_specific` over probe-covered positions. Independent of abundance, composition and `background_retention`, which is what stops the solver cancelling out library composition.
+- `solve_probe_concentration(sequences, by_seq, params, model, target) → f64` — bisection on `ln [probe]` over [-300, 300], 60 iterations; warns and clamps if the target exceeds what the panel can reach
+- `retention_stats(profiles, weights) → RetentionStats { yield_fraction, on_target_fraction, enrichment, n_references }` — enrichment is the output's on-target share over the input's (`covered_starts`-based), **not** `mass_specific/w_input`, which cancels to `1/yield`
+- `sample_retention_fragments(profiles, sequences, weights, n, length_params, seed, counter) → Vec<(header, seq)>` — reference ∝ `weight × mass`, then position ∝ `p_retain`, then length (Normal). Every draw is a keeper; capture and carryover are interleaved by construction.
+- `write_retention_report(profiles, weights, output)` — per-reference TSV (see Intermediate Files)
 - `write_fragments(fragments, output_path)`
+
+Sampler key vectors and hit lists are sorted so `--seed` is reproducible across processes.
 
 ### Target Similarity (`target_similarity.rs`)
 
@@ -310,6 +331,8 @@ All wrappers follow the pattern: `check_available() → bool/Result`, then speci
 | `target_groups.tsv` | TSV (seq_id group_name) | prepare (only if `--groups`) | metrics, report |
 | `distractor_groups.tsv` | TSV (seq_id group_name) | prepare (always; auto or `--distractor-groups`) | metrics, report |
 | `fragments.fa` | FASTA | simulate | sequence, metrics |
+| `fragments.model_stats.tsv` | TSV: `parameter<TAB>value` (probe_concentration, background_retention, capture_efficiency_target, yield_fraction, on_target_fraction, enrichment) | simulate | metrics |
+| `fragments.retention.tsv` | TSV: seq_id, weight, n_starts, covered_starts, retention_mass, specific_mass, efficiency, on_target_fraction, max_p_retain, max_p_specific | simulate | diagnostic only |
 | `reads.fa` / `reads.fq` | FASTA or FASTQ | sequence | filter/map_reads |
 | `filtered.fa` / `filtered.fq` | FASTA or FASTQ | filter | map_reads |
 | `mapped.sam` | SAM | map_reads | generate_list, metrics |

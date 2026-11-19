@@ -61,9 +61,37 @@ These calibrate the CT-to-fraction conversion. Only used when `--ct` is specifie
 
 | Parameter | Flag | Default | Description |
 |-----------|------|---------|-------------|
-| Simulate mode | `--simulate-mode` | thermodynamic | `thermodynamic` (SantaLucia TNN Boltzmann weighting) or `simple` (uniform probe-site weights) |
+| Simulate mode | `--simulate-mode` | thermodynamic | `thermodynamic` (per-site occupancy from SantaLucia TNN ΔG) or `simple` (one shared occupancy for every placed probe, no temperature dependency) |
 | Hybridisation temperature | `--hybridization-temperature` | 70.0 | Hybridisation temperature in °C. Only used in thermodynamic mode. |
-| Capture fraction | `--capture-fraction` | 0.5 | Fraction of fragments drawn from probe binding sites (0.0–1.0); remainder are background. |
+| Capture fraction | `--capture-fraction` | 0.5 | Capture efficiency (0.0–1.0): of the fragments carrying enough of a probe's target site, the fraction the probes pull down. A preset over probe concentration — see [Capture efficiency is not output composition](#capture-efficiency-is-not-output-composition). |
+| Background retention | `--background-retention` | 0.001 | Probability that a fragment overlapping no probe is retained anyway. Washing is imperfect; in a library that is mostly off-target this, not capture, supplies most of the background reads, and it sets how much enrichment the capture achieves. |
+| Probe concentration | `--probe-concentration` | solved | *Hidden/advanced.* Sets the physical parameter directly and bypasses the `--capture-fraction` solver. Units are the arbitrary ones absorbed into the binding constant K. |
+| Minimum site overlap | `--min-overlap-frac` | 0.5 | *Hidden/advanced.* Fraction of a probe's target site a fragment must carry before that probe can capture it. A threshold standing in for partial-duplex thermodynamics. |
+
+### Capture efficiency is not output composition
+
+`--capture-fraction` describes **the panel and the protocol**: given a fragment that
+carries enough of a probe's target site, how often the probes pull it down. It does
+*not* set the on-target fraction of the output.
+
+That distinction is deliberate. Output composition is
+`abundance × capture efficiency`, so it emerges from the simulation rather than being
+imposed:
+
+* a dilution series **titrates**, instead of sitting on a plateau fixed by the
+  parameter;
+* `--distractor-fraction` stays meaningful across its whole range, rather than going
+  inert above `1 - capture_fraction`.
+
+Earlier versions filled a fixed quota of "capture" and "background" fragments, which
+pinned the realized composition. A version during development instead solved for a
+target *output* on-target fraction, which reintroduced the same problem by a different
+route: adding distractor made the solver raise the probe concentration to compensate.
+Both are gone.
+
+The realized composition is reported rather than requested. `simulate` logs it and
+writes it to `fragments.model_stats.tsv`, and `metrics` carries it into the summary as
+`model_yield_fraction`, `model_on_target_fraction` and `model_enrichment`.
 | Probe aligner | `--probe-aligner` | seed-extend | How probes are placed on the reference for capture scoring: `seed-extend` (built-in local aligner), `minimap2` (embedded read mapper), or `blast` (blastn-short, requires BLAST+). See [Probe alignment sensitivity](#probe-alignment-sensitivity). |
 
 ### Probe alignment sensitivity

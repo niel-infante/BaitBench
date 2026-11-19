@@ -42,6 +42,7 @@ for run in $SIMVAL_RUNS; do
             --read-length 20000 \
             --hybridization-temperature 65 \
             --salt-concentration 50 \
+            --threads "$THREADS" \
             --seed 42 \
             --report none \
             --outdir "$outdir" \

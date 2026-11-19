@@ -40,6 +40,9 @@ pub struct RunArgs<'a> {
     /// Na+ concentration in molar (converted from CLI mM)
     pub na_conc_m: f64,
     pub capture_fraction: f64,
+    pub background_retention: f64,
+    pub probe_concentration: Option<f64>,
+    pub min_overlap_frac: f64,
     pub minimap_preset: String,
     pub host_minimap_preset: String,
     pub fragment_length_mean: f64,
@@ -187,6 +190,11 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         writeln!(f, "hybridization_temperature\t--hybridization-temperature\t{}", args.hybridization_temperature)?;
         writeln!(f, "salt_concentration\t--salt-concentration\t{}", args.na_conc_m * 1000.0)?;
         writeln!(f, "capture_fraction\t--capture-fraction\t{}", args.capture_fraction)?;
+        writeln!(
+            f,
+            "background_retention\t--background-retention\t{}",
+            args.background_retention
+        )?;
         writeln!(f, "minimap_preset\t--minimap-preset\t{}", args.minimap_preset)?;
         writeln!(f, "host_minimap_preset\t--host-minimap-preset\t{}", args.host_minimap_preset)?;
         writeln!(f, "fragment_length_mean\t--fragment-length-mean\t{}", args.fragment_length_mean)?;
@@ -246,6 +254,9 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         probes: args.probes,
         num_fragments: args.num_fragments,
         capture_fraction: args.capture_fraction,
+        background_retention: args.background_retention,
+        probe_concentration: args.probe_concentration,
+        min_overlap_frac: args.min_overlap_frac,
         simulate_mode: args.simulate_mode,
         aligner: args.probe_aligner,
         hybridization_temperature: args.hybridization_temperature,
@@ -389,6 +400,7 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         detected: &prefixed_join(outdir, pfx, "detected.list"),
         fragments: &fragments_path,
         captured: &fragments_path, // fragments IS the post-capture pool in the new pipeline
+        model_stats: Some(&prefixed_join(outdir, pfx, "fragments.model_stats.tsv")),
         sam: &prefixed_join(outdir, pfx, "mapped.sam"),
         run_name: &args.run_name,
         num_fragments: args.num_fragments,

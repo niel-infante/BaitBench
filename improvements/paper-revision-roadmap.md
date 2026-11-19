@@ -42,7 +42,7 @@ magnitude of input abundance, exactly the regime the current model cannot repres
 
 | ID | Decision | Blocks | Status |
 |---|---|---|---|
-| **D1** | How far to take the capture-model fix (see analysis below) | Phase 2 | **Open** |
+| **D1** | How far to take the capture-model fix (see analysis below) | Phase 2 | **Resolved**: full per-fragment retention model, quota removed outright (no compatibility flag). Shipped 2026-11-19; see the simulation-rework plan. |
 | **D2** | TELSeq probe panel: request from authors, or reconstruct from MEGARes v1.0 + BacMet + VFDB and declare as a limitation | Phase 5 | **Open — largest risk** |
 | **D3** | Target venue: appeal to *Bioinformatics* vs fresh submission. Sets the AI-disclosure heading and wording | Phase 6 | **Open** |
 | **D4** | Whether to keep the in-house D6331 ONT run as a deposited secondary dataset (legitimate once circularity is removed; needs an SRA deposit) | Phase 5 | **Open** |
@@ -299,59 +299,103 @@ Cost: an SRA deposit (same call as D4) and porting `BB_LOD_deep_dive/scripts/` i
 
 ---
 
-## Phase 1 — Capture-model bug fixes (needs nothing; required under any D1 outcome, M)
+## Phase 1 — Capture-model bug fixes — **DONE** (except one item, reopened below)
 
-- [ ] `src/sampling/weights.rs:57-67` — length-normalize the distractor weight so the
-      realized *fragment* ratio matches the documented `df : (1−df)`.
-- [ ] Move the `df` bound check to `src/main.rs:136-153` and tighten to `[0, 1)` with
-      a message naming the flag. Today `1.0` passes there and fails deep inside
-      `prepare` at `src/sampling/weights.rs:60-62`.
-- [ ] `src/sampling/thermo_sim.rs:420-432` — add a retry loop,
-      `frag_len.min(seq.len())`, and a shortfall warning, matching the capture path
-      (`thermo_sim.rs:306`, `:365`). Currently the background arm silently
-      under-delivers with short contigs.
-- [ ] `src/commands/run.rs:383-384` passes `fragments.fa` as both `fragments` and
-      `captured`, so `capture_rate` is always 100% and nothing ever compares realized
-      composition against the request — this is the "silently" in the reviewer's
-      sentence. Emit `requested_distractor_fraction`, `realized_distractor_fraction`,
-      `realized_on_target_fraction` from `src/commands/metrics.rs`, and warn on
-      deviation beyond tolerance.
-- [ ] **The regression test that would have caught this:** sweep
-      `df ∈ {0.1, 0.5, 0.9, 0.99, 0.999}` on `examples/minimal/` at fixed seed and
-      assert realized ≈ requested. Note every existing distractor test in
-      `weights.rs` uses `df = 0.5` or `0.0`.
+- [x] Tightened the `df` bound check to `[0, 1)` in `src/main.rs`, with a message
+      naming the flag and suggesting 0.9999. `1.0` previously passed the early check
+      and failed inside `prepare` after the run directory and combined reference had
+      been written.
+- [x] Short-contig shortfall. Resolved differently than planned: there is no longer a
+      background arm with a retry loop. `build_profiles` now builds each reference's
+      profile at `min(frag_len, seq_len)`, so a contig shorter than the nominal
+      fragment length stays in the library instead of getting zero mass and
+      disappearing. Covered by `short_references_are_not_dropped`.
+- [x] Realized composition is now reported. `simulate` computes yield, on-target
+      fraction and enrichment analytically and writes `fragments.model_stats.tsv`;
+      `metrics` carries them into `results.tsv` as `model_yield_fraction`,
+      `model_on_target_fraction`, `model_enrichment`, and into the JSON as a
+      `capture_model` block. Per-reference efficiency goes to
+      `fragments.retention.tsv`. `capture_rate` is kept but is 1.0 by construction and
+      documented as such — under per-fragment retention `fragments.fa` *is* the
+      retained library, so counting it cannot recover what was filtered out.
+- [x] The regression test exists as `tests/simulation.rs::distractor_fraction_is_honoured`,
+      sweeping `df ∈ {0.1, 0.5, 0.9, 0.99, 0.999, 0.9999}` at a fixed seed. Its
+      assertion changed: see the note below.
+- [ ] **Reopened — `src/sampling/weights.rs:57-67`, length-normalizing the distractor
+      weight.** The original goal, "so the realized *fragment* ratio matches the
+      documented `df : (1−df)`", is no longer the right target: under retention the
+      realized output ratio is *supposed* to differ from the input ratio, because that
+      difference is the enrichment. What remains worth deciding is whether
+      `--distractor-fraction` denotes a **molar** fraction (equal weight per contig, as
+      now, so long contigs contribute proportionally more DNA) or a **mass** fraction
+      (weight ∝ 1/length). This changes what the flag means, so it needs a decision
+      rather than a patch. Not blocking: it affects only how distractor material is
+      apportioned *among* distractors.
 
-*Done when:* the sweep test passes for the length-weighting and shortfall fixes, and
-fails informatively on the quota ceiling (which Phase 2 removes).
+**Note on the regression test's assertion.** It originally asserted realized ≈
+requested distractor fraction. That was wrong: `--distractor-fraction` sets the *input*
+library, and capture enriches targets, so realized ≠ requested at moderate values is
+correct physics. The real defect in reviewer item 6 was the **ceiling** at
+`1 − capture_fraction` — the parameter went inert over the top half of its range
+whatever the input. The test now asserts monotonicity, the absence of that ceiling, and
+convergence at an input so extreme that finite enrichment cannot rescue the target.
+
+*Done:* measured titration 0.00000 / 0.00125 / 0.01700 / 0.16700 / 0.66775 / 0.95500
+across requested 0.1 … 0.9999, against the quota model's 0.043 / 0.242 / 0.450 / 0.495
+/ 0.495 / 0.495.
 
 ---
 
-## Phase 2 — Capture-model rework (blocked by **D1**, L)
+## Phase 2 — Capture-model rework — **code DONE, real-data gates OPEN**
 
-Assuming the recommendation:
+Superseded in detail by the simulation-rework plan, which expanded this phase into
+Stages 0–3 (harness, ΔG correctness, divergent-probe alignment, internal-mismatch
+thermodynamics, then the capture model). What shipped differs from the sketch below in
+two ways worth recording:
 
-- [ ] `src/thermodynamics.rs` — add `langmuir_occupancy(dg, probe_conc, model)`;
-      leave `boltzmann_score` for the `quota` path.
-- [ ] `src/sampling/thermo_sim.rs` — new `sample_retention_fragments()` alongside the
-      existing two samplers. The uniform level-1 draw is deleted in the retention
-      path, not patched.
-- [ ] `src/cli.rs` — `--capture-model {retention,quota}` (default `retention`),
-      `--background-retention`; optionally `--enrichment-factor` as the Option 3 alias.
-- [ ] `src/commands/simulate.rs:88-131` — dispatch on the model.
-- [ ] `src/commands/metrics.rs` — add `enrichment_factor`, `capture_yield`.
+- **No `--capture-model {retention,quota}` flag.** Per D1 the quota model was removed
+  outright, so there is no v1.0 bit-for-bit reproduction target. `boltzmann_score` was
+  deleted with it — the quota sampler was its only consumer, and its clamp-to-1.0
+  ("probes can only enrich") is wrong under an occupancy model, which is bounded in
+  [0,1] by construction.
+- **`--capture-fraction` was redefined, not retired.** It is now capture *efficiency*
+  (how much of the material it has probes for the panel pulls down), back-solved to a
+  probe concentration by bisection. An intermediate version targeted the realized
+  *output* on-target fraction and reproduced the quota ceiling almost exactly
+  (0.494 vs 0.495), because adding distractor made the solver compensate. Any parameter
+  targeting an output composition does this.
+
+- [x] `src/thermodynamics.rs` — `langmuir_occupancy`, `ln_k_unit_conc`,
+      `occupancy_from_ln_k`; `boltzmann_score` removed.
+- [x] `src/sampling/thermo_sim.rs` — both quota samplers deleted; `sweep_retention`,
+      `build_retention_profile`, `build_profiles`, `capture_efficiency_at`,
+      `solve_probe_concentration`, `retention_stats`, `sample_retention_fragments`,
+      `write_retention_report`.
+- [x] `src/cli.rs` — `--background-retention`; hidden `--probe-concentration` and
+      `--min-overlap-frac`.
+- [x] `src/commands/simulate.rs` — quota split deleted, concentration solver added.
+- [x] `src/commands/metrics.rs` — `model_*` columns (yield, on-target, enrichment).
+- [x] Diagrams 8, 9 and 12 regenerated for the retention model. **Note:** the
+      `poster_*` variants have no generator in this repo and still show the two-arm
+      quota model — regenerate wherever they are authored before reusing the poster.
 - [ ] Regenerate manuscript Figure 1 (`coverage_curve.png`).
 - [ ] Port `~/Projects/CrossLab/MTEC_runs/BB_LOD_deep_dive/scripts/` into
-      `validation/borrelia_lod/` and use the titration as the gate below. Calibrate
+      `tests/validation/lod/` and use the titration as the gate below. Calibrate
       against the measured 37–51× target enrichment in
       `borrelia_LOD/4Path/target_analysis/ontarget_summary.tsv`.
 
-*Done when:* all three hold —
+*Done when:*
 
-1. `df` is monotonic across its whole range under `retention`;
-2. `--capture-model quota` reproduces v1.0 numbers bit-for-bit at a fixed seed;
-3. **the Borrelia LOD titration resolves from a flat ~78.5% plateau into a real
+1. ✅ `df` is monotonic across its whole range and the `1 − capture_fraction` ceiling is
+   gone (`distractor_fraction_is_honoured`, un-ignored and green).
+2. ✅ Per-locus efficiency is emergent and separable — on `examples/minimal` the two
+   targets come out at 0.896 and 0.097 from probe density and ΔG alone, with
+   distractors exactly at the carryover floor. `fragments.retention.tsv` exports this
+   per reference, so the Borrelia per-locus ratios can be compared directly without
+   running reads through.
+3. ⬜ **the Borrelia LOD titration resolves from a flat ~78.5% plateau into a real
    titration curve** tracking the observed NTC = 37 → Pos1 = 748,104 progression.
-   This is the unambiguous pass/fail test for the whole phase.
+   Still the unambiguous pass/fail test for the whole phase, and still to be run.
 
 ---
 

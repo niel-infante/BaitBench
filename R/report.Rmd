@@ -173,6 +173,49 @@ cat("```\n")
 ---
 
 
+## Capture Model
+
+```{r capture-model, echo=FALSE, results='asis'}
+# The capture model's analytic account of the reaction. These are expectations
+# computed from the model rather than counts of the output: under per-fragment
+# retention every fragment in fragments.fa was already retained, so `capture_rate` is
+# 1.0 by construction and cannot tell you what the capture did.
+has_model <- all(c("model_yield_fraction", "model_on_target_fraction",
+                   "model_enrichment") %in% names(summary_df)) &&
+             !is.na(summary_df$model_yield_fraction[1]) &&
+             nzchar(as.character(summary_df$model_yield_fraction[1]))
+
+if (has_model) {
+  model_tbl <- data.frame(
+    Quantity = c("Capture efficiency (requested)",
+                 "Probe concentration (solved)",
+                 "Background retention",
+                 "Library yield",
+                 "On-target fraction",
+                 "Fold enrichment"),
+    Value = c(
+      sprintf("%.3f", as.numeric(summary_df$model_capture_efficiency[1])),
+      sprintf("%.4g", as.numeric(summary_df$model_probe_concentration[1])),
+      sprintf("%.2e", as.numeric(summary_df$model_background_retention[1])),
+      sprintf("%.4f%%", 100 * as.numeric(summary_df$model_yield_fraction[1])),
+      sprintf("%.2f%%", 100 * as.numeric(summary_df$model_on_target_fraction[1])),
+      sprintf("%.1f×", as.numeric(summary_df$model_enrichment[1]))
+    ),
+    stringsAsFactors = FALSE
+  )
+  # results='asis' inside a conditional: kable's value is not auto-printed here.
+  cat(knitr::kable(model_tbl, align = c("l", "r")), sep = "\n")
+  cat("\n\n*Capture efficiency is what was asked for; the rest is what the model ",
+      "predicts follows from it given this panel and this sample. Output composition ",
+      "is not requested — it emerges from abundance × efficiency.*\n\n")
+} else {
+  cat("*No capture model statistics available (simulate did not write ",
+      "`model_stats.tsv`).*\n\n")
+}
+```
+
+---
+
 ## Pipeline Flow
 
 ```{r pipeline-flow-data, include=FALSE}
@@ -324,7 +367,10 @@ if (has_sources) {
 res <- add_node(sk, sprintf("Generated\n%s", fmt(fragments_generated)), col_generated)
 sk <- res$sk; idx_generated <- res$idx
 
-# Capture outcome nodes
+# Capture outcome nodes.
+# Under per-fragment retention `fragments.fa` is already the post-capture library, so
+# this is 100% and the "Not Captured" branch is empty. The real capture losses are in
+# the Capture Model table above, which reports them analytically.
 res <- add_node(sk, sprintf("Captured\n%s (%s)", fmt(fragments_captured), pct(fragments_captured, fragments_generated)), col_captured)
 sk <- res$sk; idx_captured <- res$idx
 res <- add_node(sk, sprintf("Not Captured\n%s (%s)", fmt(not_captured), pct(not_captured, fragments_generated)), col_not_captured)

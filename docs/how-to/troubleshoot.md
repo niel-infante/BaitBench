@@ -79,15 +79,22 @@ If cargo is installed but the build fails with a linker error, ensure developmen
 
 ## Simulation problems
 
-### Very low capture rate
+### Very low on-target fraction
 
-Symptoms: `capture_rate` near 0; almost no reads; `sample_captured` very low.
+Symptoms: `model_on_target_fraction` near 0; `sample_captured` very low; reads spread
+thinly across distractors instead of concentrating at probe sites.
+
+(`capture_rate` is 1.0 in every run and is not a diagnostic — `fragments.fa` is already
+the retained library. Use `model_on_target_fraction` and `model_enrichment` in
+`results.tsv`, or the per-reference `efficiency` column of `fragments.retention.tsv`.)
 
 **Causes:**
 
 - Probes don't actually match the targets — check that `--probes` and `--targets` are the correct files for each other
+- Few probes aligned at all — `simulate` logs the alignment rate; if it is low and the panel targets relatives rather than the sequences themselves, try `--probe-aligner blast`
 - `--capture-fraction` is very low (default is 0.5 — this is not the issue at default)
-- Probes are too short to align reliably
+- `--background-retention` is too high, so carryover swamps the capture (default 0.001)
+- The sample is heavily diluted — at high `--distractor-fraction` or high `--ct`, a low on-target fraction is the correct answer rather than a fault
 
 **Diagnose:**
 

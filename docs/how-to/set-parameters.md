@@ -42,7 +42,7 @@ Alternatively use `--ct` to express abundance as a qPCR CT score. See [Choose a 
 
 ## Hybridization temperature (`--hybridization-temperature`, default 70°C)
 
-Temperature in °C used in the SantaLucia thermodynamic model. Affects how strongly Boltzmann weighting biases fragment sampling toward high-affinity probe sites.
+Temperature in °C used in the SantaLucia thermodynamic model. It sets each duplex's ΔG, and so the occupancy θ that decides how often a probe captures a fragment.
 
 ```bash
 --hybridization-temperature 65   # lower temp — stronger binding bias, higher enrichment
@@ -50,7 +50,7 @@ Temperature in °C used in the SantaLucia thermodynamic model. Affects how stron
 --hybridization-temperature 75   # higher temp — weaker binding, more selective
 ```
 
-**Effect:** Lower temperatures increase Boltzmann weights, biasing sampling more strongly toward high-affinity sites. Higher temperatures flatten the weights, making sampling more uniform.
+**Effect:** Lower temperatures make duplexes more stable, so more probes approach saturation (θ → 1) and mismatched probes still capture. Higher temperatures suppress the weaker duplexes first, which *widens* the spread in per-locus efficiency — divergent loci drop out while well-matched ones hold. `--capture-fraction` rescales the overall level afterwards, so temperature changes the distribution across loci rather than the aggregate.
 
 **When to change it:** Match your actual hybridization conditions. A typical probe capture protocol uses 65–72°C. Only applies in `--simulate-mode thermodynamic` (the default).
 

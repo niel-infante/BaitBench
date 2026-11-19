@@ -20,7 +20,9 @@ results/run_20250101_120000/
 ├── sample_target_map.txt       # Genome-to-target mapping (genome mode only)
 ├── target_groups.tsv           # Target group assignments (if --groups)
 ├── distractor_groups.tsv       # Distractor group assignments (always written)
-├── fragments.fa                # Simulated DNA fragments (probe-biased + background)
+├── fragments.fa                # Simulated DNA fragments (retained library)
+├── fragments.model_stats.tsv   # Capture model parameters and realized yield/enrichment
+├── fragments.retention.tsv     # Per-reference expected capture efficiency
 ├── reads.fa                    # Sequencing reads (trimmed to read length)
 ├── filtered.fa                 # Host-filtered reads (if --host-fasta)
 ├── mapped.sam                  # Read alignments to reference
@@ -56,8 +58,8 @@ One-row TSV with all summary metrics. The first row is a header.
 | `num_fragments` | Fragments requested (`--num-fragments`) |
 | `seed` | Random seed used (or `NA` if not set) |
 | `fragments_generated` | Fragments actually generated |
-| `fragments_captured` | Fragments passing the capture step |
-| `capture_rate` | `fragments_captured / fragments_generated` |
+| `fragments_captured` | Fragments passing the capture step. Under the retention model this equals `fragments_generated`: `fragments.fa` **is** the retained library, so there is no second pool to count. |
+| `capture_rate` | `fragments_captured / fragments_generated`, hence 1.0 by construction. Use `model_yield_fraction` for the quantity this used to approximate. |
 | `sample_generated` | Fragments generated from sample targets |
 | `nonsample_target_generated` | Fragments generated from non-sample targets |
 | `distractor_generated` | Fragments generated from distractor sequences |
@@ -87,6 +89,25 @@ One-row TSV with all summary metrics. The first row is a header.
 | `specificity` | `TN_total / (TN_total + FP_total)` |
 | `precision` | `TP / (TP + FP_total)` |
 | `f1_score` | `2 × (precision × sensitivity) / (precision + sensitivity)` |
+
+---
+
+### Capture model columns
+
+The capture model's analytic account of the reaction, copied from
+`fragments.model_stats.tsv`. These are expectations computed from the model, not counts
+of the output — under per-fragment retention every fragment written was already
+retained, so counting cannot recover the yield. Empty if `simulate` did not report them
+(for example when the pipeline steps were run separately against an older `fragments.fa`).
+
+| Column | Description |
+|--------|-------------|
+| `model_probe_concentration` | Probe concentration used, either back-solved from `--capture-fraction` or set by `--probe-concentration` |
+| `model_background_retention` | `--background-retention` as applied |
+| `model_capture_efficiency` | The requested capture efficiency (`--capture-fraction`) |
+| `model_yield_fraction` | Expected fraction of the input library retained |
+| `model_on_target_fraction` | Expected fraction of retained fragments that a probe captured, rather than carried over |
+| `model_enrichment` | Fold enrichment: the on-target share of the output over the on-target share of the input |
 
 ---
 
@@ -143,8 +164,16 @@ Structured JSON with nested sections. Fields mirror results.tsv plus the per-seq
   },
   "capture_stats": {
     "fragments_generated": 10000,
-    "fragments_captured": 3500,
-    "capture_rate": 0.35
+    "fragments_captured": 10000,
+    "capture_rate": 1.0,
+    "capture_model": {
+      "probe_concentration": 5.317063e-15,
+      "background_retention": 0.001,
+      "capture_efficiency_target": 0.5,
+      "yield_fraction": 0.05144674,
+      "on_target_fraction": 0.981544,
+      "enrichment": 9.7188
+    }
   },
   "read_level": {
     "reads_correctly_mapped": 3400,
@@ -232,9 +261,32 @@ These are written during a run and can be removed with `--cleanup`:
 | `mapping_reference.fa` | FASTA | `prepare` (genome mode) |
 | `weights.txt` | TSV: `id<TAB>weight` | `prepare` |
 | `fragments.fa` | FASTA, IDs: `{seq_id}_fragment_{n} start={pos} length={len}` | `simulate` |
+| `fragments.model_stats.tsv` | TSV: `parameter<TAB>value` | `simulate` |
+| `fragments.retention.tsv` | TSV, one row per reference (see below) | `simulate` |
 | `reads.fa` | FASTA | `sequence` |
 | `reads_R2.fa` | FASTA | `sequence` (paired-end) |
 | `filtered.fa` | FASTA | `filter` |
 | `mapped.sam` | SAM | `map` |
 | `detected.list` | TSV: `id<TAB>count` | `list` |
 | `*.log` | Plain text | various steps |
+
+### fragments.retention.tsv
+
+The capture model's per-reference expectation, before any sampling noise. Written by
+`simulate` and not consumed by the rest of the pipeline — it exists so that relative
+capture between loci can be checked directly, without running reads through and counting
+them. Per-locus efficiency varies by an order of magnitude across loci in the same panel
+at the same input, and the aggregate on-target fraction hides that entirely.
+
+| Column | Description |
+|--------|-------------|
+| `seq_id` | Reference sequence ID |
+| `weight` | Sampling weight (abundance) from `weights.txt` |
+| `n_starts` | Fragment start positions available at the nominal fragment length |
+| `covered_starts` | Of those, how many a probe can reach at all |
+| `retention_mass` | `Σ p_retain` over start positions: expected fragments retained per unit abundance |
+| `specific_mass` | The part of `retention_mass` attributable to probe capture |
+| `efficiency` | `retention_mass / n_starts`: the expected fraction of this reference's fragments retained. This is the per-locus number to compare against measured relative capture. |
+| `on_target_fraction` | `specific_mass / retention_mass`: how much of this reference's retention is capture rather than carryover |
+| `max_p_retain` | Highest per-fragment retention probability anywhere on the reference |
+| `max_p_specific` | Highest probe-attributable retention probability |

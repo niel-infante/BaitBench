@@ -49,6 +49,7 @@
   let r_simulateMode = 'thermodynamic';
   let r_numFragments = '10000';
   let r_captureFraction = '0.5';
+  let r_backgroundRetention = '0.001';
   let r_hybTemp = '70';
   let r_readLength = '120';
   let r_seed = '';
@@ -231,7 +232,7 @@
         r_targets, r_probes, r_distractors, r_sampleIsFile, r_sample, r_sampleInline,
         r_distractorMode, r_distractorFraction, r_ct, r_ctBaseline, r_ctBaselineFraction,
         r_ctEfficiency, r_ctCalibMode, r_ctCal1, r_ctCal2,
-        r_simulateMode, r_numFragments, r_captureFraction, r_hybTemp, r_readLength, r_seed,
+        r_simulateMode, r_numFragments, r_captureFraction, r_backgroundRetention, r_hybTemp, r_readLength, r_seed,
         r_genomes, r_sampleTargetMap, r_groups, r_distractorGroups, r_hostFasta, r_hostMinimapPreset,
         r_identify, r_identifyIdentThreshold, r_identifyMinUniq, r_runName,
         r_fragLenMean, r_fragLenMin, r_fragLenMax, r_minimapPreset,
@@ -304,6 +305,7 @@
         r_ctCal1 = str('r_ctCal1', '20,0.01'); r_ctCal2 = str('r_ctCal2', '25,0.003');
         r_simulateMode = str('r_simulateMode', 'thermodynamic');
         r_numFragments = str('r_numFragments', '10000'); r_captureFraction = str('r_captureFraction', '0.5');
+        r_backgroundRetention = str('r_backgroundRetention', '0.001');
         r_hybTemp = str('r_hybTemp', '70'); r_readLength = str('r_readLength', '120');
         r_seed = str('r_seed');
         r_genomes = str('r_genomes'); r_sampleTargetMap = str('r_sampleTargetMap');
@@ -473,6 +475,7 @@
         add('--simulate-mode', r_simulateMode);
         add('--num-fragments', r_numFragments);
         add('--capture-fraction', r_captureFraction);
+        add('--background-retention', r_backgroundRetention);
         if (r_simulateMode === 'thermodynamic') add('--hybridization-temperature', r_hybTemp);
         add('--read-length', r_readLength);
         if (r_seed) add('--seed', r_seed);
@@ -920,9 +923,14 @@
                 bind:value={r_numFragments} />
             </div>
             <div class="field-row">
-              <label class="field-label" for="capfrac" data-tooltip="Proportion of fragments overlapping a probe that are retained (captured). 1.0 = capture everything that touches a probe. Models real hybridization capture efficiency.">Capture fraction <span class="tip">?</span></label>
+              <label class="field-label" for="capfrac" data-tooltip="Capture efficiency: of the fragments carrying enough of a probe's target site, the proportion the probes pull down. 1.0 = capture everything a probe reaches. This describes the panel and protocol, not the output — the on-target fraction of the reads emerges from abundance x efficiency.">Capture fraction <span class="tip">?</span></label>
               <input id="capfrac" class="text-input short" type="number" min="0" max="1" step="0.01"
                 bind:value={r_captureFraction} />
+            </div>
+            <div class="field-row">
+              <label class="field-label" for="bgret" data-tooltip="Probability that a fragment overlapping no probe is retained anyway. Washing is imperfect, and in a library that is mostly off-target this supplies most of the background reads. Lower values give higher enrichment. Typical: 0.001.">Background retention <span class="tip">?</span></label>
+              <input id="bgret" class="text-input short" type="number" min="0" max="1" step="0.0001"
+                bind:value={r_backgroundRetention} />
             </div>
             <div class="field-row">
               <label class="field-label" for="readlen" data-tooltip="Simulated fragments are trimmed to this length to produce reads. Should match the sequencing technology (e.g. 150 bp for Illumina short reads).">Read length (bp) <span class="tip">?</span></label>

@@ -55,6 +55,7 @@ for cond in $LOD_CONDITIONS; do
             --fragment-length-mean 225 --fragment-length-min 150 --fragment-length-max 350
             --hybridization-temperature 58 --salt-concentration 1000
             --read-simulator perfect --read-length 101
+            --threads "$THREADS"
             --seed 42 --report none --outdir "$outdir")
         if [[ "$use_distractor" == "yes" ]]; then
             args+=(--distractors "$REF_ISCAP" --distractor-fraction "$df")
@@ -75,9 +76,19 @@ done
 
 echo
 echo "Expected titration : $EXPECTED_DIR/lod_real_counts.tsv"
-echo "Expected per-locus : $EXPECTED_DIR/lod_locus_efficiency.tsv"
 echo
-echo "NOTE: per-locus efficiency comparison requires mapping simulated reads back to"
-echo "      the BB chromosome and recomputing interval depth. Not yet wired up; the"
-echo "      titration column above is the Stage 3 gate, per-locus follows."
+
+echo "--- per-locus efficiency, relative to rplB ---"
+# Targets are named {Species}|{gene}, so per-gene depth comes straight from the
+# per-reference detail table; no chromosome re-mapping is needed. See the docstring in
+# locus_efficiency.py for how this basis differs from the mosdepth reference values.
+dirs=()
+for cond in $LOD_CONDITIONS; do
+    [[ -d "$VALIDATION_OUT/lod/$cond" ]] && dirs+=("$VALIDATION_OUT/lod/$cond")
+done
+if [[ ${#dirs[@]} -gt 0 ]]; then
+    python3 "$(dirname "${BASH_SOURCE[0]}")/locus_efficiency.py" "${dirs[@]}" || status=1
+else
+    echo "no completed conditions to compare"
+fi
 exit $status

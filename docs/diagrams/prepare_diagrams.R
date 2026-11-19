@@ -21,7 +21,7 @@
 #   6  pipeline_detailed.png
 #   7  paper_workflow_overview.png        — full tool workflow (design→assess→simulate→report)
 #   8  paper_thermodynamic_scoring.png   — TNN ΔG scoring illustration
-#   9  paper_fragment_sampling.png       — two-level multinomial sampling schematic
+#   9  paper_fragment_sampling.png       — per-fragment retention sampling schematic
 #  10  paper_build_probes.png            — build-probes pipeline steps
 #  11  paper_assess_probes.png           — assess-probes pipeline steps
 #  12  paper_full_simulation_pipeline.png — genome-mode simulation pipeline, full detail
@@ -926,7 +926,7 @@ save_diagram(diagram7, "paper_workflow_overview.png", width = 4200)
 
 # ============================================================================
 # Diagram 8: Thermodynamic Scoring Illustration
-# Shows how a probe-reference alignment is converted to a ΔG and Boltzmann score.
+# Shows how a probe-reference alignment is converted to a ΔG and a binding occupancy.
 # Example: 8-mer probe with one mismatch at position 3.
 #   Probe 5'─G─C─A─G─T─C─G─T─3'
 #             | | X | | | | |
@@ -1057,19 +1057,20 @@ digraph {
                <FONT POINT-SIZE='10'>ΔG = ΔH<SUB>stack+init</SUB> − T × (ΔS<SUB>stack+init+salt</SUB> / 1000)</FONT><BR/>
                <FONT POINT-SIZE='9'>T in Kelvin  |  more negative = more stable</FONT>>]
 
-  // ── BOLTZMANN SCORE ───────────────────────────────────────────────────────
+  // ── OCCUPANCY ─────────────────────────────────────────────────────────────
   boltzmann [shape=box, fillcolor='#1A5276', fontcolor='white', penwidth=2,
-             label=<<B>Boltzmann Binding Score</B><BR/>
-             <FONT POINT-SIZE='10'>score = exp( −ΔG / (R × T) )</FONT><BR/>
+             label=<<B>Langmuir Occupancy</B><BR/>
+             <FONT POINT-SIZE='10'>K = [probe] · exp( −ΔG / (R × T) )<BR/>
+             θ = K / (1 + K)</FONT><BR/>
              <FONT POINT-SIZE='9'>R = 1.987 × 10<SUP>−3</SUP> kcal/(mol·K)<BR/>
-             Higher score → stronger predicted binding</FONT>>]
+             θ is a probability in [0,1] and saturates at 1</FONT>>]
 
-  // ── SAMPLING WEIGHT ───────────────────────────────────────────────────────
+  // ── RETENTION ─────────────────────────────────────────────────────────────
   weight [shape=box, fillcolor='#0B5345', fontcolor='white',
-          label=<<B>Sampling Weight</B><BR/>
-          <FONT POINT-SIZE='9'>weight = Boltzmann score × sequence weight<BR/>
-          Used in two-level multinomial sampling<BR/>
-          to bias fragments toward high-affinity sites</FONT>>]
+          label=<<B>Fragment Retention</B><BR/>
+          <FONT POINT-SIZE='9'>p_retain = 1 − (1 − p_ns) · Π (1 − θ<SUB>i</SUB>)<BR/>
+          over the probes i overlapping the fragment<BR/>
+          Affinity and probe density compound here</FONT>>]
 
   // ── EDGES ─────────────────────────────────────────────────────────────────
   alignment -> stacking   [label=<<FONT POINT-SIZE='8'>WC pair stream</FONT>>]
@@ -1103,7 +1104,7 @@ diagram9 <- grViz("
 digraph {
   graph [rankdir=TB, fontname='Helvetica', bgcolor='white',
          label=<<B>How a Fragment Gets Selected</B><BR/>
-         <FONT POINT-SIZE='14'>Two arms: probe-mediated capture vs non-specific bleed-through</FONT>>,
+         <FONT POINT-SIZE='14'>One retention probability per fragment; composition emerges from abundance \u00d7 efficiency</FONT>>,
          labelloc=t, fontsize=22, pad='0.6,0.4', nodesep=0.55, ranksep=0.7]
   node [fontname='Helvetica', fontsize=11, style=filled, margin='0.15,0.10', penwidth=1.5]
   edge [fontname='Helvetica', fontsize=9, penwidth=1.4, color='#5D6D7E']
@@ -1113,127 +1114,113 @@ digraph {
     <TABLE BORDER='1' CELLBORDER='0' CELLSPACING='0' CELLPADDING='7'
            COLOR='#BDC3C7' BGCOLOR='#F2F3F4'>
       <TR>
-        <TD COLSPAN='3' ALIGN='CENTER' BGCOLOR='#D6EAF8'>
+        <TD COLSPAN='4' ALIGN='CENTER' BGCOLOR='#D6EAF8'>
           <B>Simulation inputs</B>
         </TD>
       </TR>
       <TR>
         <TD ALIGN='CENTER'><FONT POINT-SIZE='9'>N total fragments<BR/><B>--num-fragments</B></FONT></TD>
-        <TD ALIGN='CENTER'><FONT POINT-SIZE='9'>capture fraction f<BR/><B>--capture-fraction</B></FONT></TD>
-        <TD ALIGN='CENTER'><FONT POINT-SIZE='9'>probe alignments<BR/>(SAM, TNN-scored)</FONT></TD>
+        <TD ALIGN='CENTER'><FONT POINT-SIZE='9'>capture efficiency<BR/><B>--capture-fraction</B></FONT></TD>
+        <TD ALIGN='CENTER'><FONT POINT-SIZE='9'>carryover p_ns<BR/><B>--background-retention</B></FONT></TD>
+        <TD ALIGN='CENTER'><FONT POINT-SIZE='9'>probe alignments<BR/>(\u0394G per hit)</FONT></TD>
       </TR>
     </TABLE>
   >]
 
-  // ── SPLIT ────────────────────────────────────────────────────────────────
-  split [shape=diamond, fillcolor='#34495E', fontcolor='white', penwidth=2,
-         label=<<B>Split N fragments</B>>]
+  // ── STEP 1: solve concentration ──────────────────────────────────────────
+  solve [shape=box, fillcolor='#7D3C98', fontcolor='white', penwidth=2,
+         label=<<B>Back-solve [probe]</B><BR/>
+         <FONT POINT-SIZE='9'>Bisection on ln [probe] so the panel reaches<BR/>
+         the requested capture efficiency.<BR/>
+         Independent of library composition \u2014 so adding<BR/>
+         distractor does not get compensated away.</FONT>>]
 
-  n_capture   [shape=box, fillcolor='#1A5276', fontcolor='white',
-               label=<<B>N × f fragments</B><BR/><FONT POINT-SIZE='9'>probe-biased (captured pool)</FONT>>]
-  n_background [shape=box, fillcolor='#6D7C8A', fontcolor='white',
-                label=<<B>N × (1 − f) fragments</B><BR/><FONT POINT-SIZE='9'>background (uncaptured)</FONT>>]
+  // ── STEP 2: occupancy ────────────────────────────────────────────────────
+  occ [shape=box, fillcolor='#2980B9', fontcolor='white',
+       label=<<B>Occupancy per probe hit</B><BR/>
+       <FONT POINT-SIZE='9'>K = [probe] \u00b7 exp(\u2212\u0394G / RT)<BR/>
+       \u03b8 = K / (1 + K)<BR/><BR/>
+       Bounded in [0,1] and saturating, so a strong probe<BR/>
+       cannot manufacture reads from absent template.</FONT>>]
 
-  // ── ARM HEADINGS (above each step box) ───────────────────────────────────
-  cap_title [shape=plaintext, fillcolor='white',
-             label=<<FONT POINT-SIZE='15' COLOR='#1A5276'><B>Probe-Biased Sampling</B></FONT><BR/>
-             <FONT POINT-SIZE='11' COLOR='#1A5276'>Two-level weighted multinomial</FONT>>]
+  // ── STEP 3: per-fragment retention ───────────────────────────────────────
+  retain [shape=box, fillcolor='#1A5276', fontcolor='white',
+          label=<<B>Retention probability</B><BR/>
+          <FONT POINT-SIZE='9'>p_retain = 1 \u2212 (1 \u2212 p_ns) \u00b7 \u03a0 (1 \u2212 \u03b8_i)<BR/>
+          over the probes i overlapping the fragment<BR/><BR/>
+          A fragment escapes only if every probe fails<BR/>
+          AND it is not carried over, so probe density<BR/>
+          compounds. No probes \u2192 p_retain = p_ns.</FONT>>]
 
-  bg_title [shape=plaintext, fillcolor='white',
-            label=<<FONT POINT-SIZE='15' COLOR='#5D6D7E'><B>Background Sampling</B></FONT><BR/>
-            <FONT POINT-SIZE='11' COLOR='#5D6D7E'>Uniform by sequence weight</FONT>>]
+  // ── STEP 4: profile ──────────────────────────────────────────────────────
+  profile [shape=box, fillcolor='#154360', fontcolor='white',
+           label=<<B>Piecewise-constant profile</B><BR/>
+           <FONT POINT-SIZE='9'>p_retain changes only where some probe overlap<BR/>
+           window begins or ends, so each reference reduces<BR/>
+           to \u2264 2\u00b7(hits)+1 runs of constant probability.<BR/><BR/>
+           Retention mass M = \u03a3 p_retain, integrated exactly.</FONT>>]
 
-  // ── PROBE-BIASED BRANCH (left) ────────────────────────────────────────────
-  subgraph cluster_capture {
-    label=\"\"; style=rounded; color='#1A5276'; margin=14; penwidth=2
+  // ── STEP 5: two-stage draw ───────────────────────────────────────────────
+  subgraph cluster_draw {
+    label=\"\"; style=rounded; color='#0B5345'; margin=14; penwidth=2
 
-    step1 [shape=box, fillcolor='#2980B9', fontcolor='white',
-           label=<<B>Select probe</B><BR/>
-           <FONT POINT-SIZE='9'>Uniform over probes<BR/>
-           with at least 1 alignment hit<BR/><BR/>
-           P(probe_i) = 1 / number of probes with hits</FONT>>]
+    draw_title [shape=plaintext, fillcolor='white',
+                label=<<FONT POINT-SIZE='15' COLOR='#0B5345'><B>Two-Stage Draw</B></FONT><BR/>
+                <FONT POINT-SIZE='11' COLOR='#0B5345'>Every draw is a keeper \u2014 no rejection loop</FONT>>]
 
-    step2 [shape=box, fillcolor='#1A5276', fontcolor='white',
-           label=<<B>Select alignment hit</B><BR/>
-           <FONT POINT-SIZE='9'>Weighted by Boltzmann score × sequence weight<BR/><BR/>
-           P(hit_j) proportional to exp(−ΔG_j / RT) × w_seq<BR/><BR/>
-           High-affinity sites preferentially sampled</FONT>>]
+    draw1 [shape=box, fillcolor='#117A65', fontcolor='white',
+           label=<<B>Select reference</B><BR/>
+           <FONT POINT-SIZE='9'>P(seq_i) proportional to weight_i \u00b7 M_i<BR/><BR/>
+           Abundance \u00d7 retention: this is where<BR/>
+           composition emerges rather than being imposed.</FONT>>]
 
-    step3 [shape=box, fillcolor='#154360', fontcolor='white',
-           label=<<B>Fragment center</B><BR/>
-           <FONT POINT-SIZE='9'>center = hit_center + Uniform(−L/4, +L/4)<BR/>
-           where L = fragment length mean<BR/><BR/>
-           Jitter models probe offset variability</FONT>>]
+    draw2 [shape=box, fillcolor='#0E6655', fontcolor='white',
+           label=<<B>Select position and length</B><BR/>
+           <FONT POINT-SIZE='9'>start proportional to p_retain within the profile<BR/>
+           length ~ TruncNormal(mean, sd) clamped to [min, max]</FONT>>]
 
-    step4 [shape=box, fillcolor='#0D3349', fontcolor='white',
-           label=<<B>Fragment length</B><BR/>
-           <FONT POINT-SIZE='9'>length ~ TruncNormal(mean, sd)<BR/>
-           clamped to [min, max]<BR/><BR/>
-           Extract sequence from reference</FONT>>]
-
-    step1 -> step2 -> step3 -> step4 [color='#2980B9', penwidth=1.8]
+    draw_title -> draw1 [color='#0B5345', penwidth=1.8, arrowhead=none]
+    draw1 -> draw2 [color='#117A65', penwidth=1.8]
   }
 
-  // ── BACKGROUND BRANCH (right) ─────────────────────────────────────────────
-  subgraph cluster_background {
-    label=\"\"; style=rounded; color='#6D7C8A'; margin=14; penwidth=2
-
-    bg1 [shape=box, fillcolor='#6D7C8A', fontcolor='white',
-         label=<<B>Select sequence</B><BR/>
-         <FONT POINT-SIZE='9'>P(seq_i) proportional to weight_i × length_i<BR/><BR/>
-         Sequence weights from weights.txt<BR/>
-         (sample targets, distractors)</FONT>>]
-
-    bg2 [shape=box, fillcolor='#5D6D7E', fontcolor='white',
-         label=<<B>Generate fragment</B><BR/>
-         <FONT POINT-SIZE='9'>Position ~ Uniform(0, seq_len − frag_len)<BR/>
-         length ~ TruncNormal(mean, sd)<BR/><BR/>
-         No probe-site bias</FONT>>]
-
-    bg1 -> bg2 [color='#6D7C8A', penwidth=1.8]
-  }
-
-  // ── OUTPUT ───────────────────────────────────────────────────────────────
-  merge [shape=diamond, fillcolor='#0B5345', fontcolor='white', penwidth=2,
-         label=<<B>Combine both pools</B>>]
-
+  // ── OUTPUTS ──────────────────────────────────────────────────────────────
   output [shape=folder, fillcolor='#D5F5E3', color='#27AE60', penwidth=2.5,
           label=<<B>fragments.fa</B><BR/>
-          <FONT POINT-SIZE='9'>N fragments total<BR/>
+          <FONT POINT-SIZE='9'>N fragments total, capture and carryover<BR/>
+          interleaved by construction<BR/>
           Names encode source: {seq_id}_fragment_{n}<BR/>
           start=X length=Y</FONT>>]
 
+  stats [shape=folder, fillcolor='#FCF3CF', color='#D4AC0D', penwidth=2,
+         label=<<B>model_stats.tsv \u00b7 retention.tsv</B><BR/>
+         <FONT POINT-SIZE='9'>Yield, on-target fraction and enrichment fall out<BR/>
+         analytically from \u03a3 w\u00b7M \u2014 reported, not requested.<BR/>
+         Per-reference efficiency for per-locus comparison.</FONT>>]
+
   // ── ANNOTATION ───────────────────────────────────────────────────────────
   note_cf [shape=note, fillcolor='#FEF9E7', color='#D4AC0D',
-           label=<<FONT POINT-SIZE='9'><I>capture-fraction models overall<BR/>
-           pull-down efficiency (wash stringency,<BR/>
-           hybridization time). Per-site differential<BR/>
-           enrichment is handled by Boltzmann<BR/>
-           weighting at the hit-selection step.</I></FONT>>]
+           label=<<FONT POINT-SIZE='9'><I>capture-fraction sets how efficiently the<BR/>
+           panel pulls down material it has probes for<BR/>
+           (wash stringency, hybridization time). It does<BR/>
+           NOT set the on-target fraction of the output:<BR/>
+           that follows from abundance, so a dilution<BR/>
+           series titrates instead of sitting on a plateau.</I></FONT>>]
 
   // ── EDGES ─────────────────────────────────────────────────────────────────
-  inputs -> split [penwidth=2]
-  split -> n_capture [color='#1A5276', penwidth=2, minlen=2,
-                      label=<<FONT POINT-SIZE='26' COLOR='#1A5276'><B>&nbsp;&nbsp;f&nbsp;&nbsp;</B></FONT>>]
-  split -> n_background [color='#6D7C8A', penwidth=2, minlen=2,
-                         label=<<FONT POINT-SIZE='26' COLOR='#5D6D7E'><B>&nbsp;&nbsp;1 − f&nbsp;&nbsp;</B></FONT>>]
+  inputs  -> solve   [penwidth=2]
+  solve   -> occ     [color='#7D3C98', penwidth=2]
+  occ     -> retain  [color='#2980B9', penwidth=1.8]
+  retain  -> profile [color='#1A5276', penwidth=1.8]
+  profile -> draw_title [color='#154360', penwidth=1.8]
+  draw2   -> output  [penwidth=2.5, color='#27AE60']
+  profile -> stats   [color='#D4AC0D', penwidth=1.8, style=dashed, constraint=false,
+                      label=<<FONT POINT-SIZE='9'>exact integral</FONT>>]
 
-  n_capture -> cap_title [color='#1A5276', penwidth=1.8, arrowhead=none]
-  cap_title -> step1 [color='#1A5276', penwidth=1.8]
-
-  n_background -> bg_title [color='#6D7C8A', penwidth=1.8, arrowhead=none]
-  bg_title -> bg1 [color='#6D7C8A', penwidth=1.8]
-
-  step4 -> merge [color='#1A5276', penwidth=1.8]
-  bg2   -> merge [color='#6D7C8A', penwidth=1.8]
-
-  merge -> output [penwidth=2.5, color='#27AE60']
-
-  note_cf -> split [style=invis]
+  note_cf -> solve [style=invis]
 }
 ")
 
-save_diagram(diagram9, "paper_fragment_sampling.png", width = 3800)
+save_diagram(diagram9, "paper_fragment_sampling.png", width = 3400)
 }
 
 
@@ -1561,14 +1548,16 @@ digraph {
                more negative = more stable</FONT>>]
 
     td_boltzmann [shape=box, fillcolor='#1A5276', fontcolor='white', penwidth=2,
-                  label=<<B>Boltzmann Binding Score</B><BR/>
-                  <FONT POINT-SIZE='9'>score = exp(&#8722;&#916;G / (R &#215; T))<BR/>
+                  label=<<B>Langmuir Occupancy</B><BR/>
+                  <FONT POINT-SIZE='9'>K = [probe]&#183;exp(&#8722;&#916;G / (R &#215; T))<BR/>
+                  &#952; = K/(1+K), bounded in [0,1]<BR/>
                   R = 1.987&#215;10<SUP>&#8722;3</SUP> kcal/(mol&middot;K)</FONT>>]
 
     td_weight [shape=box, fillcolor='#0B5345', fontcolor='white', penwidth=2,
-               label=<<B>Per-Hit Sampling Weight</B><BR/>
-               <FONT POINT-SIZE='9'>weight = Boltzmann score &#215; sequence weight<BR/>
-               feeds probe-biased sampling below</FONT>>]
+               label=<<B>Per-Hit Occupancy</B><BR/>
+               <FONT POINT-SIZE='9'>&#952; per probe hit; abundance enters<BR/>
+               separately at the reference draw<BR/>
+               feeds retention sampling below</FONT>>]
 
     td_alignment -> td_stacking   [label=<<FONT POINT-SIZE='8'>WC pairs</FONT>>]
     td_alignment -> td_initiation [label=<<FONT POINT-SIZE='8'>terminal pairs</FONT>>]
@@ -1582,72 +1571,65 @@ digraph {
 
   sim_align -> td_alignment [penwidth=2, label=<<FONT POINT-SIZE='8'>per hit</FONT>>]
   sim_align -> fs_inputs [penwidth=2, style=dashed, color='#5D6D7E',
-                          label=<<FONT POINT-SIZE='8'>--num-fragments, --capture-fraction</FONT>>]
+                          label=<<FONT POINT-SIZE='8'>--num-fragments, --capture-fraction,<BR/>--background-retention</FONT>>]
   prep_weights -> td_weight [style=dashed, color='#95A5A6']
 
   // ══════════════════════════════════════════════════════════════════════
-  // STAGE 5 — FRAGMENT SAMPLING  (two-level multinomial)
+  // STAGE 5 — FRAGMENT SAMPLING  (per-fragment retention)
   // ══════════════════════════════════════════════════════════════════════
   subgraph cluster_fragsamp {
-    label=<<B>Fragment Sampling — two arms per fragment</B>>;
+    label=<<B>Fragment Sampling — one retention probability per fragment</B>>;
     style=rounded; color='#1A5276'; fontsize=13; fontcolor='#1A5276'; margin=16
 
     fs_inputs [shape=plaintext, label=<
       <TABLE BORDER='1' CELLBORDER='0' CELLSPACING='0' CELLPADDING='6' COLOR='#BDC3C7' BGCOLOR='#F2F3F4'>
-        <TR><TD COLSPAN='3' ALIGN='CENTER' BGCOLOR='#D6EAF8'><B>Simulation inputs</B></TD></TR>
+        <TR><TD COLSPAN='4' ALIGN='CENTER' BGCOLOR='#D6EAF8'><B>Simulation inputs</B></TD></TR>
         <TR>
           <TD ALIGN='CENTER'><FONT POINT-SIZE='9'>N total fragments<BR/><B>--num-fragments</B></FONT></TD>
-          <TD ALIGN='CENTER'><FONT POINT-SIZE='9'>capture fraction f<BR/><B>--capture-fraction</B></FONT></TD>
-          <TD ALIGN='CENTER'><FONT POINT-SIZE='9'>weighted probe hits<BR/>(from thermo scoring)</FONT></TD>
+          <TD ALIGN='CENTER'><FONT POINT-SIZE='9'>capture efficiency<BR/><B>--capture-fraction</B></FONT></TD>
+          <TD ALIGN='CENTER'><FONT POINT-SIZE='9'>carryover p_ns<BR/><B>--background-retention</B></FONT></TD>
+          <TD ALIGN='CENTER'><FONT POINT-SIZE='9'>scored probe hits<BR/>(&#916;G, from thermo scoring)</FONT></TD>
         </TR>
       </TABLE>
     >]
 
-    fs_split [shape=diamond, fillcolor='#34495E', fontcolor='white', penwidth=2,
-              label=<<B>Split N fragments</B>>]
+    fs_solve [shape=box, fillcolor='#7D3C98', fontcolor='white', penwidth=2,
+              label=<<B>Back-solve [probe]</B><BR/><FONT POINT-SIZE='9'>bisection to the requested<BR/>capture efficiency</FONT>>]
 
-    fs_ncapture [shape=box, fillcolor='#1A5276', fontcolor='white',
-                 label=<<B>N &#215; f fragments</B><BR/><FONT POINT-SIZE='9'>probe-biased (captured pool)</FONT>>]
-    fs_nbackground [shape=box, fillcolor='#6D7C8A', fontcolor='white',
-                    label=<<B>N &#215; (1 &#8722; f) fragments</B><BR/><FONT POINT-SIZE='9'>background (uncaptured)</FONT>>]
+    fs_occ [shape=box, fillcolor='#2980B9', fontcolor='white',
+            label=<<B>Occupancy per hit</B><BR/><FONT POINT-SIZE='9'>&#952; = K/(1+K),<BR/>K = [probe]&#183;exp(&#8722;&#916;G/RT)</FONT>>]
 
-    fs_step1 [shape=box, fillcolor='#2980B9', fontcolor='white',
-              label=<<B>Select probe</B><BR/><FONT POINT-SIZE='9'>Uniform over probes with<BR/>at least 1 alignment hit</FONT>>]
-    fs_step2 [shape=box, fillcolor='#1A5276', fontcolor='white',
-              label=<<B>Select alignment hit</B><BR/><FONT POINT-SIZE='9'>P(hit) proportional to<BR/>exp(&#8722;&#916;G/RT) &#215; w_seq<BR/>high-affinity sites favored</FONT>>]
-    fs_step3 [shape=box, fillcolor='#154360', fontcolor='white',
-              label=<<B>Fragment center</B><BR/><FONT POINT-SIZE='9'>center = hit_center<BR/>+ Uniform(&#8722;L/4, +L/4)</FONT>>]
-    fs_step4 [shape=box, fillcolor='#0D3349', fontcolor='white',
-              label=<<B>Fragment length</B><BR/><FONT POINT-SIZE='9'>length ~ TruncNormal(mean, sd)<BR/>clamped to [min, max]</FONT>>]
+    fs_retain [shape=box, fillcolor='#1A5276', fontcolor='white',
+               label=<<B>Retention probability</B><BR/><FONT POINT-SIZE='9'>p_retain = 1 &#8722; (1&#8722;p_ns)&#183;&#928;(1&#8722;&#952;<SUB>i</SUB>)<BR/>no probes &#8594; p_ns</FONT>>]
 
-    fs_bg1 [shape=box, fillcolor='#6D7C8A', fontcolor='white',
-            label=<<B>Select sequence</B><BR/><FONT POINT-SIZE='9'>P(seq) proportional to<BR/>weight &#215; length (weights.txt)</FONT>>]
-    fs_bg2 [shape=box, fillcolor='#5D6D7E', fontcolor='white',
-            label=<<B>Generate fragment</B><BR/><FONT POINT-SIZE='9'>Uniform position, TruncNormal length<BR/>no probe-site bias</FONT>>]
+    fs_profile [shape=box, fillcolor='#154360', fontcolor='white',
+                label=<<B>Piecewise-constant profile</B><BR/><FONT POINT-SIZE='9'>runs of constant p_retain per reference<BR/>retention mass M = &#931; p_retain</FONT>>]
 
-    fs_merge [shape=diamond, fillcolor='#0B5345', fontcolor='white', penwidth=2,
-              label=<<B>Combine both pools</B>>]
+    fs_draw1 [shape=box, fillcolor='#117A65', fontcolor='white',
+              label=<<B>Select reference</B><BR/><FONT POINT-SIZE='9'>P(seq) proportional to<BR/>weight &#215; M (weights.txt)</FONT>>]
+    fs_draw2 [shape=box, fillcolor='#0E6655', fontcolor='white',
+              label=<<B>Select position and length</B><BR/><FONT POINT-SIZE='9'>start proportional to p_retain<BR/>length ~ TruncNormal(mean, sd)</FONT>>]
 
-    fs_inputs -> fs_split [penwidth=2]
-    fs_split -> fs_ncapture    [color='#1A5276', penwidth=2, label=<<FONT POINT-SIZE='16' COLOR='#1A5276'><B>f</B></FONT>>]
-    fs_split -> fs_nbackground [color='#6D7C8A', penwidth=2, label=<<FONT POINT-SIZE='16' COLOR='#5D6D7E'><B>1&#8722;f</B></FONT>>]
-    fs_ncapture -> fs_step1 [color='#1A5276']
-    fs_step1 -> fs_step2 -> fs_step3 -> fs_step4 [color='#2980B9']
-    fs_nbackground -> fs_bg1 [color='#6D7C8A']
-    fs_bg1 -> fs_bg2 [color='#6D7C8A']
-    fs_step4 -> fs_merge [color='#1A5276']
-    fs_bg2 -> fs_merge [color='#6D7C8A']
+    fs_inputs -> fs_solve [penwidth=2]
+    fs_solve -> fs_occ [color='#7D3C98', penwidth=2]
+    fs_occ -> fs_retain -> fs_profile [color='#2980B9']
+    fs_profile -> fs_draw1 [color='#154360']
+    fs_draw1 -> fs_draw2 [color='#117A65']
   }
 
   td_weight -> fs_inputs [penwidth=2.5, color='#2980B9', constraint=false,
-                          label=<<FONT POINT-SIZE='9' COLOR='#2980B9'>per-hit weight</FONT>>]
+                          label=<<FONT POINT-SIZE='9' COLOR='#2980B9'>per-hit &#916;G</FONT>>]
   in_params -> fs_inputs [style=dashed, color='#95A5A6', arrowhead=none]
-  prep_weights -> fs_bg1 [style=dashed, color='#95A5A6']
+  prep_weights -> fs_draw1 [style=dashed, color='#95A5A6']
 
   fs_output [label=<<B>fragments.fa</B><BR/><FONT POINT-SIZE='10'>N fragments total<BR/>Names encode source:<BR/>{seq_id}_fragment_{n}</FONT>>,
              fillcolor='#D5F5E3', color='#27AE60', penwidth=2.5, shape=folder]
 
-  fs_merge -> fs_output [penwidth=2.5, color='#27AE60']
+  fs_stats [label=<<B>model_stats.tsv</B><BR/><FONT POINT-SIZE='9'>yield, on-target fraction,<BR/>enrichment (analytic)</FONT>>,
+            fillcolor='#FCF3CF', color='#D4AC0D', penwidth=2, shape=folder]
+
+  fs_draw2 -> fs_output [penwidth=2.5, color='#27AE60']
+  fs_profile -> fs_stats [penwidth=1.8, color='#D4AC0D', style=dashed, constraint=false]
 
   // ══════════════════════════════════════════════════════════════════════
   // STAGE 6 — SEQUENCE: read simulator choice

@@ -56,9 +56,19 @@ Setting non-sample target weights to 0 is the key design choice: BaitBench gener
 **Input:** combined_reference.fa, probes.fa, weights.tsv  
 **Output:** fragments.fa
 
-The core step. Fragments are drawn from reference sequences in proportion to their weights, then a probe-capture selection step determines which fragments are retained.
+The core step. Probes are aligned to the reference, each alignment is turned into a binding probability, and fragments are drawn in proportion to how likely they are to survive the capture.
 
-For each position in each reference, probes are aligned (via the rammap library compiled into the BaitBench binary). In thermodynamic mode (the default), each alignment is scored using the SantaLucia nearest-neighbor model to compute ΔG; the Boltzmann weight `exp(-ΔG/RT)` determines capture probability. Positions with high-scoring alignments produce more captured fragments; positions not covered by any probe contribute background fragments (governed by `--capture-fraction`). Simple mode (`--simulate-mode simple`) treats all alignments as equally likely, without thermodynamic weighting.
+Probes are placed by the built-in seed-and-extend aligner (or minimap2/blast, via `--probe-aligner`). In thermodynamic mode (the default), each alignment is scored with the SantaLucia nearest-neighbor model to compute ΔG, which becomes an occupancy `θ = K/(1+K)` under the Langmuir isotherm. Every fragment then has a single retention probability
+
+```
+p_retain = 1 − (1 − p_ns) · Π (1 − θ_i)
+```
+
+over the probes overlapping it, where `p_ns` is non-specific carryover (`--background-retention`). A fragment covered by no probe reduces to `p_ns`; one covered by several gets each probe's independent chance, so probe density compounds.
+
+There is no quota: `--capture-fraction` sets how efficiently the panel pulls down material it has probes for, and the **composition of the output emerges** from abundance × efficiency. That is what lets a dilution series titrate and keeps `--distractor-fraction` meaningful across its whole range. The realized yield, on-target fraction and enrichment are computed analytically and written to `fragments.model_stats.tsv`, with per-reference efficiency in `fragments.retention.tsv`.
+
+Simple mode (`--simulate-mode simple`) gives every placed probe the same occupancy, dropping temperature and sequence composition but keeping probe density — a useful null model.
 
 ### 3. sequence
 

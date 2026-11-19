@@ -82,23 +82,34 @@ baitbench prepare \
 
 ## simulate
 
-Generates weighted random fragments from a reference, biased toward probe binding sites.
+Generates the post-capture fragment library: probes are aligned to the reference, each alignment becomes a binding probability, and fragments are drawn in proportion to how likely they are to survive the capture.
 
 ```bash
 baitbench simulate \
   --reference combined_reference.fa \
   --weights weights.txt \
+  --probes probes.fa \
   --num-fragments 10000 \
   --output fragments.fa \
+  [--capture-fraction 0.5] \
+  [--background-retention 0.001] \
+  [--hybridization-temperature 70] \
+  [--simulate-mode thermodynamic] \
+  [--probe-aligner seed-extend] \
   [--fragment-length-mean 175] \
   [--fragment-length-min 150] \
   [--fragment-length-max 200] \
   [--seed 42]
 ```
 
+Each fragment is retained with probability `1 - (1 - p_ns) * prod(1 - theta_i)` over the probes overlapping it, where `theta` is Langmuir occupancy from the duplex ΔG and `p_ns` is `--background-retention`. `--capture-fraction` sets the panel's capture efficiency, not the composition of the output: composition emerges from abundance × efficiency. See [Thermodynamic scoring](../explanation/thermodynamic-scoring.md).
+
 Fragment lengths follow a truncated normal distribution clamped to [min, max]. Fragments are named `{seq_id}_fragment_{n} start={pos} length={len}`.
 
-**Output:** `fragments.fa` — simulated DNA fragments.
+**Outputs:**
+- `fragments.fa` — the retained fragment library
+- `fragments.model_stats.tsv` — probe concentration, yield, on-target fraction, enrichment
+- `fragments.retention.tsv` — per-reference expected capture efficiency
 
 ---
 
@@ -253,7 +264,7 @@ baitbench coverage-curve \
 | `--ct-values 20 25 30` | `--ct 25` | — | CT values (converted to distractor fractions) |
 | `--distractor-fraction-values 0.9 0.99` | `--distractor-fraction 0.9` | 0.9 | Distractor fractions directly |
 | `--hybridization-temperature-values 55 65 70 75` | `--hybridization-temperature 70` | 70 °C | Hybridisation temperature |
-| `--capture-fraction-values 0.3 0.5 0.8` | `--capture-fraction 0.5` | 0.5 | Capture fraction |
+| `--capture-fraction-values 0.3 0.5 0.8` | `--capture-fraction 0.5` | 0.5 | Capture efficiency |
 | `--num-sequences-values 100 500` | `--num-sequences 500` | all | Number of sequences to sample |
 
 `--ct-values` and `--distractor-fraction-values` are mutually exclusive. Sweep and fixed forms of the same parameter are also mutually exclusive.

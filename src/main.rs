@@ -149,8 +149,17 @@ fn resolve_distractor_fraction(
         Some(ct_val) => ct_to_distractor_fraction(ct_val, baseline_ct, baseline_fraction, efficiency),
         None => {
             let df = distractor_fraction.unwrap_or(DEFAULT_DISTRACTOR_FRACTION);
-            if !(0.0..=1.0).contains(&df) {
-                bail!("--distractor-fraction must be in [0, 1], got {}", df);
+            // Half-open: at df = 1.0 the targets have zero weight and the distractor
+            // weight formula divides by (1 - df). Checked here, by flag name, rather
+            // than deep inside `prepare` after the run directory and the combined
+            // reference have already been written.
+            if !(0.0..1.0).contains(&df) {
+                bail!(
+                    "--distractor-fraction must be in [0, 1), got {}. At 1.0 there is \
+                     no target material at all; use a value just below it (0.9999) for \
+                     a near-pure distractor library.",
+                    df
+                );
             }
             Ok(df)
         }
@@ -224,6 +233,9 @@ fn main() -> Result<()> {
             hybridization_temperature,
             salt_concentration,
             capture_fraction,
+            background_retention,
+            probe_concentration,
+            min_overlap_frac,
             minimap_preset,
             host_minimap_preset,
             fragment_length_mean,
@@ -303,6 +315,9 @@ fn main() -> Result<()> {
                 hybridization_temperature,
                 na_conc_m: salt_concentration / 1000.0,
                 capture_fraction,
+                background_retention,
+                probe_concentration,
+                min_overlap_frac,
                 minimap_preset,
                 host_minimap_preset,
                 fragment_length_mean,
@@ -377,6 +392,9 @@ fn main() -> Result<()> {
             probes,
             num_fragments,
             capture_fraction,
+            background_retention,
+            probe_concentration,
+            min_overlap_frac,
             simulate_mode,
             probe_aligner,
             hybridization_temperature,
@@ -398,6 +416,9 @@ fn main() -> Result<()> {
                 probes: &probes,
                 num_fragments,
                 capture_fraction,
+                background_retention,
+                probe_concentration,
+                min_overlap_frac,
                 simulate_mode: sim_mode,
                 aligner: probe_aligner,
                 hybridization_temperature,
@@ -535,6 +556,10 @@ fn main() -> Result<()> {
                 detected: &detected,
                 fragments: &fragments,
                 captured: &captured,
+                // Derived rather than a flag: simulate writes this beside its output,
+                // so a standalone metrics run picks it up when it exists and reports
+                // nothing extra when it does not.
+                model_stats: Some(&fragments.with_extension("model_stats.tsv")),
                 sam: &sam,
                 run_name: &run_name,
                 num_fragments,

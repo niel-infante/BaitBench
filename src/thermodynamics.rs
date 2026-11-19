@@ -10,7 +10,7 @@
 //!
 //! # Design notes
 //!
-//! `boltzmann_score` is used as a relative sampling weight — only ratios between
+//! Occupancy is used as a per-fragment capture probability — only ratios between
 //! scores matter.  Score = 1 (ΔG = 0) is the neutral baseline; > 1 means
 //! favorable binding; < 1 is never produced by this model (see initiation note).
 //!
@@ -95,7 +95,7 @@ const INIT_AT: NnParams = NnParams::new(2.3, 4.1);   // terminal A-T or T-A pair
 /// All thermodynamic model parameters for ΔG calculation.
 ///
 /// Construct with `ThermoModel::new(temp_c, na_conc_m)`.
-/// Both `delta_g()` and `boltzmann_score()` operate via this struct.
+/// Both `delta_g()` and `langmuir_occupancy()` operate via this struct.
 #[derive(Clone, Copy, Debug)]
 pub struct ThermoModel {
     /// Hybridization temperature in °C
@@ -359,22 +359,69 @@ pub fn delta_g(aligned_pairs: &[(u8, u8)], model: &ThermoModel) -> f64 {
     sum_dh - t_k * (sum_ds / 1000.0)
 }
 
-/// Compute the Boltzmann binding score for a probe-reference interaction.
+/// Equilibrium occupancy of a target site by a probe — the fraction of such sites
+/// bound at equilibrium, and therefore the probability that this probe captures a
+/// fragment carrying the site.
 ///
-/// `dg` is the free energy in kcal/mol (from `delta_g()`).
-/// Returns `exp(-ΔG / (R × T))`, clamped to a minimum of 1.0.
+/// Langmuir isotherm for reversible binding P + T ⇌ PT:
 ///
-/// The clamp enforces that probes can only *enrich* fragments relative to
-/// background — never deplete them. Score = 1 is the neutral baseline (no
-/// preferential binding); score > 1 means favorable hybridization. A raw
-/// ΔG > 0 indicates the duplex is thermodynamically too weak to be stable at
-/// the given temperature and salt conditions (e.g. a single stacking step at
-/// high temperature with costly AT initiation), and is treated the same as
-/// no binding.
-pub fn boltzmann_score(dg: f64, model: &ThermoModel) -> f64 {
-    let t_k = model.temp_c + 273.15;
-    (-dg / (R_KCAL * t_k)).exp().max(1.0)
+/// ```text
+///     θ = K / (1 + K),    K = [probe] · exp(−ΔG / RT)
+/// ```
+///
+/// Three properties a raw Boltzmann weight `exp(−ΔG/RT)` cannot provide:
+///
+/// * **Bounded in [0, 1]**, so it is a probability. `exp(−ΔG/RT)` is unbounded —
+///   a perfect 120-mer at 65 °C gives ΔG ≈ −92 kcal/mol and exp(−ΔG/RT) ≈ 1e59 —
+///   which works as a relative weight within one probe's hit list but cannot be a
+///   capture probability.
+/// * **Saturates.** Strong binders approach θ = 1, so capture cannot be manufactured
+///   for a target that has little template present.
+/// * **Concentration-dependent**, via `probe_conc`. This is the quantity the
+///   `--capture-fraction` preset back-solves.
+///
+/// In the weak-binding limit (K ≪ 1), θ ≈ K ∝ exp(−ΔG/RT), so this generalises the
+/// Boltzmann weighting rather than discarding it.
+///
+/// `probe_conc` is in arbitrary units absorbed into K; only its product with
+/// exp(−ΔG/RT) matters, so it acts as a single calibration scalar.
+///
+/// Evaluated in log space as a logistic, because K itself overflows f64 for a
+/// well-matched probe: θ = 1 / (1 + exp(−ln K)).
+pub fn langmuir_occupancy(dg: f64, probe_conc: f64, model: &ThermoModel) -> f64 {
+    if probe_conc <= 0.0 {
+        return 0.0;
+    }
+    occupancy_from_ln_k(probe_conc.ln() + ln_k_unit_conc(dg, model))
 }
+
+/// ln K for a duplex at unit probe concentration: `−ΔG / RT`.
+///
+/// Split out from `langmuir_occupancy` because the capture model stores this per probe
+/// hit rather than ΔG. Concentration enters as an additive `ln [probe]`, so the
+/// `--capture-fraction` solver can sweep concentration over a fixed set of hits without
+/// recomputing any thermodynamics — the expensive part — for each trial value.
+pub fn ln_k_unit_conc(dg: f64, model: &ThermoModel) -> f64 {
+    let t_k = model.temp_c + 273.15;
+    -dg / (R_KCAL * t_k)
+}
+
+/// Langmuir occupancy from `ln K` directly: θ = 1 / (1 + exp(−ln K)).
+///
+/// K itself overflows f64 for a well-matched probe (ΔG ≈ −92 kcal/mol gives K ≈ 1e59),
+/// so θ is evaluated as a logistic in log space. The tails are guarded at ±60, where
+/// the logistic is within 1e-26 of its limit, so no NaN or infinity reaches a
+/// probability.
+pub fn occupancy_from_ln_k(ln_k: f64) -> f64 {
+    if ln_k > 60.0 {
+        1.0
+    } else if ln_k < -60.0 {
+        0.0
+    } else {
+        1.0 / (1.0 + (-ln_k).exp())
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -411,15 +458,22 @@ mod tests {
     }
 
     #[test]
-    fn boltzmann_perfect_match_gt_one() {
+    fn perfect_match_is_a_favourable_saturated_duplex() {
         let pairs: Vec<(u8, u8)> = b"ACGTACGTAC"
             .iter()
             .zip(b"TGCATGCATG".iter())
             .map(|(&p, &r)| (p, r))
             .collect();
         let dg = delta_g(&pairs, &model_1m());
-        let score = boltzmann_score(dg, &model_1m());
-        assert!(score > 1.0, "Boltzmann score for negative ΔG should be > 1, got {}", score);
+        assert!(dg < 0.0, "a perfect 10-mer duplex should be favourable, got {dg}");
+        // Occupancy saturates with enough probe, which is what stops capture scaling
+        // without bound for a good probe. A 10-mer at 70 °C is only marginally stable
+        // (ΔG ≈ −4 kcal/mol — this is above its Tm), so saturation needs a
+        // concentration of order 1; the invariant under test is that θ approaches 1
+        // rather than exceeding it, not the level at which it gets there.
+        let theta = langmuir_occupancy(dg, 1.0, &model_1m());
+        assert!(theta > 0.99, "expected near-saturated occupancy, got {theta}");
+        assert!(theta <= 1.0, "occupancy must stay a probability, got {theta}");
     }
 
     #[test]
@@ -440,20 +494,28 @@ mod tests {
     }
 
     #[test]
-    fn boltzmann_score_never_below_one() {
+    fn weak_duplex_has_occupancy_below_the_midpoint() {
         // A very weak duplex (single AT stacking step, AT terminals, 50 mM Na+) can
         // have ΔG > 0 because initiation + salt correction outweigh stacking energy.
-        // boltzmann_score must clamp to 1.0 — probes can only enrich, not deplete.
+        //
+        // The old `boltzmann_score` clamped such a duplex to the neutral weight 1.0, on
+        // the reasoning that probes can only enrich and never deplete. Occupancy needs
+        // no such clamp: it is bounded in [0, 1] by construction, and an unfavourable
+        // ΔG simply puts θ below the half-occupancy point, so a bad probe contributes
+        // almost nothing to retention instead of looking neutral.
         let pairs: Vec<(u8, u8)> = vec![(b'A', b'T'), (b'A', b'T')]; // single AT stack
         let model = ThermoModel::new(70.0, 0.05);
         let dg = delta_g(&pairs, &model);
         assert!(dg > 0.0, "Expected ΔG > 0 for weak duplex, got {}", dg);
-        let score = boltzmann_score(dg, &model);
-        assert!((score - 1.0).abs() < 1e-9, "Score should be clamped to 1.0, got {}", score);
+        let theta = langmuir_occupancy(dg, 1.0, &model);
+        assert!(
+            theta < 0.5,
+            "an unfavourable duplex must sit below half occupancy, got {theta}"
+        );
     }
 
     #[test]
-    fn isolated_wc_pairs_no_stacking_score_neutral_at_low_salt() {
+    fn isolated_wc_pairs_no_stacking_are_not_a_duplex() {
         // Two isolated WC pairs with a mismatch between them. The mismatch steps now
         // carry published internal-mismatch parameters, so ΔG is no longer exactly
         // zero — but the invariant that matters is unchanged: without a WC|WC step
@@ -472,10 +534,10 @@ mod tests {
             dg_1m > 0.0,
             "isolated WC pairs flanked by a mismatch must not be a stable duplex, got {dg_1m}"
         );
-        let score = boltzmann_score(dg_50mm, &model_50mm());
+        let theta = langmuir_occupancy(dg_50mm, 1.0, &model_50mm());
         assert!(
-            (score - 1.0).abs() < 1e-9,
-            "an unstable duplex must clamp to the neutral score, got {score}"
+            theta < 0.5,
+            "an unstable duplex must not read as a binder, got θ={theta}"
         );
     }
 
@@ -551,6 +613,54 @@ mod tests {
             delta_g(&pairs, &model_50mm()),
             "salt must stay locked without a WC|WC step"
         );
+    }
+
+    /// Occupancy must be a probability, saturate for strong binders, and stay finite
+    /// where the raw Boltzmann factor overflows.
+    #[test]
+    fn langmuir_occupancy_is_a_bounded_probability() {
+        let m = model_50mm();
+        for &dg in &[-200.0, -92.0, -20.0, -5.0, 0.0, 5.0, 50.0] {
+            let t = langmuir_occupancy(dg, 1e-6, &m);
+            assert!((0.0..=1.0).contains(&t), "θ out of range at ΔG={dg}: {t}");
+            assert!(t.is_finite(), "θ not finite at ΔG={dg}");
+        }
+        // A perfect 120-mer overflows exp(-ΔG/RT) in f64; θ must still saturate at 1.
+        assert!((langmuir_occupancy(-92.0, 1e-6, &m) - 1.0).abs() < 1e-9);
+    }
+
+    /// More stable duplex and more probe both increase occupancy, monotonically.
+    #[test]
+    fn langmuir_occupancy_is_monotone() {
+        let m = model_50mm();
+        let a = langmuir_occupancy(-10.0, 1e-9, &m);
+        let b = langmuir_occupancy(-12.0, 1e-9, &m);
+        assert!(b > a, "more stable duplex must raise occupancy: {a} -> {b}");
+
+        let c = langmuir_occupancy(-10.0, 1e-8, &m);
+        assert!(c > a, "more probe must raise occupancy: {a} -> {c}");
+    }
+
+    /// In the weak-binding limit the isotherm reduces to the Boltzmann weighting it
+    /// replaces, so this generalises the existing physics rather than changing it.
+    #[test]
+    fn langmuir_reduces_to_boltzmann_when_binding_is_weak() {
+        let m = model_50mm();
+        let conc = 1e-30; // drives K far below 1
+        let dg = -8.0;
+        let theta = langmuir_occupancy(dg, conc, &m);
+        let t_k = m.temp_c + 273.15;
+        let k = conc * (-dg / (R_KCAL * t_k)).exp();
+        assert!(
+            (theta - k).abs() / k < 1e-6,
+            "weak-binding limit should give θ ≈ K: θ={theta}, K={k}"
+        );
+    }
+
+    /// Zero probe concentration means no capture, not a division by zero.
+    #[test]
+    fn langmuir_occupancy_handles_zero_concentration() {
+        assert_eq!(langmuir_occupancy(-50.0, 0.0, &model_50mm()), 0.0);
     }
 
     #[test]

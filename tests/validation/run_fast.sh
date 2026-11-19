@@ -13,7 +13,9 @@ echo "=============================================================="
 
 rc=0
 echo; echo "--- distractor-fraction sweep (cargo) ---"
-( cd "$HERE/../.." && cargo test --test simulation -- --ignored --nocapture ) || rc=1
+# Not `-- --ignored`: the distractor sweep was un-ignored in Stage 3, and that filter
+# would now select zero tests and report "ok" while testing nothing.
+( cd "$HERE/../.." && cargo test --test simulation -- --nocapture ) || rc=1
 
 echo; echo "--- D6331 mock community ---"
 bash "$HERE/simval/run.sh" || rc=1

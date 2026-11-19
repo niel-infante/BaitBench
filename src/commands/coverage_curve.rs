@@ -10,6 +10,7 @@ use crate::cli::ReportMode;
 use crate::commands::{filter, map_reads, prepare, sequence, simulate};
 use crate::commands::report::{substitute_rmd_params, rmd_output_path};
 use crate::external::{minimap2, rscript};
+use crate::sampling::thermo_sim;
 use crate::fasta;
 use crate::io_utils;
 use crate::io_utils::prefixed_join;
@@ -84,6 +85,16 @@ struct ProbeAln {
 }
 
 /// Build a directory name for a parameter combo, using only swept params.
+/// Format a swept parameter for a directory name.
+///
+/// f64's shortest round-trip `Display`, not a fixed precision. `{:.2}` maps 0.123 and
+/// 0.124 to the same string and `{:.0}` maps 70.1 and 70.4 to "70"; since simulate
+/// output is cached by directory and results are written per directory, two distinct
+/// sweep points would silently share one set of fragments and one result (D12).
+fn fmt_param(v: f64) -> String {
+    format!("{}", v)
+}
+
 fn combo_dir_name(
     ct: f64,
     temp: f64,
@@ -99,13 +110,14 @@ fn combo_dir_name(
         parts.push(format!("ct_{}", ct));
     }
     if swept.contains(&"distractor_fraction".to_string()) {
-        parts.push(format!("df_{:.2}", ct));
+        // `ct` carries the distractor fraction when that is what is being swept.
+        parts.push(format!("df_{}", fmt_param(ct)));
     }
     if swept.contains(&"hybridization_temperature".to_string()) {
-        parts.push(format!("temp_{:.0}", temp));
+        parts.push(format!("temp_{}", fmt_param(temp)));
     }
     if swept.contains(&"capture_fraction".to_string()) {
-        parts.push(format!("cf_{:.2}", cf));
+        parts.push(format!("cf_{}", fmt_param(cf)));
     }
     if swept.contains(&"num_sequences".to_string()) {
         parts.push(format!(
@@ -298,10 +310,18 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
         for &temp in &args.temp_values {
         // Inner loop: capture-fraction values (affects simulate)
         for &cf in &args.cf_values {
+            // Must name every parameter that changes simulate's output, at full
+            // precision: the step below reuses this directory's fragments if they
+            // already exist (D12). CT and distractor fraction are already separated by
+            // `prep_dir`, which holds the weights they determine.
             let sim_dir = if args.temp_values.len() > 1 {
-                prep_dir.join(format!("_sim_temp_{:.0}_cf_{:.2}", temp, cf))
+                prep_dir.join(format!(
+                    "_sim_temp_{}_cf_{}",
+                    fmt_param(temp),
+                    fmt_param(cf)
+                ))
             } else {
-                prep_dir.join(format!("_sim_cf_{:.2}", cf))
+                prep_dir.join(format!("_sim_cf_{}", fmt_param(cf)))
             };
             fs::create_dir_all(&sim_dir)?;
 
@@ -596,6 +616,10 @@ fn run_simulate(
         probes: args.probes,
         num_fragments: args.num_fragments,
         capture_fraction,
+        // Not swept: the sweep varies capture_fraction, which is the preset over these.
+        background_retention: thermo_sim::DEFAULT_BACKGROUND_RETENTION,
+        probe_concentration: None,
+        min_overlap_frac: thermo_sim::DEFAULT_MIN_OVERLAP_FRAC,
         simulate_mode: args.simulate_mode,
         aligner: args.probe_aligner,
         hybridization_temperature,

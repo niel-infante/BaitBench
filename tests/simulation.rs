@@ -1,12 +1,12 @@
 //! Integration tests for the fragment simulation.
 //!
-//! Two of these are expected to FAIL against the pre-rework model; they are the
-//! regressions the simulation rework must turn green (see the plan's Stage 0):
+//! Two of these were written against the pre-rework model and failed by design; both
+//! are now green (see the plan's Stages 0-3):
 //!
-//! * `same_seed_is_reproducible` — defect D6. HashMap iteration order leaks into
-//!   sampling, so `--seed` is not reproducible between processes.
+//! * `same_seed_is_reproducible` — defect D6. HashMap iteration order leaked into
+//!   sampling, so `--seed` was not reproducible between processes. Fixed in Stage 1.
 //! * `distractor_fraction_is_honoured` — reviewer item 6. The realized distractor
-//!   fraction saturates at `1 - capture_fraction`.
+//!   fraction saturated at `1 - capture_fraction`. Fixed in Stage 3.
 
 mod common;
 
@@ -53,12 +53,29 @@ fn same_seed_is_reproducible() {
 /// Requesting more distractor must actually deliver more distractor, across the whole
 /// range — not saturate once `distractor_fraction` exceeds `1 - capture_fraction`.
 ///
-/// KNOWN FAILING (reviewer item 6). Un-ignore in Stage 3.
-/// Run with: `cargo test --test simulation -- --ignored`
+/// This is reviewer item 6. `--distractor-fraction` sets the *input* library
+/// composition, so the realized output fraction is not expected to equal it at moderate
+/// values — capture enriches the targets, which is the point. What was wrong is that
+/// the realized fraction could not exceed `1 - capture_fraction` no matter how extreme
+/// the input, so the parameter went silently inert over half its range.
+///
+/// Measured under the retention model (capture_fraction 0.5, background_retention
+/// 1e-3, so roughly 500x enrichment):
+///
+/// ```text
+///     requested 0.1000 -> realized 0.00000
+///     requested 0.5000 -> realized 0.00125
+///     requested 0.9000 -> realized 0.01700
+///     requested 0.9900 -> realized 0.16700
+///     requested 0.9990 -> realized 0.66775
+///     requested 0.9999 -> realized 0.95500
+/// ```
+///
+/// Against the quota model the same sweep gave 0.043 / 0.242 / 0.450 / 0.495 / 0.495 /
+/// 0.495 — compressed into half the range and pinned at the ceiling.
 #[test]
-#[ignore = "reviewer item 6: realized distractor fraction saturates at 1 - capture_fraction; fixed in Stage 3"]
 fn distractor_fraction_is_honoured() {
-    let fractions = [0.1, 0.5, 0.9, 0.99];
+    let fractions = [0.1, 0.5, 0.9, 0.99, 0.999, 0.9999];
     let mut realized = Vec::new();
 
     for &df in &fractions {
@@ -71,8 +88,10 @@ fn distractor_fraction_is_honoured() {
     let report: Vec<String> = fractions
         .iter()
         .zip(&realized)
-        .map(|(req, got)| format!("requested {req:.3} -> realized {got:.3}"))
+        .map(|(req, got)| format!("requested {req:.4} -> realized {got:.5}"))
         .collect();
+
+    eprintln!("distractor titration:\n  {}", report.join("\n  "));
 
     // Strictly increasing: each step up in request must raise the realized fraction.
     for i in 1..realized.len() {
@@ -83,11 +102,25 @@ fn distractor_fraction_is_honoured() {
         );
     }
 
-    // And the top of the range must actually get close to what was asked for.
+    // The ceiling is the actual regression: the quota model could not put more than
+    // `1 - capture_fraction` of the output into distractors whatever the input was.
+    let capture_fraction = 0.5;
+    let ceiling = 1.0 - capture_fraction;
+    let got_top = realized[realized.len() - 1];
+    assert!(
+        got_top > ceiling,
+        "realized distractor fraction never exceeded the old 1 - capture_fraction \
+         ceiling of {ceiling:.3} (best {got_top:.3}), so the parameter is still inert \
+         over the top half of its range\n  {}",
+        report.join("\n  ")
+    );
+
+    // And at an input that is almost entirely distractor, the output must be too:
+    // enrichment is finite, so it cannot rescue a target present at 1 in 10,000.
     let (req_top, got_top) = (fractions[fractions.len() - 1], realized[realized.len() - 1]);
     assert!(
         (got_top - req_top).abs() < 0.1,
-        "at --distractor-fraction {req_top:.3} the realized fraction was {got_top:.3}\n  {}",
+        "at --distractor-fraction {req_top:.4} the realized fraction was {got_top:.3}\n  {}",
         report.join("\n  ")
     );
 }

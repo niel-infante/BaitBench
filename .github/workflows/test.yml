@@ -49,10 +49,3 @@ jobs:
 
       - name: Unit and integration tests
         run: cargo test --all-targets
-
-      # Regressions the simulation rework must turn green. They are #[ignore]d so the
-      # suite stays green meanwhile; this step reports progress without failing CI.
-      # Remove continue-on-error as each one is fixed.
-      - name: Known-failing simulation regressions (informational)
-        run: cargo test --test simulation -- --ignored
-        continue-on-error: true

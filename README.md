@@ -250,9 +250,10 @@ baitbench assess-probes \
 | `--ct-efficiency` | 1.0 | PCR amplification efficiency (0–1); used with `--ct` |
 | `--ct-calibration` | -- | Two "CT,fraction" reference points to derive efficiency automatically; replaces `--ct-baseline*` |
 | `--distractor-fraction` | 0.9 | Fraction of fragments from distractors |
-| `--simulate-mode` | thermodynamic | `thermodynamic` (TNN Boltzmann weighting) or `simple` (uniform probe-site weights) |
+| `--simulate-mode` | thermodynamic | `thermodynamic` (occupancy from TNN ΔG) or `simple` (one shared occupancy per placed probe) |
 | `--hybridization-temperature` | 70.0 | Hybridization temperature in °C (thermodynamic mode only) |
-| `--capture-fraction` | 0.5 | Fraction of fragments from probe binding sites (vs. background) |
+| `--capture-fraction` | 0.5 | Capture efficiency: of fragments carrying a probe's site, the fraction pulled down. Output composition emerges from abundance × efficiency rather than being set here. |
+| `--background-retention` | 0.001 | Probability a fragment overlapping no probe is retained anyway; sets how much enrichment capture achieves |
 | `--seed` | random | Random seed for reproducibility |
 | `--outdir` | ./results | Output directory |
 | `--output-prefix` | (empty) | String prepended to every auto-generated output filename |

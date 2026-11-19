@@ -13,8 +13,17 @@ pub struct SimulateArgs<'a> {
     pub weights: &'a Path,
     pub probes: &'a Path,
     pub num_fragments: usize,
-    /// Fraction of fragments from probe binding sites (0.0–1.0)
+    /// Capture efficiency (0.0–1.0): of the fragments carrying enough of a probe's
+    /// site, the fraction the probes pull down. A preset — the probe concentration
+    /// achieving it is back-solved, unless `probe_concentration` overrides it. Not an
+    /// output composition target; see `solve_probe_concentration`.
     pub capture_fraction: f64,
+    /// Probability a fragment overlapping no probe is retained anyway.
+    pub background_retention: f64,
+    /// Physical probe concentration, bypassing the `capture_fraction` solver.
+    pub probe_concentration: Option<f64>,
+    /// Fraction of a probe's site a fragment must carry to be captured by it.
+    pub min_overlap_frac: f64,
     pub simulate_mode: SimulateMode,
     /// Hybridization temperature in °C (thermodynamic mode only)
     pub hybridization_temperature: f64,
@@ -175,19 +184,55 @@ pub fn execute(args: &SimulateArgs) -> Result<()> {
         }
     }
 
-    // --- Step 3: Sample fragments ---
+    // --- Step 3: Build the retention model ---
+    //
+    // One probability per fragment, p_retain = 1 - (1 - p_ns) * prod_i (1 - theta_i),
+    // integrated exactly over each reference because it is piecewise constant in
+    // position. Composition emerges from abundance x efficiency instead of being
+    // imposed as a quota, which is what makes a dilution series titrate and what keeps
+    // --distractor-fraction meaningful above 0.5.
     let capture_fraction = args.capture_fraction.clamp(0.0, 1.0);
-    let n_capture = (args.num_fragments as f64 * capture_fraction).round() as usize;
-    let n_background = args.num_fragments.saturating_sub(n_capture);
+    let by_seq = thermo_sim::group_hits_by_sequence(&hits_by_probe);
 
+    let mut params = thermo_sim::RetentionParams {
+        probe_concentration: 0.0,
+        background_retention: args.background_retention,
+        min_overlap_frac: args.min_overlap_frac,
+        frag_len: (args.fragment_length_mean.round() as usize).max(1),
+    };
+
+    params.probe_concentration = match args.probe_concentration {
+        Some(c) => {
+            log::info!("Probe concentration set directly: {:.4e}", c);
+            c
+        }
+        None => {
+            log::info!(
+                "Solving probe concentration for capture efficiency {:.4}...",
+                capture_fraction
+            );
+            thermo_sim::solve_probe_concentration(
+                &sequences,
+                &by_seq,
+                &params,
+                &thermo_model,
+                capture_fraction,
+            )
+        }
+    };
+
+    let profiles = thermo_sim::build_profiles(&sequences, &wts, &by_seq, &params, &thermo_model);
+    let stats = thermo_sim::retention_stats(&profiles, &wts);
     log::info!(
-        "Sampling {} capture fragments (capture_fraction={:.2}) + {} background fragments",
-        n_capture,
-        capture_fraction,
-        n_background
+        "Capture model: [probe]={:.4e}, background_retention={:.2e} \u{2192} \
+         on-target {:.2}%, yield {:.4}%, enrichment {:.1}x over {} references",
+        params.probe_concentration,
+        params.background_retention,
+        100.0 * stats.on_target_fraction,
+        100.0 * stats.yield_fraction,
+        stats.enrichment,
+        stats.n_references
     );
-
-    let mut all_fragments: Vec<(String, String)> = Vec::with_capacity(args.num_fragments);
 
     let len_params = FragmentLengthParams {
         mean: args.fragment_length_mean,
@@ -195,31 +240,39 @@ pub fn execute(args: &SimulateArgs) -> Result<()> {
         max: args.fragment_length_max,
     };
 
-    if n_capture > 0 {
-        let capture_frags = thermo_sim::sample_capture_fragments(
-            &hits_by_probe,
-            &sequences,
-            n_capture,
-            len_params,
-            args.seed,
-            0,
-        )?;
-        log::info!("Generated {} capture fragments", capture_frags.len());
-        all_fragments.extend(capture_frags);
+    // The model's own account of the capture reaction, for metrics to report. These
+    // are analytic expectations, not counts: under per-fragment retention every
+    // fragment written was retained, so counting the output cannot recover the yield.
+    let stats_path = args.output.with_extension("model_stats.tsv");
+    {
+        use std::io::Write as _;
+        let mut f = std::fs::File::create(&stats_path)?;
+        writeln!(f, "parameter\tvalue")?;
+        writeln!(f, "probe_concentration\t{:.6e}", params.probe_concentration)?;
+        writeln!(f, "background_retention\t{:.6e}", params.background_retention)?;
+        writeln!(f, "capture_efficiency_target\t{:.6}", capture_fraction)?;
+        writeln!(f, "yield_fraction\t{:.8}", stats.yield_fraction)?;
+        writeln!(f, "on_target_fraction\t{:.6}", stats.on_target_fraction)?;
+        writeln!(f, "enrichment\t{:.4}", stats.enrichment)?;
     }
 
-    if n_background > 0 {
-        let background_frags = thermo_sim::sample_background_fragments(
-            &sequences,
-            &wts,
-            n_background,
-            len_params,
-            args.seed,
-            all_fragments.len(),
-        )?;
-        log::info!("Generated {} background fragments", background_frags.len());
-        all_fragments.extend(background_frags);
-    }
+    // The model's own expectation, per reference, before sampling noise. Per-locus
+    // efficiency is what the Borrelia LOD data constrains, and it is invisible in the
+    // aggregate on-target fraction.
+    let retention_report = args.output.with_extension("retention.tsv");
+    thermo_sim::write_retention_report(&profiles, &wts, &retention_report)?;
+    log::info!("Wrote per-reference retention report to {}", retention_report.display());
+
+    log::info!("Sampling {} fragments by retention...", args.num_fragments);
+    let all_fragments = thermo_sim::sample_retention_fragments(
+        &profiles,
+        &sequences,
+        &wts,
+        args.num_fragments,
+        len_params,
+        args.seed,
+        0,
+    )?;
 
     // --- Step 4: Write output ---
     log::info!("Writing {} fragments to {}", all_fragments.len(), args.output.display());

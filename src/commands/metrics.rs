@@ -26,6 +26,10 @@ pub struct MetricsArgs<'a> {
     pub detected: &'a Path,
     pub fragments: &'a Path,
     pub captured: &'a Path,
+    /// `model_stats.tsv` from `simulate`, if available: the capture model's analytic
+    /// yield, on-target fraction and enrichment. Counting the output cannot recover
+    /// these, because every fragment written was already retained.
+    pub model_stats: Option<&'a Path>,
     pub sam: &'a Path,
     pub run_name: &'a str,
     pub num_fragments: usize,
@@ -212,6 +216,22 @@ pub fn execute(args: &MetricsArgs) -> Result<()> {
     log::info!("  Fragments captured: {}", fragments_captured);
     log::info!("  Capture rate: {:.4}", capture_rate);
 
+    // The capture model's analytic expectations. `capture_rate` above is 1.0 by
+    // construction under per-fragment retention — fragments.fa *is* the retained
+    // library — so these are the numbers that describe what capture did.
+    let model = match args.model_stats {
+        Some(p) => parse_model_stats(p).unwrap_or(None),
+        None => None,
+    };
+    if let Some(m) = &model {
+        log::info!(
+            "  Capture model: yield {:.4}%, on-target {:.2}%, enrichment {:.1}x",
+            100.0 * m.yield_fraction,
+            100.0 * m.on_target_fraction,
+            m.enrichment
+        );
+    }
+
     // Per-reference fragment counts (for detail table)
     let generated_per_ref = count_per_source(args.fragments)?;
     let captured_per_ref = count_per_source(args.captured)?;
@@ -318,6 +338,7 @@ pub fn execute(args: &MetricsArgs) -> Result<()> {
         fragments_generated,
         fragments_captured,
         capture_rate,
+        model.as_ref(),
         &metrics,
         &read_level,
         args.reads_sequenced,
@@ -366,6 +387,7 @@ pub fn execute(args: &MetricsArgs) -> Result<()> {
             fragments_generated,
             fragments_captured,
             capture_rate,
+            model.as_ref(),
             &metrics,
             &read_level,
             detail_rows,
@@ -738,6 +760,55 @@ fn calculate_metrics(
     }
 }
 
+/// The capture model's analytic account of the reaction, as written by `simulate`.
+#[derive(Debug, Clone, Serialize)]
+pub struct ModelStats {
+    pub probe_concentration: f64,
+    pub background_retention: f64,
+    pub capture_efficiency_target: f64,
+    pub yield_fraction: f64,
+    pub on_target_fraction: f64,
+    pub enrichment: f64,
+}
+
+/// Parse `model_stats.tsv`. A missing or malformed file yields `None` rather than an
+/// error: these are reporting extras, and `metrics` must still run on output from an
+/// older simulate, or when the user ran the steps separately.
+fn parse_model_stats(path: &Path) -> Result<Option<ModelStats>> {
+    if !path.exists() {
+        return Ok(None);
+    }
+    let text = std::fs::read_to_string(path)?;
+    let mut map: HashMap<String, f64> = HashMap::new();
+    for line in text.lines().skip(1) {
+        let mut parts = line.split('\t');
+        if let (Some(k), Some(v)) = (parts.next(), parts.next()) {
+            if let Ok(f) = v.trim().parse::<f64>() {
+                map.insert(k.trim().to_string(), f);
+            }
+        }
+    }
+    let get = |k: &str| map.get(k).copied();
+    match (
+        get("probe_concentration"),
+        get("background_retention"),
+        get("capture_efficiency_target"),
+        get("yield_fraction"),
+        get("on_target_fraction"),
+        get("enrichment"),
+    ) {
+        (Some(pc), Some(br), Some(ce), Some(yf), Some(ot), Some(en)) => Ok(Some(ModelStats {
+            probe_concentration: pc,
+            background_retention: br,
+            capture_efficiency_target: ce,
+            yield_fraction: yf,
+            on_target_fraction: ot,
+            enrichment: en,
+        })),
+        _ => Ok(None),
+    }
+}
+
 fn write_summary_tsv(
     path: &Path,
     run_name: &str,
@@ -747,6 +818,7 @@ fn write_summary_tsv(
     fragments_generated: usize,
     fragments_captured: usize,
     capture_rate: f64,
+    model: Option<&ModelStats>,
     metrics: &MetricsResult,
     read_level: &ReadLevelMetrics,
     reads_sequenced: Option<usize>,
@@ -771,6 +843,9 @@ fn write_summary_tsv(
         "tn_target_count", "tn_distractor_count", "tn_total",
         "sensitivity", "specificity", "precision", "f1_score",
         "reads_sequenced", "reads_after_filter", "reads_mapped", "reads_unmapped",
+        "model_probe_concentration", "model_background_retention",
+        "model_capture_efficiency", "model_yield_fraction",
+        "model_on_target_fraction", "model_enrichment",
     ];
     writeln!(w, "{}", headers.join("\t"))?;
 
@@ -795,7 +870,21 @@ fn write_summary_tsv(
         reads_sequenced.unwrap_or(0), reads_after_filter.unwrap_or(0),
         reads_mapped, reads_unmapped,
     );
-    writeln!(w, "{}", values)?;
+    // Empty rather than zero when simulate did not report: a yield of 0 and an unknown
+    // yield are different claims.
+    let model_cols = match model {
+        Some(m) => format!(
+            "\t{:.6e}\t{:.6e}\t{:.6}\t{:.8}\t{:.6}\t{:.4}",
+            m.probe_concentration,
+            m.background_retention,
+            m.capture_efficiency_target,
+            m.yield_fraction,
+            m.on_target_fraction,
+            m.enrichment
+        ),
+        None => "\t\t\t\t\t\t".to_string(),
+    };
+    writeln!(w, "{}{}", values, model_cols)?;
 
     w.flush()?;
     Ok(())
@@ -979,7 +1068,12 @@ struct RunInfo {
 struct CaptureStats {
     fragments_generated: usize,
     fragments_captured: usize,
+    /// 1.0 by construction under per-fragment retention: `fragments.fa` is already the
+    /// retained library. See `capture_model` for what capture actually did.
     capture_rate: f64,
+    /// The capture model's analytic account, absent if `simulate` did not report it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    capture_model: Option<ModelStats>,
     sample_generated: usize,
     nonsample_target_generated: usize,
     distractor_generated: usize,
@@ -1175,6 +1269,7 @@ fn write_json(
     fragments_generated: usize,
     fragments_captured: usize,
     capture_rate: f64,
+    model: Option<&ModelStats>,
     metrics: &MetricsResult,
     read_level: &ReadLevelMetrics,
     detail_rows: Vec<DetailRow>,
@@ -1194,6 +1289,7 @@ fn write_json(
             fragments_generated,
             fragments_captured,
             capture_rate,
+            capture_model: model.cloned(),
             sample_generated: read_level.sample_generated,
             nonsample_target_generated: read_level.nonsample_target_generated,
             distractor_generated: read_level.distractor_generated,

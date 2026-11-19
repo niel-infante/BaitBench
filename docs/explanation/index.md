@@ -10,6 +10,6 @@ Explanation is understanding-oriented: it covers the "why" and "how it works" be
 | [Pipeline Overview](pipeline-overview.md) | The 8-step simulation pipeline, data flow, and intermediate files |
 | [Simulation Modes](simulation-modes.md) | Standard vs genome mode: differences, use cases, and weight generation |
 | [Metrics and Classification](metrics-and-classification.md) | The 3-way classification system and how sensitivity, specificity, and F1 are computed |
-| [Thermodynamic Scoring](thermodynamic-scoring.md) | The SantaLucia nearest-neighbor model, Boltzmann weighting, and salt correction |
+| [Thermodynamic Scoring](thermodynamic-scoring.md) | The SantaLucia nearest-neighbor model, Langmuir occupancy, per-fragment retention, and salt correction |
 | [CT Scores](ct-scores.md) | How CT values map to distractor fractions, PCR efficiency, and calibration |
 | [Low-Complexity Filtering](low-complexity-filtering.md) | How sDUST scores sequence complexity, how the three parameters interact, and how to choose cutoffs |

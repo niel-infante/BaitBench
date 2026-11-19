@@ -42,6 +42,12 @@ VALIDATION_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 EXPECTED_DIR="$VALIDATION_DIR/expected"
 : "${VALIDATION_OUT:=${TMPDIR:-/tmp}/baitbench_validation}"
 
+# Probe placement dominates runtime and scales close to linearly, but baitbench
+# defaults to --threads 1. Without this the full gate runs ~6x slower than the machine
+# allows (measured 215s -> 35s at 10 threads on the MTEC panel).
+: "${THREADS:=$( (command -v nproc >/dev/null && nproc) || sysctl -n hw.ncpu 2>/dev/null || echo 1 )}"
+export THREADS
+
 # Fast mode keeps the inner loop to minutes; full mode is the release gate.
 if [[ "${VALIDATION_MODE:-fast}" == "fast" ]]; then
     LOD_CONDITIONS="NTC s1E3 Pos1"
@@ -53,3 +59,11 @@ else
     NUM_FRAGMENTS=150000
 fi
 export LOD_CONDITIONS SIMVAL_RUNS NUM_FRAGMENTS
+
+# compare.py and locus_efficiency.py read these from the environment, so they must be
+# exported, not just set: a child process does not inherit plain shell variables.
+export CROSSLAB LOD_DIR LOD_COUNTS LOD_COVERAGE LOD_TARGETS_BED LOD_PROBES_BLAST
+export MTEC_PROBES MTEC_TARGETS REF_4PATH REF_ISCAP LOD_SIM_INPUTS
+export SIMVAL_DIR SIMVAL_GENOMES SIMVAL_GROUPS SIMVAL_SAMPLE SIMVAL_REAL
+export PANELS D6331_COMPOSITION
+export BB VALIDATION_DIR EXPECTED_DIR VALIDATION_OUT

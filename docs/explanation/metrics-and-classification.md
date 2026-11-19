@@ -51,11 +51,18 @@ Read-level metrics track how individual reads behave:
 
 | Metric | What it counts |
 |--------|----------------|
-| `sample_captured` | Fragments from sample targets that passed the capture filter |
-| `nonsample_target_captured` | Fragments from non-sample targets (should be 0 — they have weight 0) |
-| `distractor_captured` | Fragments from distractor sequences that passed the capture filter |
+| `sample_captured` | Retained fragments originating from sample targets |
+| `nonsample_target_captured` | Retained fragments from non-sample targets (should be 0 — they have weight 0) |
+| `distractor_captured` | Retained fragments from distractor sequences |
 | `reads_correctly_mapped` | Reads that mapped back to their source reference |
 | `reads_incorrectly_mapped` | Reads that mapped to a different reference |
+
+Under the retention model `fragments.fa` is already the post-capture library, so the
+`*_captured` counts equal the corresponding `*_generated` counts and `capture_rate` is
+1.0 by construction. What capture actually did is reported analytically instead, in the
+`model_yield_fraction`, `model_on_target_fraction` and `model_enrichment` columns —
+these are expectations computed from the model, since counting an already-filtered
+library cannot recover the fraction that was filtered out.
 
 `reads_incorrectly_mapped` is a sensitive indicator of cross-mapping: even when genome-level metrics show all TP and no FP, a panel may have high cross-mapping, where reads from virus A map to virus B. This doesn't affect genome-level detection (since both A and B may still be correctly detected) but indicates the panel cannot quantify individual strain abundances reliably.
 

@@ -18,7 +18,8 @@ targets.fa + distractors.fa + probes.fa [+ sample.tsv]
          ↓
    baitbench prepare   (combine, generate weights, write sample.txt)
          ↓
-   baitbench simulate  (probes→ref align + TNN scoring + multinomial sampling → fragments.fa)
+   baitbench simulate  (probes→ref align + TNN ΔG → Langmuir occupancy → per-fragment
+                         retention sampling → fragments.fa + model_stats + retention.tsv)
          ↓
    baitbench sequence  (optional sampling + trim to read length → reads.fa / reads.fq)
          ↓
@@ -41,7 +42,7 @@ genomes.fa + targets.fa + distractors.fa [+ sample.tsv] [+ mapping.tsv]
                          mapping_reference.fa [targets+distractors],
                          genomes.txt, sample_target_map.txt, weights)
          ↓
-   baitbench simulate  (probe-biased fragments from combined_reference.fa, TNN-scored)
+   baitbench simulate  (per-fragment retention from combined_reference.fa, TNN-scored)
          ↓
    baitbench sequence  (optional sampling + trim to read length → reads.fa / reads.fq)
          ↓
@@ -83,9 +84,9 @@ genomes.fa + targets.fa + distractors.fa [+ sample.tsv] [+ mapping.tsv]
 | `src/cli.rs` | Subcommand and argument definitions |
 | `src/commands/run.rs` | Full pipeline orchestrator |
 | `src/commands/prepare.rs` | Combines references, generates weights, writes ID lists; genome mode: two references + sample-target-map |
-| `src/thermodynamics.rs` | SantaLucia (1998) nearest-neighbor TNN model: `ThermoModel` struct (temp_c, na_conc_m), `delta_g()` (stacking + initiation terms + Owczarzy salt correction), `boltzmann_score()` |
-| `src/commands/simulate.rs` | Thermodynamic/simple probe-biased fragment simulation (replaces simulate+capture+enrich). `--probe-aligner {seed-extend,minimap2,blast}` selects how probes are placed on the reference before scoring. Default `seed-extend` is a built-in ungapped **local** seed-and-extend (`src/alignment/seed_extend.rs`) that reports partial placements — probe binding is local, and read mappers discard partial matches. On a divergent panel it places 77/228 probes vs blast 74 and minimap2 21, while being ~85x faster than blast. Not a BLAST reimplementation (no gapped extension, E-values, scoring matrices or masking). Reports the fraction of probes placed. |
-| `src/sampling/thermo_sim.rs` | ProbeHit, SimulateMode, load_probe_hits, sample_capture_fragments, sample_background_fragments, write_fragments |
+| `src/thermodynamics.rs` | SantaLucia (1998) nearest-neighbor TNN model: `ThermoModel` struct (temp_c, na_conc_m), `delta_g()` (stacking + internal-mismatch params + initiation terms + Owczarzy salt correction), `langmuir_occupancy()` / `ln_k_unit_conc()` / `occupancy_from_ln_k()` |
+| `src/commands/simulate.rs` | Probe-biased fragment simulation by per-fragment retention; back-solves probe concentration from `--capture-fraction`, writes `fragments.model_stats.tsv` and `fragments.retention.tsv`. `--probe-aligner {seed-extend,minimap2,blast}` selects how probes are placed on the reference before scoring. Default `seed-extend` is a built-in ungapped **local** seed-and-extend (`src/alignment/seed_extend.rs`) that reports partial placements — probe binding is local, and read mappers discard partial matches. On a divergent panel it places 77/228 probes vs blast 74 and minimap2 21, while being ~85x faster than blast. Not a BLAST reimplementation (no gapped extension, E-values, scoring matrices or masking). Reports the fraction of probes placed. |
+| `src/sampling/thermo_sim.rs` | ProbeHit (carries ΔG), SimulateMode, load_probe_hits / _blast / probe_hits_seed_extend, the retention model (sweep_retention, build_retention_profile, build_profiles, capture_efficiency_at, solve_probe_concentration, retention_stats, sample_retention_fragments), write_retention_report, write_fragments |
 | `src/commands/sequence.rs` | Simulate sequencing: dispatches `ReadSimulator` enum (perfect/art/badread); `art_modern.rs` handles read renaming via SAM RNAME field; `badread.rs` via the `{ref_name},{start}-{end}` field in read descriptions; `check_reads_generated()` bails if a simulator produces 0 reads from non-empty input instead of silently passing an empty file downstream (art_modern's `--parallel` default of "all CPUs" divides `--coverage-depth` across threads/strands and can drop short-fragment output to 0 — BaitBench pins `--parallel` to `--threads` to avoid this by default) |
 | `src/commands/filter.rs` | Optional host read filtering |
 | `src/commands/map_reads.rs` | Map reads back to reference |
@@ -165,6 +166,40 @@ Read source is extracted from the fragment name pattern `{seq_id}_fragment_{n}` 
 - Non-sample genomes: weight = 0.0 (untargeted genomes not in sample also get 0)
 - Distractors: same formula as standard mode
 - Weights are assigned to genome IDs + distractor IDs (not target IDs)
+
+### Capture Model
+
+Fragments are selected by **per-fragment retention**, not by a quota:
+
+```
+p_retain(f) = 1 − (1 − p_ns) · Π_i (1 − θ_i)
+```
+
+over the probes `i` overlapping fragment `f`, where `θ_i = K/(1+K)` is Langmuir
+occupancy (`K = [probe]·exp(−ΔG/RT)`) and `p_ns` is `--background-retention`.
+
+`p_retain` is piecewise constant in position, so each reference's profile is integrated
+exactly into a **retention mass** `M = Σ p_retain`, and sampling is two-stage: reference
+∝ `weight × M`, then position ∝ `p_retain`. Every draw is a keeper — no rejection loop,
+which matters because a realistic library is >99.99% off-target. Capture and carryover
+fragments are interleaved by construction.
+
+**`--capture-fraction` is capture *efficiency*, not output composition.** It sets the
+fraction of fragments carrying a probe's site that the probes pull down; BaitBench
+back-solves the probe concentration achieving it (bisection on `ln [probe]`). It is
+deliberately independent of library composition, so output composition emerges from
+abundance × efficiency. This is what makes a dilution series titrate and keeps
+`--distractor-fraction` meaningful above 0.5 (reviewer item 6 — the old quota model
+capped the realized distractor fraction at `1 − capture_fraction`).
+
+Realized yield, on-target fraction and enrichment are computed analytically and written
+to `fragments.model_stats.tsv`; per-reference efficiency goes to
+`fragments.retention.tsv`. `capture_rate` in `results.tsv` is 1.0 by construction —
+`fragments.fa` is already the retained library — so use the `model_*` columns.
+
+In `--simulate-mode simple`, every placed probe gets the same occupancy (`SIMPLE_DG = 0`),
+so probe density still matters but ΔG and temperature do not. It is the null model
+against which thermodynamic discrimination is measured.
 
 ### CT Score Support
 
@@ -335,13 +370,13 @@ cat test_results_genomes/*/detected_detail.tsv
 
 **Adding a new figure**: Add to `R/report.Rmd` or create a new R script in `R/`.
 
-**Changing capture parameters**: Pass via CLI flags (e.g., `--max-mismatches`, `--min-match-bases`).
+**Changing capture parameters**: The capture reaction is set by `--capture-fraction` (capture efficiency, back-solved to a probe concentration), `--background-retention` (non-specific carryover), `--hybridization-temperature` and `--salt-concentration` (both feed ΔG). `--probe-concentration` and `--min-overlap-frac` are hidden advanced overrides. See the Capture Model section above.
 
 **Adding a new subcommand**: Add to `src/cli.rs` (clap definition), create `src/commands/new_cmd.rs`, wire into `main.rs`.
 
 **Adding a new CLI flag (GUI)**: Add the corresponding input field in `gui/src/lib/views/RunView.svelte` — either in the main form or inside the `<AdvancedOptions>` block. The Rust GUI backend passes all args through as plain strings via a `HashMap<String, String>`, so no Rust changes to the GUI are needed. See the GUI section below for the full architecture.
 
-**Modifying fragment generation**: Edit `src/sampling/thermo_sim.rs`.
+**Modifying fragment generation**: Edit `src/sampling/thermo_sim.rs`. The window arithmetic lives in `sweep_retention`, which both the profile builder and the concentration solver share — change it in one place.
 
 **Modifying sequencing**: Edit `src/commands/sequence.rs`. To add a new simulator: add a variant to `ReadSimulator` in `sequence.rs`, create a wrapper in `src/external/`, add profiles to `badread.rs` if needed, update `from_str()` and `execute()` dispatch, then add the new flag default in `main.rs`'s `Commands::Run` profile resolver.
 

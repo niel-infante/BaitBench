@@ -110,7 +110,8 @@ pub enum Commands {
         #[arg(short, long)]
         seed: Option<u64>,
 
-        /// Simulation mode: thermodynamic (TNN Boltzmann weighting) or simple (uniform probe-site weights)
+        /// Simulation mode: thermodynamic (per-site occupancy from TNN ΔG) or simple
+        /// (one shared occupancy for every placed probe, no temperature dependency)
         #[arg(long, default_value = "thermodynamic")]
         simulate_mode: SimulateMode,
 
@@ -132,10 +133,36 @@ pub enum Commands {
         #[arg(long, default_value = "50.0", hide = true)]
         salt_concentration: f64,
 
-        /// Fraction of fragments derived from probe binding sites (0.0–1.0).
-        /// The remaining fraction are background fragments sampled uniformly by sequence weight.
+        /// Capture efficiency (0.0–1.0): of the fragments that carry enough of a
+        /// probe's target site, the fraction the probes pull down. A preset over the
+        /// physical parameter — BaitBench back-solves the probe concentration that
+        /// achieves it and logs the implied values.
+        ///
+        /// This describes the panel and the protocol, not the output. It deliberately
+        /// does *not* set the on-target fraction of the reads: that emerges from
+        /// abundance × efficiency, so a dilution series titrates and
+        /// --distractor-fraction stays meaningful across its whole range.
         #[arg(long, default_value = "0.5")]
         capture_fraction: f64,
+
+        /// Probability that a fragment overlapping no probe is retained anyway.
+        /// Washing is imperfect, and in a library that is mostly off-target this, not
+        /// capture, supplies most of the background reads, and it sets how much
+        /// enrichment the capture achieves.
+        #[arg(long, default_value = "0.001")]
+        background_retention: f64,
+
+        // Hidden: the physical parameter --capture-fraction back-solves. Set it to
+        // bypass the solver and specify the capture reaction directly; units are the
+        // arbitrary ones absorbed into the binding constant K.
+        #[arg(long, hide = true)]
+        probe_concentration: Option<f64>,
+
+        // Hidden: fraction of a probe's target site a fragment must carry before that
+        // probe can capture it. A threshold standing in for partial-duplex
+        // thermodynamics; see improvements/partial-duplex-capture.md.
+        #[arg(long, default_value = "0.5", hide = true)]
+        min_overlap_frac: f64,
 
         /// Minimap2 preset for read mapping. Auto-selected when omitted:
         /// `sr` for perfect/art, `map-ont` for badread ont/ont-2020, `map-pb` for badread pacbio.
@@ -235,7 +262,12 @@ pub enum Commands {
         #[arg(long, default_value = "")]
         output_prefix: String,
 
-        /// Number of threads for external tools
+        /// Number of threads for alignment and external tools.
+        ///
+        /// The default of 1 leaves most machines idle. Probe placement
+        /// (`--probe-aligner seed-extend`, the default) is the dominant cost of a large
+        /// run and scales close to linearly, so raise this to your core count for
+        /// anything beyond a small example.
         #[arg(long, default_value = "1")]
         threads: usize,
 
@@ -337,7 +369,9 @@ pub enum Commands {
 
     /// Simulate probe-biased fragments using thermodynamic or simple weighting.
     /// Aligns probes to the reference, scores each binding site, and generates
-    /// fragments via multinomial sampling. Background fragments fill the remainder.
+    /// fragments by per-fragment retention: each fragment is kept with probability
+    /// 1 - (1 - background) * prod(1 - occupancy) over the probes overlapping it, so
+    /// output composition emerges from abundance x capture efficiency.
     Simulate {
         /// Combined reference FASTA
         #[arg(short, long)]
@@ -355,11 +389,39 @@ pub enum Commands {
         #[arg(short, long)]
         num_fragments: usize,
 
-        /// Fraction of fragments derived from probe binding sites (0.0–1.0)
+        /// Capture efficiency (0.0–1.0): of the fragments that carry enough of a
+        /// probe's target site, the fraction the probes pull down. A preset over the
+        /// physical parameter — BaitBench back-solves the probe concentration that
+        /// achieves it and logs the implied values.
+        ///
+        /// This describes the panel and the protocol, not the output. It deliberately
+        /// does *not* set the on-target fraction of the reads: that emerges from
+        /// abundance × efficiency, so a dilution series titrates and
+        /// --distractor-fraction stays meaningful across its whole range.
         #[arg(long, default_value = "0.5")]
         capture_fraction: f64,
 
-        /// Simulation mode: thermodynamic (TNN Boltzmann weighting) or simple (uniform probe-site weights)
+        /// Probability that a fragment overlapping no probe is retained anyway.
+        /// Washing is imperfect, and in a library that is mostly off-target this, not
+        /// capture, supplies most of the background reads, and it sets how much
+        /// enrichment the capture achieves.
+        #[arg(long, default_value = "0.001")]
+        background_retention: f64,
+
+        // Hidden: the physical parameter --capture-fraction back-solves. Set it to
+        // bypass the solver and specify the capture reaction directly; units are the
+        // arbitrary ones absorbed into the binding constant K.
+        #[arg(long, hide = true)]
+        probe_concentration: Option<f64>,
+
+        // Hidden: fraction of a probe's target site a fragment must carry before that
+        // probe can capture it. A threshold standing in for partial-duplex
+        // thermodynamics; see improvements/partial-duplex-capture.md.
+        #[arg(long, default_value = "0.5", hide = true)]
+        min_overlap_frac: f64,
+
+        /// Simulation mode: thermodynamic (per-site occupancy from TNN ΔG) or simple
+        /// (one shared occupancy for every placed probe, no temperature dependency)
         #[arg(long, default_value = "thermodynamic")]
         simulate_mode: SimulateMode,
 
@@ -401,7 +463,11 @@ pub enum Commands {
         #[arg(long, default_value = "200")]
         fragment_length_max: usize,
 
-        /// Number of threads for probe alignment
+        /// Number of threads for probe alignment.
+        ///
+        /// The default of 1 leaves most machines idle. Probe placement is the dominant
+        /// cost here and scales close to linearly, so raise this to your core count for
+        /// anything beyond a small example.
         #[arg(long, default_value = "1")]
         threads: usize,
     },
@@ -1240,7 +1306,12 @@ pub enum Commands {
         #[arg(long, default_value = "sr")]
         host_minimap_preset: String,
 
-        /// Number of threads for external tools
+        /// Number of threads for alignment and external tools.
+        ///
+        /// The default of 1 leaves most machines idle. Probe placement
+        /// (`--probe-aligner seed-extend`, the default) is the dominant cost of a large
+        /// run and scales close to linearly, so raise this to your core count for
+        /// anything beyond a small example.
         #[arg(long, default_value = "1")]
         threads: usize,
 
@@ -1456,9 +1527,9 @@ pub enum ReportMode {
 
 #[derive(Clone, Copy, ValueEnum, Debug, PartialEq, Eq)]
 pub enum SimulateMode {
-    /// Thermodynamic TNN Boltzmann weighting (default)
+    /// Occupancy from the TNN nearest-neighbour ΔG of each probe duplex (default)
     Thermodynamic,
-    /// Uniform probe-site weights — no temperature dependency
+    /// One shared occupancy for every placed probe — no temperature dependency
     Simple,
 }
 

@@ -98,21 +98,31 @@ def collapse_ecoli(d):
         out[kk] = out.get(kk, 0) + v
     return out
 
-def report(real, sim, label):
+def report(real, sim, label, rows=None):
     keys = sorted(set(real) | set(sim))
     rp, sp = props(real, keys), props(sim, keys)
     both = [(k, r, s) for k, r, s in zip(keys, rp, sp) if r > 0 or s > 0]
     keys2 = [k for k, _, _ in both]; rp2 = [r for _, r, _ in both]; sp2 = [s for _, _, s in both]
     eps = 1e-9
     lr = [math.log10(max(x, eps)) for x in rp2]; ls = [math.log10(max(x, eps)) for x in sp2]
+    stats = (spearman(rp2, sp2), pearson(lr, ls), ccc(lr, ls))
     print(f"\n=== {label}  (n={len(keys2)}) ===")
-    print(f"  Spearman rho          : {spearman(rp2, sp2):.4f}")
-    print(f"  Pearson r (log10)     : {pearson(lr, ls):.4f}")
-    print(f"  Lin's CCC (log10)     : {ccc(lr, ls):.4f}")
+    print(f"  Spearman rho          : {stats[0]:.4f}")
+    print(f"  Pearson r (log10)     : {stats[1]:.4f}")
+    print(f"  Lin's CCC (log10)     : {stats[2]:.4f}")
     print(f"\n  {'organism':<34}{'real':>10}{'sim':>10}{'log2 s/r':>10}")
     for k, r, s in sorted(both, key=lambda t: -t[1]):
         lf = math.log2(max(s, eps)/max(r, eps)) if r > 0 and s > 0 else float('nan')
         print(f"  {k:<34}{r:>10.5f}{s:>10.5f}{lf:>10.2f}")
+        if rows is not None:
+            rows.append({
+                "set": label, "organism": k,
+                "real_prop": f"{r:.10f}", "sim_prop": f"{s:.10f}",
+                "real_reads": real.get(k, 0), "sim_reads": sim.get(k, 0),
+                "spearman_rho": f"{stats[0]:.4f}",
+                "pearson_r_log10": f"{stats[1]:.4f}",
+                "ccc_log10": f"{stats[2]:.4f}",
+            })
 
 def main():
     tag = sys.argv[1]
@@ -127,8 +137,21 @@ def main():
         return 1
     print(f"real: {SIMVAL_REAL}/{sample}_counts.tsv  ({sum(real.values()):,} reads)")
     print(f"sim : {path}  ({sum(sim.values()):,} reads)")
-    report(real, sim, "per strain")
-    report(collapse_ecoli(real), collapse_ecoli(sim), "E. coli strains collapsed")
+    rows = []
+    report(real, sim, "per strain", rows)
+    report(collapse_ecoli(real), collapse_ecoli(sim), "E. coli strains collapsed", rows)
+
+    # Emit the comparison as a table so it can be plotted and reused, rather than only
+    # printed. SIMVAL_TSV names the destination; unset means print-only as before.
+    out_tsv = os.environ.get("SIMVAL_TSV")
+    if out_tsv and rows:
+        cols = ["set", "organism", "real_prop", "sim_prop", "real_reads", "sim_reads",
+                "spearman_rho", "pearson_r_log10", "ccc_log10"]
+        with open(out_tsv, "w", newline="") as fh:
+            w = csv.DictWriter(fh, fieldnames=cols, delimiter="\t")
+            w.writeheader()
+            w.writerows(rows)
+        print(f"\nwrote {out_tsv}")
     return 0
 
 if __name__ == "__main__":
