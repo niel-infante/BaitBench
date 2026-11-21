@@ -37,12 +37,12 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-
 
-      # Non-blocking for now: the pre-existing codebase has 392 rustfmt diffs across
-      # 51 files. Reformatting mid-rework would bury the simulation changes in noise,
-      # so this reports only. Make it blocking after a dedicated `cargo fmt` commit.
-      - name: Format (informational)
+      # Blocking as of the repo-wide `cargo fmt` commit (f253ef9), which cleared all
+      # 448 outstanding diffs. Kept strict because the drift returns quickly otherwise
+      # — it grew 392 -> 448 over a single stretch of work while this was advisory.
+      # That commit is listed in .git-blame-ignore-revs so it does not obscure blame.
+      - name: Format
         run: cargo fmt --check
-        continue-on-error: true
 
       - name: Clippy
         run: cargo clippy --all-targets -- -D warnings

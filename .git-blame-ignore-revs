@@ -1,0 +1,14 @@
+# Commits that only reformat code, skipped by `git blame` so that lines attribute to
+# the change that wrote them rather than to the reformat.
+#
+# Enable locally (once per clone):
+#     git config blame.ignoreRevsFile .git-blame-ignore-revs
+#
+# GitHub honours this file automatically in its web blame view.
+#
+# Only add a commit here if it is genuinely mechanical — no behaviour change — or blame
+# will quietly attribute real edits to the wrong commit.
+
+# cargo fmt across the repo: 54 files, 0 remaining rustfmt diffs, tests and clippy
+# green, and identical simulation output before and after.
+f253ef9935a8b5460613415b1f7f2903edb4ba70
