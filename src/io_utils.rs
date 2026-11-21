@@ -20,8 +20,8 @@ pub fn prefixed_join(dir: &Path, prefix: &str, filename: &str) -> PathBuf {
 /// Skips empty lines and lines starting with '#'.
 /// Takes the first whitespace-delimited token from each line.
 pub fn parse_id_set(path: &Path) -> Result<HashSet<String>> {
-    let file = File::open(path)
-        .with_context(|| format!("Cannot open ID file: {}", path.display()))?;
+    let file =
+        File::open(path).with_context(|| format!("Cannot open ID file: {}", path.display()))?;
     let reader = BufReader::new(file);
     let mut ids = HashSet::new();
 
@@ -70,7 +70,9 @@ pub fn parse_sample_manifest(path: &Path) -> Result<HashMap<String, f64>> {
         let parts: Vec<&str> = line.split('\t').collect();
         let id = parts[0].trim().to_string();
         let weight = if parts.len() >= 2 {
-            parts[1].trim().parse::<f64>()
+            parts[1]
+                .trim()
+                .parse::<f64>()
                 .with_context(|| format!("Invalid weight for '{}': {}", id, parts[1].trim()))?
         } else {
             1.0
@@ -166,8 +168,8 @@ pub fn format_sample_display(samples: &HashMap<String, f64>) -> String {
 
 /// Write a list of IDs to a file, one per line.
 pub fn write_id_list(ids: &[String], path: &Path) -> Result<()> {
-    let file = File::create(path)
-        .with_context(|| format!("Cannot create ID file: {}", path.display()))?;
+    let file =
+        File::create(path).with_context(|| format!("Cannot create ID file: {}", path.display()))?;
     let mut writer = BufWriter::new(file);
     for id in ids {
         writeln!(writer, "{}", id)?;
@@ -212,8 +214,8 @@ pub fn parse_sample_target_map(path: &Path) -> Result<HashMap<String, Vec<String
 /// Format: `seq_id<tab>group_name` (one mapping per line).
 /// Skips empty lines and lines starting with '#'.
 pub fn parse_groups_file(path: &Path) -> Result<HashMap<String, String>> {
-    let file = File::open(path)
-        .with_context(|| format!("Cannot open groups file: {}", path.display()))?;
+    let file =
+        File::open(path).with_context(|| format!("Cannot open groups file: {}", path.display()))?;
     let reader = BufReader::new(file);
     let mut map: HashMap<String, String> = HashMap::new();
 
@@ -258,10 +260,7 @@ pub fn write_groups_file(map: &HashMap<String, String>, path: &Path) -> Result<(
 /// Write a sample-target-map to a TSV file.
 ///
 /// Format: `genome_id<tab>target_id` (one line per mapping).
-pub fn write_sample_target_map(
-    map: &HashMap<String, Vec<String>>,
-    path: &Path,
-) -> Result<()> {
+pub fn write_sample_target_map(map: &HashMap<String, Vec<String>>, path: &Path) -> Result<()> {
     let file = File::create(path)
         .with_context(|| format!("Cannot create sample-target-map: {}", path.display()))?;
     let mut writer = BufWriter::new(file);
@@ -318,7 +317,10 @@ mod tests {
 
     #[test]
     fn extract_source_last_occurrence() {
-        assert_eq!(extract_source_id("a_fragment_2_fragment_5"), Some("a_fragment_2"));
+        assert_eq!(
+            extract_source_id("a_fragment_2_fragment_5"),
+            Some("a_fragment_2")
+        );
     }
 
     #[test]
@@ -334,7 +336,10 @@ mod tests {
     #[test]
     fn extract_source_strips_whitespace_token() {
         // Only the first whitespace token is used as the ID portion.
-        assert_eq!(extract_source_id("seq1_fragment_2 extra info"), Some("seq1"));
+        assert_eq!(
+            extract_source_id("seq1_fragment_2 extra info"),
+            Some("seq1")
+        );
     }
 
     #[test]

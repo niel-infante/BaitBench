@@ -5,8 +5,10 @@ use std::path::{Path, PathBuf};
 
 use crate::cleanup;
 use crate::cli::{OutputFormat, ReportMode};
-use crate::commands::{filter, generate_list, identify, map_reads, metrics, prepare, report, sequence, simulate};
 use crate::commands::sequence::ReadSimulator;
+use crate::commands::{
+    filter, generate_list, identify, map_reads, metrics, prepare, report, sequence, simulate,
+};
 use crate::external::rscript;
 use crate::fasta;
 use crate::io_utils;
@@ -131,11 +133,18 @@ pub fn execute(args: &RunArgs) -> Result<()> {
             .unwrap_or_else(|| "none (skip host filtering)".to_string())
     );
     log::info!("Num fragments       : {}", args.num_fragments);
-    log::info!("Fragment length     : mean={}, min={}, max={}", args.fragment_length_mean, args.fragment_length_min, args.fragment_length_max);
+    log::info!(
+        "Fragment length     : mean={}, min={}, max={}",
+        args.fragment_length_mean,
+        args.fragment_length_min,
+        args.fragment_length_max
+    );
     log::info!("Read length         : {}", args.read_length);
     log::info!(
         "Num sequences       : {}",
-        args.num_sequences.map(|s| s.to_string()).unwrap_or_else(|| "all".to_string())
+        args.num_sequences
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| "all".to_string())
     );
     log::info!("Distractor fraction : {}", args.distractor_fraction);
     if let Some(ct) = args.ct {
@@ -143,14 +152,15 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         if let Some(cal) = &args.ct_calibration {
             log::info!("CT calibration      : {} / {}", cal[0], cal[1]);
         } else {
-            log::info!("CT baseline         : {} (fraction {})", args.ct_baseline, args.ct_baseline_fraction);
+            log::info!(
+                "CT baseline         : {} (fraction {})",
+                args.ct_baseline,
+                args.ct_baseline_fraction
+            );
             log::info!("CT efficiency       : {}", args.ct_efficiency);
         }
     }
-    log::info!(
-        "Seed                : {}",
-        fmt_opt(args.seed)
-    );
+    log::info!("Seed                : {}", fmt_opt(args.seed));
     log::info!("Output dir          : {}", outdir.display());
     log::info!("=============================================");
 
@@ -170,57 +180,167 @@ pub fn execute(args: &RunArgs) -> Result<()> {
             writeln!(f, "distractors\t--distractors\t{}", d.display())?;
         }
         writeln!(f, "probes\t--probes\t{}", args.probes.display())?;
-        writeln!(f, "sample\t--sample\t{}", args.sample.map(io_utils::format_sample_display).unwrap_or_else(|| "none".to_string()))?;
-        writeln!(f, "host_fasta\t--host-fasta\t{}", args.host_fasta.map(|p| p.display().to_string()).unwrap_or_else(|| "none".to_string()))?;
+        writeln!(
+            f,
+            "sample\t--sample\t{}",
+            args.sample
+                .map(io_utils::format_sample_display)
+                .unwrap_or_else(|| "none".to_string())
+        )?;
+        writeln!(
+            f,
+            "host_fasta\t--host-fasta\t{}",
+            args.host_fasta
+                .map(|p| p.display().to_string())
+                .unwrap_or_else(|| "none".to_string())
+        )?;
         writeln!(f, "num_fragments\t--num-fragments\t{}", args.num_fragments)?;
-        writeln!(f, "distractor_fraction\t--distractor-fraction\t{}", args.distractor_fraction)?;
+        writeln!(
+            f,
+            "distractor_fraction\t--distractor-fraction\t{}",
+            args.distractor_fraction
+        )?;
         writeln!(f, "ct\t--ct\t{}", fmt_opt(args.ct))?;
         if let Some(cal) = &args.ct_calibration {
             writeln!(f, "ct_calibration_1\t--ct-calibration\t{}", cal[0])?;
             writeln!(f, "ct_calibration_2\t--ct-calibration\t{}", cal[1])?;
         } else {
             writeln!(f, "ct_baseline\t--ct-baseline\t{}", args.ct_baseline)?;
-            writeln!(f, "ct_baseline_fraction\t--ct-baseline-fraction\t{}", args.ct_baseline_fraction)?;
+            writeln!(
+                f,
+                "ct_baseline_fraction\t--ct-baseline-fraction\t{}",
+                args.ct_baseline_fraction
+            )?;
             writeln!(f, "ct_efficiency\t--ct-efficiency\t{}", args.ct_efficiency)?;
         }
         writeln!(f, "simulate_mode\t--simulate-mode\t{}", sim_mode_str)?;
-        writeln!(f, "probe_aligner\t--probe-aligner\t{}", match args.probe_aligner {
-            crate::cli::ProbeAligner::Minimap2 => "minimap2",
-            crate::cli::ProbeAligner::SeedExtend => "seed-extend",
-            crate::cli::ProbeAligner::Blast => "blast",
-        })?;
-        writeln!(f, "hybridization_temperature\t--hybridization-temperature\t{}", args.hybridization_temperature)?;
-        writeln!(f, "salt_concentration\t--salt-concentration\t{}", args.na_conc_m * 1000.0)?;
-        writeln!(f, "capture_fraction\t--capture-fraction\t{}", args.capture_fraction)?;
+        writeln!(
+            f,
+            "probe_aligner\t--probe-aligner\t{}",
+            match args.probe_aligner {
+                crate::cli::ProbeAligner::Minimap2 => "minimap2",
+                crate::cli::ProbeAligner::SeedExtend => "seed-extend",
+                crate::cli::ProbeAligner::Blast => "blast",
+            }
+        )?;
+        writeln!(
+            f,
+            "hybridization_temperature\t--hybridization-temperature\t{}",
+            args.hybridization_temperature
+        )?;
+        writeln!(
+            f,
+            "salt_concentration\t--salt-concentration\t{}",
+            args.na_conc_m * 1000.0
+        )?;
+        writeln!(
+            f,
+            "capture_fraction\t--capture-fraction\t{}",
+            args.capture_fraction
+        )?;
         writeln!(
             f,
             "background_retention\t--background-retention\t{}",
             args.background_retention
         )?;
-        writeln!(f, "minimap_preset\t--minimap-preset\t{}", args.minimap_preset)?;
-        writeln!(f, "host_minimap_preset\t--host-minimap-preset\t{}", args.host_minimap_preset)?;
-        writeln!(f, "fragment_length_mean\t--fragment-length-mean\t{}", args.fragment_length_mean)?;
-        writeln!(f, "fragment_length_min\t--fragment-length-min\t{}", args.fragment_length_min)?;
-        writeln!(f, "fragment_length_max\t--fragment-length-max\t{}", args.fragment_length_max)?;
+        writeln!(
+            f,
+            "minimap_preset\t--minimap-preset\t{}",
+            args.minimap_preset
+        )?;
+        writeln!(
+            f,
+            "host_minimap_preset\t--host-minimap-preset\t{}",
+            args.host_minimap_preset
+        )?;
+        writeln!(
+            f,
+            "fragment_length_mean\t--fragment-length-mean\t{}",
+            args.fragment_length_mean
+        )?;
+        writeln!(
+            f,
+            "fragment_length_min\t--fragment-length-min\t{}",
+            args.fragment_length_min
+        )?;
+        writeln!(
+            f,
+            "fragment_length_max\t--fragment-length-max\t{}",
+            args.fragment_length_max
+        )?;
         writeln!(f, "read_length\t--read-length\t{}", args.read_length)?;
-        writeln!(f, "num_sequences\t--num-sequences\t{}", fmt_opt(args.num_sequences))?;
+        writeln!(
+            f,
+            "num_sequences\t--num-sequences\t{}",
+            fmt_opt(args.num_sequences)
+        )?;
         let sim_name = match args.simulator {
             ReadSimulator::Perfect => "perfect",
-            ReadSimulator::Art     => "art",
+            ReadSimulator::Art => "art",
             ReadSimulator::Badread => "badread",
         };
         writeln!(f, "read_simulator\t--read-simulator\t{}", sim_name)?;
-        writeln!(f, "sequencer_profile\t--sequencer-profile\t{}", args.sequencer_profile)?;
-        writeln!(f, "coverage_depth\t--coverage-depth\t{}", args.coverage_depth)?;
+        writeln!(
+            f,
+            "sequencer_profile\t--sequencer-profile\t{}",
+            args.sequencer_profile
+        )?;
+        writeln!(
+            f,
+            "coverage_depth\t--coverage-depth\t{}",
+            args.coverage_depth
+        )?;
         writeln!(f, "paired_end\t--paired-end\t{}", args.paired_end)?;
-        writeln!(f, "pe_frag_len_mean\t--pe-frag-len-mean\t{}", args.pe_frag_len_mean)?;
-        writeln!(f, "pe_frag_len_sd\t--pe-frag-len-sd\t{}", args.pe_frag_len_sd)?;
-        writeln!(f, "long_read_length_mean\t--long-read-length-mean\t{}", args.long_read_length_mean.map(|v| v.to_string()).unwrap_or_else(|| "default".to_string()))?;
-        writeln!(f, "long_read_length_sd\t--long-read-length-sd\t{}", args.long_read_length_sd.map(|v| v.to_string()).unwrap_or_else(|| "default".to_string()))?;
-        writeln!(f, "badread_glitches\t--badread-glitches\t{}", args.badread_glitches.as_deref().unwrap_or("default"))?;
-        writeln!(f, "badread_junk_reads\t--badread-junk-reads\t{}", args.badread_junk_reads.map(|v| v.to_string()).unwrap_or_else(|| "default".to_string()))?;
-        writeln!(f, "badread_random_reads\t--badread-random-reads\t{}", args.badread_random_reads.map(|v| v.to_string()).unwrap_or_else(|| "default".to_string()))?;
-        writeln!(f, "badread_chimeras\t--badread-chimeras\t{}", args.badread_chimeras.map(|v| v.to_string()).unwrap_or_else(|| "default".to_string()))?;
+        writeln!(
+            f,
+            "pe_frag_len_mean\t--pe-frag-len-mean\t{}",
+            args.pe_frag_len_mean
+        )?;
+        writeln!(
+            f,
+            "pe_frag_len_sd\t--pe-frag-len-sd\t{}",
+            args.pe_frag_len_sd
+        )?;
+        writeln!(
+            f,
+            "long_read_length_mean\t--long-read-length-mean\t{}",
+            args.long_read_length_mean
+                .map(|v| v.to_string())
+                .unwrap_or_else(|| "default".to_string())
+        )?;
+        writeln!(
+            f,
+            "long_read_length_sd\t--long-read-length-sd\t{}",
+            args.long_read_length_sd
+                .map(|v| v.to_string())
+                .unwrap_or_else(|| "default".to_string())
+        )?;
+        writeln!(
+            f,
+            "badread_glitches\t--badread-glitches\t{}",
+            args.badread_glitches.as_deref().unwrap_or("default")
+        )?;
+        writeln!(
+            f,
+            "badread_junk_reads\t--badread-junk-reads\t{}",
+            args.badread_junk_reads
+                .map(|v| v.to_string())
+                .unwrap_or_else(|| "default".to_string())
+        )?;
+        writeln!(
+            f,
+            "badread_random_reads\t--badread-random-reads\t{}",
+            args.badread_random_reads
+                .map(|v| v.to_string())
+                .unwrap_or_else(|| "default".to_string())
+        )?;
+        writeln!(
+            f,
+            "badread_chimeras\t--badread-chimeras\t{}",
+            args.badread_chimeras
+                .map(|v| v.to_string())
+                .unwrap_or_else(|| "default".to_string())
+        )?;
         let fmt_str = match args.output_format {
             OutputFormat::Fasta => "fasta",
             OutputFormat::Fastq => "fastq",
@@ -248,8 +368,11 @@ pub fn execute(args: &RunArgs) -> Result<()> {
     })?;
 
     // Step 2: Simulate fragments (probe-biased + background)
-    log::info!("Step 2/7: Simulating fragments (mode={}, capture_fraction={:.2})...",
-        sim_mode_str, args.capture_fraction);
+    log::info!(
+        "Step 2/7: Simulating fragments (mode={}, capture_fraction={:.2})...",
+        sim_mode_str,
+        args.capture_fraction
+    );
     simulate::execute(&simulate::SimulateArgs {
         reference: &prefixed_join(outdir, pfx, "combined_reference.fa"),
         weights: &prefixed_join(outdir, pfx, "weights.txt"),
@@ -274,7 +397,10 @@ pub fn execute(args: &RunArgs) -> Result<()> {
     })?;
 
     // Step 3: Sequence fragments into reads
-    log::info!("Step 3/7: Sequencing fragments (simulator={:?})...", args.simulator);
+    log::info!(
+        "Step 3/7: Sequencing fragments (simulator={:?})...",
+        args.simulator
+    );
     let ext = reads_ext(args.output_format);
     let reads_r1_path = prefixed_join(outdir, pfx, &format!("reads.{}", ext));
     let reads_r2_path = if args.paired_end {
@@ -308,26 +434,29 @@ pub fn execute(args: &RunArgs) -> Result<()> {
     log::info!("  Reads after sequencing: {}", reads_sequenced);
 
     // Step 4: Optional host filtering
-    let filtered_r2_path = reads_r2_path.as_ref().map(|_| prefixed_join(outdir, pfx, &format!("filtered_R2.{}", ext)));
-    let (reads_for_mapping, reads_for_mapping_r2, reads_after_filter) = if let Some(host) = args.host_fasta {
-        log::info!("Step 4/7: Filtering host reads...");
-        let filtered_path = prefixed_join(outdir, pfx, &format!("filtered.{}", ext));
-        filter::execute(&filter::FilterArgs {
-            host,
-            reads: &reads_r1_path,
-            reads_r2: reads_r2_path.as_deref(),
-            minimap_preset: &args.host_minimap_preset,
-            output: &filtered_path,
-            output_r2: filtered_r2_path.as_deref(),
-            log_file: &prefixed_join(outdir, pfx, "host_filter.log"),
-        })?;
-        let count = fasta::count_reads(&filtered_path)?;
-        log::info!("  Reads after host filtering: {}", count);
-        (filtered_path, filtered_r2_path, Some(count))
-    } else {
-        log::info!("Step 4/7: Skipping host filtering (no host genome provided)");
-        (reads_r1_path.clone(), reads_r2_path.clone(), None)
-    };
+    let filtered_r2_path = reads_r2_path
+        .as_ref()
+        .map(|_| prefixed_join(outdir, pfx, &format!("filtered_R2.{}", ext)));
+    let (reads_for_mapping, reads_for_mapping_r2, reads_after_filter) =
+        if let Some(host) = args.host_fasta {
+            log::info!("Step 4/7: Filtering host reads...");
+            let filtered_path = prefixed_join(outdir, pfx, &format!("filtered.{}", ext));
+            filter::execute(&filter::FilterArgs {
+                host,
+                reads: &reads_r1_path,
+                reads_r2: reads_r2_path.as_deref(),
+                minimap_preset: &args.host_minimap_preset,
+                output: &filtered_path,
+                output_r2: filtered_r2_path.as_deref(),
+                log_file: &prefixed_join(outdir, pfx, "host_filter.log"),
+            })?;
+            let count = fasta::count_reads(&filtered_path)?;
+            log::info!("  Reads after host filtering: {}", count);
+            (filtered_path, filtered_r2_path, Some(count))
+        } else {
+            log::info!("Step 4/7: Skipping host filtering (no host genome provided)");
+            (reads_r1_path.clone(), reads_r2_path.clone(), None)
+        };
 
     // Step 5: Map reads
     // In genomes mode, map to mapping_reference.fa (targets + distractors)

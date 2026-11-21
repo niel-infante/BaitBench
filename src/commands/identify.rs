@@ -93,10 +93,7 @@ pub fn execute(args: &IdentifyArgs) -> Result<()> {
     // Get or compute target similarity
     let similarities = if let Some(sim_path) = args.target_similarity_file {
         if !sim_path.exists() {
-            bail!(
-                "Target similarity file not found: {}",
-                sim_path.display()
-            );
+            bail!("Target similarity file not found: {}", sim_path.display());
         }
         log::info!(
             "Loading pre-computed target similarity from {}",
@@ -138,14 +135,25 @@ pub fn execute(args: &IdentifyArgs) -> Result<()> {
     write_species_calls_json(&calls, &calls_json_path)?;
 
     // Console summary
-    let n_present = calls.iter().filter(|c| c.call == SpeciesCall::Present).count();
-    let n_absent = calls.iter().filter(|c| c.call == SpeciesCall::Absent).count();
+    let n_present = calls
+        .iter()
+        .filter(|c| c.call == SpeciesCall::Present)
+        .count();
+    let n_absent = calls
+        .iter()
+        .filter(|c| c.call == SpeciesCall::Absent)
+        .count();
     let n_ambiguous = calls
         .iter()
         .filter(|c| c.call == SpeciesCall::Ambiguous)
         .count();
 
-    log::info!("Species calls: {} PRESENT, {} ABSENT, {} AMBIGUOUS", n_present, n_absent, n_ambiguous);
+    log::info!(
+        "Species calls: {} PRESENT, {} ABSENT, {} AMBIGUOUS",
+        n_present,
+        n_absent,
+        n_ambiguous
+    );
 
     for c in &calls {
         let marker = match c.call {
@@ -201,11 +209,7 @@ fn parse_detected_detail(path: &Path) -> Result<Vec<DetailRow>> {
 
         let reference_id = fields.get(ref_id_col).unwrap_or(&"").to_string();
         let detected = fields.get(detected_col).unwrap_or(&"false") == &"true";
-        let reads_assigned: usize = fields
-            .get(reads_col)
-            .unwrap_or(&"0")
-            .parse()
-            .unwrap_or(0);
+        let reads_assigned: usize = fields.get(reads_col).unwrap_or(&"0").parse().unwrap_or(0);
 
         rows.push(DetailRow {
             reference_id,
@@ -248,10 +252,7 @@ pub fn call_species(
 
         for t in targets {
             let is_unique = *ctx.target_is_unique.get(t.as_str()).unwrap_or(&true);
-            let (det, reads) = detection
-                .get(t.as_str())
-                .copied()
-                .unwrap_or((false, 0));
+            let (det, reads) = detection.get(t.as_str()).copied().unwrap_or((false, 0));
 
             if is_unique {
                 unique_count += 1;
@@ -313,9 +314,7 @@ pub fn call_species(
             .iter()
             .filter(|t| {
                 *ctx.target_is_unique.get(t.as_str()).unwrap_or(&true)
-                    && detection
-                        .get(t.as_str())
-                        .is_some_and(|(det, _)| *det)
+                    && detection.get(t.as_str()).is_some_and(|(det, _)| *det)
                     && !explained_targets.contains(t.as_str())
             })
             .collect();
@@ -324,9 +323,7 @@ pub fn call_species(
             .iter()
             .filter(|t| {
                 !*ctx.target_is_unique.get(t.as_str()).unwrap_or(&true)
-                    && detection
-                        .get(t.as_str())
-                        .is_some_and(|(det, _)| *det)
+                    && detection.get(t.as_str()).is_some_and(|(det, _)| *det)
                     && !explained_targets.contains(t.as_str())
             })
             .collect();
@@ -474,15 +471,23 @@ mod tests {
     use super::*;
 
     fn make_row(id: &str, detected: bool, reads: usize) -> DetailRow {
-        DetailRow { reference_id: id.to_string(), detected, reads_assigned: reads }
+        DetailRow {
+            reference_id: id.to_string(),
+            detected,
+            reads_assigned: reads,
+        }
     }
 
     fn unique_ctx(species: &str, target: &str) -> SimilarityContext {
         SimilarityContext {
             cross_species_similar: HashMap::new(),
             target_is_unique: [(target.to_string(), true)].into_iter().collect(),
-            species_targets: [(species.to_string(), vec![target.to_string()])].into_iter().collect(),
-            target_to_species: [(target.to_string(), vec![species.to_string()])].into_iter().collect(),
+            species_targets: [(species.to_string(), vec![target.to_string()])]
+                .into_iter()
+                .collect(),
+            target_to_species: [(target.to_string(), vec![species.to_string()])]
+                .into_iter()
+                .collect(),
         }
     }
 
@@ -508,12 +513,19 @@ mod tests {
     fn call_ambiguous_no_unique_markers() {
         // Species with only shared (non-unique) targets, one detected → AMBIGUOUS
         let mut similar: HashMap<String, HashSet<String>> = HashMap::new();
-        similar.insert("t_shared".to_string(), ["t_other".to_string()].into_iter().collect());
+        similar.insert(
+            "t_shared".to_string(),
+            ["t_other".to_string()].into_iter().collect(),
+        );
         let ctx = SimilarityContext {
             cross_species_similar: similar,
             target_is_unique: [("t_shared".to_string(), false)].into_iter().collect(),
-            species_targets: [("SpA".to_string(), vec!["t_shared".to_string()])].into_iter().collect(),
-            target_to_species: [("t_shared".to_string(), vec!["SpA".to_string()])].into_iter().collect(),
+            species_targets: [("SpA".to_string(), vec!["t_shared".to_string()])]
+                .into_iter()
+                .collect(),
+            target_to_species: [("t_shared".to_string(), vec!["SpA".to_string()])]
+                .into_iter()
+                .collect(),
         };
         let calls = call_species(&ctx, &[make_row("t_shared", true, 10)], 1);
         assert_eq!(calls.len(), 1);
@@ -530,22 +542,34 @@ mod tests {
         similar.insert("t2".to_string(), ["t1".to_string()].into_iter().collect());
         let ctx = SimilarityContext {
             cross_species_similar: similar,
-            target_is_unique: [("t1".to_string(), true), ("t2".to_string(), false)].into_iter().collect(),
+            target_is_unique: [("t1".to_string(), true), ("t2".to_string(), false)]
+                .into_iter()
+                .collect(),
             species_targets: [
                 ("SpA".to_string(), vec!["t1".to_string(), "t2".to_string()]),
                 ("SpB".to_string(), vec!["t2".to_string()]),
-            ].into_iter().collect(),
+            ]
+            .into_iter()
+            .collect(),
             target_to_species: [
                 ("t1".to_string(), vec!["SpA".to_string()]),
                 ("t2".to_string(), vec!["SpA".to_string(), "SpB".to_string()]),
-            ].into_iter().collect(),
+            ]
+            .into_iter()
+            .collect(),
         };
         let rows = vec![make_row("t1", true, 50), make_row("t2", true, 30)];
         let calls = call_species(&ctx, &rows, 1);
         let spa = calls.iter().find(|c| c.species_id == "SpA").unwrap();
         let spb = calls.iter().find(|c| c.species_id == "SpB").unwrap();
-        assert!(matches!(spa.call, SpeciesCall::Present), "SpA should be PRESENT");
-        assert!(matches!(spb.call, SpeciesCall::Absent), "SpB should be ABSENT (explained)");
+        assert!(
+            matches!(spa.call, SpeciesCall::Present),
+            "SpA should be PRESENT"
+        );
+        assert!(
+            matches!(spb.call, SpeciesCall::Absent),
+            "SpB should be ABSENT (explained)"
+        );
         assert_eq!(spb.reason, "cross_reactivity_explained");
         assert!(spb.explained_by.contains(&"SpA".to_string()));
     }
@@ -555,12 +579,18 @@ mod tests {
         // 2 unique targets, only 1 detected, min_unique=2 → AMBIGUOUS
         let ctx = SimilarityContext {
             cross_species_similar: HashMap::new(),
-            target_is_unique: [("t1".to_string(), true), ("t2".to_string(), true)].into_iter().collect(),
-            species_targets: [("SpA".to_string(), vec!["t1".to_string(), "t2".to_string()])].into_iter().collect(),
+            target_is_unique: [("t1".to_string(), true), ("t2".to_string(), true)]
+                .into_iter()
+                .collect(),
+            species_targets: [("SpA".to_string(), vec!["t1".to_string(), "t2".to_string()])]
+                .into_iter()
+                .collect(),
             target_to_species: [
                 ("t1".to_string(), vec!["SpA".to_string()]),
                 ("t2".to_string(), vec!["SpA".to_string()]),
-            ].into_iter().collect(),
+            ]
+            .into_iter()
+            .collect(),
         };
         let rows = vec![make_row("t1", true, 20), make_row("t2", false, 0)];
         let calls = call_species(&ctx, &rows, 2);

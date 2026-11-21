@@ -1,10 +1,10 @@
-use anyhow::{Context, Result, bail};
+use anyhow::{bail, Context, Result};
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::Path;
 
-use rammap::{Aligner, MapOpts, Preset, Strand};
 use rammap::align::map::AlignFlags;
+use rammap::{Aligner, MapOpts, Preset, Strand};
 
 use crate::fasta;
 
@@ -19,22 +19,22 @@ type RefLengthsAndCoverage = (
 
 fn to_preset(preset: &str) -> Result<Preset> {
     match preset {
-        "sr"        => Ok(Preset::Sr),
-        "map-ont"   => Ok(Preset::MapOnt),
-        "map-pb"    => Ok(Preset::MapPb),
-        "map-hifi"  => Ok(Preset::MapHifi),
-        "map-iclr"  => Ok(Preset::MapIclr),
-        "lr:hq"     => Ok(Preset::LrHq),
-        "lr:hqae"   => Ok(Preset::LrHqae),
-        "splice"    => Ok(Preset::Splice),
+        "sr" => Ok(Preset::Sr),
+        "map-ont" => Ok(Preset::MapOnt),
+        "map-pb" => Ok(Preset::MapPb),
+        "map-hifi" => Ok(Preset::MapHifi),
+        "map-iclr" => Ok(Preset::MapIclr),
+        "lr:hq" => Ok(Preset::LrHq),
+        "lr:hqae" => Ok(Preset::LrHqae),
+        "splice" => Ok(Preset::Splice),
         "splice:hq" => Ok(Preset::SpliceHq),
         "splice:sr" => Ok(Preset::SpliceSr),
-        "cdna"      => Ok(Preset::Cdna),
-        "asm5"      => Ok(Preset::Asm5),
-        "asm10"     => Ok(Preset::Asm10),
-        "asm20"     => Ok(Preset::Asm20),
-        "ava-ont"   => Ok(Preset::AvaOnt),
-        "ava-pb"    => Ok(Preset::AvaPb),
+        "cdna" => Ok(Preset::Cdna),
+        "asm5" => Ok(Preset::Asm5),
+        "asm10" => Ok(Preset::Asm10),
+        "asm20" => Ok(Preset::Asm20),
+        "ava-ont" => Ok(Preset::AvaOnt),
+        "ava-pb" => Ok(Preset::AvaPb),
         other => bail!("Unknown alignment preset: '{}'", other),
     }
 }
@@ -136,16 +136,26 @@ fn write_paf_record<W: Write>(
     qlen: usize,
     m: &rammap::Mapping,
 ) -> Result<()> {
-    let strand = if m.strand == Strand::Forward { '+' } else { '-' };
+    let strand = if m.strand == Strand::Forward {
+        '+'
+    } else {
+        '-'
+    };
     write!(
         w,
         "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
-        qname, qlen,
-        m.query_start, m.query_end,
+        qname,
+        qlen,
+        m.query_start,
+        m.query_end,
         strand,
-        m.target_name, m.target_len,
-        m.target_start, m.target_end,
-        m.matches, m.block_len, m.mapq,
+        m.target_name,
+        m.target_len,
+        m.target_start,
+        m.target_end,
+        m.matches,
+        m.block_len,
+        m.mapq,
     )?;
     write!(w, "\tNM:i:{}", m.edit_distance)?;
     if let Some(ref cigar) = m.cigar {
@@ -179,8 +189,13 @@ pub fn map_reads(
 ) -> Result<()> {
     write_stub_log(log_file, "map_reads")?;
 
-    let aligner = Aligner::from_fasta(path_str(reference)?, to_preset(preset)?)
-        .with_context(|| format!("Failed to build alignment index for {}", reference.display()))?;
+    let aligner =
+        Aligner::from_fasta(path_str(reference)?, to_preset(preset)?).with_context(|| {
+            format!(
+                "Failed to build alignment index for {}",
+                reference.display()
+            )
+        })?;
 
     let out = File::create(output_sam)
         .with_context(|| format!("Cannot create SAM: {}", output_sam.display()))?;
@@ -206,9 +221,17 @@ fn map_and_write_primary<W: Write>(
     seq: &str,
 ) -> Result<()> {
     let result = aligner.map_seq(name, seq.as_bytes());
-    match result.mappings.iter().find(|m| m.is_primary && !m.is_supplementary) {
+    match result
+        .mappings
+        .iter()
+        .find(|m| m.is_primary && !m.is_supplementary)
+    {
         Some(m) => {
-            let flag = if m.strand == Strand::Reverse { FLAG_REVERSE } else { 0 };
+            let flag = if m.strand == Strand::Reverse {
+                FLAG_REVERSE
+            } else {
+                0
+            };
             write_sam_mapped(w, name, seq, flag, m)
         }
         None => write_sam_unmapped(w, name, seq),
@@ -265,7 +288,10 @@ pub fn probe_align(
     // Enable MD tags for thermo_sim.rs.
     aligner.output_config_mut().do_md = true;
 
-    let opts = MapOpts { cs: None, md: Some(true) };
+    let opts = MapOpts {
+        cs: None,
+        md: Some(true),
+    };
 
     let out = File::create(output_sam)
         .with_context(|| format!("Cannot create SAM: {}", output_sam.display()))?;
@@ -275,8 +301,8 @@ pub fn probe_align(
     let probe_seqs = fasta::parse_fasta(probes)?;
 
     if threads > 1 {
-        use std::sync::Arc;
         use rayon::prelude::*;
+        use std::sync::Arc;
 
         let _ = rayon::ThreadPoolBuilder::new()
             .num_threads(threads)
@@ -319,7 +345,8 @@ fn write_probe_alignments<W: Write>(
     // its own order, so taking the first N kept an arbitrary subset rather than the
     // best ones whenever a probe had more hits than the cap — which is exactly the
     // case for conserved regions tiled across many references.
-    let mut ordered: Vec<&rammap::Mapping> = mappings.iter().filter(|m| !m.is_supplementary).collect();
+    let mut ordered: Vec<&rammap::Mapping> =
+        mappings.iter().filter(|m| !m.is_supplementary).collect();
     ordered.sort_by(|a, b| {
         // Primary first, then by identity (fewest edits per aligned base), then by
         // alignment length. Ties broken on target name/position so the output is
@@ -333,7 +360,11 @@ fn write_probe_alignments<W: Write>(
         };
         b.is_primary
             .cmp(&a.is_primary)
-            .then(ident(a).partial_cmp(&ident(b)).unwrap_or(std::cmp::Ordering::Equal))
+            .then(
+                ident(a)
+                    .partial_cmp(&ident(b))
+                    .unwrap_or(std::cmp::Ordering::Equal),
+            )
             .then(b.block_len.cmp(&a.block_len))
             .then(a.target_name.cmp(&b.target_name))
             .then(a.target_start.cmp(&b.target_start))
@@ -342,10 +373,19 @@ fn write_probe_alignments<W: Write>(
     let mut secondary_count = 0usize;
     for m in ordered {
         if m.is_primary {
-            let flag = if m.strand == Strand::Reverse { FLAG_REVERSE } else { 0 };
+            let flag = if m.strand == Strand::Reverse {
+                FLAG_REVERSE
+            } else {
+                0
+            };
             write_sam_mapped(w, name, seq, flag, m)?;
         } else if secondary_count < max_secondary {
-            let flag = FLAG_SECONDARY | if m.strand == Strand::Reverse { FLAG_REVERSE } else { 0 };
+            let flag = FLAG_SECONDARY
+                | if m.strand == Strand::Reverse {
+                    FLAG_REVERSE
+                } else {
+                    0
+                };
             write_sam_mapped(w, name, seq, flag, m)?;
             secondary_count += 1;
         }
@@ -368,15 +408,18 @@ pub fn probe_depth_in_memory(
     threads: usize,
 ) -> anyhow::Result<RefLengthsAndCoverage> {
     use crate::alignment::cigar::{parse_cigar, CigarOp};
-    use std::sync::Arc;
     use rayon::prelude::*;
+    use std::sync::Arc;
 
     let mut aligner = Aligner::from_fasta(path_str(target_path)?, to_preset(preset)?)
         .with_context(|| format!("Failed to build index for {}", target_path.display()))?;
     aligner.options_mut().flags.remove(AlignFlags::NO_PRINT_2ND);
     aligner.options_mut().filtering.best_n = max_secondary as i32;
     aligner.output_config_mut().do_md = true;
-    let opts = MapOpts { cs: None, md: Some(true) };
+    let opts = MapOpts {
+        cs: None,
+        md: Some(true),
+    };
 
     let ref_lengths: std::collections::HashMap<String, usize> = aligner
         .index()
@@ -466,8 +509,13 @@ pub fn xreact_align(
 ) -> Result<()> {
     write_stub_log(log_file, "xreact_align")?;
 
-    let mut aligner = Aligner::from_fasta(path_str(reference)?, to_preset(preset)?)
-        .with_context(|| format!("Failed to build alignment index for {}", reference.display()))?;
+    let mut aligner =
+        Aligner::from_fasta(path_str(reference)?, to_preset(preset)?).with_context(|| {
+            format!(
+                "Failed to build alignment index for {}",
+                reference.display()
+            )
+        })?;
 
     // Replicate minimap2 --secondary=yes -N 10000 -p 0.5.
     aligner.options_mut().flags.remove(AlignFlags::NO_PRINT_2ND);

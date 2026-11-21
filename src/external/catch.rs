@@ -3,7 +3,7 @@
 //
 // The main command is `design.py`, installed to PATH by the catch package.
 
-use anyhow::{Context, Result, bail};
+use anyhow::{bail, Context, Result};
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader};
 use std::path::Path;

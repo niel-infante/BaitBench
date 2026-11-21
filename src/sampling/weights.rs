@@ -6,7 +6,8 @@ use std::path::Path;
 
 /// Parse a weights file (tab-separated: id<tab>weight, ignoring # comments).
 pub fn parse_weights(path: &Path) -> Result<HashMap<String, f64>> {
-    let file = File::open(path).with_context(|| format!("Cannot open weights: {}", path.display()))?;
+    let file =
+        File::open(path).with_context(|| format!("Cannot open weights: {}", path.display()))?;
     let reader = BufReader::new(file);
 
     let mut weights = HashMap::new();
@@ -20,7 +21,8 @@ pub fn parse_weights(path: &Path) -> Result<HashMap<String, f64>> {
         let parts: Vec<&str> = line.split_whitespace().collect();
         if parts.len() >= 2 {
             let id = parts[0].to_string();
-            let weight: f64 = parts[1].parse()
+            let weight: f64 = parts[1]
+                .parse()
                 .with_context(|| format!("Invalid weight value: {}", parts[1]))?;
             weights.insert(id, weight);
         }
@@ -71,9 +73,17 @@ pub fn generate_weights(
     let mut writer = BufWriter::new(file);
 
     writeln!(writer, "# BaitBench weights file")?;
-    writeln!(writer, "# Targets: {} ({} in sample), Distractors: {}", n_targets, n_sample, n_distractors)?;
+    writeln!(
+        writer,
+        "# Targets: {} ({} in sample), Distractors: {}",
+        n_targets, n_sample, n_distractors
+    )?;
     writeln!(writer, "# Distractor fraction: {}", distractor_fraction)?;
-    writeln!(writer, "# Total sample weight: {}, Distractor weight: {:.6}", total_sample_weight, distractor_weight)?;
+    writeln!(
+        writer,
+        "# Total sample weight: {}, Distractor weight: {:.6}",
+        total_sample_weight, distractor_weight
+    )?;
     writeln!(writer, "#")?;
 
     for id in target_ids {
@@ -109,7 +119,14 @@ mod tests {
     #[test]
     fn weight_sample_target_uses_given_weight() {
         let tmp = tempfile::NamedTempFile::new().unwrap();
-        generate_weights(&strs(&["t1"]), &[], &sample(&[("t1", 2.5)]), 0.0, tmp.path()).unwrap();
+        generate_weights(
+            &strs(&["t1"]),
+            &[],
+            &sample(&[("t1", 2.5)]),
+            0.0,
+            tmp.path(),
+        )
+        .unwrap();
         let w = written_weights(tmp.path());
         assert!((w["t1"] - 2.5).abs() < 1e-5);
     }
@@ -117,7 +134,14 @@ mod tests {
     #[test]
     fn weight_nonsample_target_is_zero() {
         let tmp = tempfile::NamedTempFile::new().unwrap();
-        generate_weights(&strs(&["t1", "t2"]), &[], &sample(&[("t1", 1.0)]), 0.0, tmp.path()).unwrap();
+        generate_weights(
+            &strs(&["t1", "t2"]),
+            &[],
+            &sample(&[("t1", 1.0)]),
+            0.0,
+            tmp.path(),
+        )
+        .unwrap();
         let w = written_weights(tmp.path());
         assert!((w["t2"] - 0.0).abs() < 1e-10);
     }
@@ -126,7 +150,14 @@ mod tests {
     fn weight_distractor_formula() {
         // 1 sample (w=1.0), 1 distractor, df=0.5 → (0.5×1.0)/(1×0.5) = 1.0
         let tmp = tempfile::NamedTempFile::new().unwrap();
-        generate_weights(&strs(&["t1"]), &strs(&["d1"]), &sample(&[("t1", 1.0)]), 0.5, tmp.path()).unwrap();
+        generate_weights(
+            &strs(&["t1"]),
+            &strs(&["d1"]),
+            &sample(&[("t1", 1.0)]),
+            0.5,
+            tmp.path(),
+        )
+        .unwrap();
         let w = written_weights(tmp.path());
         assert!((w["d1"] - 1.0).abs() < 1e-5);
     }
@@ -135,7 +166,14 @@ mod tests {
     fn weight_two_distractors_halved() {
         // 1 sample (w=1.0), 2 distractors, df=0.5 → (0.5×1.0)/(2×0.5) = 0.5 each
         let tmp = tempfile::NamedTempFile::new().unwrap();
-        generate_weights(&strs(&["t1"]), &strs(&["d1", "d2"]), &sample(&[("t1", 1.0)]), 0.5, tmp.path()).unwrap();
+        generate_weights(
+            &strs(&["t1"]),
+            &strs(&["d1", "d2"]),
+            &sample(&[("t1", 1.0)]),
+            0.5,
+            tmp.path(),
+        )
+        .unwrap();
         let w = written_weights(tmp.path());
         assert!((w["d1"] - 0.5).abs() < 1e-5);
         assert!((w["d2"] - 0.5).abs() < 1e-5);
@@ -144,7 +182,14 @@ mod tests {
     #[test]
     fn weight_distractor_zero_when_fraction_zero() {
         let tmp = tempfile::NamedTempFile::new().unwrap();
-        generate_weights(&strs(&["t1"]), &strs(&["d1"]), &sample(&[("t1", 1.0)]), 0.0, tmp.path()).unwrap();
+        generate_weights(
+            &strs(&["t1"]),
+            &strs(&["d1"]),
+            &sample(&[("t1", 1.0)]),
+            0.0,
+            tmp.path(),
+        )
+        .unwrap();
         let w = written_weights(tmp.path());
         assert!((w["d1"] - 0.0).abs() < 1e-10);
     }
@@ -158,7 +203,14 @@ mod tests {
     #[test]
     fn weight_distractor_fraction_ge_1_errors() {
         let tmp = tempfile::NamedTempFile::new().unwrap();
-        assert!(generate_weights(&strs(&["t1"]), &strs(&["d1"]), &sample(&[("t1", 1.0)]), 1.0, tmp.path()).is_err());
+        assert!(generate_weights(
+            &strs(&["t1"]),
+            &strs(&["d1"]),
+            &sample(&[("t1", 1.0)]),
+            1.0,
+            tmp.path()
+        )
+        .is_err());
     }
 
     #[test]

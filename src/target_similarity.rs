@@ -64,7 +64,10 @@ pub fn compute_target_similarity(
     )?;
 
     let records = paf::parse_paf_records(&paf_path)?;
-    log::info!("Parsed {} PAF records from target-vs-target alignment", records.len());
+    log::info!(
+        "Parsed {} PAF records from target-vs-target alignment",
+        records.len()
+    );
 
     let mut similarities = Vec::new();
     for rec in &records {
@@ -101,15 +104,15 @@ pub fn compute_target_similarity(
 }
 
 /// Write target similarity records to a TSV file.
-pub fn write_target_similarity(
-    similarities: &[TargetSimilarity],
-    path: &Path,
-) -> Result<()> {
+pub fn write_target_similarity(similarities: &[TargetSimilarity], path: &Path) -> Result<()> {
     let file = File::create(path)
         .with_context(|| format!("Cannot create target similarity file: {}", path.display()))?;
     let mut w = BufWriter::new(file);
 
-    writeln!(w, "target_a\ttarget_b\tidentity_pct\tmatching_bases\tlen_a\tlen_b")?;
+    writeln!(
+        w,
+        "target_a\ttarget_b\tidentity_pct\tmatching_bases\tlen_a\tlen_b"
+    )?;
     for s in similarities {
         writeln!(
             w,
@@ -217,9 +220,7 @@ pub fn build_similarity_context(
 }
 
 /// Compute per-species discriminability from a similarity context.
-pub fn compute_discriminability(
-    ctx: &SimilarityContext,
-) -> Vec<SpeciesDiscriminability> {
+pub fn compute_discriminability(ctx: &SimilarityContext) -> Vec<SpeciesDiscriminability> {
     let mut results = Vec::new();
 
     for (species, targets) in &ctx.species_targets {
@@ -278,9 +279,7 @@ pub fn compute_discriminability(
 ///
 /// Returns (species_ids_sorted, matrix) where matrix[i][j] = number of targets
 /// in species i that are similar to targets in species j.
-pub fn build_confusion_matrix(
-    ctx: &SimilarityContext,
-) -> (Vec<String>, Vec<Vec<usize>>) {
+pub fn build_confusion_matrix(ctx: &SimilarityContext) -> (Vec<String>, Vec<Vec<usize>>) {
     let mut species_ids: Vec<String> = ctx.species_targets.keys().cloned().collect();
     species_ids.sort();
 
@@ -319,10 +318,7 @@ pub fn build_confusion_matrix(
 }
 
 /// Write species discriminability results to a TSV file.
-pub fn write_discriminability(
-    results: &[SpeciesDiscriminability],
-    path: &Path,
-) -> Result<()> {
+pub fn write_discriminability(results: &[SpeciesDiscriminability], path: &Path) -> Result<()> {
     let file = File::create(path)
         .with_context(|| format!("Cannot create discriminability file: {}", path.display()))?;
     let mut w = BufWriter::new(file);

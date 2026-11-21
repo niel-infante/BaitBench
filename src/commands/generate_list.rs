@@ -26,10 +26,7 @@ pub fn execute(args: &ListArgs) -> Result<()> {
     }
 
     writer.flush()?;
-    log::info!(
-        "Detection list: {} references detected",
-        sorted.len()
-    );
+    log::info!("Detection list: {} references detected", sorted.len());
 
     Ok(())
 }

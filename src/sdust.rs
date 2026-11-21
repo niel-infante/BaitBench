@@ -352,7 +352,11 @@ mod tests {
     #[test]
     fn test_masked_fraction_complex() {
         let frac = masked_fraction(b"ACGTACGTACGTACGT", DEFAULT_THRESHOLD, DEFAULT_WINDOW);
-        assert!(frac < 0.01, "complex seq should be ~0% masked, got {}", frac);
+        assert!(
+            frac < 0.01,
+            "complex seq should be ~0% masked, got {}",
+            frac
+        );
     }
 
     #[test]

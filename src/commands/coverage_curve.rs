@@ -7,13 +7,13 @@ use std::path::{Path, PathBuf};
 use crate::alignment::coverage;
 use crate::cleanup;
 use crate::cli::ReportMode;
+use crate::commands::report::{rmd_output_path, substitute_rmd_params};
 use crate::commands::{filter, map_reads, prepare, sequence, simulate};
-use crate::commands::report::{substitute_rmd_params, rmd_output_path};
 use crate::external::{minimap2, rscript};
-use crate::sampling::thermo_sim;
 use crate::fasta;
 use crate::io_utils;
 use crate::io_utils::prefixed_join;
+use crate::sampling::thermo_sim;
 use crate::sampling::thermo_sim::SimulateMode;
 
 pub struct CoverageCurveArgs<'a> {
@@ -24,17 +24,17 @@ pub struct CoverageCurveArgs<'a> {
     pub sample: &'a HashMap<String, f64>,
     pub sample_target_map: Option<&'a HashMap<String, Vec<String>>>,
     // Sweep dimensions — each has 1+ values
-    pub ct_display_values: Vec<f64>,       // original CT values as entered (for display/dirs)
+    pub ct_display_values: Vec<f64>, // original CT values as entered (for display/dirs)
     pub ct_distractor_fractions: Vec<f64>, // resolved distractor fractions (for pipeline use)
-    pub cf_values: Vec<f64>,               // capture fraction values (0.0–1.0)
-    pub ns_values: Vec<Option<usize>>,     // None = all sequences
-    pub swept_params: Vec<String>,         // which params are swept (for dir naming + report)
+    pub cf_values: Vec<f64>,         // capture fraction values (0.0–1.0)
+    pub ns_values: Vec<Option<usize>>, // None = all sequences
+    pub swept_params: Vec<String>,   // which params are swept (for dir naming + report)
     // Simulate params
     pub simulate_mode: SimulateMode,
     pub probe_aligner: crate::cli::ProbeAligner,
     /// User-chosen probe-placement cache; defaults to one per prepared reference.
     pub probe_hits: Option<&'a Path>,
-    pub temp_values: Vec<f64>,             // hybridization temperature values (1+ entries)
+    pub temp_values: Vec<f64>, // hybridization temperature values (1+ entries)
     /// Na+ concentration in molar (converted from CLI mM)
     pub na_conc_m: f64,
     // Pipeline params
@@ -97,13 +97,7 @@ fn fmt_param(v: f64) -> String {
     format!("{}", v)
 }
 
-fn combo_dir_name(
-    ct: f64,
-    temp: f64,
-    cf: f64,
-    ns: Option<usize>,
-    swept: &[String],
-) -> String {
+fn combo_dir_name(ct: f64, temp: f64, cf: f64, ns: Option<usize>, swept: &[String]) -> String {
     if swept.is_empty() {
         return "run".to_string();
     }
@@ -149,7 +143,10 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
 
     let sample_ids: HashSet<String> = args.sample.keys().cloned().collect();
 
-    let total_combos = args.ct_display_values.len() * args.temp_values.len() * args.cf_values.len() * args.ns_values.len();
+    let total_combos = args.ct_display_values.len()
+        * args.temp_values.len()
+        * args.cf_values.len()
+        * args.ns_values.len();
 
     let sim_mode_str = match args.simulate_mode {
         SimulateMode::Thermodynamic => "thermodynamic",
@@ -168,15 +165,11 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
         "Sample         : {}",
         io_utils::format_sample_display(args.sample)
     );
-    log::info!(
-        "Sample entries : {} ({})",
-        sample_ids.len(),
-        {
-            let mut ids: Vec<_> = sample_ids.iter().cloned().collect();
-            ids.sort();
-            ids.join(", ")
-        }
-    );
+    log::info!("Sample entries : {} ({})", sample_ids.len(), {
+        let mut ids: Vec<_> = sample_ids.iter().cloned().collect();
+        ids.sort();
+        ids.join(", ")
+    });
     log::info!("Simulate mode  : {}", sim_mode_str);
     if matches!(args.simulate_mode, SimulateMode::Thermodynamic) {
         if args.temp_values.len() == 1 {
@@ -188,18 +181,21 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
     if args.swept_params.is_empty() {
         log::info!("Mode           : single run (no parameters swept)");
     } else {
-        log::info!(
-            "Swept params   : {}",
-            args.swept_params.join(", ")
-        );
+        log::info!("Swept params   : {}", args.swept_params.join(", "));
     }
     if args.swept_params.contains(&"ct".to_string()) {
         log::info!("CT values      : {:?}", args.ct_display_values);
     }
-    if args.swept_params.contains(&"distractor_fraction".to_string()) {
+    if args
+        .swept_params
+        .contains(&"distractor_fraction".to_string())
+    {
         log::info!("DF values      : {:?}", args.ct_display_values);
     }
-    if args.swept_params.contains(&"hybridization_temperature".to_string()) {
+    if args
+        .swept_params
+        .contains(&"hybridization_temperature".to_string())
+    {
         log::info!("Temp values    : {:?}°C", args.temp_values);
     }
     if args.swept_params.contains(&"capture_fraction".to_string()) {
@@ -216,7 +212,11 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
 
     let pfx = &args.output_prefix;
     let num_probes = fasta::count_sequences(args.probes)?;
-    log::info!("Probes         : {} probes in {}", num_probes, args.probes.display());
+    log::info!(
+        "Probes         : {} probes in {}",
+        num_probes,
+        args.probes.display()
+    );
     let mut all_curves: Vec<DepthCurveRow> = Vec::new();
     let mut all_summary: Vec<ComboSummaryRow> = Vec::new();
     let mut combo_idx = 0usize;
@@ -241,7 +241,8 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
 
         log::info!(
             "--- Preparing reference (ct={}, distractor_fraction={:.6}) ---",
-            ct_display, distractor_fraction
+            ct_display,
+            distractor_fraction
         );
         run_prepare(&prep_dir, distractor_fraction, args)?;
 
@@ -310,177 +311,172 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
 
         // Middle loop: hybridization temperature (affects simulate)
         for &temp in &args.temp_values {
-        // Inner loop: capture-fraction values (affects simulate)
-        for &cf in &args.cf_values {
-            // Must name every parameter that changes simulate's output, at full
-            // precision: the step below reuses this directory's fragments if they
-            // already exist (D12). CT and distractor fraction are already separated by
-            // `prep_dir`, which holds the weights they determine.
-            let sim_dir = if args.temp_values.len() > 1 {
-                prep_dir.join(format!(
-                    "_sim_temp_{}_cf_{}",
-                    fmt_param(temp),
-                    fmt_param(cf)
-                ))
-            } else {
-                prep_dir.join(format!("_sim_cf_{}", fmt_param(cf)))
-            };
-            fs::create_dir_all(&sim_dir)?;
-
-            run_simulate(&sim_dir, &prep_dir, temp, cf, args)?;
-
-            let fragments_path = prefixed_join(&sim_dir, pfx, "fragments.fa");
-
-            // Innermost loop: num-sequences values (affects sequence step)
-            for ns_val in &args.ns_values {
-                combo_idx += 1;
-                let dir_name =
-                    combo_dir_name(ct_display, temp, cf, *ns_val, &args.swept_params);
-                let combo_dir = args.outdir.join(&dir_name);
-                fs::create_dir_all(&combo_dir)?;
-
-                log::info!(
-                    "--- Combo {}/{}: {} ---",
-                    combo_idx,
-                    total_combos,
-                    dir_name
-                );
-
-                // Sequence (perfect/trim mode only in coverage-curve)
-                log::info!("  Sequencing...");
-                let reads_path = prefixed_join(&combo_dir, pfx, "reads.fa");
-                sequence::execute(&sequence::SequenceArgs {
-                    input: &fragments_path,
-                    output: &reads_path,
-                    output_r2: None,
-                    read_length: args.read_length,
-                    num_sequences: *ns_val,
-                    seed: args.seed,
-                    simulator: sequence::ReadSimulator::Perfect,
-                    sequencer_profile: String::new(),
-                    coverage_depth: 1.0,
-                    threads: args.threads,
-                    paired_end: false,
-                    pe_frag_len_mean: 200,
-                    pe_frag_len_sd: 50,
-                    output_format: crate::cli::OutputFormat::Fasta,
-                    long_read_length_mean: None,
-                    long_read_length_sd: None,
-                    badread_glitches: None,
-                    badread_junk_reads: None,
-                    badread_random_reads: None,
-                    badread_chimeras: None,
-                })?;
-
-                // Optional host filtering
-                let reads_for_mapping = if let Some(host) = args.host_fasta {
-                    log::info!("  Filtering host reads...");
-                    filter::execute(&filter::FilterArgs {
-                        host,
-                        reads: &reads_path,
-                        reads_r2: None,
-                        minimap_preset: args.host_minimap_preset,
-                        output: &prefixed_join(&combo_dir, pfx, "filtered.fa"),
-                        output_r2: None,
-                        log_file: &prefixed_join(&combo_dir, pfx, "host_filter.log"),
-                    })?;
-                    prefixed_join(&combo_dir, pfx, "filtered.fa")
+            // Inner loop: capture-fraction values (affects simulate)
+            for &cf in &args.cf_values {
+                // Must name every parameter that changes simulate's output, at full
+                // precision: the step below reuses this directory's fragments if they
+                // already exist (D12). CT and distractor fraction are already separated by
+                // `prep_dir`, which holds the weights they determine.
+                let sim_dir = if args.temp_values.len() > 1 {
+                    prep_dir.join(format!(
+                        "_sim_temp_{}_cf_{}",
+                        fmt_param(temp),
+                        fmt_param(cf)
+                    ))
                 } else {
-                    reads_path
+                    prep_dir.join(format!("_sim_cf_{}", fmt_param(cf)))
                 };
+                fs::create_dir_all(&sim_dir)?;
 
-                // Map reads
-                log::info!("  Mapping reads...");
-                map_reads::execute(&map_reads::MapArgs {
-                    reference: &mapping_reference,
-                    reads: &reads_for_mapping,
-                    reads_r2: None,
-                    minimap_preset: args.minimap_preset,
-                    output: &prefixed_join(&combo_dir, pfx, "mapped.sam"),
-                    log_file: &prefixed_join(&combo_dir, pfx, "mapping.log"),
-                })?;
+                run_simulate(&sim_dir, &prep_dir, temp, cf, args)?;
 
-                let total_reads = fasta::count_reads(&reads_for_mapping).unwrap_or(0);
+                let fragments_path = prefixed_join(&sim_dir, pfx, "fragments.fa");
 
-                // Compute coverage
-                let sam_path = prefixed_join(&combo_dir, pfx, "mapped.sam");
-                let coverage_result = coverage::compute_coverage(&sam_path)?;
+                // Innermost loop: num-sequences values (affects sequence step)
+                for ns_val in &args.ns_values {
+                    combo_idx += 1;
+                    let dir_name =
+                        combo_dir_name(ct_display, temp, cf, *ns_val, &args.swept_params);
+                    let combo_dir = args.outdir.join(&dir_name);
+                    fs::create_dir_all(&combo_dir)?;
 
-                let ns_tsv = ns_val.unwrap_or(0);
+                    log::info!("--- Combo {}/{}: {} ---", combo_idx, total_combos, dir_name);
 
-                for target_id in tracking_ids {
-                    let (curves, stats) = match coverage_result.coverage.get(target_id) {
-                        Some(depths) => {
-                            let ref_len = coverage_result
-                                .ref_lengths
-                                .get(target_id)
-                                .copied()
-                                .unwrap_or(depths.len());
-                            let s = coverage::calculate_stats(depths, ref_len);
-                            (compute_depth_curve(depths, ref_len), s)
-                        }
-                        None => {
-                            log::warn!(
-                                "No coverage found for target '{}' in combo {}",
-                                target_id,
-                                dir_name
-                            );
-                            (vec![(1, 0.0)], coverage::calculate_stats(&[], 0))
-                        }
+                    // Sequence (perfect/trim mode only in coverage-curve)
+                    log::info!("  Sequencing...");
+                    let reads_path = prefixed_join(&combo_dir, pfx, "reads.fa");
+                    sequence::execute(&sequence::SequenceArgs {
+                        input: &fragments_path,
+                        output: &reads_path,
+                        output_r2: None,
+                        read_length: args.read_length,
+                        num_sequences: *ns_val,
+                        seed: args.seed,
+                        simulator: sequence::ReadSimulator::Perfect,
+                        sequencer_profile: String::new(),
+                        coverage_depth: 1.0,
+                        threads: args.threads,
+                        paired_end: false,
+                        pe_frag_len_mean: 200,
+                        pe_frag_len_sd: 50,
+                        output_format: crate::cli::OutputFormat::Fasta,
+                        long_read_length_mean: None,
+                        long_read_length_sd: None,
+                        badread_glitches: None,
+                        badread_junk_reads: None,
+                        badread_random_reads: None,
+                        badread_chimeras: None,
+                    })?;
+
+                    // Optional host filtering
+                    let reads_for_mapping = if let Some(host) = args.host_fasta {
+                        log::info!("  Filtering host reads...");
+                        filter::execute(&filter::FilterArgs {
+                            host,
+                            reads: &reads_path,
+                            reads_r2: None,
+                            minimap_preset: args.host_minimap_preset,
+                            output: &prefixed_join(&combo_dir, pfx, "filtered.fa"),
+                            output_r2: None,
+                            log_file: &prefixed_join(&combo_dir, pfx, "host_filter.log"),
+                        })?;
+                        prefixed_join(&combo_dir, pfx, "filtered.fa")
+                    } else {
+                        reads_path
                     };
 
-                    let reads_mapped = coverage_result
-                        .reads_per_ref
-                        .get(target_id)
-                        .copied()
-                        .unwrap_or(0);
+                    // Map reads
+                    log::info!("  Mapping reads...");
+                    map_reads::execute(&map_reads::MapArgs {
+                        reference: &mapping_reference,
+                        reads: &reads_for_mapping,
+                        reads_r2: None,
+                        minimap_preset: args.minimap_preset,
+                        output: &prefixed_join(&combo_dir, pfx, "mapped.sam"),
+                        log_file: &prefixed_join(&combo_dir, pfx, "mapping.log"),
+                    })?;
 
-                    let probes_mapped = probes_per_target
-                        .as_ref()
-                        .and_then(|m| m.get(target_id))
-                        .copied()
-                        .unwrap_or(0);
+                    let total_reads = fasta::count_reads(&reads_for_mapping).unwrap_or(0);
 
-                    let empty_depths: &[u32] = &[];
-                    let target_depths = coverage_result
-                        .coverage
-                        .get(target_id)
-                        .map(|v| v.as_slice())
-                        .unwrap_or(empty_depths);
-                    let probes_contributing = probe_alignments
-                        .as_deref()
-                        .map(|alns| count_contributing_probes(alns, target_id, target_depths))
-                        .unwrap_or(0);
+                    // Compute coverage
+                    let sam_path = prefixed_join(&combo_dir, pfx, "mapped.sam");
+                    let coverage_result = coverage::compute_coverage(&sam_path)?;
 
-                    all_summary.push(ComboSummaryRow {
-                        ct: ct_display,
-                        hybridization_temperature: temp,
-                        capture_fraction: cf,
-                        num_sequences: ns_tsv,
-                        reference_id: target_id.clone(),
-                        probes_mapped,
-                        probes_contributing,
-                        total_reads,
-                        reads_mapped,
-                        avg_depth: stats.avg_coverage,
-                        pct_covered_5x: stats.pct_covered_5x,
-                        pct_covered_20x: stats.pct_covered_20x,
-                    });
+                    let ns_tsv = ns_val.unwrap_or(0);
 
-                    for (threshold, pct) in curves {
-                        all_curves.push(DepthCurveRow {
+                    for target_id in tracking_ids {
+                        let (curves, stats) = match coverage_result.coverage.get(target_id) {
+                            Some(depths) => {
+                                let ref_len = coverage_result
+                                    .ref_lengths
+                                    .get(target_id)
+                                    .copied()
+                                    .unwrap_or(depths.len());
+                                let s = coverage::calculate_stats(depths, ref_len);
+                                (compute_depth_curve(depths, ref_len), s)
+                            }
+                            None => {
+                                log::warn!(
+                                    "No coverage found for target '{}' in combo {}",
+                                    target_id,
+                                    dir_name
+                                );
+                                (vec![(1, 0.0)], coverage::calculate_stats(&[], 0))
+                            }
+                        };
+
+                        let reads_mapped = coverage_result
+                            .reads_per_ref
+                            .get(target_id)
+                            .copied()
+                            .unwrap_or(0);
+
+                        let probes_mapped = probes_per_target
+                            .as_ref()
+                            .and_then(|m| m.get(target_id))
+                            .copied()
+                            .unwrap_or(0);
+
+                        let empty_depths: &[u32] = &[];
+                        let target_depths = coverage_result
+                            .coverage
+                            .get(target_id)
+                            .map(|v| v.as_slice())
+                            .unwrap_or(empty_depths);
+                        let probes_contributing = probe_alignments
+                            .as_deref()
+                            .map(|alns| count_contributing_probes(alns, target_id, target_depths))
+                            .unwrap_or(0);
+
+                        all_summary.push(ComboSummaryRow {
                             ct: ct_display,
                             hybridization_temperature: temp,
                             capture_fraction: cf,
                             num_sequences: ns_tsv,
                             reference_id: target_id.clone(),
-                            depth_threshold: threshold,
-                            pct_covered: pct,
+                            probes_mapped,
+                            probes_contributing,
+                            total_reads,
+                            reads_mapped,
+                            avg_depth: stats.avg_coverage,
+                            pct_covered_5x: stats.pct_covered_5x,
+                            pct_covered_20x: stats.pct_covered_20x,
                         });
+
+                        for (threshold, pct) in curves {
+                            all_curves.push(DepthCurveRow {
+                                ct: ct_display,
+                                hybridization_temperature: temp,
+                                capture_fraction: cf,
+                                num_sequences: ns_tsv,
+                                reference_id: target_id.clone(),
+                                depth_threshold: threshold,
+                                pct_covered: pct,
+                            });
+                        }
                     }
                 }
-            }
-        } // end CF loop
+            } // end CF loop
         } // end temp loop
     } // end CT loop
 
@@ -508,11 +504,15 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
             if rscript::check_available() {
                 let report_path = prefixed_join(&args.outdir, pfx, "coverage_curve_report.html");
                 log::info!("Generating coverage curve report...");
-                match generate_report(&curves_path, &summary_path, tracking_ids, &args.swept_params, &params_path, &report_path) {
-                    Ok(()) => log::info!(
-                        "Report generated: {}",
-                        report_path.display()
-                    ),
+                match generate_report(
+                    &curves_path,
+                    &summary_path,
+                    tracking_ids,
+                    &args.swept_params,
+                    &params_path,
+                    &report_path,
+                ) {
+                    Ok(()) => log::info!("Report generated: {}", report_path.display()),
                     Err(e) => log::warn!("Report generation failed (non-fatal): {}", e),
                 }
             } else {
@@ -522,7 +522,14 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
         ReportMode::Rmd => {
             let report_path = prefixed_join(&args.outdir, pfx, "coverage_curve_report.html");
             log::info!("Generating coverage curve RMarkdown file...");
-            match write_coverage_curve_rmd(&curves_path, &summary_path, tracking_ids, &args.swept_params, &params_path, &report_path) {
+            match write_coverage_curve_rmd(
+                &curves_path,
+                &summary_path,
+                tracking_ids,
+                &args.swept_params,
+                &params_path,
+                &report_path,
+            ) {
                 Ok(()) => {}
                 Err(e) => log::warn!("RMarkdown generation failed (non-fatal): {}", e),
             }
@@ -530,13 +537,27 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
         ReportMode::BothR => {
             let report_path = prefixed_join(&args.outdir, pfx, "coverage_curve_report.html");
             log::info!("Generating coverage curve RMarkdown file...");
-            match write_coverage_curve_rmd(&curves_path, &summary_path, tracking_ids, &args.swept_params, &params_path, &report_path) {
+            match write_coverage_curve_rmd(
+                &curves_path,
+                &summary_path,
+                tracking_ids,
+                &args.swept_params,
+                &params_path,
+                &report_path,
+            ) {
                 Ok(()) => {}
                 Err(e) => log::warn!("RMarkdown generation failed (non-fatal): {}", e),
             }
             if rscript::check_available() {
                 log::info!("Generating coverage curve HTML report...");
-                match generate_report(&curves_path, &summary_path, tracking_ids, &args.swept_params, &params_path, &report_path) {
+                match generate_report(
+                    &curves_path,
+                    &summary_path,
+                    tracking_ids,
+                    &args.swept_params,
+                    &params_path,
+                    &report_path,
+                ) {
                     Ok(()) => log::info!("Report generated: {}", report_path.display()),
                     Err(e) => log::warn!("Report generation failed (non-fatal): {}", e),
                 }
@@ -561,11 +582,7 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
 }
 
 /// Run prepare into a shared prep directory for this CT value.
-fn run_prepare(
-    outdir: &Path,
-    distractor_fraction: f64,
-    args: &CoverageCurveArgs,
-) -> Result<()> {
+fn run_prepare(outdir: &Path, distractor_fraction: f64, args: &CoverageCurveArgs) -> Result<()> {
     let pfx = &args.output_prefix;
 
     // Skip if already done (idempotent)
@@ -618,7 +635,8 @@ fn run_simulate(
 
     log::info!(
         "  Simulating fragments (temp={}°C, capture_fraction={:.2})...",
-        hybridization_temperature, capture_fraction
+        hybridization_temperature,
+        capture_fraction
     );
     simulate::execute(&simulate::SimulateArgs {
         reference: &prefixed_join(prep_dir, pfx, "combined_reference.fa"),
@@ -696,10 +714,13 @@ fn write_depth_curves_tsv(path: &Path, rows: &[DepthCurveRow]) -> Result<()> {
         writeln!(
             w,
             "{}\t{:.1}\t{}\t{}\t{}\t{}\t{:.2}",
-            row.ct, row.hybridization_temperature,
+            row.ct,
+            row.hybridization_temperature,
             format_capture_fraction(row.capture_fraction),
             row.num_sequences,
-            row.reference_id, row.depth_threshold, row.pct_covered
+            row.reference_id,
+            row.depth_threshold,
+            row.pct_covered
         )?;
     }
 
@@ -750,7 +771,12 @@ fn load_probe_info(sam_path: &Path) -> Result<(HashMap<String, usize>, Vec<Probe
 
         let ref_start = pos.saturating_sub(1); // 0-based
         let ref_end = ref_start + cigar_ref_len(cigar);
-        alignments.push(ProbeAln { probe_name, target: rname, ref_start, ref_end });
+        alignments.push(ProbeAln {
+            probe_name,
+            target: rname,
+            ref_start,
+            ref_end,
+        });
     }
 
     let mut counts: HashMap<String, usize> = HashMap::new();
@@ -816,12 +842,18 @@ fn write_summary_tsv(path: &Path, rows: &[ComboSummaryRow]) -> Result<()> {
         writeln!(
             w,
             "{}\t{:.1}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{:.2}\t{:.2}\t{:.2}",
-            row.ct, row.hybridization_temperature,
+            row.ct,
+            row.hybridization_temperature,
             format_capture_fraction(row.capture_fraction),
             row.num_sequences,
-            row.reference_id, row.probes_mapped, row.probes_contributing,
-            row.total_reads, row.reads_mapped,
-            row.avg_depth, row.pct_covered_5x, row.pct_covered_20x
+            row.reference_id,
+            row.probes_mapped,
+            row.probes_contributing,
+            row.total_reads,
+            row.reads_mapped,
+            row.avg_depth,
+            row.pct_covered_5x,
+            row.pct_covered_20x
         )?;
     }
 
@@ -849,22 +881,65 @@ fn write_run_params(path: &Path, args: &CoverageCurveArgs, num_probes: usize) ->
     }
     writeln!(w, "probes\t--probes\t{}", args.probes.display())?;
     writeln!(w, "num_probes\t(info)\t{}", num_probes)?;
-    writeln!(w, "sample\t--sample\t{}", io_utils::format_sample_display(args.sample))?;
+    writeln!(
+        w,
+        "sample\t--sample\t{}",
+        io_utils::format_sample_display(args.sample)
+    )?;
     writeln!(w, "num_fragments\t--num-fragments\t{}", args.num_fragments)?;
     writeln!(w, "read_length\t--read-length\t{}", args.read_length)?;
     writeln!(w, "simulate_mode\t--simulate-mode\t{}", sim_mode_str)?;
     if args.temp_values.len() == 1 {
-        writeln!(w, "hybridization_temperature\t--hybridization-temperature\t{}", args.temp_values[0])?;
+        writeln!(
+            w,
+            "hybridization_temperature\t--hybridization-temperature\t{}",
+            args.temp_values[0]
+        )?;
     } else {
-        let temp_str = args.temp_values.iter().map(|t| t.to_string()).collect::<Vec<_>>().join(" ");
-        writeln!(w, "hybridization_temperature_values\t--hybridization-temperature-values\t{}", temp_str)?;
+        let temp_str = args
+            .temp_values
+            .iter()
+            .map(|t| t.to_string())
+            .collect::<Vec<_>>()
+            .join(" ");
+        writeln!(
+            w,
+            "hybridization_temperature_values\t--hybridization-temperature-values\t{}",
+            temp_str
+        )?;
     }
-    writeln!(w, "salt_concentration\t--salt-concentration\t{}", args.na_conc_m * 1000.0)?;
-    writeln!(w, "minimap_preset\t--minimap-preset\t{}", args.minimap_preset)?;
-    writeln!(w, "fragment_length_mean\t--fragment-length-mean\t{}", args.fragment_length_mean)?;
-    writeln!(w, "fragment_length_min\t--fragment-length-min\t{}", args.fragment_length_min)?;
-    writeln!(w, "fragment_length_max\t--fragment-length-max\t{}", args.fragment_length_max)?;
-    writeln!(w, "seed\t--seed\t{}", args.seed.map(|s| s.to_string()).unwrap_or_else(|| "none".to_string()))?;
+    writeln!(
+        w,
+        "salt_concentration\t--salt-concentration\t{}",
+        args.na_conc_m * 1000.0
+    )?;
+    writeln!(
+        w,
+        "minimap_preset\t--minimap-preset\t{}",
+        args.minimap_preset
+    )?;
+    writeln!(
+        w,
+        "fragment_length_mean\t--fragment-length-mean\t{}",
+        args.fragment_length_mean
+    )?;
+    writeln!(
+        w,
+        "fragment_length_min\t--fragment-length-min\t{}",
+        args.fragment_length_min
+    )?;
+    writeln!(
+        w,
+        "fragment_length_max\t--fragment-length-max\t{}",
+        args.fragment_length_max
+    )?;
+    writeln!(
+        w,
+        "seed\t--seed\t{}",
+        args.seed
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| "none".to_string())
+    )?;
     writeln!(w, "threads\t--threads\t{}", args.threads)?;
     if !args.swept_params.is_empty() {
         writeln!(w, "swept_params\t(info)\t{}", args.swept_params.join(", "))?;
@@ -883,8 +958,8 @@ fn write_coverage_curve_rmd(
     params_path: &Path,
     output_path: &Path,
 ) -> Result<()> {
-    let r_dir = rscript::find_r_dir()
-        .ok_or_else(|| anyhow::anyhow!("Cannot find R scripts directory."))?;
+    let r_dir =
+        rscript::find_r_dir().ok_or_else(|| anyhow::anyhow!("Cannot find R scripts directory."))?;
 
     let rmd_template = r_dir.join("coverage_curve.Rmd");
     if !rmd_template.exists() {
@@ -958,15 +1033,12 @@ fn generate_report(
     params_path: &Path,
     output_path: &Path,
 ) -> Result<()> {
-    let r_dir = rscript::find_r_dir()
-        .ok_or_else(|| anyhow::anyhow!("Cannot find R scripts directory."))?;
+    let r_dir =
+        rscript::find_r_dir().ok_or_else(|| anyhow::anyhow!("Cannot find R scripts directory."))?;
 
     let script = r_dir.join("coverage_curve.R");
     if !script.exists() {
-        bail!(
-            "Coverage curve R script not found: {}",
-            script.display()
-        );
+        bail!("Coverage curve R script not found: {}", script.display());
     }
 
     let sweep_abs = fs::canonicalize(sweep_tsv)?;
@@ -985,11 +1057,7 @@ fn generate_report(
 
     let mut ids: Vec<&String> = sample_ids.iter().collect();
     ids.sort();
-    let ids_str = ids
-        .iter()
-        .map(|s| s.as_str())
-        .collect::<Vec<_>>()
-        .join(",");
+    let ids_str = ids.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(",");
 
     let swept_str = swept_params.join(",");
 

@@ -1290,7 +1290,11 @@ pub enum Commands {
         capture_fraction_values: Option<Vec<f64>>,
 
         /// Fixed capture fraction (when not sweeping). Conflicts with --capture-fraction-values.
-        #[arg(long, default_value = "0.5", conflicts_with = "capture_fraction_values")]
+        #[arg(
+            long,
+            default_value = "0.5",
+            conflicts_with = "capture_fraction_values"
+        )]
         capture_fraction: f64,
 
         /// Simulation mode: thermodynamic or simple
@@ -1304,7 +1308,11 @@ pub enum Commands {
 
         /// Fixed hybridization temperature in °C (thermodynamic mode only).
         /// Conflicts with --hybridization-temperature-values.
-        #[arg(long, default_value = "70.0", conflicts_with = "hybridization_temperature_values")]
+        #[arg(
+            long,
+            default_value = "70.0",
+            conflicts_with = "hybridization_temperature_values"
+        )]
         hybridization_temperature: f64,
 
         // Hidden: advanced thermodynamics parameter; the 50 mM Na+ default is appropriate for

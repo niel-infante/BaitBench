@@ -34,8 +34,8 @@ use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::Path;
 
 use crate::alignment::cigar::{cigar_ref_len, expand_cigar, CigarOp};
-use crate::sampling::FragmentLengthParams;
 use crate::alignment::probe_cache::Placement;
+use crate::sampling::FragmentLengthParams;
 use crate::thermodynamics::{delta_g, langmuir_occupancy, min_window_delta_g, ThermoModel};
 
 /// Simulate mode — controls how probe hit scores are computed.
@@ -265,7 +265,11 @@ pub fn load_probe_hits_blast(
         }
 
         // BLAST coordinates are 1-based inclusive and descend on the minus strand.
-        let (lo, hi) = if sstart <= send { (sstart, send) } else { (send, sstart) };
+        let (lo, hi) = if sstart <= send {
+            (sstart, send)
+        } else {
+            (send, sstart)
+        };
         let start = lo.saturating_sub(1);
         let end = hi;
 
@@ -386,7 +390,6 @@ pub fn load_probe_hits(
 
     Ok(placements)
 }
-
 
 /// Write a list of (header, sequence) fragment pairs to a FASTA file.
 pub fn write_fragments(fragments: &[(String, String)], output: &Path) -> Result<()> {
@@ -793,7 +796,11 @@ pub fn retention_stats(
         w_covered += w * p.covered_starts as f64;
     }
     let yield_fraction = if w_input > 0.0 { w_mass / w_input } else { 0.0 };
-    let on_target_fraction = if w_mass > 0.0 { w_mass_spec / w_mass } else { 0.0 };
+    let on_target_fraction = if w_mass > 0.0 {
+        w_mass_spec / w_mass
+    } else {
+        0.0
+    };
     // Fold enrichment, as a bench protocol reports it: the on-target share of what came
     // out over the on-target share of what went in. "On-target" in the input means
     // positions a probe can reach at all — abundance-weighted, so a probe-covered
@@ -998,11 +1005,7 @@ pub fn write_retention_report(
         } else {
             0.0
         };
-        let max_p_retain = p
-            .segments
-            .iter()
-            .map(|s| s.p_retain)
-            .fold(0.0f64, f64::max);
+        let max_p_retain = p.segments.iter().map(|s| s.p_retain).fold(0.0f64, f64::max);
         let max_p_specific = p
             .segments
             .iter()
@@ -1127,7 +1130,11 @@ mod tests {
 
     /// One reference, one probe hit, known geometry — small enough to verify the
     /// aggregate statistics against arithmetic done by hand.
-    fn one_hit_fixture() -> (HashMap<String, String>, HashMap<String, f64>, HitsBySequence) {
+    fn one_hit_fixture() -> (
+        HashMap<String, String>,
+        HashMap<String, f64>,
+        HitsBySequence,
+    ) {
         let mut sequences = HashMap::new();
         sequences.insert("t".to_string(), "A".repeat(1000));
         sequences.insert("d".to_string(), "C".repeat(1000));
@@ -1162,10 +1169,16 @@ mod tests {
                 (0.0..=1.0).contains(&e),
                 "efficiency must be a probability, got {e} at ln[probe]={exp}"
             );
-            assert!(e >= prev, "efficiency fell from {prev} to {e} as concentration rose");
+            assert!(
+                e >= prev,
+                "efficiency fell from {prev} to {e} as concentration rose"
+            );
             prev = e;
         }
-        assert!(prev > 0.99, "efficiency should saturate at high concentration, got {prev}");
+        assert!(
+            prev > 0.99,
+            "efficiency should saturate at high concentration, got {prev}"
+        );
     }
 
     /// Capture efficiency describes the panel, not the sample: adding distractor must
@@ -1223,7 +1236,10 @@ mod tests {
         // = [360, 460], so 101 covered positions out of 901 per reference, over two
         // equally weighted references of 901 starts each.
         let covered: usize = profiles.iter().map(|q| q.covered_starts).sum();
-        assert_eq!(covered, 101, "expected 101 probe-reachable starts, got {covered}");
+        assert_eq!(
+            covered, 101,
+            "expected 101 probe-reachable starts, got {covered}"
+        );
         let input_share = 101.0 / (2.0 * 901.0);
         let expected = stats.on_target_fraction / input_share;
         assert!(
@@ -1239,8 +1255,7 @@ mod tests {
         // exactly `1 / yield` whatever the occupancy.
         let half = {
             let mut q = params(1.0);
-            q.probe_concentration =
-                solve_probe_concentration(&sequences, &by_seq, &q, &m, 0.5);
+            q.probe_concentration = solve_probe_concentration(&sequences, &by_seq, &q, &m, 0.5);
             q
         };
         let profiles = build_profiles(&sequences, &weights, &by_seq, &half, &m);
@@ -1261,9 +1276,16 @@ mod tests {
     fn unprobed_references_carry_background_mass() {
         let (sequences, weights, by_seq) = one_hit_fixture();
         let profiles = build_profiles(&sequences, &weights, &by_seq, &params(1.0), &model());
-        let d = profiles.iter().find(|p| p.seq_id == "d").expect("distractor profile");
+        let d = profiles
+            .iter()
+            .find(|p| p.seq_id == "d")
+            .expect("distractor profile");
         assert_eq!(d.covered_starts, 0);
-        assert!((d.mass - 901.0 * 1e-3).abs() < 1e-9, "mass {} != 901 * p_ns", d.mass);
+        assert!(
+            (d.mass - 901.0 * 1e-3).abs() < 1e-9,
+            "mass {} != 901 * p_ns",
+            d.mass
+        );
     }
 
     /// A contig shorter than the nominal fragment length still belongs in the library.
@@ -1301,13 +1323,28 @@ mod tests {
         hits_by_probe.insert(
             "p1".to_string(),
             vec![
-                ProbeHit { seq_id: "b".into(), start: 50, end: 90, dg: -5.0 },
-                ProbeHit { seq_id: "a".into(), start: 10, end: 40, dg: -6.0 },
+                ProbeHit {
+                    seq_id: "b".into(),
+                    start: 50,
+                    end: 90,
+                    dg: -5.0,
+                },
+                ProbeHit {
+                    seq_id: "a".into(),
+                    start: 10,
+                    end: 40,
+                    dg: -6.0,
+                },
             ],
         );
         hits_by_probe.insert(
             "p2".to_string(),
-            vec![ProbeHit { seq_id: "a".into(), start: 5, end: 30, dg: -7.0 }],
+            vec![ProbeHit {
+                seq_id: "a".into(),
+                start: 5,
+                end: 30,
+                dg: -7.0,
+            }],
         );
         let by_seq = group_hits_by_sequence(&hits_by_probe);
         assert_eq!(by_seq.len(), 2);
@@ -1337,15 +1374,23 @@ mod tests {
         let hit_len = h1 - h0;
 
         // m = 1: any overlap counts.
-        let any = build_retention_profile("s", 2000, &[(h0, h1, 1.0)], frag, 0.0, 1.0 / hit_len as f64);
+        let any =
+            build_retention_profile("s", 2000, &[(h0, h1, 1.0)], frag, 0.0, 1.0 / hit_len as f64);
         let w_any: usize = any.segments.iter().map(|s| s.end - s.start).sum();
         assert_eq!(w_any, frag + hit_len - 1, "any-overlap window");
 
         // m = 60 (half the site): the window narrows by 2*(m-1).
         let half = build_retention_profile("s", 2000, &[(h0, h1, 1.0)], frag, 0.0, 0.5);
         let w_half: usize = half.segments.iter().map(|s| s.end - s.start).sum();
-        assert_eq!(w_half, frag + hit_len - 1 - 2 * (60 - 1), "half-overlap window");
-        assert!(w_half < w_any, "a stricter threshold must narrow the window");
+        assert_eq!(
+            w_half,
+            frag + hit_len - 1 - 2 * (60 - 1),
+            "half-overlap window"
+        );
+        assert!(
+            w_half < w_any,
+            "a stricter threshold must narrow the window"
+        );
         assert!((half.mass - w_half as f64).abs() < 1e-9);
     }
 
@@ -1362,7 +1407,14 @@ mod tests {
     /// 0.75 where both are active, not 0.5 or 1.0.
     #[test]
     fn overlapping_hits_combine_independently() {
-        let p = build_retention_profile("s", 3000, &[(1000, 1120, 0.5), (1040, 1160, 0.5)], 50, 0.0, 0.25);
+        let p = build_retention_profile(
+            "s",
+            3000,
+            &[(1000, 1120, 0.5), (1040, 1160, 0.5)],
+            50,
+            0.0,
+            0.25,
+        );
         let peak = p.segments.iter().map(|s| s.p_retain).fold(0.0f64, f64::max);
         assert!((peak - 0.75).abs() < 1e-9, "expected 0.75, got {peak}");
     }
@@ -1372,10 +1424,20 @@ mod tests {
     fn background_is_a_floor_under_the_profile() {
         let p_ns = 0.02;
         let p = build_retention_profile("s", 3000, &[(1000, 1120, 0.6)], 50, p_ns, 0.25);
-        let min = p.segments.iter().map(|s| s.p_retain).fold(f64::MAX, f64::min);
+        let min = p
+            .segments
+            .iter()
+            .map(|s| s.p_retain)
+            .fold(f64::MAX, f64::min);
         let max = p.segments.iter().map(|s| s.p_retain).fold(0.0f64, f64::max);
-        assert!((min - p_ns).abs() < 1e-12, "floor should be p_ns, got {min}");
-        assert!((max - 0.608).abs() < 1e-9, "peak should be 0.608, got {max}");
+        assert!(
+            (min - p_ns).abs() < 1e-12,
+            "floor should be p_ns, got {min}"
+        );
+        assert!(
+            (max - 0.608).abs() < 1e-9,
+            "peak should be 0.608, got {max}"
+        );
     }
 
     /// Probe density raises retention mass - the effect the real LOD data shows.
@@ -1383,11 +1445,19 @@ mod tests {
     fn more_probes_means_more_retention_mass() {
         let sparse = build_retention_profile("s", 10_000, &[(5000, 5120, 0.9)], 200, 0.001, 0.5);
         let dense = build_retention_profile(
-            "s", 10_000,
+            "s",
+            10_000,
             &[(5000, 5120, 0.9), (5200, 5320, 0.9), (5400, 5520, 0.9)],
-            200, 0.001, 0.5,
+            200,
+            0.001,
+            0.5,
         );
-        assert!(dense.mass > sparse.mass, "{} vs {}", dense.mass, sparse.mass);
+        assert!(
+            dense.mass > sparse.mass,
+            "{} vs {}",
+            dense.mass,
+            sparse.mass
+        );
     }
 
     /// Cross-probe affinity now matters, which the previous model could not express.
@@ -1396,7 +1466,10 @@ mod tests {
         let strong = build_retention_profile("s", 10_000, &[(5000, 5120, 0.9)], 200, 0.0, 0.5);
         let weak = build_retention_profile("s", 10_000, &[(5000, 5120, 0.1)], 200, 0.0, 0.5);
         assert!(strong.mass > weak.mass, "{} vs {}", strong.mass, weak.mass);
-        assert!((strong.mass / weak.mass - 9.0).abs() < 1e-6, "ratio should track theta");
+        assert!(
+            (strong.mass / weak.mass - 9.0).abs() < 1e-6,
+            "ratio should track theta"
+        );
     }
 
     /// A reference shorter than the fragment cannot contribute.
@@ -1406,7 +1479,6 @@ mod tests {
         assert_eq!(p.mass, 0.0);
         assert!(p.segments.is_empty());
     }
-
 
     fn pairs_of(query: &str, reference: &str, start: usize, cigar: &str) -> Vec<(u8, u8)> {
         aligned_pairs(query.as_bytes(), reference.as_bytes(), start, cigar)
@@ -1486,13 +1558,21 @@ mod tests {
         let q = format!("{}XX{}", &REF[0..5], &REF[5..10]);
         let pairs = pairs_of(&q, REF, 0, "5M2I5M");
         assert_eq!(pairs.len(), 10, "insertion must not pair");
-        assert_eq!(pairs[5].0, REF.as_bytes()[5], "reference lost sync after insertion");
+        assert_eq!(
+            pairs[5].0,
+            REF.as_bytes()[5],
+            "reference lost sync after insertion"
+        );
 
         // 5M then a 2 bp deletion then 5M: reference advances 12, query 10.
         let q2 = format!("{}{}", &REF[0..5], &REF[7..12]);
         let pairs2 = pairs_of(&q2, REF, 0, "5M2D5M");
         assert_eq!(pairs2.len(), 10, "deletion must not pair");
-        assert_eq!(pairs2[5].0, REF.as_bytes()[7], "query lost sync after deletion");
+        assert_eq!(
+            pairs2[5].0,
+            REF.as_bytes()[7],
+            "query lost sync after deletion"
+        );
     }
 
     /// Lowercase input must score identically to uppercase; ambiguity codes and N

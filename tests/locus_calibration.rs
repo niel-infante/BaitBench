@@ -45,8 +45,7 @@ struct Placement {
 }
 
 fn load(path: &str) -> Vec<Placement> {
-    let text = std::fs::read_to_string(path)
-        .unwrap_or_else(|e| panic!("cannot read {path}: {e}"));
+    let text = std::fs::read_to_string(path).unwrap_or_else(|e| panic!("cannot read {path}: {e}"));
     let mut out = Vec::new();
     for line in text.lines() {
         if line.starts_with('#') || line.starts_with("probe_name") {
@@ -69,7 +68,10 @@ fn load(path: &str) -> Vec<Placement> {
 fn window(p: &Placement) -> (usize, usize) {
     let hit_len = p.end - p.start;
     let m = ((hit_len as f64) * MIN_OVERLAP).ceil().max(1.0) as usize;
-    ((p.start + m).saturating_sub(FRAG_LEN), p.end.saturating_sub(m))
+    (
+        (p.start + m).saturating_sub(FRAG_LEN),
+        p.end.saturating_sub(m),
+    )
 }
 
 /// Mean retention over the fragment starts spanning a locus, under a given per-probe
@@ -102,10 +104,18 @@ fn locus_retention(
         // hybridisation window, so the count is Poisson(sum theta) and p(>=1) is
         // 1 - exp(-sum). In the low-capture regime this is linear in sum theta, so
         // probe density and affinity multiply instead of both being flattened.
-        total += if sum_rule { 1.0 - (-sum).exp() } else { 1.0 - prod };
+        total += if sum_rule {
+            1.0 - (-sum).exp()
+        } else {
+            1.0 - prod
+        };
         n += 1;
     }
-    if n > 0 { total / n as f64 } else { 0.0 }
+    if n > 0 {
+        total / n as f64
+    } else {
+        0.0
+    }
 }
 
 /// Mean `p_specific` over probe-covered positions, mirroring production's
@@ -160,7 +170,11 @@ fn covered_mean_p_specific(pl: &[Placement], theta: &HashMap<usize, f64>, sum_ru
         }
         pos = at;
     }
-    if covered > 0.0 { total / covered } else { 0.0 }
+    if covered > 0.0 {
+        total / covered
+    } else {
+        0.0
+    }
 }
 
 /// Placements that can contribute to any fragment start spanning a locus.
@@ -190,18 +204,26 @@ fn spearman(a: &[f64], b: &[f64]) -> f64 {
     let num: f64 = ra.iter().zip(&rb).map(|(x, y)| (x - ma) * (y - mb)).sum();
     let da: f64 = ra.iter().map(|x| (x - ma).powi(2)).sum::<f64>().sqrt();
     let db: f64 = rb.iter().map(|y| (y - mb).powi(2)).sum::<f64>().sqrt();
-    if da > 0.0 && db > 0.0 { num / (da * db) } else { f64::NAN }
+    if da > 0.0 && db > 0.0 {
+        num / (da * db)
+    } else {
+        f64::NAN
+    }
 }
 
 #[test]
 #[ignore = "needs the external Borrelia LOD probe cache; see the module docs"]
 fn per_locus_capture_laws() {
-    use baitbench::thermodynamics::{delta_g, min_window_delta_g, occupancy_from_ln_k, ThermoModel};
+    use baitbench::thermodynamics::{
+        delta_g, min_window_delta_g, occupancy_from_ln_k, ThermoModel,
+    };
 
     let path = std::env::var("LOD_PROBE_CACHE").unwrap_or_else(|_| {
         format!(
             "{}/baitbench_probe_cache/lod_mtec_with_iscap.tsv",
-            std::env::var("TMPDIR").unwrap_or_else(|_| "/tmp".into()).trim_end_matches('/')
+            std::env::var("TMPDIR")
+                .unwrap_or_else(|_| "/tmp".into())
+                .trim_end_matches('/')
         )
     });
     let pl = load(&path);
@@ -244,41 +266,48 @@ fn per_locus_capture_laws() {
         .collect();
 
     for target in &targets {
-    for (label, ln_k0, sum_rule) in &laws {
-        // Calibrate the concentration so mean retention over covered positions is 0.5,
-        // matching what the solver does, then report the per-locus ratios.
-        let k0: Vec<f64> = pl.iter().map(ln_k0).collect();
-        let (mut lo, mut hi) = (-400.0f64, 400.0f64);
-        let mut best = Vec::new();
-        for _ in 0..50 {
-            let mid = 0.5 * (lo + hi);
-            let theta: HashMap<usize, f64> = k0
+        for (label, ln_k0, sum_rule) in &laws {
+            // Calibrate the concentration so mean retention over covered positions is 0.5,
+            // matching what the solver does, then report the per-locus ratios.
+            let k0: Vec<f64> = pl.iter().map(ln_k0).collect();
+            let (mut lo, mut hi) = (-400.0f64, 400.0f64);
+            let mut best = Vec::new();
+            for _ in 0..50 {
+                let mid = 0.5 * (lo + hi);
+                let theta: HashMap<usize, f64> = k0
+                    .iter()
+                    .enumerate()
+                    .map(|(i, &k)| (i, occupancy_from_ln_k(mid + k)))
+                    .collect();
+                let eff = covered_mean_p_specific(&pl, &theta, *sum_rule);
+                if eff < *target {
+                    lo = mid
+                } else {
+                    hi = mid
+                }
+                best = REAL
+                    .iter()
+                    .zip(&loci_idx)
+                    .map(|(&(_, st, en, _), idx)| {
+                        locus_retention(&pl, idx, &theta, st, en, *sum_rule)
+                    })
+                    .collect();
+            }
+            let base = *best.last().unwrap();
+            let pred: Vec<f64> = best
                 .iter()
-                .enumerate()
-                .map(|(i, &k)| (i, occupancy_from_ln_k(mid + k)))
+                .map(|v| if base > 0.0 { v / base } else { 0.0 })
                 .collect();
-            let eff = covered_mean_p_specific(&pl, &theta, *sum_rule);
-            if eff < *target { lo = mid } else { hi = mid }
-            best = REAL
+            let err: f64 = pred
                 .iter()
-                .zip(&loci_idx)
-                .map(|(&(_, st, en, _), idx)| {
-                    locus_retention(&pl, idx, &theta, st, en, *sum_rule)
-                })
-                .collect();
-        }
-        let base = *best.last().unwrap();
-        let pred: Vec<f64> = best.iter().map(|v| if base > 0.0 { v / base } else { 0.0 }).collect();
-        let err: f64 = pred
-            .iter()
-            .zip(&real)
-            .map(|(p, r)| (p.max(1e-9).ln() - r.ln()).powi(2))
-            .sum::<f64>()
-            .sqrt();
-        println!(
+                .zip(&real)
+                .map(|(p, r)| (p.max(1e-9).ln() - r.ln()).powi(2))
+                .sum::<f64>()
+                .sqrt();
+            println!(
             "t={target:<5} {label:26}  rho={:+.3}  logRMSE={:6.2}   nifS={:.3} clpA={:.3} clpX={:.3} uvrA={:.3} recG={:.3} 16S={:.3}",
             spearman(&pred, &real), err, pred[0], pred[1], pred[2], pred[3], pred[5], pred[6]
         );
-    }
+        }
     }
 }

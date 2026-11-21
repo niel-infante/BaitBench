@@ -118,7 +118,11 @@ pub fn design_probes(
             let mut writer = BufWriter::new(out_file);
             for (_name, seq, _size) in ranked.iter().take(n_select) {
                 probe_counter += 1;
-                writeln!(writer, ">probe_probetools_{}|probetools_{}", probe_counter, probe_counter)?;
+                writeln!(
+                    writer,
+                    ">probe_probetools_{}|probetools_{}",
+                    probe_counter, probe_counter
+                )?;
                 writeln!(writer, "{}", seq)?;
             }
             writer.flush()?;
@@ -411,7 +415,11 @@ fn percentile_coverage_for_targets(
                 }
                 _ => {
                     // Absent from SAM @SQ headers or empty depths: 0% covered
-                    if seq.is_empty() { 1.0 } else { 0.0 }
+                    if seq.is_empty() {
+                        1.0
+                    } else {
+                        0.0
+                    }
                 }
             }
         })
@@ -458,9 +466,7 @@ fn extract_low_coverage_regions(
                 // Entirely uncovered: extract the whole sequence
                 vec![(0usize, seq_len)]
             }
-            Some(depths) => {
-                find_low_coverage_regions(depths, min_depth, probe_len, seq_len)
-            }
+            Some(depths) => find_low_coverage_regions(depths, min_depth, probe_len, seq_len),
         };
 
         for (lcr_idx, (start, end)) in regions.iter().enumerate() {
@@ -560,8 +566,8 @@ fn expand_run(start: usize, end: usize, probe_len: usize, seq_len: usize) -> (us
 
 /// Load all sequences from a FASTA file (preserves insertion order).
 fn load_fasta(path: &Path) -> Result<Vec<(String, String)>> {
-    let file = File::open(path)
-        .with_context(|| format!("Cannot open FASTA: {}", path.display()))?;
+    let file =
+        File::open(path).with_context(|| format!("Cannot open FASTA: {}", path.display()))?;
     let reader = BufReader::new(file);
 
     let mut seqs: Vec<(String, String)> = Vec::new();
@@ -577,13 +583,7 @@ fn load_fasta(path: &Path) -> Result<Vec<(String, String)>> {
                     seqs.push((id, std::mem::take(&mut current_seq)));
                 }
             }
-            current_id = Some(
-                stripped
-                    .split_whitespace()
-                    .next()
-                    .unwrap_or("")
-                    .to_string(),
-            );
+            current_id = Some(stripped.split_whitespace().next().unwrap_or("").to_string());
         } else if !trimmed.is_empty() {
             current_seq.push_str(&trimmed.to_uppercase());
         }

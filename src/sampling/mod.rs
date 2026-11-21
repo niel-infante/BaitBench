@@ -1,5 +1,5 @@
-pub mod weights;
 pub mod thermo_sim;
+pub mod weights;
 
 /// Fragment length distribution parameters, shared across sampling functions.
 #[derive(Clone, Copy, Debug)]
@@ -8,4 +8,3 @@ pub struct FragmentLengthParams {
     pub min: usize,
     pub max: usize,
 }
-

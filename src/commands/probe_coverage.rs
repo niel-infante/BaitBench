@@ -1,4 +1,4 @@
-use anyhow::{Context, Result, bail};
+use anyhow::{bail, Context, Result};
 use std::collections::{HashMap, HashSet};
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader, BufWriter, Write};
@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use crate::alignment::coverage;
 use crate::cleanup;
 use crate::cli::ReportMode;
-use crate::commands::report::{substitute_rmd_params, rmd_output_path};
+use crate::commands::report::{rmd_output_path, substitute_rmd_params};
 use crate::external::{minimap2, rscript};
 use crate::fasta;
 use crate::io_utils::prefixed_join;
@@ -102,8 +102,14 @@ pub fn run_probe_coverage(args: &ProbeCoverageArgs) -> Result<CoverageRunData> {
     );
 
     let total_targets = stats.len();
-    let fully_covered = stats.iter().filter(|(_, s)| s.pct_covered_1x >= 100.0).count();
-    let well_covered = stats.iter().filter(|(_, s)| s.pct_covered_1x >= 90.0).count();
+    let fully_covered = stats
+        .iter()
+        .filter(|(_, s)| s.pct_covered_1x >= 100.0)
+        .count();
+    let well_covered = stats
+        .iter()
+        .filter(|(_, s)| s.pct_covered_1x >= 90.0)
+        .count();
     log::info!("Targets analyzed   : {}", total_targets);
     log::info!("Targets 100% tiled : {}", fully_covered);
     log::info!("Targets >=90% tiled: {}", well_covered);
@@ -156,7 +162,14 @@ pub fn execute(args: &ProbeCoverageArgs) -> Result<()> {
             if rscript::check_available() {
                 let report_path = prefixed_join(args.outdir, pfx, "probe_coverage_report.html");
                 log::info!("Generating probe coverage report...");
-                match generate_probe_report(&data.summary_path, &data.depth_path, &data.multi_mapping_path, &data.params_path, &report_path, args.proximity) {
+                match generate_probe_report(
+                    &data.summary_path,
+                    &data.depth_path,
+                    &data.multi_mapping_path,
+                    &data.params_path,
+                    &report_path,
+                    args.proximity,
+                ) {
                     Ok(()) => log::info!("Report generated: {}", report_path.display()),
                     Err(e) => log::warn!("Report generation failed (non-fatal): {}", e),
                 }
@@ -167,7 +180,14 @@ pub fn execute(args: &ProbeCoverageArgs) -> Result<()> {
         ReportMode::Rmd => {
             let report_path = prefixed_join(args.outdir, pfx, "probe_coverage_report.html");
             log::info!("Generating probe coverage RMarkdown file...");
-            match write_probe_coverage_rmd(&data.summary_path, &data.depth_path, &data.multi_mapping_path, &data.params_path, &report_path, args.proximity) {
+            match write_probe_coverage_rmd(
+                &data.summary_path,
+                &data.depth_path,
+                &data.multi_mapping_path,
+                &data.params_path,
+                &report_path,
+                args.proximity,
+            ) {
                 Ok(()) => {}
                 Err(e) => log::warn!("RMarkdown generation failed (non-fatal): {}", e),
             }
@@ -175,13 +195,27 @@ pub fn execute(args: &ProbeCoverageArgs) -> Result<()> {
         ReportMode::BothR => {
             let report_path = prefixed_join(args.outdir, pfx, "probe_coverage_report.html");
             log::info!("Generating probe coverage RMarkdown file...");
-            match write_probe_coverage_rmd(&data.summary_path, &data.depth_path, &data.multi_mapping_path, &data.params_path, &report_path, args.proximity) {
+            match write_probe_coverage_rmd(
+                &data.summary_path,
+                &data.depth_path,
+                &data.multi_mapping_path,
+                &data.params_path,
+                &report_path,
+                args.proximity,
+            ) {
                 Ok(()) => {}
                 Err(e) => log::warn!("RMarkdown generation failed (non-fatal): {}", e),
             }
             if rscript::check_available() {
                 log::info!("Generating probe coverage HTML report...");
-                match generate_probe_report(&data.summary_path, &data.depth_path, &data.multi_mapping_path, &data.params_path, &report_path, args.proximity) {
+                match generate_probe_report(
+                    &data.summary_path,
+                    &data.depth_path,
+                    &data.multi_mapping_path,
+                    &data.params_path,
+                    &report_path,
+                    args.proximity,
+                ) {
                     Ok(()) => log::info!("Report generated: {}", report_path.display()),
                     Err(e) => log::warn!("Report generation failed (non-fatal): {}", e),
                 }
@@ -203,8 +237,8 @@ pub fn write_probe_summary(
     path: &Path,
     stats: &[(String, coverage::ProbeCoverageStats)],
 ) -> Result<()> {
-    let file = File::create(path)
-        .with_context(|| format!("Cannot create summary: {}", path.display()))?;
+    let file =
+        File::create(path).with_context(|| format!("Cannot create summary: {}", path.display()))?;
     let mut w = BufWriter::new(file);
 
     writeln!(
@@ -238,11 +272,9 @@ pub fn write_probe_summary(
 /// Parse SAM to find probes that map to more than one target.
 ///
 /// Returns a sorted list of (probe_id, sorted Vec<target_ids>).
-fn find_multi_mapping_probes(
-    sam_path: &Path,
-) -> Result<Vec<(String, Vec<String>)>> {
-    let file = File::open(sam_path)
-        .with_context(|| format!("Cannot open SAM: {}", sam_path.display()))?;
+fn find_multi_mapping_probes(sam_path: &Path) -> Result<Vec<(String, Vec<String>)>> {
+    let file =
+        File::open(sam_path).with_context(|| format!("Cannot open SAM: {}", sam_path.display()))?;
     let reader = BufReader::new(file);
 
     let mut probe_targets: HashMap<String, HashSet<String>> = HashMap::new();
@@ -287,10 +319,7 @@ fn find_multi_mapping_probes(
     Ok(multi)
 }
 
-fn write_multi_mapping_probes(
-    path: &Path,
-    probes: &[(String, Vec<String>)],
-) -> Result<()> {
+fn write_multi_mapping_probes(path: &Path, probes: &[(String, Vec<String>)]) -> Result<()> {
     let file = File::create(path)
         .with_context(|| format!("Cannot create multi-mapping file: {}", path.display()))?;
     let mut w = BufWriter::new(file);
@@ -312,7 +341,11 @@ fn write_run_params(path: &Path, args: &ProbeCoverageArgs) -> Result<()> {
     writeln!(w, "parameter\tflag\tvalue")?;
     writeln!(w, "targets\t--targets\t{}", args.targets.display())?;
     writeln!(w, "probes\t--probes\t{}", args.probes.display())?;
-    writeln!(w, "minimap_preset\t--minimap-preset\t{}", args.minimap_preset)?;
+    writeln!(
+        w,
+        "minimap_preset\t--minimap-preset\t{}",
+        args.minimap_preset
+    )?;
     writeln!(w, "proximity\t--proximity\t{}", args.proximity)?;
     writeln!(w, "outdir\t-o\t{}", args.outdir.display())?;
 
@@ -328,8 +361,8 @@ pub fn write_probe_coverage_rmd(
     output_path: &Path,
     proximity: usize,
 ) -> Result<()> {
-    let r_dir = rscript::find_r_dir()
-        .ok_or_else(|| anyhow::anyhow!("Cannot find R scripts directory."))?;
+    let r_dir =
+        rscript::find_r_dir().ok_or_else(|| anyhow::anyhow!("Cannot find R scripts directory."))?;
 
     let rmd_template = r_dir.join("probe_coverage.Rmd");
     if !rmd_template.exists() {
@@ -375,15 +408,12 @@ pub fn generate_probe_report(
     output_path: &Path,
     proximity: usize,
 ) -> Result<()> {
-    let r_dir = rscript::find_r_dir()
-        .ok_or_else(|| anyhow::anyhow!("Cannot find R scripts directory."))?;
+    let r_dir =
+        rscript::find_r_dir().ok_or_else(|| anyhow::anyhow!("Cannot find R scripts directory."))?;
 
     let script = r_dir.join("probe_coverage.R");
     if !script.exists() {
-        bail!(
-            "Probe coverage R script not found: {}",
-            script.display()
-        );
+        bail!("Probe coverage R script not found: {}", script.display());
     }
 
     let summary_abs = std::fs::canonicalize(summary_path)?;
@@ -454,7 +484,8 @@ pub fn run_individual_coverage(
         if i > 0 && i % report_interval == 0 {
             log::info!(
                 "Individual coverage: {}/{} ({:.0}%)",
-                i, n,
+                i,
+                n,
                 100.0 * i as f64 / n as f64
             );
         }
@@ -469,13 +500,21 @@ pub fn run_individual_coverage(
             continue;
         }
 
-        let (ref_lengths, cov_map) =
-            minimap2::probe_depth_in_memory(minimap_preset, &target_fa, &probe_seqs, 1000, threads)?;
+        let (ref_lengths, cov_map) = minimap2::probe_depth_in_memory(
+            minimap_preset,
+            &target_fa,
+            &probe_seqs,
+            1000,
+            threads,
+        )?;
 
         let _ = fs::remove_file(&target_fa);
 
         let ref_len = ref_lengths.get(target_id).copied().unwrap_or(0);
-        let depths = cov_map.get(target_id).cloned().unwrap_or_else(|| vec![0u32; ref_len]);
+        let depths = cov_map
+            .get(target_id)
+            .cloned()
+            .unwrap_or_else(|| vec![0u32; ref_len]);
 
         let s = coverage::calculate_probe_stats(&depths, ref_len.max(depths.len()), proximity);
         stats.push((target_id.clone(), s));
@@ -486,9 +525,16 @@ pub fn run_individual_coverage(
 
     stats.sort_by(|a, b| a.0.cmp(&b.0));
 
-    let summary_path = prefixed_join(outdir, output_prefix, "individual_target_coverage_summary.tsv");
+    let summary_path = prefixed_join(
+        outdir,
+        output_prefix,
+        "individual_target_coverage_summary.tsv",
+    );
     write_probe_summary(&summary_path, &stats)?;
-    log::info!("Individual target coverage summary: {}", summary_path.display());
+    log::info!(
+        "Individual target coverage summary: {}",
+        summary_path.display()
+    );
 
     Ok(IndividualCoverageData {
         summary_path,
@@ -520,14 +566,14 @@ pub fn compute_median_probe_length(probes_path: &Path) -> usize {
 /// Gap detail record for TSV output.
 struct GapRecord {
     target_id: String,
-    gap_start: usize,  // 1-based
-    gap_end: usize,    // 1-based inclusive
+    gap_start: usize, // 1-based
+    gap_end: usize,   // 1-based inclusive
     gap_length: usize,
     is_terminal: bool,
     gc_content: f64,
     dust_score: f64,
-    gap_type: Option<String>,          // Some if individual_coverage available
-    individual_coverage: Option<f64>,  // Some if individual_coverage available
+    gap_type: Option<String>, // Some if individual_coverage available
+    individual_coverage: Option<f64>, // Some if individual_coverage available
     gap_sequence: String,
 }
 
@@ -665,10 +711,19 @@ fn compute_gc_content(seq: &str) -> f64 {
     let mut total = 0usize;
     for b in seq.bytes() {
         match b {
-            b'G' | b'g' | b'C' | b'c' => { gc += 1; total += 1; }
-            b'A' | b'a' | b'T' | b't' => { total += 1; }
+            b'G' | b'g' | b'C' | b'c' => {
+                gc += 1;
+                total += 1;
+            }
+            b'A' | b'a' | b'T' | b't' => {
+                total += 1;
+            }
             _ => {}
         }
     }
-    if total == 0 { 0.0 } else { gc as f64 / total as f64 }
+    if total == 0 {
+        0.0
+    } else {
+        gc as f64 / total as f64
+    }
 }

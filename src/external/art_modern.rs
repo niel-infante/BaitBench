@@ -1,4 +1,4 @@
-use anyhow::{Context, Result, bail};
+use anyhow::{bail, Context, Result};
 use std::fs::File;
 use std::path::Path;
 use std::process::Command;
@@ -62,20 +62,31 @@ pub fn run_simulation(
     // (never 0, which would re-trigger the "all CPUs" default) so parallelism is explicit
     // and predictable instead of scaling with whatever machine the pipeline happens to run on.
     let mut cmd = Command::new("art_modern");
-    cmd.arg("--i-file").arg(input)
-        .arg("--o-fastq").arg(output_r1)
-        .arg("--o-sam").arg(output_sam)
-        .arg("--read_len").arg(read_len.to_string())
-        .arg("--builtin_qual_file").arg(profile)
-        .arg("--i-fcov").arg(coverage_depth.to_string())
-        .arg("--parallel").arg(threads.max(1).to_string());
+    cmd.arg("--i-file")
+        .arg(input)
+        .arg("--o-fastq")
+        .arg(output_r1)
+        .arg("--o-sam")
+        .arg(output_sam)
+        .arg("--read_len")
+        .arg(read_len.to_string())
+        .arg("--builtin_qual_file")
+        .arg(profile)
+        .arg("--i-fcov")
+        .arg(coverage_depth.to_string())
+        .arg("--parallel")
+        .arg(threads.max(1).to_string());
 
     if paired_end {
         let r2 = output_r2.ok_or_else(|| anyhow::anyhow!("output_r2 required for paired-end"))?;
-        cmd.arg("--o-fastq2").arg(r2)
-            .arg("--lc").arg("pe")
-            .arg("--pe_frag_dist_mean").arg(pe_frag_len_mean.to_string())
-            .arg("--pe_frag_dist_std_dev").arg(pe_frag_len_sd.to_string());
+        cmd.arg("--o-fastq2")
+            .arg(r2)
+            .arg("--lc")
+            .arg("pe")
+            .arg("--pe_frag_dist_mean")
+            .arg(pe_frag_len_mean.to_string())
+            .arg("--pe_frag_dist_std_dev")
+            .arg(pe_frag_len_sd.to_string());
     } else {
         cmd.arg("--lc").arg("se");
     }
@@ -85,7 +96,11 @@ pub fn run_simulation(
     let status = cmd.status().context("Failed to execute art_modern")?;
 
     if !status.success() {
-        bail!("art_modern failed (exit code {:?}). Check {}", status.code(), log_file.display());
+        bail!(
+            "art_modern failed (exit code {:?}). Check {}",
+            status.code(),
+            log_file.display()
+        );
     }
 
     Ok(())

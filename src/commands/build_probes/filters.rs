@@ -202,7 +202,8 @@ pub fn filter_complexity(
         let trimmed = line.trim_end();
         if trimmed.starts_with('>') {
             if let Some(ref id) = current_id {
-                let frac = sdust::masked_fraction(current_seq.as_bytes(), dust_threshold, dust_window);
+                let frac =
+                    sdust::masked_fraction(current_seq.as_bytes(), dust_threshold, dust_window);
                 if frac <= max_masked_frac {
                     writeln!(writer, ">{}", id)?;
                     writeln!(writer, "{}", current_seq)?;

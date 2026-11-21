@@ -139,7 +139,10 @@ pub fn write(path: &Path, key: &CacheKey, placements: &[Placement]) -> Result<()
     writeln!(w, "#reference\t{}", key.reference)?;
     writeln!(w, "#aligner\t{}", key.aligner)?;
     writeln!(w, "#placements\t{}", placements.len())?;
-    writeln!(w, "probe_name\tseq_id\tstart\tend\tstrand\tprobe_bases\tref_bases")?;
+    writeln!(
+        w,
+        "probe_name\tseq_id\tstart\tend\tstrand\tprobe_bases\tref_bases"
+    )?;
     for p in placements {
         let probe_bases: String = p.pairs.iter().map(|&(a, _)| a as char).collect();
         let ref_bases: String = p.pairs.iter().map(|&(_, b)| b as char).collect();
@@ -165,7 +168,11 @@ pub fn write(path: &Path, key: &CacheKey, placements: &[Placement]) -> Result<()
 pub enum Miss {
     Absent,
     Unreadable(String),
-    Stale { field: &'static str, want: String, got: String },
+    Stale {
+        field: &'static str,
+        want: String,
+        got: String,
+    },
 }
 
 impl std::fmt::Display for Miss {
@@ -174,7 +181,10 @@ impl std::fmt::Display for Miss {
             Miss::Absent => write!(f, "no cache file yet"),
             Miss::Unreadable(e) => write!(f, "cache unreadable ({e})"),
             Miss::Stale { field, want, got } => {
-                write!(f, "{field} changed since the cache was written (cached {got}, now {want})")
+                write!(
+                    f,
+                    "{field} changed since the cache was written (cached {got}, now {want})"
+                )
             }
         }
     }
@@ -207,13 +217,25 @@ pub fn read(path: &Path, key: &CacheKey) -> std::result::Result<Vec<Placement>, 
                     }
                 }
                 "probes" if v != key.probes => {
-                    return Err(Miss::Stale { field: "probes file", want: key.probes.clone(), got: v.to_string() })
+                    return Err(Miss::Stale {
+                        field: "probes file",
+                        want: key.probes.clone(),
+                        got: v.to_string(),
+                    })
                 }
                 "reference" if v != key.reference => {
-                    return Err(Miss::Stale { field: "reference file", want: key.reference.clone(), got: v.to_string() })
+                    return Err(Miss::Stale {
+                        field: "reference file",
+                        want: key.reference.clone(),
+                        got: v.to_string(),
+                    })
                 }
                 "aligner" if v != key.aligner => {
-                    return Err(Miss::Stale { field: "aligner", want: key.aligner.clone(), got: v.to_string() })
+                    return Err(Miss::Stale {
+                        field: "aligner",
+                        want: key.aligner.clone(),
+                        got: v.to_string(),
+                    })
                 }
                 _ => {}
             }
@@ -237,14 +259,24 @@ pub fn read(path: &Path, key: &CacheKey) -> std::result::Result<Vec<Placement>, 
         placements.push(Placement {
             probe_name: f[0].to_string(),
             seq_id: f[1].to_string(),
-            start: f[2].parse().map_err(|_| Miss::Unreadable(format!("bad start: {}", f[2])))?,
-            end: f[3].parse().map_err(|_| Miss::Unreadable(format!("bad end: {}", f[3])))?,
+            start: f[2]
+                .parse()
+                .map_err(|_| Miss::Unreadable(format!("bad start: {}", f[2])))?,
+            end: f[3]
+                .parse()
+                .map_err(|_| Miss::Unreadable(format!("bad end: {}", f[3])))?,
             reverse: f[4] == "-",
-            pairs: probe_bases.iter().copied().zip(ref_bases.iter().copied()).collect(),
+            pairs: probe_bases
+                .iter()
+                .copied()
+                .zip(ref_bases.iter().copied())
+                .collect(),
         });
     }
     if !saw_header {
-        return Err(Miss::Unreadable("missing #baitbench-probe-hits header".into()));
+        return Err(Miss::Unreadable(
+            "missing #baitbench-probe-hits header".into(),
+        ));
     }
     Ok(placements)
 }
@@ -255,7 +287,10 @@ mod tests {
     use std::collections::HashMap;
 
     fn seqs(pairs: &[(&str, &str)]) -> HashMap<String, String> {
-        pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect()
+        pairs
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect()
     }
 
     fn tmp(name: &str) -> std::path::PathBuf {
@@ -342,7 +377,10 @@ mod tests {
 
     #[test]
     fn absent_cache_is_a_miss_not_an_error() {
-        match read(Path::new("/nonexistent/probe_cache.tsv"), &key("seed-extend")) {
+        match read(
+            Path::new("/nonexistent/probe_cache.tsv"),
+            &key("seed-extend"),
+        ) {
             Err(Miss::Absent) => {}
             other => panic!("expected Absent, got {other:?}"),
         }
@@ -407,13 +445,31 @@ mod tests {
     fn zero_weight_sequences_are_outside_the_key() {
         let probes = seqs(&[("p1", "ACGT")]);
         let reference = seqs(&[("a", "ACGTACGT"), ("b", "TTTTGGGG")]);
-        let both = CacheKey::new(&probes, &reference, &wts(&[("a", 1.0), ("b", 1.0)]), "seed-extend");
-        let only_a = CacheKey::new(&probes, &reference, &wts(&[("a", 1.0), ("b", 0.0)]), "seed-extend");
-        assert_ne!(both.reference, only_a.reference, "dropping b must change the key");
+        let both = CacheKey::new(
+            &probes,
+            &reference,
+            &wts(&[("a", 1.0), ("b", 1.0)]),
+            "seed-extend",
+        );
+        let only_a = CacheKey::new(
+            &probes,
+            &reference,
+            &wts(&[("a", 1.0), ("b", 0.0)]),
+            "seed-extend",
+        );
+        assert_ne!(
+            both.reference, only_a.reference,
+            "dropping b must change the key"
+        );
 
         // And a key built over only the weighted subset matches one built from a
         // reference that never contained the extra sequence at all.
-        let just_a = CacheKey::new(&probes, &seqs(&[("a", "ACGTACGT")]), &wts(&[("a", 1.0)]), "seed-extend");
+        let just_a = CacheKey::new(
+            &probes,
+            &seqs(&[("a", "ACGTACGT")]),
+            &wts(&[("a", 1.0)]),
+            "seed-extend",
+        );
         assert_eq!(only_a.reference, just_a.reference);
     }
 
@@ -433,7 +489,11 @@ mod tests {
     #[test]
     fn file_without_the_magic_header_is_rejected() {
         let path = tmp("foreign.tsv");
-        std::fs::write(&path, "probe_name\tseq_id\tstart\tend\tstrand\tprobe_bases\tref_bases\n").unwrap();
+        std::fs::write(
+            &path,
+            "probe_name\tseq_id\tstart\tend\tstrand\tprobe_bases\tref_bases\n",
+        )
+        .unwrap();
         match read(&path, &key("seed-extend")) {
             Err(Miss::Unreadable(_)) => {}
             other => panic!("expected Unreadable, got {other:?}"),

@@ -68,7 +68,11 @@ fn replace_ns(seq: &str) -> (String, usize) {
     for i in 0..result.len() {
         if result[i] == b'N' {
             let left = if i > 0 { result[i - 1] } else { b'X' };
-            let right = if i + 1 < result.len() { result[i + 1] } else { b'X' };
+            let right = if i + 1 < result.len() {
+                result[i + 1]
+            } else {
+                b'X'
+            };
             let replacement = b"TACG"
                 .iter()
                 .copied()

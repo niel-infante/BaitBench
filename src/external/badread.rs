@@ -27,9 +27,9 @@ pub fn check_available() -> Result<()> {
 /// | `pacbio`    | PacBio CLR                 | pacbio2016     |
 pub fn profile_params(profile: &str) -> Result<(&'static str, &'static str, u32, u32)> {
     match profile {
-        "ont"      => Ok(("nanopore2023", "nanopore2023", 9000,  7000)),
-        "ont-2020" => Ok(("nanopore2020", "nanopore2020", 9000,  7000)),
-        "pacbio"   => Ok(("pacbio2016",   "pacbio2016",   15000, 13000)),
+        "ont" => Ok(("nanopore2023", "nanopore2023", 9000, 7000)),
+        "ont-2020" => Ok(("nanopore2020", "nanopore2020", 9000, 7000)),
+        "pacbio" => Ok(("pacbio2016", "pacbio2016", 15000, 13000)),
         other => bail!(
             "Unknown badread profile '{}'. Valid values: ont, ont-2020, pacbio",
             other
@@ -58,7 +58,7 @@ pub fn run_simulation(
 ) -> Result<()> {
     let (error_model, qscore_model, profile_mean, profile_sd) = profile_params(profile)?;
     let final_mean = len_mean.unwrap_or(profile_mean as usize);
-    let final_sd   = len_sd.unwrap_or(profile_sd as usize);
+    let final_sd = len_sd.unwrap_or(profile_sd as usize);
 
     let log = File::create(log_file)
         .with_context(|| format!("Cannot create log: {}", log_file.display()))?;
@@ -67,11 +67,16 @@ pub fn run_simulation(
 
     let mut cmd = Command::new("badread");
     cmd.arg("simulate")
-        .arg("--reference").arg(input)
-        .arg("--quantity").arg(format!("{:.1}x", coverage_depth))
-        .arg("--error_model").arg(error_model)
-        .arg("--qscore_model").arg(qscore_model)
-        .arg("--length").arg(format!("{},{}", final_mean, final_sd));
+        .arg("--reference")
+        .arg(input)
+        .arg("--quantity")
+        .arg(format!("{:.1}x", coverage_depth))
+        .arg("--error_model")
+        .arg(error_model)
+        .arg("--qscore_model")
+        .arg(qscore_model)
+        .arg("--length")
+        .arg(format!("{},{}", final_mean, final_sd));
 
     if let Some(s) = seed {
         cmd.arg("--seed").arg(s.to_string());

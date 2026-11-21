@@ -9,7 +9,11 @@ use super::reader::is_fastq;
 /// Extract sequences from a FASTA file by ID set (replaces seqtk subseq).
 /// Single-pass streaming: never loads full file into memory.
 /// Returns the number of sequences extracted.
-pub fn extract_by_ids(fasta_path: &Path, ids: &HashSet<String>, output_path: &Path) -> Result<usize> {
+pub fn extract_by_ids(
+    fasta_path: &Path,
+    ids: &HashSet<String>,
+    output_path: &Path,
+) -> Result<usize> {
     let file = File::open(fasta_path)
         .with_context(|| format!("Cannot open FASTA: {}", fasta_path.display()))?;
     let reader = BufReader::new(file);
@@ -24,7 +28,12 @@ pub fn extract_by_ids(fasta_path: &Path, ids: &HashSet<String>, output_path: &Pa
     for line in reader.lines() {
         let line = line?;
         if line.starts_with('>') {
-            let id = line.strip_prefix('>').unwrap_or("").split_whitespace().next().unwrap_or("");
+            let id = line
+                .strip_prefix('>')
+                .unwrap_or("")
+                .split_whitespace()
+                .next()
+                .unwrap_or("");
             writing = ids.contains(id);
             if writing {
                 writeln!(writer, "{}", line)?;
@@ -50,7 +59,11 @@ pub fn extract_reads_by_ids(path: &Path, ids: &HashSet<String>, output: &Path) -
     }
 }
 
-fn extract_fastq_by_ids(fastq_path: &Path, ids: &HashSet<String>, output_path: &Path) -> Result<usize> {
+fn extract_fastq_by_ids(
+    fastq_path: &Path,
+    ids: &HashSet<String>,
+    output_path: &Path,
+) -> Result<usize> {
     let file = File::open(fastq_path)
         .with_context(|| format!("Cannot open FASTQ: {}", fastq_path.display()))?;
     let reader = BufReader::new(file);
@@ -63,11 +76,21 @@ fn extract_fastq_by_ids(fastq_path: &Path, ids: &HashSet<String>, output_path: &
     let mut lines = reader.lines();
     while let Some(header) = lines.next() {
         let header = header?;
-        let seq    = lines.next().ok_or_else(|| anyhow::anyhow!("Truncated FASTQ: {}", fastq_path.display()))??;
-        let plus   = lines.next().ok_or_else(|| anyhow::anyhow!("Truncated FASTQ: {}", fastq_path.display()))??;
-        let qual   = lines.next().ok_or_else(|| anyhow::anyhow!("Truncated FASTQ: {}", fastq_path.display()))??;
-        let id = header.strip_prefix('@').unwrap_or(&header)
-            .split_whitespace().next().unwrap_or("");
+        let seq = lines
+            .next()
+            .ok_or_else(|| anyhow::anyhow!("Truncated FASTQ: {}", fastq_path.display()))??;
+        let plus = lines
+            .next()
+            .ok_or_else(|| anyhow::anyhow!("Truncated FASTQ: {}", fastq_path.display()))??;
+        let qual = lines
+            .next()
+            .ok_or_else(|| anyhow::anyhow!("Truncated FASTQ: {}", fastq_path.display()))??;
+        let id = header
+            .strip_prefix('@')
+            .unwrap_or(&header)
+            .split_whitespace()
+            .next()
+            .unwrap_or("");
         if ids.contains(id) {
             writeln!(writer, "{}", header)?;
             writeln!(writer, "{}", seq)?;

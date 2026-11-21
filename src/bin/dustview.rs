@@ -6,7 +6,10 @@ use baitbench::sdust::{sdust, DEFAULT_THRESHOLD, DEFAULT_WINDOW};
 use clap::Parser;
 
 #[derive(Parser)]
-#[command(name = "dustview", about = "Visualize sDUST masking on FASTA sequences")]
+#[command(
+    name = "dustview",
+    about = "Visualize sDUST masking on FASTA sequences"
+)]
 struct Args {
     /// Input FASTA file (reads from stdin if omitted)
     input: Option<PathBuf>,
@@ -24,12 +27,10 @@ fn main() {
     let args = Args::parse();
 
     let reader: Box<dyn BufRead> = match &args.input {
-        Some(path) => Box::new(BufReader::new(
-            File::open(path).unwrap_or_else(|e| {
-                eprintln!("Error opening {}: {}", path.display(), e);
-                std::process::exit(1);
-            }),
-        )),
+        Some(path) => Box::new(BufReader::new(File::open(path).unwrap_or_else(|e| {
+            eprintln!("Error opening {}: {}", path.display(), e);
+            std::process::exit(1);
+        }))),
         None => Box::new(BufReader::new(io::stdin())),
     };
 

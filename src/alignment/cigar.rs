@@ -38,7 +38,10 @@ impl CigarOp {
 
     /// True for operations that consume reference bases.
     pub fn consumes_ref(self) -> bool {
-        matches!(self, Self::Match | Self::Del | Self::Skip | Self::Equal | Self::Mismatch)
+        matches!(
+            self,
+            Self::Match | Self::Del | Self::Skip | Self::Equal | Self::Mismatch
+        )
     }
 }
 
@@ -48,7 +51,8 @@ pub fn parse_cigar(cigar: &str) -> Vec<(u32, CigarOp)> {
     let mut num_start = 0;
     for (i, c) in cigar.char_indices() {
         if !c.is_ascii_digit() {
-            if let (Ok(len), Some(op)) = (cigar[num_start..i].parse::<u32>(), CigarOp::from_char(c)) {
+            if let (Ok(len), Some(op)) = (cigar[num_start..i].parse::<u32>(), CigarOp::from_char(c))
+            {
                 ops.push((len, op));
             }
             num_start = i + c.len_utf8();

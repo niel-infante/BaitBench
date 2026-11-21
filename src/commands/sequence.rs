@@ -27,7 +27,7 @@ impl ReadSimulator {
     pub fn from_str(s: &str) -> Result<Self> {
         match s {
             "perfect" => Ok(Self::Perfect),
-            "art"     => Ok(Self::Art),
+            "art" => Ok(Self::Art),
             "badread" => Ok(Self::Badread),
             other => bail!(
                 "Unknown read simulator '{}'. Valid values: perfect, art, badread",
@@ -84,7 +84,7 @@ pub struct SequenceArgs<'a> {
 pub fn execute(args: &SequenceArgs) -> Result<()> {
     match args.simulator {
         ReadSimulator::Perfect => execute_perfect(args),
-        ReadSimulator::Art     => execute_art(args),
+        ReadSimulator::Art => execute_art(args),
         ReadSimulator::Badread => execute_badread(args),
     }
 }
@@ -94,12 +94,15 @@ pub fn execute(args: &SequenceArgs) -> Result<()> {
 fn execute_perfect(args: &SequenceArgs) -> Result<()> {
     match args.num_sequences {
         Some(n) => execute_perfect_sampled(args, n),
-        None    => execute_perfect_passthrough(args),
+        None => execute_perfect_passthrough(args),
     }
 }
 
 fn execute_perfect_passthrough(args: &SequenceArgs) -> Result<()> {
-    log::info!("Sequencing fragments (perfect trim to {}bp)...", args.read_length);
+    log::info!(
+        "Sequencing fragments (perfect trim to {}bp)...",
+        args.read_length
+    );
     let fastq_out = matches!(args.output_format, OutputFormat::Fastq);
     let reader = BufReader::new(
         File::open(args.input)
@@ -143,12 +146,16 @@ fn execute_perfect_passthrough(args: &SequenceArgs) -> Result<()> {
 }
 
 fn execute_perfect_sampled(args: &SequenceArgs, n: usize) -> Result<()> {
-    log::info!("Sequencing {} reads (sampled, trim to {}bp)...", n, args.read_length);
+    log::info!(
+        "Sequencing {} reads (sampled, trim to {}bp)...",
+        n,
+        args.read_length
+    );
     let fastq_out = matches!(args.output_format, OutputFormat::Fastq);
     let frags = load_fasta_records(args.input)?;
     let mut rng: StdRng = match args.seed {
         Some(s) => StdRng::seed_from_u64(s),
-        None    => StdRng::from_entropy(),
+        None => StdRng::from_entropy(),
     };
     let mut writer = BufWriter::new(
         File::create(args.output)
@@ -157,11 +164,19 @@ fn execute_perfect_sampled(args: &SequenceArgs, n: usize) -> Result<()> {
     for i in 0..n {
         let idx = rng.gen_range(0..frags.len());
         let (header, seq) = &frags[idx];
-        let id_part = header.strip_prefix('>').unwrap_or(header)
-            .split_whitespace().next().unwrap_or("");
+        let id_part = header
+            .strip_prefix('>')
+            .unwrap_or(header)
+            .split_whitespace()
+            .next()
+            .unwrap_or("");
         let source = extract_source_id(id_part).unwrap_or(id_part);
         let read_name = format!("{}_fragment_{}", source, i + 1);
-        let trimmed = if seq.len() > args.read_length { &seq[..args.read_length] } else { seq };
+        let trimmed = if seq.len() > args.read_length {
+            &seq[..args.read_length]
+        } else {
+            seq
+        };
         if fastq_out {
             let qual: String = "I".repeat(trimmed.len());
             writeln!(writer, "@{}", read_name)?;
@@ -171,7 +186,9 @@ fn execute_perfect_sampled(args: &SequenceArgs, n: usize) -> Result<()> {
         } else {
             let meta = header_metadata(header);
             write!(writer, ">{}", read_name)?;
-            if !meta.is_empty() { write!(writer, " {}", meta)?; }
+            if !meta.is_empty() {
+                write!(writer, " {}", meta)?;
+            }
             writeln!(writer)?;
             writeln!(writer, "{}", trimmed)?;
         }
@@ -187,20 +204,24 @@ fn execute_art(args: &SequenceArgs) -> Result<()> {
     if args.paired_end {
         log::info!(
             "Sequencing with ART-modern (PE, profile={}, read_len={}, depth={})...",
-            args.sequencer_profile, args.read_length, args.coverage_depth
+            args.sequencer_profile,
+            args.read_length,
+            args.coverage_depth
         );
     } else {
         log::info!(
             "Sequencing with ART-modern (SE, profile={}, read_len={}, depth={})...",
-            args.sequencer_profile, args.read_length, args.coverage_depth
+            args.sequencer_profile,
+            args.read_length,
+            args.coverage_depth
         );
     }
     art_modern::check_available()?;
 
-    let tmp_r1  = tmp_path(args.output, "art_r1.fq");
-    let tmp_r2  = tmp_path(args.output, "art_r2.fq");
+    let tmp_r1 = tmp_path(args.output, "art_r1.fq");
+    let tmp_r2 = tmp_path(args.output, "art_r2.fq");
     let tmp_sam = tmp_path(args.output, "art.sam");
-    let log     = tmp_path(args.output, "art.log");
+    let log = tmp_path(args.output, "art.log");
 
     art_modern::run_simulation(
         args.input,
@@ -226,7 +247,11 @@ fn execute_art(args: &SequenceArgs) -> Result<()> {
     // Write full output (before optional sampling)
     let (full_r1, full_r1_is_tmp) = match args.num_sequences {
         Some(_) => {
-            let ext = if fastq_out { "art_r1_full.fq" } else { "art_r1_full.fa" };
+            let ext = if fastq_out {
+                "art_r1_full.fq"
+            } else {
+                "art_r1_full.fa"
+            };
             (tmp_path(args.output, ext), true)
         }
         None => (args.output.to_path_buf(), false),
@@ -238,12 +263,16 @@ fn execute_art(args: &SequenceArgs) -> Result<()> {
     }
 
     let full_r2 = if args.paired_end {
-        let r2_out = args.output_r2.ok_or_else(|| {
-            anyhow::anyhow!("output_r2 required when paired_end = true")
-        })?;
+        let r2_out = args
+            .output_r2
+            .ok_or_else(|| anyhow::anyhow!("output_r2 required when paired_end = true"))?;
         let path = match args.num_sequences {
             Some(_) => {
-                let ext = if fastq_out { "art_r2_full.fq" } else { "art_r2_full.fa" };
+                let ext = if fastq_out {
+                    "art_r2_full.fq"
+                } else {
+                    "art_r2_full.fa"
+                };
                 tmp_path(r2_out, ext)
             }
             None => r2_out.to_path_buf(),
@@ -265,10 +294,12 @@ fn execute_art(args: &SequenceArgs) -> Result<()> {
         } else {
             sample_fasta_reads(&full_r1, args.output, n, args.seed)?;
         }
-        if full_r1_is_tmp { let _ = std::fs::remove_file(&full_r1); }
+        if full_r1_is_tmp {
+            let _ = std::fs::remove_file(&full_r1);
+        }
         if args.paired_end {
             let r2_full = full_r2.as_ref().unwrap();
-            let r2_out  = args.output_r2.unwrap();
+            let r2_out = args.output_r2.unwrap();
             if fastq_out {
                 sample_fastq_reads(r2_full, r2_out, n, args.seed)?;
             } else {
@@ -289,12 +320,13 @@ fn execute_art(args: &SequenceArgs) -> Result<()> {
 fn execute_badread(args: &SequenceArgs) -> Result<()> {
     log::info!(
         "Sequencing with badread (profile={}, depth={})...",
-        args.sequencer_profile, args.coverage_depth
+        args.sequencer_profile,
+        args.coverage_depth
     );
     badread::check_available()?;
 
     let tmp_fastq = tmp_path(args.output, "badread.fq");
-    let log_path  = tmp_path(args.output, "badread.log");
+    let log_path = tmp_path(args.output, "badread.log");
 
     badread::run_simulation(
         args.input,
@@ -311,13 +343,23 @@ fn execute_badread(args: &SequenceArgs) -> Result<()> {
         args.badread_chimeras,
     )?;
 
-    check_reads_generated(&tmp_fastq, args.input, "badread", args.coverage_depth, &log_path)?;
+    check_reads_generated(
+        &tmp_fastq,
+        args.input,
+        "badread",
+        args.coverage_depth,
+        &log_path,
+    )?;
 
     let fastq_out = matches!(args.output_format, OutputFormat::Fastq);
 
     let (full_out, full_out_is_tmp) = match args.num_sequences {
         Some(_) => {
-            let ext = if fastq_out { "badread_full.fq" } else { "badread_full.fa" };
+            let ext = if fastq_out {
+                "badread_full.fq"
+            } else {
+                "badread_full.fa"
+            };
             (tmp_path(args.output, ext), true)
         }
         None => (args.output.to_path_buf(), false),
@@ -339,7 +381,9 @@ fn execute_badread(args: &SequenceArgs) -> Result<()> {
         } else {
             sample_fasta_reads(&full_out, args.output, n, args.seed)?;
         }
-        if full_out_is_tmp { let _ = std::fs::remove_file(&full_out); }
+        if full_out_is_tmp {
+            let _ = std::fs::remove_file(&full_out);
+        }
     }
     Ok(())
 }
@@ -364,15 +408,21 @@ fn badread_fastq_to_fasta(fastq: &Path, fasta_out: &Path) -> Result<()> {
     let mut counter = 0usize;
     let mut lines = reader.lines();
     while let Some(header) = lines.next() {
-        let header   = header?;
-        let seq      = lines.next().ok_or_else(|| anyhow::anyhow!("Truncated FASTQ"))??;
-        let _plus    = lines.next().ok_or_else(|| anyhow::anyhow!("Truncated FASTQ"))??;
-        let _qual    = lines.next().ok_or_else(|| anyhow::anyhow!("Truncated FASTQ"))??;
+        let header = header?;
+        let seq = lines
+            .next()
+            .ok_or_else(|| anyhow::anyhow!("Truncated FASTQ"))??;
+        let _plus = lines
+            .next()
+            .ok_or_else(|| anyhow::anyhow!("Truncated FASTQ"))??;
+        let _qual = lines
+            .next()
+            .ok_or_else(|| anyhow::anyhow!("Truncated FASTQ"))??;
 
         // "@{uuid} {ref_name},{start}-{end} strand=..."
-        let desc      = header.strip_prefix('@').unwrap_or(&header);
+        let desc = header.strip_prefix('@').unwrap_or(&header);
         let ref_field = desc.split_whitespace().nth(1).unwrap_or("");
-        let frag_id   = ref_field.split(',').next().unwrap_or(ref_field);
+        let frag_id = ref_field.split(',').next().unwrap_or(ref_field);
         let source_id = extract_source_id(frag_id).unwrap_or(frag_id);
 
         counter += 1;
@@ -380,7 +430,11 @@ fn badread_fastq_to_fasta(fastq: &Path, fasta_out: &Path) -> Result<()> {
         writeln!(writer, "{}", seq)?;
     }
     writer.flush()?;
-    log::debug!("badread: converted {} reads → {}", counter, fasta_out.display());
+    log::debug!(
+        "badread: converted {} reads → {}",
+        counter,
+        fasta_out.display()
+    );
     Ok(())
 }
 
@@ -402,18 +456,32 @@ fn fastq_to_renamed_fastq(
     let mut lines = reader.lines();
     while let Some(header_line) = lines.next() {
         let header_line = header_line?;
-        let seq_line    = lines.next().ok_or_else(|| anyhow::anyhow!("Truncated FASTQ"))??;
-        let _plus       = lines.next().ok_or_else(|| anyhow::anyhow!("Truncated FASTQ"))??;
-        let qual_line   = lines.next().ok_or_else(|| anyhow::anyhow!("Truncated FASTQ"))??;
+        let seq_line = lines
+            .next()
+            .ok_or_else(|| anyhow::anyhow!("Truncated FASTQ"))??;
+        let _plus = lines
+            .next()
+            .ok_or_else(|| anyhow::anyhow!("Truncated FASTQ"))??;
+        let qual_line = lines
+            .next()
+            .ok_or_else(|| anyhow::anyhow!("Truncated FASTQ"))??;
 
-        let qname = header_line.strip_prefix('@').unwrap_or(&header_line)
-            .split_whitespace().next().unwrap_or("");
+        let qname = header_line
+            .strip_prefix('@')
+            .unwrap_or(&header_line)
+            .split_whitespace()
+            .next()
+            .unwrap_or("");
         let qname_base = qname.trim_end_matches("/1").trim_end_matches("/2");
 
         let source_id = if let Some(frag_id) = qname_to_frag.get(qname_base) {
-            extract_source_id(frag_id).unwrap_or(frag_id.as_str()).to_string()
+            extract_source_id(frag_id)
+                .unwrap_or(frag_id.as_str())
+                .to_string()
         } else {
-            extract_source_id(qname_base).unwrap_or(qname_base).to_string()
+            extract_source_id(qname_base)
+                .unwrap_or(qname_base)
+                .to_string()
         };
 
         counter += 1;
@@ -440,14 +508,20 @@ fn badread_fastq_to_fastq(fastq: &Path, out_path: &Path) -> Result<()> {
     let mut counter = 0usize;
     let mut lines = reader.lines();
     while let Some(header) = lines.next() {
-        let header  = header?;
-        let seq     = lines.next().ok_or_else(|| anyhow::anyhow!("Truncated FASTQ"))??;
-        let _plus   = lines.next().ok_or_else(|| anyhow::anyhow!("Truncated FASTQ"))??;
-        let qual    = lines.next().ok_or_else(|| anyhow::anyhow!("Truncated FASTQ"))??;
+        let header = header?;
+        let seq = lines
+            .next()
+            .ok_or_else(|| anyhow::anyhow!("Truncated FASTQ"))??;
+        let _plus = lines
+            .next()
+            .ok_or_else(|| anyhow::anyhow!("Truncated FASTQ"))??;
+        let qual = lines
+            .next()
+            .ok_or_else(|| anyhow::anyhow!("Truncated FASTQ"))??;
 
-        let desc      = header.strip_prefix('@').unwrap_or(&header);
+        let desc = header.strip_prefix('@').unwrap_or(&header);
         let ref_field = desc.split_whitespace().nth(1).unwrap_or("");
-        let frag_id   = ref_field.split(',').next().unwrap_or(ref_field);
+        let frag_id = ref_field.split(',').next().unwrap_or(ref_field);
         let source_id = extract_source_id(frag_id).unwrap_or(frag_id);
 
         counter += 1;
@@ -457,7 +531,11 @@ fn badread_fastq_to_fastq(fastq: &Path, out_path: &Path) -> Result<()> {
         writeln!(writer, "{}", qual)?;
     }
     writer.flush()?;
-    log::debug!("badread: converted {} reads → FASTQ {}", counter, out_path.display());
+    log::debug!(
+        "badread: converted {} reads → FASTQ {}",
+        counter,
+        out_path.display()
+    );
     Ok(())
 }
 
@@ -480,7 +558,8 @@ fn check_reads_generated(
     if fragments_in == 0 {
         bail!(
             "{} produced 0 reads: input {} contains no fragments.",
-            tool, input_fragments.display()
+            tool,
+            input_fragments.display()
         );
     }
     bail!(
@@ -496,15 +575,33 @@ fn check_reads_generated(
     );
 }
 
-fn write_trimmed(writer: &mut impl Write, header: &str, seq: &str, read_length: usize) -> Result<()> {
+fn write_trimmed(
+    writer: &mut impl Write,
+    header: &str,
+    seq: &str,
+    read_length: usize,
+) -> Result<()> {
     writeln!(writer, "{}", header)?;
     write_trimmed_seq(writer, seq, read_length)
 }
 
-fn write_trimmed_fastq(writer: &mut impl Write, header: &str, seq: &str, read_length: usize) -> Result<()> {
-    let name = header.strip_prefix('>').unwrap_or(header)
-        .split_whitespace().next().unwrap_or("read");
-    let trimmed = if seq.len() > read_length { &seq[..read_length] } else { seq };
+fn write_trimmed_fastq(
+    writer: &mut impl Write,
+    header: &str,
+    seq: &str,
+    read_length: usize,
+) -> Result<()> {
+    let name = header
+        .strip_prefix('>')
+        .unwrap_or(header)
+        .split_whitespace()
+        .next()
+        .unwrap_or("read");
+    let trimmed = if seq.len() > read_length {
+        &seq[..read_length]
+    } else {
+        seq
+    };
     let qual: String = "I".repeat(trimmed.len());
     writeln!(writer, "@{}", name)?;
     writeln!(writer, "{}", trimmed)?;
@@ -514,7 +611,11 @@ fn write_trimmed_fastq(writer: &mut impl Write, header: &str, seq: &str, read_le
 }
 
 fn write_trimmed_seq(writer: &mut impl Write, seq: &str, read_length: usize) -> Result<()> {
-    let trimmed = if seq.len() > read_length { &seq[..read_length] } else { seq };
+    let trimmed = if seq.len() > read_length {
+        &seq[..read_length]
+    } else {
+        seq
+    };
     writeln!(writer, "{}", trimmed)?;
     Ok(())
 }
@@ -543,12 +644,11 @@ fn load_fasta_records(path: &Path) -> Result<Vec<(String, String)>> {
     Ok(records)
 }
 
-
 fn header_metadata(header: &str) -> &str {
     let h = header.strip_prefix('>').unwrap_or(header);
     match h.find(char::is_whitespace) {
         Some(pos) => h[pos..].trim_start(),
-        None      => "",
+        None => "",
     }
 }
 
@@ -556,20 +656,27 @@ fn header_metadata(header: &str) -> &str {
 /// Only primary alignments to mapped references are included.
 fn parse_sam_qname_to_rname(sam_path: &Path) -> Result<HashMap<String, String>> {
     let reader = BufReader::new(
-        File::open(sam_path)
-            .with_context(|| format!("Cannot open SAM: {}", sam_path.display()))?,
+        File::open(sam_path).with_context(|| format!("Cannot open SAM: {}", sam_path.display()))?,
     );
     let mut map = HashMap::new();
     for line in reader.lines() {
         let line = line?;
-        if line.starts_with('@') { continue; }
+        if line.starts_with('@') {
+            continue;
+        }
         let fields: Vec<&str> = line.splitn(6, '\t').collect();
-        if fields.len() < 4 { continue; }
+        if fields.len() < 4 {
+            continue;
+        }
         let flag: u16 = fields[1].parse().unwrap_or(0);
-        if flag & 0x4 != 0 || flag & 0x100 != 0 || flag & 0x800 != 0 { continue; }
+        if flag & 0x4 != 0 || flag & 0x100 != 0 || flag & 0x800 != 0 {
+            continue;
+        }
         let qname = fields[0].to_string();
         let rname = fields[2].to_string();
-        if rname == "*" { continue; }
+        if rname == "*" {
+            continue;
+        }
         map.entry(qname).or_insert(rname);
     }
     Ok(map)
@@ -595,19 +702,33 @@ fn fastq_to_renamed_fasta(
     let mut lines = reader.lines();
     while let Some(header_line) = lines.next() {
         let header_line = header_line?;
-        let seq_line    = lines.next().ok_or_else(|| anyhow::anyhow!("Truncated FASTQ"))??;
-        let _plus       = lines.next().ok_or_else(|| anyhow::anyhow!("Truncated FASTQ"))??;
-        let _qual       = lines.next().ok_or_else(|| anyhow::anyhow!("Truncated FASTQ"))??;
+        let seq_line = lines
+            .next()
+            .ok_or_else(|| anyhow::anyhow!("Truncated FASTQ"))??;
+        let _plus = lines
+            .next()
+            .ok_or_else(|| anyhow::anyhow!("Truncated FASTQ"))??;
+        let _qual = lines
+            .next()
+            .ok_or_else(|| anyhow::anyhow!("Truncated FASTQ"))??;
 
-        let qname = header_line.strip_prefix('@').unwrap_or(&header_line)
-            .split_whitespace().next().unwrap_or("");
+        let qname = header_line
+            .strip_prefix('@')
+            .unwrap_or(&header_line)
+            .split_whitespace()
+            .next()
+            .unwrap_or("");
         // Strip /1 /2 paired-end suffix if present
         let qname_base = qname.trim_end_matches("/1").trim_end_matches("/2");
 
         let source_id = if let Some(frag_id) = qname_to_frag.get(qname_base) {
-            extract_source_id(frag_id).unwrap_or(frag_id.as_str()).to_string()
+            extract_source_id(frag_id)
+                .unwrap_or(frag_id.as_str())
+                .to_string()
         } else {
-            extract_source_id(qname_base).unwrap_or(qname_base).to_string()
+            extract_source_id(qname_base)
+                .unwrap_or(qname_base)
+                .to_string()
         };
 
         counter += 1;
@@ -619,7 +740,6 @@ fn fastq_to_renamed_fasta(
     Ok(())
 }
 
-
 /// Sample `n` reads with replacement from a FASTA file into another FASTA file.
 fn sample_fasta_reads(input: &Path, output: &Path, n: usize, seed: Option<u64>) -> Result<()> {
     let records = load_fasta_records(input)?;
@@ -629,21 +749,26 @@ fn sample_fasta_reads(input: &Path, output: &Path, n: usize, seed: Option<u64>) 
     }
     let mut rng: StdRng = match seed {
         Some(s) => StdRng::seed_from_u64(s),
-        None    => StdRng::from_entropy(),
+        None => StdRng::from_entropy(),
     };
     let mut writer = BufWriter::new(
-        File::create(output)
-            .with_context(|| format!("Cannot create: {}", output.display()))?,
+        File::create(output).with_context(|| format!("Cannot create: {}", output.display()))?,
     );
     for i in 0..n {
         let idx = rng.gen_range(0..records.len());
         let (header, seq) = &records[idx];
-        let id_part = header.strip_prefix('>').unwrap_or(header)
-            .split_whitespace().next().unwrap_or("");
+        let id_part = header
+            .strip_prefix('>')
+            .unwrap_or(header)
+            .split_whitespace()
+            .next()
+            .unwrap_or("");
         let source = extract_source_id(id_part).unwrap_or(id_part);
         write!(writer, ">{}_fragment_{}", source, i + 1)?;
         let meta = header_metadata(header);
-        if !meta.is_empty() { write!(writer, " {}", meta)?; }
+        if !meta.is_empty() {
+            write!(writer, " {}", meta)?;
+        }
         writeln!(writer)?;
         writeln!(writer, "{}", seq)?;
     }
@@ -659,9 +784,15 @@ fn load_fastq_records(path: &Path) -> Result<Vec<(String, String, String)>> {
     let mut lines = reader.lines();
     while let Some(header) = lines.next() {
         let header = header?;
-        let seq    = lines.next().ok_or_else(|| anyhow::anyhow!("Truncated FASTQ: {}", path.display()))??;
-        let _plus  = lines.next().ok_or_else(|| anyhow::anyhow!("Truncated FASTQ: {}", path.display()))??;
-        let qual   = lines.next().ok_or_else(|| anyhow::anyhow!("Truncated FASTQ: {}", path.display()))??;
+        let seq = lines
+            .next()
+            .ok_or_else(|| anyhow::anyhow!("Truncated FASTQ: {}", path.display()))??;
+        let _plus = lines
+            .next()
+            .ok_or_else(|| anyhow::anyhow!("Truncated FASTQ: {}", path.display()))??;
+        let qual = lines
+            .next()
+            .ok_or_else(|| anyhow::anyhow!("Truncated FASTQ: {}", path.display()))??;
         records.push((header, seq, qual));
     }
     Ok(records)
@@ -676,17 +807,20 @@ fn sample_fastq_reads(input: &Path, output: &Path, n: usize, seed: Option<u64>) 
     }
     let mut rng: StdRng = match seed {
         Some(s) => StdRng::seed_from_u64(s),
-        None    => StdRng::from_entropy(),
+        None => StdRng::from_entropy(),
     };
     let mut writer = BufWriter::new(
-        File::create(output)
-            .with_context(|| format!("Cannot create: {}", output.display()))?,
+        File::create(output).with_context(|| format!("Cannot create: {}", output.display()))?,
     );
     for i in 0..n {
         let idx = rng.gen_range(0..records.len());
         let (header, seq, qual) = &records[idx];
-        let id_part = header.strip_prefix('@').unwrap_or(header)
-            .split_whitespace().next().unwrap_or("");
+        let id_part = header
+            .strip_prefix('@')
+            .unwrap_or(header)
+            .split_whitespace()
+            .next()
+            .unwrap_or("");
         let source = extract_source_id(id_part).unwrap_or(id_part);
         writeln!(writer, "@{}_fragment_{}", source, i + 1)?;
         writeln!(writer, "{}", seq)?;
@@ -700,6 +834,6 @@ fn sample_fastq_reads(input: &Path, output: &Path, n: usize, seed: Option<u64>) 
 /// Construct a sibling temp file path with a descriptive suffix.
 fn tmp_path(base: &Path, suffix: &str) -> PathBuf {
     let stem = base.file_stem().unwrap_or_default().to_string_lossy();
-    let dir  = base.parent().unwrap_or(Path::new("."));
+    let dir = base.parent().unwrap_or(Path::new("."));
     dir.join(format!("{}_{}", stem, suffix))
 }

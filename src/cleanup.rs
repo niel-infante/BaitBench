@@ -29,7 +29,11 @@ pub fn cleanup_all_subdirs(outdir: &Path) {
         if path.is_dir() {
             match fs::remove_dir_all(&path) {
                 Ok(()) => log::info!("Cleanup: removed directory {}", path.display()),
-                Err(e) => log::warn!("Cleanup: failed to remove directory {}: {}", path.display(), e),
+                Err(e) => log::warn!(
+                    "Cleanup: failed to remove directory {}: {}",
+                    path.display(),
+                    e
+                ),
             }
         }
     }

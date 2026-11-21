@@ -70,8 +70,7 @@ pub fn execute(args: &PanelQcArgs) -> Result<()> {
     );
 
     // Step 2: Build context and compute discriminability
-    let ctx =
-        target_similarity::build_similarity_context(&similarities, &genome_to_targets);
+    let ctx = target_similarity::build_similarity_context(&similarities, &genome_to_targets);
     let discriminability = target_similarity::compute_discriminability(&ctx);
 
     let disc_path = prefixed_join(args.outdir, pfx, "species_discriminability.tsv");
@@ -96,8 +95,16 @@ pub fn execute(args: &PanelQcArgs) -> Result<()> {
         .filter(|d| d.discriminability_score == 0.0)
         .count();
 
-    log::info!("Species with all unique targets:  {}/{}", fully_unique, n_species);
-    log::info!("Species with some unique targets: {}/{}", partially_unique, n_species);
+    log::info!(
+        "Species with all unique targets:  {}/{}",
+        fully_unique,
+        n_species
+    );
+    log::info!(
+        "Species with some unique targets: {}/{}",
+        partially_unique,
+        n_species
+    );
     log::info!(
         "Species with NO unique targets:  {}/{} (cannot discriminate!)",
         no_unique,
@@ -112,11 +119,8 @@ pub fn execute(args: &PanelQcArgs) -> Result<()> {
         );
         for d in &discriminability {
             if d.discriminability_score == 0.0 {
-                let confusable: Vec<&str> = d
-                    .confusable_with
-                    .iter()
-                    .map(|(s, _)| s.as_str())
-                    .collect();
+                let confusable: Vec<&str> =
+                    d.confusable_with.iter().map(|(s, _)| s.as_str()).collect();
                 log::warn!(
                     "  {} ({} targets, all shared) — confusable with: {}",
                     d.species_id,
@@ -251,8 +255,8 @@ fn generate_panel_qc_report(
     params_path: &Path,
     output_path: &Path,
 ) -> Result<()> {
-    let r_dir = rscript::find_r_dir()
-        .ok_or_else(|| anyhow::anyhow!("Cannot find R scripts directory."))?;
+    let r_dir =
+        rscript::find_r_dir().ok_or_else(|| anyhow::anyhow!("Cannot find R scripts directory."))?;
 
     let script = r_dir.join("panel_qc.R");
     if !script.exists() {
@@ -289,15 +293,12 @@ fn write_panel_qc_rmd(
     params_path: &Path,
     output_path: &Path,
 ) -> Result<()> {
-    let r_dir = rscript::find_r_dir()
-        .ok_or_else(|| anyhow::anyhow!("Cannot find R scripts directory."))?;
+    let r_dir =
+        rscript::find_r_dir().ok_or_else(|| anyhow::anyhow!("Cannot find R scripts directory."))?;
 
     let rmd_template = r_dir.join("panel_qc.Rmd");
     if !rmd_template.exists() {
-        bail!(
-            "RMarkdown template not found: {}",
-            rmd_template.display()
-        );
+        bail!("RMarkdown template not found: {}", rmd_template.display());
     }
 
     let disc_abs = abs_path_str(disc_path)?;

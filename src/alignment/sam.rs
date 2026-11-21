@@ -13,8 +13,8 @@ use std::path::Path;
 /// - Supplementary alignments (FLAG & 0x800)
 /// - Duplicate read IDs (only counts each read once)
 pub fn count_reads_per_reference(sam_path: &Path) -> Result<HashMap<String, usize>> {
-    let file = File::open(sam_path)
-        .with_context(|| format!("Cannot open SAM: {}", sam_path.display()))?;
+    let file =
+        File::open(sam_path).with_context(|| format!("Cannot open SAM: {}", sam_path.display()))?;
     let reader = BufReader::new(file);
 
     let mut counts: HashMap<String, usize> = HashMap::new();
@@ -64,8 +64,8 @@ pub fn count_reads_per_reference(sam_path: &Path) -> Result<HashMap<String, usiz
 /// Only primary alignments are included (skips secondary 0x100,
 /// supplementary 0x800, and unmapped). Each read appears at most once.
 pub fn get_read_mappings(sam_path: &Path) -> Result<Vec<(String, String)>> {
-    let file = File::open(sam_path)
-        .with_context(|| format!("Cannot open SAM: {}", sam_path.display()))?;
+    let file =
+        File::open(sam_path).with_context(|| format!("Cannot open SAM: {}", sam_path.display()))?;
     let reader = BufReader::new(file);
 
     let mut mappings = Vec::new();
@@ -104,8 +104,8 @@ pub fn get_read_mappings(sam_path: &Path) -> Result<Vec<(String, String)>> {
 /// Parse SAM file and return the set of read IDs that map (RNAME != *).
 /// Used for host filtering.
 pub fn get_mapped_read_ids(sam_path: &Path) -> Result<HashSet<String>> {
-    let file = File::open(sam_path)
-        .with_context(|| format!("Cannot open SAM: {}", sam_path.display()))?;
+    let file =
+        File::open(sam_path).with_context(|| format!("Cannot open SAM: {}", sam_path.display()))?;
     let reader = BufReader::new(file);
 
     let mut mapped = HashSet::new();

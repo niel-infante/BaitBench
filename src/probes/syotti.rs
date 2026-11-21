@@ -108,7 +108,11 @@ pub fn design_probes(
             probe_num += 1;
             total_probes += 1;
             writeln!(writer, ">probe_{}|syotti_{}", ids[seq_idx], probe_num)?;
-            writeln!(writer, "{}", std::str::from_utf8(&bait).unwrap_or("INVALID"))?;
+            writeln!(
+                writer,
+                "{}",
+                std::str::from_utf8(&bait).unwrap_or("INVALID")
+            )?;
 
             pos = start + bait_len;
         }
@@ -119,13 +123,9 @@ pub fn design_probes(
     Ok(total_probes)
 }
 
-
 /// Build a k-mer hash index: maps each `seed_len`-mer to all (seq_idx, pos)
 /// occurrences across the input sequences. Seeds containing N are skipped.
-fn build_kmer_index(
-    seqs: &[Vec<u8>],
-    seed_len: usize,
-) -> HashMap<Vec<u8>, Vec<(usize, usize)>> {
+fn build_kmer_index(seqs: &[Vec<u8>], seed_len: usize) -> HashMap<Vec<u8>, Vec<(usize, usize)>> {
     let mut index: HashMap<Vec<u8>, Vec<(usize, usize)>> = HashMap::new();
     for (seq_idx, seq) in seqs.iter().enumerate() {
         if seq.len() < seed_len {
@@ -211,11 +211,7 @@ fn load_fasta(path: &Path) -> Result<(Vec<String>, Vec<Vec<u8>>)> {
                 seqs.push(current_seq.clone());
                 current_seq.clear();
             }
-            let id = stripped
-                .split_whitespace()
-                .next()
-                .unwrap_or("")
-                .to_string();
+            let id = stripped.split_whitespace().next().unwrap_or("").to_string();
             current_id = Some(id);
         } else if !trimmed.is_empty() {
             current_seq.extend(trimmed.as_bytes().iter().map(|b| b.to_ascii_uppercase()));

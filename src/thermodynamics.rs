@@ -80,17 +80,41 @@ impl NnParams {
 //   TG = RC(CA) = (-8.5,-22.7)    TT = RC(AA) = (-7.9,-22.2)
 static NN_TABLE: [[NnParams; 4]; 4] = [
     //                A                     C                     G                     T
-    /* prev A */ [NnParams::new(-7.9, -22.2), NnParams::new(-8.4, -22.4), NnParams::new(-7.8, -21.0), NnParams::new(-7.2, -20.4)],
-    /* prev C */ [NnParams::new(-8.5, -22.7), NnParams::new(-8.0, -19.9), NnParams::new(-10.6, -27.2), NnParams::new(-7.8, -21.0)],
-    /* prev G */ [NnParams::new(-8.2, -22.2), NnParams::new(-9.8, -24.4), NnParams::new(-8.0, -19.9), NnParams::new(-8.4, -22.4)],
-    /* prev T */ [NnParams::new(-7.2, -21.3), NnParams::new(-8.2, -22.2), NnParams::new(-8.5, -22.7), NnParams::new(-7.9, -22.2)],
+    /* prev A */
+    [
+        NnParams::new(-7.9, -22.2),
+        NnParams::new(-8.4, -22.4),
+        NnParams::new(-7.8, -21.0),
+        NnParams::new(-7.2, -20.4),
+    ],
+    /* prev C */
+    [
+        NnParams::new(-8.5, -22.7),
+        NnParams::new(-8.0, -19.9),
+        NnParams::new(-10.6, -27.2),
+        NnParams::new(-7.8, -21.0),
+    ],
+    /* prev G */
+    [
+        NnParams::new(-8.2, -22.2),
+        NnParams::new(-9.8, -24.4),
+        NnParams::new(-8.0, -19.9),
+        NnParams::new(-8.4, -22.4),
+    ],
+    /* prev T */
+    [
+        NnParams::new(-7.2, -21.3),
+        NnParams::new(-8.2, -22.2),
+        NnParams::new(-8.5, -22.7),
+        NnParams::new(-7.9, -22.2),
+    ],
 ];
 
 /// SantaLucia (1998) Table 2: initiation parameters.
 /// Applied once for each terminal Watson-Crick pair of the duplex.
 /// A duplex has two terminals (5' end and 3' end), so two initiation terms are added.
-const INIT_GC: NnParams = NnParams::new(0.1, -2.8);  // terminal G-C or C-G pair
-const INIT_AT: NnParams = NnParams::new(2.3, 4.1);   // terminal A-T or T-A pair
+const INIT_GC: NnParams = NnParams::new(0.1, -2.8); // terminal G-C or C-G pair
+const INIT_AT: NnParams = NnParams::new(2.3, 4.1); // terminal A-T or T-A pair
 
 /// All thermodynamic model parameters for ΔG calculation.
 ///
@@ -137,57 +161,57 @@ fn mismatch_params(prev_top: u8, prev_bot: u8, curr_top: u8, curr_bot: u8) -> Op
     }
     let key = (prev_top << 6) | (prev_bot << 4) | (curr_top << 2) | curr_bot;
     match key {
-        0b00110000 => Some(NnParams::new(1.2, 1.7)), // AA/TA
-        0b00110001 => Some(NnParams::new(2.3, 4.6)), // AA/TC
-        0b00110010 => Some(NnParams::new(-0.6, -2.3)), // AA/TG
-        0b00110100 => Some(NnParams::new(5.3, 14.6)), // AC/TA
-        0b00110101 => Some(NnParams::new(0.0, -4.4)), // AC/TC
-        0b00110111 => Some(NnParams::new(0.7, 0.2)), // AC/TT
-        0b00111000 => Some(NnParams::new(-0.7, -2.3)), // AG/TA
-        0b00111010 => Some(NnParams::new(-3.1, -9.5)), // AG/TG
-        0b00111011 => Some(NnParams::new(1.0, 0.9)), // AG/TT
-        0b00111101 => Some(NnParams::new(-1.2, -6.2)), // AT/TC
-        0b00111110 => Some(NnParams::new(-2.5, -8.3)), // AT/TG
+        0b00110000 => Some(NnParams::new(1.2, 1.7)),    // AA/TA
+        0b00110001 => Some(NnParams::new(2.3, 4.6)),    // AA/TC
+        0b00110010 => Some(NnParams::new(-0.6, -2.3)),  // AA/TG
+        0b00110100 => Some(NnParams::new(5.3, 14.6)),   // AC/TA
+        0b00110101 => Some(NnParams::new(0.0, -4.4)),   // AC/TC
+        0b00110111 => Some(NnParams::new(0.7, 0.2)),    // AC/TT
+        0b00111000 => Some(NnParams::new(-0.7, -2.3)),  // AG/TA
+        0b00111010 => Some(NnParams::new(-3.1, -9.5)),  // AG/TG
+        0b00111011 => Some(NnParams::new(1.0, 0.9)),    // AG/TT
+        0b00111101 => Some(NnParams::new(-1.2, -6.2)),  // AT/TC
+        0b00111110 => Some(NnParams::new(-2.5, -8.3)),  // AT/TG
         0b00111111 => Some(NnParams::new(-2.7, -10.8)), // AT/TT
-        0b01100000 => Some(NnParams::new(-0.9, -4.2)), // CA/GA
-        0b01100001 => Some(NnParams::new(1.9, 3.7)), // CA/GC
-        0b01100010 => Some(NnParams::new(-0.7, -2.3)), // CA/GG
-        0b01100100 => Some(NnParams::new(0.6, -0.6)), // CC/GA
-        0b01100101 => Some(NnParams::new(-1.5, -7.2)), // CC/GC
-        0b01100111 => Some(NnParams::new(-0.8, -4.5)), // CC/GT
+        0b01100000 => Some(NnParams::new(-0.9, -4.2)),  // CA/GA
+        0b01100001 => Some(NnParams::new(1.9, 3.7)),    // CA/GC
+        0b01100010 => Some(NnParams::new(-0.7, -2.3)),  // CA/GG
+        0b01100100 => Some(NnParams::new(0.6, -0.6)),   // CC/GA
+        0b01100101 => Some(NnParams::new(-1.5, -7.2)),  // CC/GC
+        0b01100111 => Some(NnParams::new(-0.8, -4.5)),  // CC/GT
         0b01101000 => Some(NnParams::new(-4.0, -13.2)), // CG/GA
         0b01101010 => Some(NnParams::new(-4.9, -15.3)), // CG/GG
         0b01101011 => Some(NnParams::new(-4.1, -11.7)), // CG/GT
-        0b01101101 => Some(NnParams::new(-1.5, -6.1)), // CT/GC
-        0b01101110 => Some(NnParams::new(-2.8, -8.0)), // CT/GG
+        0b01101101 => Some(NnParams::new(-1.5, -6.1)),  // CT/GC
+        0b01101110 => Some(NnParams::new(-2.8, -8.0)),  // CT/GG
         0b01101111 => Some(NnParams::new(-5.0, -15.8)), // CT/GT
-        0b10010000 => Some(NnParams::new(-2.9, -9.8)), // GA/CA
-        0b10010001 => Some(NnParams::new(5.2, 14.2)), // GA/CC
-        0b10010010 => Some(NnParams::new(-0.6, -1.0)), // GA/CG
-        0b10010100 => Some(NnParams::new(-0.7, -3.8)), // GC/CA
-        0b10010101 => Some(NnParams::new(3.6, 8.9)), // GC/CC
-        0b10010111 => Some(NnParams::new(2.3, 5.4)), // GC/CT
-        0b10011000 => Some(NnParams::new(0.5, 3.2)), // GG/CA
+        0b10010000 => Some(NnParams::new(-2.9, -9.8)),  // GA/CA
+        0b10010001 => Some(NnParams::new(5.2, 14.2)),   // GA/CC
+        0b10010010 => Some(NnParams::new(-0.6, -1.0)),  // GA/CG
+        0b10010100 => Some(NnParams::new(-0.7, -3.8)),  // GC/CA
+        0b10010101 => Some(NnParams::new(3.6, 8.9)),    // GC/CC
+        0b10010111 => Some(NnParams::new(2.3, 5.4)),    // GC/CT
+        0b10011000 => Some(NnParams::new(0.5, 3.2)),    // GG/CA
         0b10011010 => Some(NnParams::new(-6.0, -15.8)), // GG/CG
-        0b10011011 => Some(NnParams::new(3.3, 10.4)), // GG/CT
-        0b10011101 => Some(NnParams::new(5.2, 13.5)), // GT/CC
+        0b10011011 => Some(NnParams::new(3.3, 10.4)),   // GG/CT
+        0b10011101 => Some(NnParams::new(5.2, 13.5)),   // GT/CC
         0b10011110 => Some(NnParams::new(-4.4, -12.3)), // GT/CG
-        0b10011111 => Some(NnParams::new(-2.2, -8.4)), // GT/CT
-        0b10111011 => Some(NnParams::new(5.8, 16.3)), // GG/TT  // tandem
-        0b10111110 => Some(NnParams::new(4.1, 9.5)), // GT/TG  // tandem
-        0b11000000 => Some(NnParams::new(4.7, 12.9)), // TA/AA
-        0b11000001 => Some(NnParams::new(3.4, 8.0)), // TA/AC
-        0b11000010 => Some(NnParams::new(0.7, 0.7)), // TA/AG
-        0b11000100 => Some(NnParams::new(7.6, 20.2)), // TC/AA
-        0b11000101 => Some(NnParams::new(6.1, 16.4)), // TC/AC
-        0b11000111 => Some(NnParams::new(1.2, 0.7)), // TC/AT
-        0b11001000 => Some(NnParams::new(3.0, 7.4)), // TG/AA
-        0b11001010 => Some(NnParams::new(1.6, 3.6)), // TG/AG
-        0b11001011 => Some(NnParams::new(-0.1, -1.7)), // TG/AT
-        0b11001101 => Some(NnParams::new(1.0, 0.7)), // TT/AC
-        0b11001110 => Some(NnParams::new(-1.3, -5.3)), // TT/AG
-        0b11001111 => Some(NnParams::new(0.2, -1.5)), // TT/AT
-        0b11101011 => Some(NnParams::new(-1.4, -6.2)), // TG/GT  // tandem
+        0b10011111 => Some(NnParams::new(-2.2, -8.4)),  // GT/CT
+        0b10111011 => Some(NnParams::new(5.8, 16.3)),   // GG/TT  // tandem
+        0b10111110 => Some(NnParams::new(4.1, 9.5)),    // GT/TG  // tandem
+        0b11000000 => Some(NnParams::new(4.7, 12.9)),   // TA/AA
+        0b11000001 => Some(NnParams::new(3.4, 8.0)),    // TA/AC
+        0b11000010 => Some(NnParams::new(0.7, 0.7)),    // TA/AG
+        0b11000100 => Some(NnParams::new(7.6, 20.2)),   // TC/AA
+        0b11000101 => Some(NnParams::new(6.1, 16.4)),   // TC/AC
+        0b11000111 => Some(NnParams::new(1.2, 0.7)),    // TC/AT
+        0b11001000 => Some(NnParams::new(3.0, 7.4)),    // TG/AA
+        0b11001010 => Some(NnParams::new(1.6, 3.6)),    // TG/AG
+        0b11001011 => Some(NnParams::new(-0.1, -1.7)),  // TG/AT
+        0b11001101 => Some(NnParams::new(1.0, 0.7)),    // TT/AC
+        0b11001110 => Some(NnParams::new(-1.3, -5.3)),  // TT/AG
+        0b11001111 => Some(NnParams::new(0.2, -1.5)),   // TT/AT
+        0b11101011 => Some(NnParams::new(-1.4, -6.2)),  // TG/GT  // tandem
         _ => None,
     }
 }
@@ -202,7 +226,8 @@ impl ThermoModel {
 /// Returns 4 for any non-ACGT character.
 #[inline]
 fn nt_to_idx(b: u8) -> u8 {
-    match b | 0x20 { // to lowercase
+    match b | 0x20 {
+        // to lowercase
         b'a' => 0,
         b'c' => 1,
         b'g' => 2,
@@ -450,7 +475,6 @@ pub fn occupancy_from_ln_k(ln_k: f64) -> f64 {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -480,7 +504,11 @@ mod tests {
     #[test]
     fn all_mismatches_gives_zero_energy() {
         // All mismatches → no WC pairs → no stacking, no initiation, no salt correction → ΔG = 0
-        let pairs: Vec<(u8, u8)> = b"AAAA".iter().zip(b"AAAA".iter()).map(|(&p, &r)| (p, r)).collect();
+        let pairs: Vec<(u8, u8)> = b"AAAA"
+            .iter()
+            .zip(b"AAAA".iter())
+            .map(|(&p, &r)| (p, r))
+            .collect();
         let dg = delta_g(&pairs, &model_1m());
         assert_eq!(dg, 0.0);
     }
@@ -493,15 +521,24 @@ mod tests {
             .map(|(&p, &r)| (p, r))
             .collect();
         let dg = delta_g(&pairs, &model_1m());
-        assert!(dg < 0.0, "a perfect 10-mer duplex should be favourable, got {dg}");
+        assert!(
+            dg < 0.0,
+            "a perfect 10-mer duplex should be favourable, got {dg}"
+        );
         // Occupancy saturates with enough probe, which is what stops capture scaling
         // without bound for a good probe. A 10-mer at 70 °C is only marginally stable
         // (ΔG ≈ −4 kcal/mol — this is above its Tm), so saturation needs a
         // concentration of order 1; the invariant under test is that θ approaches 1
         // rather than exceeding it, not the level at which it gets there.
         let theta = langmuir_occupancy(dg, 1.0, &model_1m());
-        assert!(theta > 0.99, "expected near-saturated occupancy, got {theta}");
-        assert!(theta <= 1.0, "occupancy must stay a probability, got {theta}");
+        assert!(
+            theta > 0.99,
+            "expected near-saturated occupancy, got {theta}"
+        );
+        assert!(
+            theta <= 1.0,
+            "occupancy must stay a probability, got {theta}"
+        );
     }
 
     #[test]
@@ -510,7 +547,11 @@ mod tests {
         // and therefore no initiation terms either. ΔG = 0, score = 1.
         let pairs = vec![(b'A', b'T')];
         let dg = delta_g(&pairs, &model_1m());
-        assert_eq!(dg, 0.0, "Single AT pair with no stacking should give ΔG = 0, got {}", dg);
+        assert_eq!(
+            dg, 0.0,
+            "Single AT pair with no stacking should give ΔG = 0, got {}",
+            dg
+        );
     }
 
     #[test]
@@ -518,7 +559,11 @@ mod tests {
         // A single G-C pair: same reasoning — no stacking, no initiation → ΔG = 0.
         let pairs = vec![(b'G', b'C')];
         let dg = delta_g(&pairs, &model_1m());
-        assert_eq!(dg, 0.0, "Single GC pair with no stacking should give ΔG = 0, got {}", dg);
+        assert_eq!(
+            dg, 0.0,
+            "Single GC pair with no stacking should give ΔG = 0, got {}",
+            dg
+        );
     }
 
     #[test]
@@ -577,7 +622,11 @@ mod tests {
         let m = model_50mm();
         let bases = b"ACGTTGCAAGGCCTTAGCATCGATCGGATCCTAGCATGCAACGTTGCAAGG";
         let comp = |b: u8| match b {
-            b'A' => b'T', b'T' => b'A', b'C' => b'G', b'G' => b'C', x => x,
+            b'A' => b'T',
+            b'T' => b'A',
+            b'C' => b'G',
+            b'G' => b'C',
+            x => x,
         };
         let perfect: Vec<(u8, u8)> = bases.iter().map(|&b| (b, comp(b))).collect();
         let mut mism = perfect.clone();
@@ -587,7 +636,10 @@ mod tests {
 
         let full_gap = delta_g(&mism, &m) - delta_g(&perfect, &m);
         let win_gap = min_window_delta_g(&mism, 10, &m) - min_window_delta_g(&perfect, 10, &m);
-        assert!(full_gap > 0.0, "mismatches must destabilise, got {full_gap}");
+        assert!(
+            full_gap > 0.0,
+            "mismatches must destabilise, got {full_gap}"
+        );
         assert!(
             win_gap < full_gap,
             "a 10 bp window must carry a smaller penalty than the whole 51 bp duplex: \
@@ -623,7 +675,8 @@ mod tests {
         assert!(
             dg_50mm > dg_1m,
             "ΔG at 50 mM ({:.4}) should be more positive than at 1 M ({:.4})",
-            dg_50mm, dg_1m
+            dg_50mm,
+            dg_1m
         );
     }
 
@@ -651,8 +704,14 @@ mod tests {
         let dg_one = delta_g(&one_mm, &m);
         let dg_none = delta_g(&all_mm, &m);
 
-        assert!(dg_perfect < dg_one, "one mismatch must be less stable than none");
-        assert!(dg_one < dg_none, "one mismatch must be more stable than all mismatches");
+        assert!(
+            dg_perfect < dg_one,
+            "one mismatch must be less stable than none"
+        );
+        assert!(
+            dg_one < dg_none,
+            "one mismatch must be more stable than all mismatches"
+        );
     }
 
     /// Mismatch steps must contribute energy rather than being skipped, but must not
@@ -731,7 +790,9 @@ mod tests {
         let expected = (-8.0 + 0.2) - t_k * ((-19.9 + (-5.6)) / 1000.0);
         assert!(
             (dg - expected).abs() < 1e-9,
-            "GC+GC duplex ΔG should be {:.6}, got {:.6}", expected, dg
+            "GC+GC duplex ΔG should be {:.6}, got {:.6}",
+            expected,
+            dg
         );
     }
 }

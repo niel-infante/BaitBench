@@ -9,15 +9,17 @@ use std::path::{Path, PathBuf};
 
 use crate::cli::{Aligner, ProbeMethod, ReportMode};
 use crate::commands::assess_probes;
-use crate::external::{cdhit, rscript};
 use crate::external::catch as external_catch;
+use crate::external::{cdhit, rscript};
 use crate::io_utils::prefixed_join;
-use crate::probes::{syotti, catch, probetools};
+use crate::probes::{catch, probetools, syotti};
 
-use filters::{count_fasta_stats, filter_complexity, filter_gc, filter_n_content, filter_short_sequences};
+use filters::{
+    count_fasta_stats, filter_complexity, filter_gc, filter_n_content, filter_short_sequences,
+};
 use n_fix::fix_n_bases;
-use tiling::tile_probes;
 use report::{generate_report, write_rmd, write_run_params, write_stats_tsv};
+use tiling::tile_probes;
 
 pub struct BuildProbesArgs<'a> {
     pub targets: &'a Path,
@@ -93,7 +95,11 @@ pub fn execute(args: &BuildProbesArgs) -> Result<()> {
     log::info!("Counting input sequences...");
     let (input_seqs, input_bases) = count_fasta_stats(args.targets)?;
     log::info!("  Input: {} sequences, {} bases", input_seqs, input_bases);
-    stats.push(StepStats { step: "input".to_string(), sequences: input_seqs, bases: input_bases });
+    stats.push(StepStats {
+        step: "input".to_string(),
+        sequences: input_seqs,
+        bases: input_bases,
+    });
 
     // --- Step 1: Filter by N content ---
     log::info!(
@@ -105,9 +111,15 @@ pub fn execute(args: &BuildProbesArgs) -> Result<()> {
     let (clean_seqs, clean_bases) = count_fasta_stats(&targets_clean_path)?;
     log::info!(
         "  After N filter: {} sequences, {} bases (removed {})",
-        clean_seqs, clean_bases, input_seqs - clean_seqs
+        clean_seqs,
+        clean_bases,
+        input_seqs - clean_seqs
     );
-    stats.push(StepStats { step: "n_filtered".to_string(), sequences: clean_seqs, bases: clean_bases });
+    stats.push(StepStats {
+        step: "n_filtered".to_string(),
+        sequences: clean_seqs,
+        bases: clean_bases,
+    });
 
     // --- Step 2: Collapse with cd-hit-est ---
     let collapsed_path = prefixed_join(args.outdir, args.output_prefix, "collapsed.fa");
@@ -117,16 +129,31 @@ pub fn execute(args: &BuildProbesArgs) -> Result<()> {
             args.collapse_threshold
         );
         let collapse_log = prefixed_join(args.outdir, args.output_prefix, "cdhit_collapse.log");
-        cdhit::cluster(&targets_clean_path, &collapsed_path, args.collapse_threshold, args.threads, &collapse_log)?;
+        cdhit::cluster(
+            &targets_clean_path,
+            &collapsed_path,
+            args.collapse_threshold,
+            args.threads,
+            &collapse_log,
+        )?;
         let s = count_fasta_stats(&collapsed_path)?;
-        log::info!("  Collapsed: {} sequences, {} bases (removed {})", s.0, s.1, clean_seqs - s.0);
+        log::info!(
+            "  Collapsed: {} sequences, {} bases (removed {})",
+            s.0,
+            s.1,
+            clean_seqs - s.0
+        );
         s
     } else {
         log::warn!("Step 2: Skipping target collapse (cd-hit-est not available).");
         fs::copy(&targets_clean_path, &collapsed_path)?;
         (clean_seqs, clean_bases)
     };
-    stats.push(StepStats { step: "collapsed".to_string(), sequences: collapsed_seqs, bases: collapsed_bases });
+    stats.push(StepStats {
+        step: "collapsed".to_string(),
+        sequences: collapsed_seqs,
+        bases: collapsed_bases,
+    });
 
     // --- Step 3: Filter short sequences ---
     log::info!(
@@ -138,7 +165,9 @@ pub fn execute(args: &BuildProbesArgs) -> Result<()> {
     let (length_filtered_seqs, length_filtered_bases) = count_fasta_stats(&length_filtered_path)?;
     log::info!(
         "  After length filter: {} sequences, {} bases (removed {})",
-        length_filtered_seqs, length_filtered_bases, collapsed_seqs - length_filtered_seqs
+        length_filtered_seqs,
+        length_filtered_bases,
+        collapsed_seqs - length_filtered_seqs
     );
     stats.push(StepStats {
         step: "length_filtered".to_string(),
@@ -154,46 +183,73 @@ pub fn execute(args: &BuildProbesArgs) -> Result<()> {
             if stride <= 0 {
                 anyhow::bail!(
                     "Invalid tiling parameters: probe_length ({}) + step ({}) = {} (must be > 0)",
-                    args.probe_length, args.step, stride
+                    args.probe_length,
+                    args.step,
+                    stride
                 );
             }
             log::info!(
                 "Step 4: Building probes (tile, length={}, step={}, stride={})...",
-                args.probe_length, args.step, stride
+                args.probe_length,
+                args.step,
+                stride
             );
-            tile_probes(&length_filtered_path, &probes_raw_path, args.probe_length, args.step)?;
+            tile_probes(
+                &length_filtered_path,
+                &probes_raw_path,
+                args.probe_length,
+                args.step,
+            )?;
         }
         ProbeMethod::CatchLite => {
             log::info!(
                 "Step 4: Building probes (catch-lite, length={}, stride={}, mismatches={}, \
                  extension={}, coverage={:.2}, minhash={:.2}, strand={:?})...",
-                args.probe_length, args.catch_probe_stride, args.catch_mismatches,
-                args.catch_extension, args.catch_coverage, args.catch_minhash_threshold,
+                args.probe_length,
+                args.catch_probe_stride,
+                args.catch_mismatches,
+                args.catch_extension,
+                args.catch_coverage,
+                args.catch_minhash_threshold,
                 args.catch_strand,
             );
             catch::design_probes(
-                &length_filtered_path, &probes_raw_path, args.probe_length,
-                args.catch_probe_stride, args.catch_mismatches, args.catch_extension,
-                args.catch_coverage, args.catch_minhash_threshold,
+                &length_filtered_path,
+                &probes_raw_path,
+                args.probe_length,
+                args.catch_probe_stride,
+                args.catch_mismatches,
+                args.catch_extension,
+                args.catch_coverage,
+                args.catch_minhash_threshold,
                 args.catch_strand.into(),
             )?;
         }
         ProbeMethod::SyottiLite => {
             log::info!(
                 "Step 4: Building probes (syotti-lite, length={}, mismatches={}, seed_len={})...",
-                args.probe_length, args.syotti_mismatches, args.syotti_seed_len
+                args.probe_length,
+                args.syotti_mismatches,
+                args.syotti_seed_len
             );
             syotti::design_probes(
-                &length_filtered_path, &probes_raw_path, args.probe_length,
-                args.syotti_mismatches, args.syotti_seed_len,
+                &length_filtered_path,
+                &probes_raw_path,
+                args.probe_length,
+                args.syotti_mismatches,
+                args.syotti_seed_len,
             )?;
         }
         ProbeMethod::Catch => {
             log::info!(
                 "Step 4: Building probes (external CATCH, length={}, stride={}, mismatches={}, \
                  extension={}, coverage={:.2}, minhash={:.2})...",
-                args.probe_length, args.catch_probe_stride, args.catch_mismatches,
-                args.catch_extension, args.catch_coverage, args.catch_minhash_threshold,
+                args.probe_length,
+                args.catch_probe_stride,
+                args.catch_mismatches,
+                args.catch_extension,
+                args.catch_coverage,
+                args.catch_minhash_threshold,
             );
             if args.catch_strand == crate::cli::ProbeStrand::Both {
                 log::warn!(
@@ -203,37 +259,65 @@ pub fn execute(args: &BuildProbesArgs) -> Result<()> {
             }
             external_catch::check_available()?;
             external_catch::design_probes(
-                &length_filtered_path, &probes_raw_path, args.probe_length,
-                args.catch_probe_stride, args.catch_mismatches, args.catch_extension,
-                args.catch_coverage, args.catch_minhash_threshold,
+                &length_filtered_path,
+                &probes_raw_path,
+                args.probe_length,
+                args.catch_probe_stride,
+                args.catch_mismatches,
+                args.catch_extension,
+                args.catch_coverage,
+                args.catch_minhash_threshold,
             )?;
         }
         ProbeMethod::ProbeToolsLite => {
             log::info!(
                 "Step 4: Building probes (probetools-lite, length={}, step={}, identity={:.2}, \
                  coverage_goal={:.2}, batch={}, max_iterations={})...",
-                args.probe_length, args.pt_step, args.pt_identity,
-                args.pt_coverage, args.pt_batch_size, args.pt_max_iterations,
+                args.probe_length,
+                args.pt_step,
+                args.pt_identity,
+                args.pt_coverage,
+                args.pt_batch_size,
+                args.pt_max_iterations,
             );
             cdhit::check_available()?;
             probetools::design_probes(
-                &length_filtered_path, &probes_raw_path, args.probe_length,
-                args.pt_step, args.pt_identity, args.pt_coverage, args.pt_batch_size,
-                args.pt_max_panel_size, args.pt_min_depth, args.pt_max_iterations,
-                args.pt_min_coverage_gain, args.minimap_preset, args.threads, args.outdir,
+                &length_filtered_path,
+                &probes_raw_path,
+                args.probe_length,
+                args.pt_step,
+                args.pt_identity,
+                args.pt_coverage,
+                args.pt_batch_size,
+                args.pt_max_panel_size,
+                args.pt_min_depth,
+                args.pt_max_iterations,
+                args.pt_min_coverage_gain,
+                args.minimap_preset,
+                args.threads,
+                args.outdir,
             )?;
         }
     }
     let (tiled_seqs, tiled_bases) = count_fasta_stats(&probes_raw_path)?;
     log::info!("  Built: {} probes, {} bases", tiled_seqs, tiled_bases);
-    stats.push(StepStats { step: "built".to_string(), sequences: tiled_seqs, bases: tiled_bases });
+    stats.push(StepStats {
+        step: "built".to_string(),
+        sequences: tiled_seqs,
+        bases: tiled_bases,
+    });
 
     // --- Step 4b: Fix N bases ---
     let gc_filter_input = if args.no_n_in_probes {
-        let probes_n_fixed_path = prefixed_join(args.outdir, args.output_prefix, "probes_n_fixed.fa");
+        let probes_n_fixed_path =
+            prefixed_join(args.outdir, args.output_prefix, "probes_n_fixed.fa");
         log::info!("Step 4b: Fixing N bases in probes (--no-n-in-probes)...");
         let (probes_with_n, n_replaced) = fix_n_bases(&probes_raw_path, &probes_n_fixed_path)?;
-        log::info!("  Replaced {} N bases across {} probes", n_replaced, probes_with_n);
+        log::info!(
+            "  Replaced {} N bases across {} probes",
+            n_replaced,
+            probes_with_n
+        );
         probes_n_fixed_path
     } else {
         probes_raw_path.clone()
@@ -242,16 +326,23 @@ pub fn execute(args: &BuildProbesArgs) -> Result<()> {
     // --- Step 5: Filter by GC content ---
     log::info!(
         "Step 5: Filtering probes by GC content ({:.0}%-{:.0}%)...",
-        args.min_gc * 100.0, args.max_gc * 100.0
+        args.min_gc * 100.0,
+        args.max_gc * 100.0
     );
     let probes_gc_path = prefixed_join(args.outdir, args.output_prefix, "probes_gc.fa");
     filter_gc(&gc_filter_input, &probes_gc_path, args.min_gc, args.max_gc)?;
     let (gc_seqs, gc_bases) = count_fasta_stats(&probes_gc_path)?;
     log::info!(
         "  After GC filter: {} probes, {} bases (removed {})",
-        gc_seqs, gc_bases, tiled_seqs - gc_seqs
+        gc_seqs,
+        gc_bases,
+        tiled_seqs - gc_seqs
     );
-    stats.push(StepStats { step: "gc_filtered".to_string(), sequences: gc_seqs, bases: gc_bases });
+    stats.push(StepStats {
+        step: "gc_filtered".to_string(),
+        sequences: gc_seqs,
+        bases: gc_bases,
+    });
 
     // --- Step 6: Filter by complexity (sDUST) ---
     let (complexity_input, complexity_seqs, complexity_bases);
@@ -263,18 +354,25 @@ pub fn execute(args: &BuildProbesArgs) -> Result<()> {
     } else {
         log::info!(
             "Step 6: Filtering probes by complexity (sDUST, T={}, W={}, max masked={:.0}%)...",
-            args.dust_threshold, args.dust_window, args.max_masked_frac * 100.0
+            args.dust_threshold,
+            args.dust_window,
+            args.max_masked_frac * 100.0
         );
         let probes_complexity_path =
             prefixed_join(args.outdir, args.output_prefix, "probes_complexity.fa");
         filter_complexity(
-            &probes_gc_path, &probes_complexity_path,
-            args.dust_threshold, args.dust_window, args.max_masked_frac,
+            &probes_gc_path,
+            &probes_complexity_path,
+            args.dust_threshold,
+            args.dust_window,
+            args.max_masked_frac,
         )?;
         let (cs, cb) = count_fasta_stats(&probes_complexity_path)?;
         log::info!(
             "  After complexity filter: {} probes, {} bases (removed {})",
-            cs, cb, gc_seqs - cs
+            cs,
+            cb,
+            gc_seqs - cs
         );
         complexity_input = probes_complexity_path;
         complexity_seqs = cs;
@@ -294,16 +392,31 @@ pub fn execute(args: &BuildProbesArgs) -> Result<()> {
             args.dedup_threshold
         );
         let dedup_log = prefixed_join(args.outdir, args.output_prefix, "cdhit_dedup.log");
-        cdhit::cluster(&complexity_input, &probes_final_path, args.dedup_threshold, args.threads, &dedup_log)?;
+        cdhit::cluster(
+            &complexity_input,
+            &probes_final_path,
+            args.dedup_threshold,
+            args.threads,
+            &dedup_log,
+        )?;
         let s = count_fasta_stats(&probes_final_path)?;
-        log::info!("  Final: {} probes, {} bases (removed {})", s.0, s.1, complexity_seqs - s.0);
+        log::info!(
+            "  Final: {} probes, {} bases (removed {})",
+            s.0,
+            s.1,
+            complexity_seqs - s.0
+        );
         s
     } else {
         log::warn!("Step 7: Skipping probe deduplication (cd-hit-est not available).");
         fs::copy(&complexity_input, &probes_final_path)?;
         (complexity_seqs, complexity_bases)
     };
-    stats.push(StepStats { step: "deduplicated".to_string(), sequences: final_seqs, bases: final_bases });
+    stats.push(StepStats {
+        step: "deduplicated".to_string(),
+        sequences: final_seqs,
+        bases: final_bases,
+    });
 
     // --- Write stats and params ---
     let stats_path = prefixed_join(args.outdir, args.output_prefix, "build_probes_stats.tsv");

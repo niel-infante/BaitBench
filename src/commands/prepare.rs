@@ -80,7 +80,11 @@ pub fn execute(args: &PrepareArgs) -> Result<()> {
         log::warn!(
             "{} sequence IDs appear in both {} and distractors",
             overlap.len(),
-            if args.genomes.is_some() { "genomes" } else { "targets" }
+            if args.genomes.is_some() {
+                "genomes"
+            } else {
+                "targets"
+            }
         );
         for id in overlap.iter().take(5) {
             log::warn!("  {}", id);
@@ -91,40 +95,48 @@ pub fn execute(args: &PrepareArgs) -> Result<()> {
     }
 
     // Use provided sample manifest or default to all sources
-    let sample_weights: HashMap<String, f64> = if let Some(sample_map) = args.sample {
-        log::info!("Using sample with {} entries", sample_map.len());
+    let sample_weights: HashMap<String, f64> =
+        if let Some(sample_map) = args.sample {
+            log::info!("Using sample with {} entries", sample_map.len());
 
-        // Validate all sample IDs exist in source sequences (genomes or targets)
-        for id in sample_map.keys() {
-            if !source_set.contains(id.as_str()) {
-                bail!(
+            // Validate all sample IDs exist in source sequences (genomes or targets)
+            for id in sample_map.keys() {
+                if !source_set.contains(id.as_str()) {
+                    bail!(
                     "Sample ID '{}' not found in {} FASTA. All sample IDs must be {} sequences.",
                     id,
                     if args.genomes.is_some() { "genomes" } else { "targets" },
                     if args.genomes.is_some() { "genome" } else { "target" },
                 );
+                }
             }
-        }
 
-        sample_map.clone()
-    } else {
-        // Default: all sources in sample with weight 1.0
-        source_ids.iter().map(|id| (id.clone(), 1.0)).collect()
-    };
+            sample_map.clone()
+        } else {
+            // Default: all sources in sample with weight 1.0
+            source_ids.iter().map(|id| (id.clone(), 1.0)).collect()
+        };
 
     let sample_ids: Vec<String> = sample_weights.keys().cloned().collect();
     log::info!(
         "  Sample contains {} of {} {}",
         sample_ids.len(),
         source_ids.len(),
-        if args.genomes.is_some() { "genomes" } else { "targets" }
+        if args.genomes.is_some() {
+            "genomes"
+        } else {
+            "targets"
+        }
     );
 
     if let Some(genomes_path) = args.genomes {
         let genome_id_list = genome_ids.as_ref().unwrap();
 
         // Build combined_reference.fa = genomes + distractors (for fragment generation)
-        log::info!("Combining genomes + distractors to {}...", output_fasta.display());
+        log::info!(
+            "Combining genomes + distractors to {}...",
+            output_fasta.display()
+        );
         let mut input_paths: Vec<&Path> = vec![genomes_path];
         for d in args.distractors {
             input_paths.push(d.as_path());
@@ -133,7 +145,10 @@ pub fn execute(args: &PrepareArgs) -> Result<()> {
 
         // Build mapping_reference.fa = targets + distractors (for read mapping)
         let mapping_ref = prefixed_join(args.outdir, pfx, "mapping_reference.fa");
-        log::info!("Combining targets + distractors to {}...", mapping_ref.display());
+        log::info!(
+            "Combining targets + distractors to {}...",
+            mapping_ref.display()
+        );
         let mut mapping_paths: Vec<&Path> = vec![args.targets];
         for d in args.distractors {
             mapping_paths.push(d.as_path());
@@ -235,7 +250,10 @@ pub fn execute(args: &PrepareArgs) -> Result<()> {
 
         // Write ID lists
         log::info!("Writing ID lists...");
-        io_utils::write_id_list(genome_id_list, &prefixed_join(args.outdir, pfx, "genomes.txt"))?;
+        io_utils::write_id_list(
+            genome_id_list,
+            &prefixed_join(args.outdir, pfx, "genomes.txt"),
+        )?;
         io_utils::write_id_list(&target_ids, &targets_list)?;
         io_utils::write_id_list(&distractor_ids, &distractors_list)?;
         io_utils::write_id_list(&sample_ids, &sample_list)?;
@@ -291,24 +309,25 @@ pub fn execute(args: &PrepareArgs) -> Result<()> {
     }
 
     // Write distractor groups file (always)
-    let distractor_groups_map: HashMap<String, String> = if let Some(dg_path) = args.distractor_groups {
-        log::info!("Loading distractor groups from {}...", dg_path.display());
-        let map = io_utils::parse_groups_file(dg_path)?;
-        // Validate all IDs exist in distractor set
-        let dist_set: HashSet<&str> = distractor_ids.iter().map(|s| s.as_str()).collect();
-        for id in map.keys() {
-            if !dist_set.contains(id.as_str()) {
-                bail!(
-                    "Distractor groups file ID '{}' not found in any distractor FASTA.",
-                    id
-                );
+    let distractor_groups_map: HashMap<String, String> =
+        if let Some(dg_path) = args.distractor_groups {
+            log::info!("Loading distractor groups from {}...", dg_path.display());
+            let map = io_utils::parse_groups_file(dg_path)?;
+            // Validate all IDs exist in distractor set
+            let dist_set: HashSet<&str> = distractor_ids.iter().map(|s| s.as_str()).collect();
+            for id in map.keys() {
+                if !dist_set.contains(id.as_str()) {
+                    bail!(
+                        "Distractor groups file ID '{}' not found in any distractor FASTA.",
+                        id
+                    );
+                }
             }
-        }
-        map
-    } else {
-        // Default: group by source FASTA file stem
-        distractor_file_group
-    };
+            map
+        } else {
+            // Default: group by source FASTA file stem
+            distractor_file_group
+        };
 
     let out_distractor_groups = prefixed_join(args.outdir, pfx, "distractor_groups.tsv");
     io_utils::write_groups_file(&distractor_groups_map, &out_distractor_groups)?;

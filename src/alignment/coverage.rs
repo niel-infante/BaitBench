@@ -74,7 +74,6 @@ pub fn collect_gaps(coverage: &[u32], min_length: usize) -> Vec<GapRegion> {
     gaps
 }
 
-
 /// Compute per-position coverage for all references from a SAM file.
 ///
 /// Single-pass algorithm:
@@ -84,8 +83,8 @@ pub fn collect_gaps(coverage: &[u32], min_length: usize) -> Vec<GapRegion> {
 ///
 /// Skips: unmapped (RNAME=*), secondary (FLAG & 0x100), supplementary (FLAG & 0x800).
 pub fn compute_coverage(sam_path: &Path) -> Result<CoverageResult> {
-    let file = File::open(sam_path)
-        .with_context(|| format!("Cannot open SAM: {}", sam_path.display()))?;
+    let file =
+        File::open(sam_path).with_context(|| format!("Cannot open SAM: {}", sam_path.display()))?;
     let reader = BufReader::new(file);
 
     let mut ref_lengths: HashMap<String, usize> = HashMap::new();
@@ -225,8 +224,8 @@ pub struct ProbeCoverageStats {
 ///
 /// Still skips: unmapped (RNAME=*), supplementary (FLAG & 0x800).
 pub fn compute_probe_coverage(sam_path: &Path) -> Result<CoverageResult> {
-    let file = File::open(sam_path)
-        .with_context(|| format!("Cannot open SAM: {}", sam_path.display()))?;
+    let file =
+        File::open(sam_path).with_context(|| format!("Cannot open SAM: {}", sam_path.display()))?;
     let reader = BufReader::new(file);
 
     let mut ref_lengths: HashMap<String, usize> = HashMap::new();
@@ -404,10 +403,7 @@ pub fn calculate_probe_stats(
 /// Format: reference_id\tstart\tend\tdepth (1-based inclusive coordinates)
 /// Consecutive positions with identical depth are collapsed into a single interval.
 /// Writes all references, including those with zero coverage (as a single 0-depth interval).
-pub fn write_coverage_intervals(
-    path: &Path,
-    coverage: &HashMap<String, Vec<u32>>,
-) -> Result<()> {
+pub fn write_coverage_intervals(path: &Path, coverage: &HashMap<String, Vec<u32>>) -> Result<()> {
     let file = File::create(path)
         .with_context(|| format!("Cannot create coverage TSV: {}", path.display()))?;
     let mut w = BufWriter::new(file);

@@ -24,7 +24,14 @@ pub fn execute(args: &FilterArgs) -> Result<()> {
 
     // Map R1 (and optionally R2) to host genome; use R1 IDs to drive filtering for both.
     log::info!("Mapping reads to host genome...");
-    minimap2::host_align(args.minimap_preset, args.host, args.reads, args.reads_r2, &host_sam, args.log_file)?;
+    minimap2::host_align(
+        args.minimap_preset,
+        args.host,
+        args.reads,
+        args.reads_r2,
+        &host_sam,
+        args.log_file,
+    )?;
 
     // Get IDs of reads that map to host
     let host_ids = sam::get_mapped_read_ids(&host_sam)?;

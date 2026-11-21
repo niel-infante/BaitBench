@@ -28,40 +28,39 @@ pub fn tile_probes(input: &Path, output: &Path, probe_length: usize, step: i64) 
     let mut current_id: Option<String> = None;
     let mut current_seq = String::new();
 
-    let emit_tiles =
-        |id: &str, seq: &str, writer: &mut BufWriter<File>| -> Result<()> {
-            let seq_len = seq.len();
-            if seq_len == 0 {
-                return Ok(());
-            }
+    let emit_tiles = |id: &str, seq: &str, writer: &mut BufWriter<File>| -> Result<()> {
+        let seq_len = seq.len();
+        if seq_len == 0 {
+            return Ok(());
+        }
 
-            if seq_len <= probe_length {
-                writeln!(writer, ">probe_{}|tile_1", id)?;
-                writeln!(writer, "{}", seq)?;
-                return Ok(());
-            }
+        if seq_len <= probe_length {
+            writeln!(writer, ">probe_{}|tile_1", id)?;
+            writeln!(writer, "{}", seq)?;
+            return Ok(());
+        }
 
-            let mut tile_num = 0usize;
-            let mut start = 0usize;
+        let mut tile_num = 0usize;
+        let mut start = 0usize;
 
-            while start + probe_length <= seq_len {
-                tile_num += 1;
-                writeln!(writer, ">probe_{}|tile_{}", id, tile_num)?;
-                writeln!(writer, "{}", &seq[start..start + probe_length])?;
-                start += stride;
-            }
+        while start + probe_length <= seq_len {
+            tile_num += 1;
+            writeln!(writer, ">probe_{}|tile_{}", id, tile_num)?;
+            writeln!(writer, "{}", &seq[start..start + probe_length])?;
+            start += stride;
+        }
 
-            // Final probe anchored to end; only emit if it doesn't duplicate the last one.
-            let final_start = seq_len - probe_length;
-            let last_emitted_start = start - stride;
-            if final_start != last_emitted_start {
-                tile_num += 1;
-                writeln!(writer, ">probe_{}|tile_{}", id, tile_num)?;
-                writeln!(writer, "{}", &seq[final_start..seq_len])?;
-            }
+        // Final probe anchored to end; only emit if it doesn't duplicate the last one.
+        let final_start = seq_len - probe_length;
+        let last_emitted_start = start - stride;
+        if final_start != last_emitted_start {
+            tile_num += 1;
+            writeln!(writer, ">probe_{}|tile_{}", id, tile_num)?;
+            writeln!(writer, "{}", &seq[final_start..seq_len])?;
+        }
 
-            Ok(())
-        };
+        Ok(())
+    };
 
     for line in reader.lines() {
         let line = line?;
@@ -71,7 +70,13 @@ pub fn tile_probes(input: &Path, output: &Path, probe_length: usize, step: i64) 
                 emit_tiles(id, &current_seq, &mut writer)?;
             }
             current_id = Some(
-                trimmed.strip_prefix('>').unwrap_or("").split_whitespace().next().unwrap_or("").to_string()
+                trimmed
+                    .strip_prefix('>')
+                    .unwrap_or("")
+                    .split_whitespace()
+                    .next()
+                    .unwrap_or("")
+                    .to_string(),
             );
             current_seq.clear();
         } else if !trimmed.is_empty() {

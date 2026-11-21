@@ -159,11 +159,12 @@ pub fn execute(args: &AssessProbesArgs) -> Result<()> {
     let cov_multi = &cov_data.multi_mapping_path;
 
     // --- Step 5: Refinement iterations ---
-    let refine_summary: Option<PathBuf> = if args.refine_iterations.is_some() || args.refine_until_stable {
-        Some(run_refinement(args, cov_summary)?)
-    } else {
-        None
-    };
+    let refine_summary: Option<PathBuf> =
+        if args.refine_iterations.is_some() || args.refine_until_stable {
+            Some(run_refinement(args, cov_summary)?)
+        } else {
+            None
+        };
 
     // --- Step 6: Generate report (after refinement so it can include the refinement summary) ---
     let gap_min_str = gap_min.to_string();
@@ -228,11 +229,10 @@ pub fn execute(args: &AssessProbesArgs) -> Result<()> {
     // --- Step 7: Cleanup ---
     if args.cleanup {
         log::info!("Cleaning up intermediate files...");
-        let cov_intermediates: Vec<String> =
-            ["probe_alignment.sam", "probe_alignment.log"]
-                .iter()
-                .map(|f| format!("{}{}", cov_prefix, f))
-                .collect();
+        let cov_intermediates: Vec<String> = ["probe_alignment.sam", "probe_alignment.log"]
+            .iter()
+            .map(|f| format!("{}{}", cov_prefix, f))
+            .collect();
         let xreact_intermediates: Vec<String> = ["against.log", "self.log"]
             .iter()
             .map(|f| format!("{}{}", xreact_prefix, f))
@@ -273,7 +273,11 @@ fn write_run_params(path: &Path, args: &AssessProbesArgs) -> Result<()> {
     writeln!(w, "aligner\t--aligner\t{}", aligner_str)?;
     match args.aligner {
         Aligner::Minimap2 => {
-            writeln!(w, "minimap_preset\t--minimap-preset\t{}", args.minimap_preset)?;
+            writeln!(
+                w,
+                "minimap_preset\t--minimap-preset\t{}",
+                args.minimap_preset
+            )?;
         }
         Aligner::Blast => {
             writeln!(w, "threads\t--threads\t{}", args.threads)?;
@@ -291,7 +295,6 @@ fn write_run_params(path: &Path, args: &AssessProbesArgs) -> Result<()> {
     w.flush()?;
     Ok(())
 }
-
 
 /// Bundles every input `generate_assess_report` and `write_assess_rmd` need — the two
 /// functions have identical parameter lists because they're the HTML and RMarkdown
@@ -317,15 +320,12 @@ struct ReportInputs<'a> {
 }
 
 fn generate_assess_report(inputs: &ReportInputs) -> Result<()> {
-    let r_dir = rscript::find_r_dir()
-        .ok_or_else(|| anyhow::anyhow!("Cannot find R scripts directory."))?;
+    let r_dir =
+        rscript::find_r_dir().ok_or_else(|| anyhow::anyhow!("Cannot find R scripts directory."))?;
 
     let script = r_dir.join("assess_probes.R");
     if !script.exists() {
-        bail!(
-            "Assess probes R script not found: {}",
-            script.display()
-        );
+        bail!("Assess probes R script not found: {}", script.display());
     }
 
     let threshold_str = format!("{:.1}", inputs.threshold);
@@ -335,7 +335,10 @@ fn generate_assess_report(inputs: &ReportInputs) -> Result<()> {
 
     // Required args
     r_args.extend(["--xreact-hits".into(), abs_path_str(inputs.xreact_hits)?]);
-    r_args.extend(["--xreact-summary".into(), abs_path_str(inputs.xreact_summary)?]);
+    r_args.extend([
+        "--xreact-summary".into(),
+        abs_path_str(inputs.xreact_summary)?,
+    ]);
     r_args.extend(["--threshold".into(), threshold_str]);
     r_args.extend(["--cov-summary".into(), abs_path_str(inputs.cov_summary)?]);
     r_args.extend(["--cov-depth".into(), abs_path_str(inputs.cov_depth)?]);
@@ -355,7 +358,10 @@ fn generate_assess_report(inputs: &ReportInputs) -> Result<()> {
         }
     }
     if inputs.cov_multi.exists() {
-        r_args.extend(["--cov-multi-mapping".into(), abs_path_str(inputs.cov_multi)?]);
+        r_args.extend([
+            "--cov-multi-mapping".into(),
+            abs_path_str(inputs.cov_multi)?,
+        ]);
     }
     if let Some(p) = inputs.indiv_summary {
         if p.exists() {
@@ -379,39 +385,71 @@ fn generate_assess_report(inputs: &ReportInputs) -> Result<()> {
 }
 
 fn write_assess_rmd(inputs: &ReportInputs) -> Result<()> {
-    let r_dir = rscript::find_r_dir()
-        .ok_or_else(|| anyhow::anyhow!("Cannot find R scripts directory."))?;
+    let r_dir =
+        rscript::find_r_dir().ok_or_else(|| anyhow::anyhow!("Cannot find R scripts directory."))?;
 
     let rmd_template = r_dir.join("assess_probes.Rmd");
     if !rmd_template.exists() {
-        bail!(
-            "RMarkdown template not found: {}",
-            rmd_template.display()
-        );
+        bail!("RMarkdown template not found: {}", rmd_template.display());
     }
 
     let threshold_str = format!("{:.1}", inputs.threshold);
     let proximity_str = inputs.proximity.to_string();
 
-    let build_stats_str = inputs.build_stats_file
-        .and_then(|p| if p.exists() { abs_path_str(p).ok() } else { None })
+    let build_stats_str = inputs
+        .build_stats_file
+        .and_then(|p| {
+            if p.exists() {
+                abs_path_str(p).ok()
+            } else {
+                None
+            }
+        })
         .unwrap_or_default();
-    let build_params_str = inputs.build_params_file
-        .and_then(|p| if p.exists() { abs_path_str(p).ok() } else { None })
+    let build_params_str = inputs
+        .build_params_file
+        .and_then(|p| {
+            if p.exists() {
+                abs_path_str(p).ok()
+            } else {
+                None
+            }
+        })
         .unwrap_or_default();
     let cov_multi_str = if inputs.cov_multi.exists() {
         abs_path_str(inputs.cov_multi)?
     } else {
         String::new()
     };
-    let indiv_summary_str = inputs.indiv_summary
-        .and_then(|p| if p.exists() { abs_path_str(p).ok() } else { None })
+    let indiv_summary_str = inputs
+        .indiv_summary
+        .and_then(|p| {
+            if p.exists() {
+                abs_path_str(p).ok()
+            } else {
+                None
+            }
+        })
         .unwrap_or_default();
-    let refine_summary_str = inputs.refine_summary
-        .and_then(|p| if p.exists() { abs_path_str(p).ok() } else { None })
+    let refine_summary_str = inputs
+        .refine_summary
+        .and_then(|p| {
+            if p.exists() {
+                abs_path_str(p).ok()
+            } else {
+                None
+            }
+        })
         .unwrap_or_default();
-    let gap_details_str = inputs.gap_details
-        .and_then(|p| if p.exists() { abs_path_str(p).ok() } else { None })
+    let gap_details_str = inputs
+        .gap_details
+        .and_then(|p| {
+            if p.exists() {
+                abs_path_str(p).ok()
+            } else {
+                None
+            }
+        })
         .unwrap_or_default();
     let xreact_hits_str = abs_path_str(inputs.xreact_hits)?;
     let xreact_summary_str = abs_path_str(inputs.xreact_summary)?;
@@ -458,7 +496,11 @@ fn count_summary_targets(summary_path: &Path) -> Result<usize> {
     let file = File::open(summary_path)
         .with_context(|| format!("Cannot open coverage summary: {}", summary_path.display()))?;
     let reader = BufReader::new(file);
-    let count = reader.lines().skip(1).filter(|l| l.as_ref().map(|s| !s.is_empty()).unwrap_or(false)).count();
+    let count = reader
+        .lines()
+        .skip(1)
+        .filter(|l| l.as_ref().map(|s| !s.is_empty()).unwrap_or(false))
+        .count();
     Ok(count)
 }
 
@@ -550,8 +592,11 @@ fn run_refinement(args: &AssessProbesArgs, initial_summary: &Path) -> Result<Pat
         );
 
         // Write filtered targets FASTA
-        let filtered_targets_path =
-            prefixed_join(args.outdir, pfx, &format!("refine_{}_targets.fa", iteration));
+        let filtered_targets_path = prefixed_join(
+            args.outdir,
+            pfx,
+            &format!("refine_{}_targets.fa", iteration),
+        );
         let n_extracted = fasta::extract_by_ids(args.targets, &low_ids, &filtered_targets_path)?;
         log::info!(
             "Refinement iteration {}: wrote {} targets to {}",
@@ -682,7 +727,11 @@ fn run_refinement(args: &AssessProbesArgs, initial_summary: &Path) -> Result<Pat
             cleanup::cleanup_files(args.outdir, &refs);
             // Also remove the filtered targets FASTA
             if let Err(e) = std::fs::remove_file(&filtered_targets_path) {
-                log::warn!("Could not remove {}: {}", filtered_targets_path.display(), e);
+                log::warn!(
+                    "Could not remove {}: {}",
+                    filtered_targets_path.display(),
+                    e
+                );
             }
         }
 

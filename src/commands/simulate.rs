@@ -1,13 +1,12 @@
 use anyhow::Result;
 use std::path::Path;
 
+use crate::alignment::probe_cache;
 use crate::external::{blastn, minimap2};
 use crate::fasta;
-use crate::alignment::probe_cache;
-use crate::sampling::{thermo_sim, weights, FragmentLengthParams};
 use crate::sampling::thermo_sim::SimulateMode;
+use crate::sampling::{thermo_sim, weights, FragmentLengthParams};
 use crate::thermodynamics::ThermoModel;
-
 
 pub struct SimulateArgs<'a> {
     pub reference: &'a Path,
@@ -153,12 +152,9 @@ pub fn execute(args: &SimulateArgs) -> Result<()> {
                     )?;
                     thermo_sim::load_probe_hits(&temp_hits, &sequences, &wts)?
                 }
-                ProbeAligner::SeedExtend => thermo_sim::probe_hits_seed_extend(
-                    &sequences,
-                    args.probes,
-                    &wts,
-                    args.threads,
-                )?,
+                ProbeAligner::SeedExtend => {
+                    thermo_sim::probe_hits_seed_extend(&sequences, args.probes, &wts, args.threads)?
+                }
             };
 
             let _ = std::fs::remove_file(&temp_hits);
@@ -192,13 +188,12 @@ pub fn execute(args: &SimulateArgs) -> Result<()> {
     //
     // Cheap, and deliberately not cached: it is what makes one stored alignment valid
     // across a --hybridization-temperature or --simulate-mode sweep.
-    let hits_by_probe =
-        thermo_sim::score_placements(
-            &placements,
-            args.simulate_mode,
-            &thermo_model,
-            args.melting_window,
-        );
+    let hits_by_probe = thermo_sim::score_placements(
+        &placements,
+        args.simulate_mode,
+        &thermo_model,
+        args.melting_window,
+    );
 
     let n_probes_with_hits = hits_by_probe.len();
     let n_total_hits: usize = hits_by_probe.values().map(|v| v.len()).sum();
@@ -308,7 +303,11 @@ pub fn execute(args: &SimulateArgs) -> Result<()> {
         let mut f = std::fs::File::create(&stats_path)?;
         writeln!(f, "parameter\tvalue")?;
         writeln!(f, "probe_concentration\t{:.6e}", params.probe_concentration)?;
-        writeln!(f, "background_retention\t{:.6e}", params.background_retention)?;
+        writeln!(
+            f,
+            "background_retention\t{:.6e}",
+            params.background_retention
+        )?;
         writeln!(f, "capture_efficiency_target\t{:.6}", capture_fraction)?;
         writeln!(f, "yield_fraction\t{:.8}", stats.yield_fraction)?;
         writeln!(f, "on_target_fraction\t{:.6}", stats.on_target_fraction)?;
@@ -320,7 +319,10 @@ pub fn execute(args: &SimulateArgs) -> Result<()> {
     // aggregate on-target fraction.
     let retention_report = args.output.with_extension("retention.tsv");
     thermo_sim::write_retention_report(&profiles, &wts, &retention_report)?;
-    log::info!("Wrote per-reference retention report to {}", retention_report.display());
+    log::info!(
+        "Wrote per-reference retention report to {}",
+        retention_report.display()
+    );
 
     log::info!("Sampling {} fragments by retention...", args.num_fragments);
     let all_fragments = thermo_sim::sample_retention_fragments(
@@ -334,7 +336,11 @@ pub fn execute(args: &SimulateArgs) -> Result<()> {
     )?;
 
     // --- Step 4: Write output ---
-    log::info!("Writing {} fragments to {}", all_fragments.len(), args.output.display());
+    log::info!(
+        "Writing {} fragments to {}",
+        all_fragments.len(),
+        args.output.display()
+    );
     thermo_sim::write_fragments(&all_fragments, args.output)?;
 
     log::info!(

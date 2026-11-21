@@ -23,8 +23,8 @@ pub struct PafRecord {
 ///
 /// Returns all records without filtering. Skips malformed lines (< 12 columns).
 pub fn parse_paf_records(paf_path: &Path) -> Result<Vec<PafRecord>> {
-    let file = File::open(paf_path)
-        .with_context(|| format!("Cannot open PAF: {}", paf_path.display()))?;
+    let file =
+        File::open(paf_path).with_context(|| format!("Cannot open PAF: {}", paf_path.display()))?;
     let reader = BufReader::new(file);
 
     let mut records = Vec::new();

@@ -40,8 +40,11 @@ fn same_seed_is_reproducible() {
             .find(|(_, (x, y))| x != y)
             .map(|(i, (x, y))| format!("line {}:\n    run A: {x}\n    run B: {y}", i + 1))
             .unwrap_or_else(|| {
-                format!("same prefix, different length ({} vs {} lines)",
-                        ta.lines().count(), tb.lines().count())
+                format!(
+                    "same prefix, different length ({} vs {} lines)",
+                    ta.lines().count(),
+                    tb.lines().count()
+                )
             });
         panic!(
             "identical --seed produced different fragments across processes \

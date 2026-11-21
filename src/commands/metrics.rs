@@ -192,11 +192,19 @@ pub fn execute(args: &MetricsArgs) -> Result<()> {
     let distractor_group_map = load_group_map(args.distractor_groups)?;
     if !target_group_map.is_empty() {
         let n_groups: HashSet<_> = target_group_map.values().collect();
-        log::info!("  Target groups: {} sequences → {} groups", target_group_map.len(), n_groups.len());
+        log::info!(
+            "  Target groups: {} sequences → {} groups",
+            target_group_map.len(),
+            n_groups.len()
+        );
     }
     if !distractor_group_map.is_empty() {
         let n_groups: HashSet<_> = distractor_group_map.values().collect();
-        log::info!("  Distractor groups: {} contigs → {} groups", distractor_group_map.len(), n_groups.len());
+        log::info!(
+            "  Distractor groups: {} contigs → {} groups",
+            distractor_group_map.len(),
+            n_groups.len()
+        );
     }
 
     log::info!("Parsing detection list...");
@@ -261,18 +269,48 @@ pub fn execute(args: &MetricsArgs) -> Result<()> {
         &distractor_group_map,
     )?;
 
-    log::info!("  Sample fragments generated: {}", read_level.sample_generated);
-    log::info!("  Sample fragments captured: {}", read_level.sample_captured);
-    log::info!("  Non-sample target fragments generated: {}", read_level.nonsample_target_generated);
-    log::info!("  Non-sample target fragments captured: {}", read_level.nonsample_target_captured);
-    log::info!("  Distractor fragments generated: {}", read_level.distractor_generated);
-    log::info!("  Distractor fragments captured: {}", read_level.distractor_captured);
+    log::info!(
+        "  Sample fragments generated: {}",
+        read_level.sample_generated
+    );
+    log::info!(
+        "  Sample fragments captured: {}",
+        read_level.sample_captured
+    );
+    log::info!(
+        "  Non-sample target fragments generated: {}",
+        read_level.nonsample_target_generated
+    );
+    log::info!(
+        "  Non-sample target fragments captured: {}",
+        read_level.nonsample_target_captured
+    );
+    log::info!(
+        "  Distractor fragments generated: {}",
+        read_level.distractor_generated
+    );
+    log::info!(
+        "  Distractor fragments captured: {}",
+        read_level.distractor_captured
+    );
     if read_level.untargeted_generated > 0 || read_level.untargeted_captured > 0 {
-        log::info!("  Untargeted fragments generated: {}", read_level.untargeted_generated);
-        log::info!("  Untargeted fragments captured: {}", read_level.untargeted_captured);
+        log::info!(
+            "  Untargeted fragments generated: {}",
+            read_level.untargeted_generated
+        );
+        log::info!(
+            "  Untargeted fragments captured: {}",
+            read_level.untargeted_captured
+        );
     }
-    log::info!("  Reads correctly mapped: {}", read_level.reads_correctly_mapped);
-    log::info!("  Reads incorrectly mapped: {}", read_level.reads_incorrectly_mapped);
+    log::info!(
+        "  Reads correctly mapped: {}",
+        read_level.reads_correctly_mapped
+    );
+    log::info!(
+        "  Reads incorrectly mapped: {}",
+        read_level.reads_incorrectly_mapped
+    );
 
     // Pipeline flow counts for Sankey diagram
     let reads_mapped = read_level.reads_correctly_mapped + read_level.reads_incorrectly_mapped;
@@ -296,7 +334,11 @@ pub fn execute(args: &MetricsArgs) -> Result<()> {
     let coverage_result = coverage::compute_coverage(args.sam)?;
     let mut coverage_stats: HashMap<String, coverage::CoverageStats> = HashMap::new();
     for (ref_id, depths) in &coverage_result.coverage {
-        let ref_len = coverage_result.ref_lengths.get(ref_id).copied().unwrap_or(depths.len());
+        let ref_len = coverage_result
+            .ref_lengths
+            .get(ref_id)
+            .copied()
+            .unwrap_or(depths.len());
         coverage_stats.insert(ref_id.clone(), coverage::calculate_stats(depths, ref_len));
     }
 
@@ -313,10 +355,22 @@ pub fn execute(args: &MetricsArgs) -> Result<()> {
 
     log::info!("  True Positives (sample detected): {}", metrics.tp_count);
     log::info!("  False Negatives (sample missed): {}", metrics.fn_count);
-    log::info!("  FP targets (non-sample target detected): {}", metrics.fp_target_count);
-    log::info!("  FP distractors (distractor detected): {}", metrics.fp_distractor_count);
-    log::info!("  TN targets (non-sample target not detected): {}", metrics.tn_target_count);
-    log::info!("  TN distractors (distractor not detected): {}", metrics.tn_distractor_count);
+    log::info!(
+        "  FP targets (non-sample target detected): {}",
+        metrics.fp_target_count
+    );
+    log::info!(
+        "  FP distractors (distractor detected): {}",
+        metrics.fp_distractor_count
+    );
+    log::info!(
+        "  TN targets (non-sample target not detected): {}",
+        metrics.tn_target_count
+    );
+    log::info!(
+        "  TN distractors (distractor not detected): {}",
+        metrics.tn_distractor_count
+    );
     if !metrics.untargeted_genomes.is_empty() {
         log::info!("  Untargeted genomes: {}", metrics.untargeted_genomes.len());
     }
@@ -349,8 +403,14 @@ pub fn execute(args: &MetricsArgs) -> Result<()> {
 
     // Build detail rows (shared between TSV and JSON)
     let detail_rows = build_detail_rows(
-        effective_sample, &targets, &distractors, &detected, &metrics,
-        &generated_per_ref, &captured_per_ref, &coverage_stats,
+        effective_sample,
+        &targets,
+        &distractors,
+        &detected,
+        &metrics,
+        &generated_per_ref,
+        &captured_per_ref,
+        &coverage_stats,
         genome_ctx.as_ref(),
         &target_group_map,
         &distractor_group_map,
@@ -466,7 +526,13 @@ fn compute_read_level_metrics(
 
     for name in fragment_names {
         if let Some(source) = io_utils::extract_source_id(name) {
-            match classify_fragment_source(source, effective_sample, targets, distractors, genome_ctx) {
+            match classify_fragment_source(
+                source,
+                effective_sample,
+                targets,
+                distractors,
+                genome_ctx,
+            ) {
                 FragmentCategory::Sample => sample_generated += 1,
                 FragmentCategory::NonsampleTarget => nonsample_target_generated += 1,
                 FragmentCategory::Distractor => distractor_generated += 1,
@@ -483,7 +549,13 @@ fn compute_read_level_metrics(
 
     for name in captured_read_names {
         if let Some(source) = io_utils::extract_source_id(name) {
-            match classify_fragment_source(source, effective_sample, targets, distractors, genome_ctx) {
+            match classify_fragment_source(
+                source,
+                effective_sample,
+                targets,
+                distractors,
+                genome_ctx,
+            ) {
                 FragmentCategory::Sample => sample_captured += 1,
                 FragmentCategory::NonsampleTarget => nonsample_target_captured += 1,
                 FragmentCategory::Distractor => distractor_captured += 1,
@@ -689,7 +761,10 @@ fn calculate_metrics(
         .collect();
 
     // Unknown detected (seq IDs not belonging to any target or distractor group)
-    let all_known_groups: HashSet<&String> = all_target_groups.iter().chain(all_distractor_groups.iter()).collect();
+    let all_known_groups: HashSet<&String> = all_target_groups
+        .iter()
+        .chain(all_distractor_groups.iter())
+        .collect();
     // Use the original per-sequence detected for unknowns (sequences not in any known category)
     let all_known_seqs: HashSet<&String> = targets.iter().chain(distractors.iter()).collect();
     let mut unknown_detected: Vec<String> = detected
@@ -718,9 +793,21 @@ fn calculate_metrics(
     let tn_distractor = tn_distractors.len();
     let tn_total = tn_target + tn_distractor;
 
-    let sensitivity = if tp + fn_ > 0 { tp as f64 / (tp + fn_) as f64 } else { 0.0 };
-    let specificity = if tn_total + fp_total > 0 { tn_total as f64 / (tn_total + fp_total) as f64 } else { 0.0 };
-    let precision = if tp + fp_total > 0 { tp as f64 / (tp + fp_total) as f64 } else { 0.0 };
+    let sensitivity = if tp + fn_ > 0 {
+        tp as f64 / (tp + fn_) as f64
+    } else {
+        0.0
+    };
+    let specificity = if tn_total + fp_total > 0 {
+        tn_total as f64 / (tn_total + fp_total) as f64
+    } else {
+        0.0
+    };
+    let precision = if tp + fp_total > 0 {
+        tp as f64 / (tp + fp_total) as f64
+    } else {
+        0.0
+    };
     let f1_score = if precision + sensitivity > 0.0 {
         2.0 * (precision * sensitivity) / (precision + sensitivity)
     } else {
@@ -830,22 +917,48 @@ fn write_summary_tsv(
     let mut w = BufWriter::new(file);
 
     let headers = [
-        "run_name", "timestamp", "num_fragments", "seed",
-        "fragments_generated", "fragments_captured", "capture_rate",
-        "sample_generated", "nonsample_target_generated", "distractor_generated",
+        "run_name",
+        "timestamp",
+        "num_fragments",
+        "seed",
+        "fragments_generated",
+        "fragments_captured",
+        "capture_rate",
+        "sample_generated",
+        "nonsample_target_generated",
+        "distractor_generated",
         "untargeted_generated",
-        "sample_captured", "nonsample_target_captured", "distractor_captured",
+        "sample_captured",
+        "nonsample_target_captured",
+        "distractor_captured",
         "untargeted_captured",
-        "reads_correctly_mapped", "reads_incorrectly_mapped",
-        "sample_total", "nonsample_target_total", "distractors_total",
-        "tp_count", "fn_count",
-        "fp_target_count", "fp_distractor_count", "fp_total",
-        "tn_target_count", "tn_distractor_count", "tn_total",
-        "sensitivity", "specificity", "precision", "f1_score",
-        "reads_sequenced", "reads_after_filter", "reads_mapped", "reads_unmapped",
-        "model_probe_concentration", "model_background_retention",
-        "model_capture_efficiency", "model_yield_fraction",
-        "model_on_target_fraction", "model_enrichment",
+        "reads_correctly_mapped",
+        "reads_incorrectly_mapped",
+        "sample_total",
+        "nonsample_target_total",
+        "distractors_total",
+        "tp_count",
+        "fn_count",
+        "fp_target_count",
+        "fp_distractor_count",
+        "fp_total",
+        "tn_target_count",
+        "tn_distractor_count",
+        "tn_total",
+        "sensitivity",
+        "specificity",
+        "precision",
+        "f1_score",
+        "reads_sequenced",
+        "reads_after_filter",
+        "reads_mapped",
+        "reads_unmapped",
+        "model_probe_concentration",
+        "model_background_retention",
+        "model_capture_efficiency",
+        "model_yield_fraction",
+        "model_on_target_fraction",
+        "model_enrichment",
     ];
     writeln!(w, "{}", headers.join("\t"))?;
 
@@ -917,10 +1030,19 @@ fn write_detail_tsv(path: &Path, rows: &[DetailRow]) -> Result<()> {
         writeln!(
             w,
             "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{:.2}\t{:.1}\t{:.1}",
-            row.reference_id, row.group, row.category, row.expected, row.detected,
-            row.fragments_generated, row.fragments_captured, row.reads_assigned,
-            row.classification, row.ref_length, row.avg_coverage,
-            row.pct_covered_5x, row.pct_covered_20x
+            row.reference_id,
+            row.group,
+            row.category,
+            row.expected,
+            row.detected,
+            row.fragments_generated,
+            row.fragments_captured,
+            row.reads_assigned,
+            row.classification,
+            row.ref_length,
+            row.avg_coverage,
+            row.pct_covered_5x,
+            row.pct_covered_20x
         )?;
     }
 
@@ -948,7 +1070,10 @@ fn build_group_detail_rows(
     let mut distractor_group_members: HashMap<String, Vec<String>> = HashMap::new();
     for id in distractors {
         let g = get_group(id, distractor_group_map).to_string();
-        distractor_group_members.entry(g).or_default().push(id.clone());
+        distractor_group_members
+            .entry(g)
+            .or_default()
+            .push(id.clone());
     }
 
     let sample_groups: HashSet<String> = effective_sample
@@ -960,16 +1085,28 @@ fn build_group_detail_rows(
 
     // Target groups
     for (group, members) in &target_group_members {
-        let detected_members = members.iter().filter(|id| detected.contains_key(*id)).count();
-        let total_reads: usize = members.iter()
+        let detected_members = members
+            .iter()
+            .filter(|id| detected.contains_key(*id))
+            .count();
+        let total_reads: usize = members
+            .iter()
             .map(|id| detected.get(id).copied().unwrap_or(0))
             .sum();
         let is_sample = sample_groups.contains(group);
         let is_detected = detected_members > 0;
 
         let (category, expected, classification) = if is_sample {
-            if is_detected { ("sample", "true", "TP") } else { ("sample", "true", "FN") }
-        } else if is_detected { ("target", "false", "FP_target") } else { ("target", "false", "TN_target") };
+            if is_detected {
+                ("sample", "true", "TP")
+            } else {
+                ("sample", "true", "FN")
+            }
+        } else if is_detected {
+            ("target", "false", "FP_target")
+        } else {
+            ("target", "false", "TN_target")
+        };
 
         rows.push(GroupDetailRow {
             group_name: group.clone(),
@@ -985,12 +1122,20 @@ fn build_group_detail_rows(
 
     // Distractor groups
     for (group, members) in &distractor_group_members {
-        let detected_members = members.iter().filter(|id| detected.contains_key(*id)).count();
-        let total_reads: usize = members.iter()
+        let detected_members = members
+            .iter()
+            .filter(|id| detected.contains_key(*id))
+            .count();
+        let total_reads: usize = members
+            .iter()
             .map(|id| detected.get(id).copied().unwrap_or(0))
             .sum();
         let is_detected = detected_members > 0;
-        let classification = if is_detected { "FP_distractor" } else { "TN_distractor" };
+        let classification = if is_detected {
+            "FP_distractor"
+        } else {
+            "TN_distractor"
+        };
 
         rows.push(GroupDetailRow {
             group_name: group.clone(),
@@ -1006,10 +1151,16 @@ fn build_group_detail_rows(
 
     rows.sort_by(|a, b| {
         let order = |c: &str| match c {
-            "TP" => 0, "FP_target" => 1, "FP_distractor" => 2, "FN" => 3,
-            "TN_target" => 4, "TN_distractor" => 5, _ => 99,
+            "TP" => 0,
+            "FP_target" => 1,
+            "FP_distractor" => 2,
+            "FN" => 3,
+            "TN_target" => 4,
+            "TN_distractor" => 5,
+            _ => 99,
         };
-        order(&a.classification).cmp(&order(&b.classification))
+        order(&a.classification)
+            .cmp(&order(&b.classification))
             .then(b.total_reads.cmp(&a.total_reads))
     });
 
@@ -1037,8 +1188,13 @@ fn write_group_detail_tsv(path: &Path, rows: &[GroupDetailRow]) -> Result<()> {
         writeln!(
             w,
             "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
-            row.group_name, row.category, row.expected, row.detected,
-            row.classification, row.member_count, row.detected_member_count,
+            row.group_name,
+            row.category,
+            row.expected,
+            row.detected,
+            row.classification,
+            row.member_count,
+            row.detected_member_count,
             row.total_reads,
         )?;
     }
@@ -1352,7 +1508,10 @@ mod tests {
     }
 
     fn hmap_str(pairs: &[(&str, &str)]) -> HashMap<String, String> {
-        pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect()
+        pairs
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect()
     }
 
     fn no_groups() -> HashMap<String, String> {
@@ -1370,11 +1529,21 @@ mod tests {
                 target_to_genomes.insert(target, vec![id.to_string()]);
             }
         }
-        let genome_ids: HashSet<String> = genome_to_targets.keys().cloned()
+        let genome_ids: HashSet<String> = genome_to_targets
+            .keys()
+            .cloned()
             .chain(sample_genome_ids.iter().cloned())
             .collect();
-        let sample_targets: HashSet<String> = genome_to_targets.values().flatten().cloned().collect();
-        GenomeContext { sample_targets, genome_ids, sample_genome_ids, genome_to_targets, target_to_genomes, untargeted_genomes: vec![] }
+        let sample_targets: HashSet<String> =
+            genome_to_targets.values().flatten().cloned().collect();
+        GenomeContext {
+            sample_targets,
+            genome_ids,
+            sample_genome_ids,
+            genome_to_targets,
+            target_to_genomes,
+            untargeted_genomes: vec![],
+        }
     }
 
     // --- classify_fragment_source ---
@@ -1384,7 +1553,10 @@ mod tests {
         let eff = hset(&["t1"]);
         let tgts = hset(&["t1", "t2"]);
         let dists = hset(&["d1"]);
-        assert!(matches!(classify_fragment_source("t1", &eff, &tgts, &dists, None), FragmentCategory::Sample));
+        assert!(matches!(
+            classify_fragment_source("t1", &eff, &tgts, &dists, None),
+            FragmentCategory::Sample
+        ));
     }
 
     #[test]
@@ -1392,7 +1564,10 @@ mod tests {
         let eff = hset(&["t1"]);
         let tgts = hset(&["t1", "t2"]);
         let dists = hset(&["d1"]);
-        assert!(matches!(classify_fragment_source("t2", &eff, &tgts, &dists, None), FragmentCategory::NonsampleTarget));
+        assert!(matches!(
+            classify_fragment_source("t2", &eff, &tgts, &dists, None),
+            FragmentCategory::NonsampleTarget
+        ));
     }
 
     #[test]
@@ -1400,7 +1575,10 @@ mod tests {
         let eff = hset(&["t1"]);
         let tgts = hset(&["t1"]);
         let dists = hset(&["d1"]);
-        assert!(matches!(classify_fragment_source("d1", &eff, &tgts, &dists, None), FragmentCategory::Distractor));
+        assert!(matches!(
+            classify_fragment_source("d1", &eff, &tgts, &dists, None),
+            FragmentCategory::Distractor
+        ));
     }
 
     #[test]
@@ -1408,14 +1586,23 @@ mod tests {
         let eff = hset(&["t1"]);
         let tgts = hset(&["t1"]);
         let dists = hset(&["d1"]);
-        assert!(matches!(classify_fragment_source("mystery", &eff, &tgts, &dists, None), FragmentCategory::Unknown));
+        assert!(matches!(
+            classify_fragment_source("mystery", &eff, &tgts, &dists, None),
+            FragmentCategory::Unknown
+        ));
     }
 
     #[test]
     fn classify_sample_genome_mode_with_mapping() {
         let ctx = make_genome_ctx(&["g1"], true);
         assert!(matches!(
-            classify_fragment_source("g1", &HashSet::new(), &HashSet::new(), &HashSet::new(), Some(&ctx)),
+            classify_fragment_source(
+                "g1",
+                &HashSet::new(),
+                &HashSet::new(),
+                &HashSet::new(),
+                Some(&ctx)
+            ),
             FragmentCategory::Sample
         ));
     }
@@ -1424,7 +1611,13 @@ mod tests {
     fn classify_untargeted_genome_mode() {
         let ctx = make_genome_ctx(&["g1"], false);
         assert!(matches!(
-            classify_fragment_source("g1", &HashSet::new(), &HashSet::new(), &HashSet::new(), Some(&ctx)),
+            classify_fragment_source(
+                "g1",
+                &HashSet::new(),
+                &HashSet::new(),
+                &HashSet::new(),
+                Some(&ctx)
+            ),
             FragmentCategory::Untargeted
         ));
     }
@@ -1434,9 +1627,16 @@ mod tests {
         // g2 is in genome_ids (has a mapping entry) but not in sample_genome_ids
         let mut ctx = make_genome_ctx(&["g1"], true);
         ctx.genome_ids.insert("g2".to_string());
-        ctx.genome_to_targets.insert("g2".to_string(), vec!["g2_target".to_string()]);
+        ctx.genome_to_targets
+            .insert("g2".to_string(), vec!["g2_target".to_string()]);
         assert!(matches!(
-            classify_fragment_source("g2", &HashSet::new(), &HashSet::new(), &HashSet::new(), Some(&ctx)),
+            classify_fragment_source(
+                "g2",
+                &HashSet::new(),
+                &HashSet::new(),
+                &HashSet::new(),
+                Some(&ctx)
+            ),
             FragmentCategory::NonsampleTarget
         ));
     }
@@ -1478,7 +1678,15 @@ mod tests {
         let targets = hset(&["t1", "t2"]);
         let distractors: HashSet<String> = HashSet::new();
         let detected = hmap_det(&[("t1", 10), ("t2", 5)]);
-        let r = calculate_metrics(&sample, &targets, &distractors, &detected, None, &no_groups(), &no_groups());
+        let r = calculate_metrics(
+            &sample,
+            &targets,
+            &distractors,
+            &detected,
+            None,
+            &no_groups(),
+            &no_groups(),
+        );
         assert_eq!(r.tp_count, 2);
         assert_eq!(r.fn_count, 0);
         assert!((r.sensitivity - 1.0).abs() < 1e-9);
@@ -1489,7 +1697,15 @@ mod tests {
         let sample = hset(&["t1", "t2"]);
         let targets = hset(&["t1", "t2"]);
         let detected: HashMap<String, usize> = HashMap::new();
-        let r = calculate_metrics(&sample, &targets, &HashSet::new(), &detected, None, &no_groups(), &no_groups());
+        let r = calculate_metrics(
+            &sample,
+            &targets,
+            &HashSet::new(),
+            &detected,
+            None,
+            &no_groups(),
+            &no_groups(),
+        );
         assert_eq!(r.tp_count, 0);
         assert_eq!(r.fn_count, 2);
         assert!((r.sensitivity - 0.0).abs() < 1e-9);
@@ -1500,7 +1716,15 @@ mod tests {
         let sample = hset(&["t1", "t2", "t3"]);
         let targets = hset(&["t1", "t2", "t3"]);
         let detected = hmap_det(&[("t1", 10), ("t2", 5)]);
-        let r = calculate_metrics(&sample, &targets, &HashSet::new(), &detected, None, &no_groups(), &no_groups());
+        let r = calculate_metrics(
+            &sample,
+            &targets,
+            &HashSet::new(),
+            &detected,
+            None,
+            &no_groups(),
+            &no_groups(),
+        );
         assert_eq!(r.tp_count, 2);
         assert_eq!(r.fn_count, 1);
         assert!((r.sensitivity - 2.0 / 3.0).abs() < 1e-9);
@@ -1511,7 +1735,15 @@ mod tests {
         let sample = hset(&["t1"]);
         let targets = hset(&["t1", "t2"]);
         let detected = hmap_det(&[("t1", 5), ("t2", 3)]);
-        let r = calculate_metrics(&sample, &targets, &HashSet::new(), &detected, None, &no_groups(), &no_groups());
+        let r = calculate_metrics(
+            &sample,
+            &targets,
+            &HashSet::new(),
+            &detected,
+            None,
+            &no_groups(),
+            &no_groups(),
+        );
         assert_eq!(r.fp_target_count, 1);
         assert!(r.fp_targets.contains(&"t2".to_string()));
     }
@@ -1522,7 +1754,15 @@ mod tests {
         let targets = hset(&["t1"]);
         let distractors = hset(&["d1"]);
         let detected = hmap_det(&[("t1", 5), ("d1", 2)]);
-        let r = calculate_metrics(&sample, &targets, &distractors, &detected, None, &no_groups(), &no_groups());
+        let r = calculate_metrics(
+            &sample,
+            &targets,
+            &distractors,
+            &detected,
+            None,
+            &no_groups(),
+            &no_groups(),
+        );
         assert_eq!(r.fp_distractor_count, 1);
         assert!(r.fp_distractors.contains(&"d1".to_string()));
     }
@@ -1534,7 +1774,15 @@ mod tests {
         let targets = hset(&["s1", "s2", "s3"]);
         let detected = hmap_det(&[("s1", 5), ("s2", 3), ("s3", 2)]);
         let group_map = hmap_str(&[("s1", "grp"), ("s2", "grp"), ("s3", "grp")]);
-        let r = calculate_metrics(&sample, &targets, &HashSet::new(), &detected, None, &group_map, &no_groups());
+        let r = calculate_metrics(
+            &sample,
+            &targets,
+            &HashSet::new(),
+            &detected,
+            None,
+            &group_map,
+            &no_groups(),
+        );
         assert_eq!(r.tp_count, 1);
         assert_eq!(r.fn_count, 0);
     }
@@ -1545,7 +1793,15 @@ mod tests {
         let sample = hset(&["t1", "t2"]);
         let targets = hset(&["t1", "t2", "t3"]);
         let detected = hmap_det(&[("t1", 5), ("t2", 3), ("t3", 2)]);
-        let r = calculate_metrics(&sample, &targets, &HashSet::new(), &detected, None, &no_groups(), &no_groups());
+        let r = calculate_metrics(
+            &sample,
+            &targets,
+            &HashSet::new(),
+            &detected,
+            None,
+            &no_groups(),
+            &no_groups(),
+        );
         assert_eq!(r.tp_count, 2);
         assert_eq!(r.fp_target_count, 1);
         assert!((r.precision - 2.0 / 3.0).abs() < 1e-9);

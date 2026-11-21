@@ -246,7 +246,10 @@ pub fn execute(args: &XreactArgs) -> Result<()> {
             pfx,
             "self",
         )?;
-        log::info!("Alignment hits (self, including self-hits): {}", records.len());
+        log::info!(
+            "Alignment hits (self, including self-hits): {}",
+            records.len()
+        );
 
         for rec in &records {
             // Skip self-hits
@@ -416,8 +419,8 @@ pub fn execute(args: &XreactArgs) -> Result<()> {
 }
 
 fn write_run_params(path: &Path, args: &XreactArgs) -> Result<()> {
-    let file =
-        File::create(path).with_context(|| format!("Cannot create params file: {}", path.display()))?;
+    let file = File::create(path)
+        .with_context(|| format!("Cannot create params file: {}", path.display()))?;
     let mut w = BufWriter::new(file);
 
     writeln!(w, "parameter\tflag\tvalue")?;
@@ -434,7 +437,11 @@ fn write_run_params(path: &Path, args: &XreactArgs) -> Result<()> {
     writeln!(w, "aligner\t--aligner\t{}", aligner_str)?;
     match args.aligner {
         Aligner::Minimap2 => {
-            writeln!(w, "minimap_preset\t--minimap-preset\t{}", args.minimap_preset)?;
+            writeln!(
+                w,
+                "minimap_preset\t--minimap-preset\t{}",
+                args.minimap_preset
+            )?;
         }
         Aligner::Blast => {
             writeln!(w, "threads\t--threads\t{}", args.threads)?;
@@ -453,8 +460,8 @@ fn generate_xreact_report(
     threshold: f64,
     output_path: &Path,
 ) -> Result<()> {
-    let r_dir = rscript::find_r_dir()
-        .ok_or_else(|| anyhow::anyhow!("Cannot find R scripts directory."))?;
+    let r_dir =
+        rscript::find_r_dir().ok_or_else(|| anyhow::anyhow!("Cannot find R scripts directory."))?;
 
     let script = r_dir.join("xreact.R");
     if !script.exists() {
@@ -491,8 +498,8 @@ fn write_xreact_rmd(
     threshold: f64,
     output_path: &Path,
 ) -> Result<()> {
-    let r_dir = rscript::find_r_dir()
-        .ok_or_else(|| anyhow::anyhow!("Cannot find R scripts directory."))?;
+    let r_dir =
+        rscript::find_r_dir().ok_or_else(|| anyhow::anyhow!("Cannot find R scripts directory."))?;
 
     let rmd_template = r_dir.join("xreact.Rmd");
     if !rmd_template.exists() {
@@ -529,8 +536,8 @@ fn write_xreact_rmd(
 }
 
 fn write_hits_tsv(path: &Path, hits: &[HitRecord]) -> Result<()> {
-    let file =
-        File::create(path).with_context(|| format!("Cannot create hits file: {}", path.display()))?;
+    let file = File::create(path)
+        .with_context(|| format!("Cannot create hits file: {}", path.display()))?;
     let mut w = BufWriter::new(file);
 
     writeln!(

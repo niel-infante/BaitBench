@@ -1,4 +1,4 @@
-use anyhow::{Context, Result, bail};
+use anyhow::{bail, Context, Result};
 use std::path::Path;
 
 use crate::cli::ReportMode;
@@ -74,11 +74,16 @@ fn execute_full(args: &ReportArgs) -> Result<()> {
     let output_str = output_abs.to_str().unwrap_or("");
 
     let mut r_args: Vec<&str> = vec![
-        "--summary", summary_str,
-        "--detail", detail_str,
-        "--params", params_str,
-        "--run-name", args.run_name,
-        "--output", output_str,
+        "--summary",
+        summary_str,
+        "--detail",
+        detail_str,
+        "--params",
+        params_str,
+        "--run-name",
+        args.run_name,
+        "--output",
+        output_str,
     ];
 
     let coverage_str;
@@ -95,8 +100,9 @@ fn execute_full(args: &ReportArgs) -> Result<()> {
     let species_calls_str;
     if let Some(sc_path) = args.species_calls {
         if sc_path.exists() {
-            let sc_abs = std::fs::canonicalize(sc_path)
-                .with_context(|| format!("Cannot find species calls file: {}", sc_path.display()))?;
+            let sc_abs = std::fs::canonicalize(sc_path).with_context(|| {
+                format!("Cannot find species calls file: {}", sc_path.display())
+            })?;
             species_calls_str = sc_abs.to_str().unwrap_or("").to_string();
             r_args.push("--species-calls");
             r_args.push(&species_calls_str);
@@ -253,7 +259,10 @@ pub fn substitute_rmd_params(template: &str, params: &[(&str, &str)]) -> String 
                     // Get the indentation from the original line
                     let indent: String = line.chars().take_while(|c| c.is_whitespace()).collect();
                     // R expressions (!r ...) and bare numerics must not be quoted in YAML
-                    if value.starts_with("!r ") || value.parse::<i64>().is_ok() || value.parse::<f64>().is_ok() {
+                    if value.starts_with("!r ")
+                        || value.parse::<i64>().is_ok()
+                        || value.parse::<f64>().is_ok()
+                    {
                         result.push_str(&format!("{}{}: {}\n", indent, key_part, value));
                     } else {
                         result.push_str(&format!("{}{}: \"{}\"\n", indent, key_part, value));

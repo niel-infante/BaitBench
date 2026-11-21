@@ -1,4 +1,4 @@
-use anyhow::{Context, Result, bail};
+use anyhow::{bail, Context, Result};
 use std::fs::File;
 use std::path::Path;
 use std::process::Command;
@@ -50,10 +50,7 @@ pub fn cluster(
         .context("Failed to execute cd-hit-est")?;
 
     if !status.success() {
-        bail!(
-            "cd-hit-est failed (exit code {:?})",
-            status.code()
-        );
+        bail!("cd-hit-est failed (exit code {:?})", status.code());
     }
 
     Ok(())

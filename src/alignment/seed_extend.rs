@@ -390,7 +390,12 @@ pub fn find_local_hits(
                 let reference = references[seq_idx];
                 let mut out: Vec<(usize, LocalHit)> = Vec::new();
                 if reference.len() < index.seed_len {
-                    report_progress(&done_bases, &next_report, total_bases, reference.len() as u64);
+                    report_progress(
+                        &done_bases,
+                        &next_report,
+                        total_bases,
+                        reference.len() as u64,
+                    );
                     return out;
                 }
 
@@ -440,8 +445,10 @@ pub fn find_local_hits(
                     }
                 }
 
-                n_candidates
-                    .fetch_add(candidates.len() as u64, std::sync::atomic::Ordering::Relaxed);
+                n_candidates.fetch_add(
+                    candidates.len() as u64,
+                    std::sync::atomic::Ordering::Relaxed,
+                );
                 for (oi, start) in candidates {
                     n_extended.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                     let probe = &index.oriented[oi as usize];
@@ -459,8 +466,7 @@ pub fn find_local_hits(
                         continue;
                     }
 
-                    let Some((s, e, _score)) =
-                        best_segment(probe, window, params.mismatch_penalty)
+                    let Some((s, e, _score)) = best_segment(probe, window, params.mismatch_penalty)
                     else {
                         continue;
                     };
@@ -524,7 +530,11 @@ pub fn find_local_hits(
             cand,
             ext,
             kept,
-            if ext > 0 { 100.0 * (ext - kept.min(ext)) as f64 / ext as f64 } else { 0.0 }
+            if ext > 0 {
+                100.0 * (ext - kept.min(ext)) as f64 / ext as f64
+            } else {
+                0.0
+            }
         );
     }
 
@@ -623,6 +633,9 @@ mod tests {
     fn seeds_skip_ambiguous_kmers() {
         let probe = bytes("ACGTNACGTNACGTNACGTN");
         let idx = ProbeIndex::build(&[probe], 10);
-        assert!(idx.entries.is_empty(), "N-containing seeds must not be indexed");
+        assert!(
+            idx.entries.is_empty(),
+            "N-containing seeds must not be indexed"
+        );
     }
 }

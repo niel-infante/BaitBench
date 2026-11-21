@@ -57,7 +57,10 @@ pub enum Strand {
 impl CoverageModel {
     fn covers(&self, probe: &[u8], target: &[u8], window_start: usize) -> Option<(usize, usize)> {
         match self {
-            CoverageModel::Hamming { mismatches, extension } => {
+            CoverageModel::Hamming {
+                mismatches,
+                extension,
+            } => {
                 let probe_len = probe.len();
                 let window_end = window_start + probe_len;
                 if window_end > target.len() {
@@ -75,7 +78,6 @@ impl CoverageModel {
         }
     }
 }
-
 
 /// Build a k-mer hash index: maps each `seed_len`-mer to all (seq_idx, pos)
 /// occurrences. Seeds containing N are skipped.
@@ -158,11 +160,7 @@ fn load_fasta(path: &Path) -> Result<(Vec<String>, Vec<Vec<u8>>)> {
                 seqs.push(current_seq.clone());
                 current_seq.clear();
             }
-            let id = stripped
-                .split_whitespace()
-                .next()
-                .unwrap_or("")
-                .to_string();
+            let id = stripped.split_whitespace().next().unwrap_or("").to_string();
             current_id = Some(id);
         } else if !trimmed.is_empty() {
             current_seq.extend(trimmed.as_bytes().iter().map(|b| b.to_ascii_uppercase()));
@@ -453,14 +451,15 @@ pub fn design_probes(
         candidates.len()
     );
     // probe_coverage[i] = Vec<(seq_idx, cov_start, cov_end)>
-    let mut probe_coverage: Vec<Vec<(usize, usize, usize)>> =
-        Vec::with_capacity(candidates.len());
+    let mut probe_coverage: Vec<Vec<(usize, usize, usize)>> = Vec::with_capacity(candidates.len());
 
     for (probe, _) in &candidates {
         let mut hits = find_matches_with_model(&index, &seqs, probe, SEED_LEN, &model);
         if strand == Strand::Both {
             let rc = reverse_complement(probe);
-            hits.extend(find_matches_with_model(&index, &seqs, &rc, SEED_LEN, &model));
+            hits.extend(find_matches_with_model(
+                &index, &seqs, &rc, SEED_LEN, &model,
+            ));
         }
         hits.sort_unstable();
         hits.dedup();
@@ -598,7 +597,11 @@ pub fn design_probes(
         let n = counter_per_source.entry(source_id.clone()).or_insert(0);
         *n += 1;
         writeln!(writer, ">probe_{}|catch_{}", source_id, n)?;
-        writeln!(writer, "{}", std::str::from_utf8(probe).unwrap_or("INVALID"))?;
+        writeln!(
+            writer,
+            "{}",
+            std::str::from_utf8(probe).unwrap_or("INVALID")
+        )?;
     }
     writer.flush()?;
 
@@ -620,7 +623,9 @@ mod tests {
         let mut s = String::with_capacity(len);
         let mut x = seed.wrapping_mul(6364136223846793005).wrapping_add(1);
         for _ in 0..len {
-            x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            x = x
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
             s.push(match (x >> 33) % 4 {
                 0 => 'A',
                 1 => 'C',
@@ -644,7 +649,11 @@ mod tests {
             .collect()
     }
 
-    fn write_fasta(dir: &std::path::Path, name: &str, recs: &[(String, String)]) -> std::path::PathBuf {
+    fn write_fasta(
+        dir: &std::path::Path,
+        name: &str,
+        recs: &[(String, String)],
+    ) -> std::path::PathBuf {
         let p = dir.join(name);
         let mut f = File::create(&p).unwrap();
         for (id, seq) in recs {
@@ -677,10 +686,12 @@ mod tests {
         );
 
         let out_fwd = dir.path().join("fwd.fa");
-        let n_fwd = design_probes(&input, &out_fwd, 120, 120, 5, 0, 1.0, 0.0, Strand::Forward).unwrap();
+        let n_fwd =
+            design_probes(&input, &out_fwd, 120, 120, 5, 0, 1.0, 0.0, Strand::Forward).unwrap();
 
         let out_both = dir.path().join("both.fa");
-        let n_both = design_probes(&input, &out_both, 120, 120, 5, 0, 1.0, 0.0, Strand::Both).unwrap();
+        let n_both =
+            design_probes(&input, &out_both, 120, 120, 5, 0, 1.0, 0.0, Strand::Both).unwrap();
 
         assert_eq!(n_fwd, count_probes(&out_fwd));
         assert_eq!(n_both, count_probes(&out_both));
@@ -688,10 +699,17 @@ mod tests {
         assert!(
             n_fwd > n_both,
             "forward-only should need more probes than strand-agnostic ({} vs {})",
-            n_fwd, n_both
+            n_fwd,
+            n_both
         );
-        assert_eq!(n_fwd, 8, "two 480 bp targets at stride 120 need 4 probes each");
-        assert_eq!(n_both, 4, "strand-agnostic should cover both copies with 4 probes");
+        assert_eq!(
+            n_fwd, 8,
+            "two 480 bp targets at stride 120 need 4 probes each"
+        );
+        assert_eq!(
+            n_both, 4,
+            "strand-agnostic should cover both copies with 4 probes"
+        );
     }
 
     /// Forward-only design must fully cover every target it is given.
@@ -711,7 +729,10 @@ mod tests {
     /// The coverage model must accept an exact match and reject one over the limit.
     #[test]
     fn coverage_model_respects_mismatch_budget() {
-        let model = CoverageModel::Hamming { mismatches: 5, extension: 0 };
+        let model = CoverageModel::Hamming {
+            mismatches: 5,
+            extension: 0,
+        };
         let target: Vec<u8> = make_seq(120, 7).into_bytes();
         assert_eq!(model.covers(&target, &target, 0), Some((0, 120)));
 
@@ -719,13 +740,20 @@ mod tests {
         for p in probe.iter_mut().take(6) {
             *p = if *p == b'A' { b'C' } else { b'A' };
         }
-        assert_eq!(model.covers(&probe, &target, 0), None, "6 mismatches must not cover");
+        assert_eq!(
+            model.covers(&probe, &target, 0),
+            None,
+            "6 mismatches must not cover"
+        );
     }
 
     /// Cover extension widens the credited interval and is clamped to the target.
     #[test]
     fn cover_extension_is_clamped_to_target_bounds() {
-        let model = CoverageModel::Hamming { mismatches: 0, extension: 50 };
+        let model = CoverageModel::Hamming {
+            mismatches: 0,
+            extension: 50,
+        };
         let target: Vec<u8> = make_seq(200, 3).into_bytes();
         let probe = target[40..160].to_vec();
         assert_eq!(model.covers(&probe, &target, 40), Some((0, 200)));
@@ -734,7 +762,10 @@ mod tests {
     /// An N in the target counts as a mismatch, so a window of Ns is uncoverable.
     #[test]
     fn n_bases_count_as_mismatches() {
-        let model = CoverageModel::Hamming { mismatches: 5, extension: 0 };
+        let model = CoverageModel::Hamming {
+            mismatches: 5,
+            extension: 0,
+        };
         let mut target: Vec<u8> = make_seq(120, 5).into_bytes();
         let probe = target.clone();
         for b in target.iter_mut().take(6) {
