@@ -265,25 +265,45 @@ fn per_locus_capture_laws() {
         .filter_map(|t| t.trim().parse().ok())
         .collect();
 
-    for target in &targets {
+    // FIXED_LNC holds ln[probe] directly instead of solving it to hit a target
+    // efficiency. Solving per run is what makes the model a rank-threshold device: the
+    // scalar re-centres itself around any change to the affinity basis, so the change
+    // cannot be observed. A fixed concentration cannot absorb anything.
+    let fixed: Vec<f64> = std::env::var("FIXED_LNC")
+        .unwrap_or_default()
+        .split(',')
+        .filter_map(|t| t.trim().parse().ok())
+        .collect();
+    let modes: Vec<(String, Option<f64>)> = if fixed.is_empty() {
+        targets.iter().map(|t| (format!("t={t}"), None)).collect()
+    } else {
+        fixed
+            .iter()
+            .map(|c| (format!("lnc={c}"), Some(*c)))
+            .collect()
+    };
+
+    for (mode_label, fixed_lnc) in &modes {
         for (label, ln_k0, sum_rule) in &laws {
-            // Calibrate the concentration so mean retention over covered positions is 0.5,
-            // matching what the solver does, then report the per-locus ratios.
             let k0: Vec<f64> = pl.iter().map(ln_k0).collect();
+            let target = targets[0];
             let (mut lo, mut hi) = (-400.0f64, 400.0f64);
             let mut best = Vec::new();
-            for _ in 0..50 {
-                let mid = 0.5 * (lo + hi);
+            let iters = if fixed_lnc.is_some() { 1 } else { 50 };
+            for _ in 0..iters {
+                let mid = fixed_lnc.unwrap_or(0.5 * (lo + hi));
                 let theta: HashMap<usize, f64> = k0
                     .iter()
                     .enumerate()
                     .map(|(i, &k)| (i, occupancy_from_ln_k(mid + k)))
                     .collect();
-                let eff = covered_mean_p_specific(&pl, &theta, *sum_rule);
-                if eff < *target {
-                    lo = mid
-                } else {
-                    hi = mid
+                if fixed_lnc.is_none() {
+                    let eff = covered_mean_p_specific(&pl, &theta, *sum_rule);
+                    if eff < target {
+                        lo = mid
+                    } else {
+                        hi = mid
+                    }
                 }
                 best = REAL
                     .iter()
@@ -305,7 +325,7 @@ fn per_locus_capture_laws() {
                 .sum::<f64>()
                 .sqrt();
             println!(
-            "t={target:<5} {label:26}  rho={:+.3}  logRMSE={:6.2}   nifS={:.3} clpA={:.3} clpX={:.3} uvrA={:.3} recG={:.3} 16S={:.3}",
+            "{mode_label:<12} {label:26}  rho={:+.3}  logRMSE={:6.2}   nifS={:.3} clpA={:.3} clpX={:.3} uvrA={:.3} recG={:.3} 16S={:.3}",
             spearman(&pred, &real), err, pred[0], pred[1], pred[2], pred[3], pred[5], pred[6]
         );
         }

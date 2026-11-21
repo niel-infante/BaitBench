@@ -62,6 +62,7 @@ for cond in $LOD_CONDITIONS; do
             # distinction is what lets one ~100-minute alignment serve nine runs.
             --probe-hits "$PROBE_CACHE_DIR/lod_mtec_$([[ "$use_distractor" == yes ]] && echo with_iscap || echo no_distractor).tsv"
             --seed 42 --report none --outdir "$outdir")
+        [[ -n "$PROBE_CONC" ]] && args+=(--probe-concentration "$PROBE_CONC")
         if [[ "$use_distractor" == "yes" ]]; then
             args+=(--distractors "$REF_ISCAP" --distractor-fraction "$df")
         fi

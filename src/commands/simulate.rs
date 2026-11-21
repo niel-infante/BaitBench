@@ -252,28 +252,20 @@ pub fn execute(args: &SimulateArgs) -> Result<()> {
         probe_concentration: 0.0,
         background_retention: args.background_retention,
         min_overlap_frac: args.min_overlap_frac,
+        capture_efficiency: capture_fraction,
         frag_len: (args.fragment_length_mean.round() as usize).max(1),
     };
 
-    params.probe_concentration = match args.probe_concentration {
-        Some(c) => {
-            log::info!("Probe concentration set directly: {:.4e}", c);
-            c
-        }
-        None => {
-            log::info!(
-                "Solving probe concentration for capture efficiency {:.4}...",
-                capture_fraction
-            );
-            thermo_sim::solve_probe_concentration(
-                &sequences,
-                &by_seq,
-                &params,
-                &thermo_model,
-                capture_fraction,
-            )
-        }
-    };
+    params.probe_concentration = args
+        .probe_concentration
+        .unwrap_or(thermo_sim::DEFAULT_PROBE_CONCENTRATION);
+    log::info!(
+        "Capture: efficiency {:.3} (--capture-fraction), [probe]={:.4e}, \
+         background_retention={:.2e}",
+        capture_fraction,
+        params.probe_concentration,
+        params.background_retention
+    );
 
     let profiles = thermo_sim::build_profiles(&sequences, &wts, &by_seq, &params, &thermo_model);
     let stats = thermo_sim::retention_stats(&profiles, &wts);

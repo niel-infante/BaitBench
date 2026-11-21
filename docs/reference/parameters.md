@@ -65,12 +65,45 @@ These calibrate the CT-to-fraction conversion. Only used when `--ct` is specifie
 | Hybridisation temperature | `--hybridization-temperature` | 70.0 | Hybridisation temperature in °C. Only used in thermodynamic mode. |
 | Capture fraction | `--capture-fraction` | 0.5 | Capture efficiency (0.0–1.0): of the fragments carrying enough of a probe's target site, the fraction the probes pull down. A preset over probe concentration — see [Capture efficiency is not output composition](#capture-efficiency-is-not-output-composition). |
 | Background retention | `--background-retention` | 0.001 | Probability that a fragment overlapping no probe is retained anyway. Washing is imperfect; in a library that is mostly off-target this, not capture, supplies most of the background reads, and it sets how much enrichment the capture achieves. |
-| Probe concentration | `--probe-concentration` | solved | *Hidden/advanced.* Sets the physical parameter directly and bypasses the `--capture-fraction` solver. Units are the arbitrary ones absorbed into the binding constant K. |
+| Probe concentration | `--probe-concentration` | 0.13534 (e⁻²) | Concentration driving occupancy, in the arbitrary units absorbed into K. Fixed by default rather than back-solved — see [Why the concentration is fixed](#why-the-concentration-is-fixed). |
+| Solve concentration | `--solve-concentration` | off | Back-solve the concentration to hit `--capture-fraction` instead of using a fixed one. Restores the pre-2026-11 behaviour. |
+| Melting window | `--melting-window` | 10 | Pairs in the cooperative melting unit; occupancy is driven by the least stable window of this length rather than by the whole duplex. 0 uses the whole duplex. |
 | Minimum site overlap | `--min-overlap-frac` | 0.5 | *Hidden/advanced.* Fraction of a probe's target site a fragment must carry before that probe can capture it. A threshold standing in for partial-duplex thermodynamics. |
+
+### Why the concentration is fixed
+
+`[probe]` used to be back-solved on every run so that the realized capture efficiency
+matched `--capture-fraction`. That turns out to make the model insensitive to its own
+thermodynamics.
+
+With a single scalar free to move, the solver re-centres it around any change to the
+affinity basis. Because occupancy saturates and the ΔG spread is enormous
+(ΔΔG/RT = 34.6 between a perfect 120-mer and one with 9 mismatches at 58 °C), it hits
+any target by choosing *which* probes saturate rather than by scaling them — a
+rank-threshold device. Measured: changing the melting window produced bit-identical
+output while the concentration was solved, with `[probe]` moving 22 orders of magnitude
+to compensate.
+
+Fixing the concentration alone does not help either, because the whole-duplex ΔG is too
+sharp for any single value to place weak and strong loci both at intermediate
+occupancy. The two changes are only useful together:
+
+| | per-locus log-RMSE | worst locus |
+|---|---|---|
+| solved `[probe]`, whole-duplex ΔG | 2.71 | 6.98× off |
+| fixed `[probe]`, 10 bp window | **1.02** | **1.74× off** |
+
+The D6331 mock community improves at the same time (Spearman 0.904 → 0.950,
+Lin's CCC 0.791 → 0.803), so the constant is not purely a Borrelia artifact.
+
+**This is provisional.** It is one constant fitted to eight loci from one organism and
+checked on one other dataset, not fitted jointly across all of them. Use
+`--solve-concentration` for the old behaviour when a target on-target read fraction
+matters more than relative capture between loci.
 
 ### Capture efficiency is not output composition
 
-`--capture-fraction` describes **the panel and the protocol**: given a fragment that
+(Only consulted under `--solve-concentration`.) `--capture-fraction` describes **the panel and the protocol**: given a fragment that
 carries enough of a probe's target site, how often the probes pull it down. It does
 *not* set the on-target fraction of the output.
 

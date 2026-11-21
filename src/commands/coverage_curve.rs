@@ -649,7 +649,7 @@ fn run_simulate(
         probe_concentration: None,
         min_overlap_frac: thermo_sim::DEFAULT_MIN_OVERLAP_FRAC,
         probe_hits: Some(probe_hits),
-        melting_window: 0,
+        melting_window: thermo_sim::DEFAULT_MELTING_WINDOW,
         simulate_mode: args.simulate_mode,
         aligner: args.probe_aligner,
         hybridization_temperature,

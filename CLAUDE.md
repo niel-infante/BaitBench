@@ -206,7 +206,29 @@ exactly into a **retention mass** `M = Σ p_retain`, and sampling is two-stage: 
 which matters because a realistic library is >99.99% off-target. Capture and carryover
 fragments are interleaved by construction.
 
-**`--capture-fraction` is capture *efficiency*, not output composition.** It sets the
+**Probe concentration is fixed, not back-solved (provisional, 2026-11-21).** `[probe]`
+defaults to a calibrated constant (`DEFAULT_PROBE_CONCENTRATION`, e^-2) and ΔG comes
+from the least stable 10 bp window of the duplex (`--melting-window`,
+`DEFAULT_MELTING_WINDOW`), not the whole duplex.
+
+Both are needed; neither works alone, and that was measured rather than assumed:
+- Solving `[probe]` per run to hit `--capture-fraction` makes the model a
+  **rank-threshold device**. The scalar re-centres around any change to the affinity
+  basis, so ΔG refinements are invisible — a 10 bp window changed *nothing* while the
+  concentration was solved, with 22 orders of magnitude of `[probe]` producing
+  bit-identical output.
+- Fixing `[probe]` with the whole-duplex ΔG also fails: ΔΔG/RT = 34.6 between a perfect
+  120-mer and a 9-mismatch one at 58 °C makes occupancy a cliff, so no concentration
+  puts a weak locus at an intermediate value while the others are intermediate too.
+
+Together they take per-locus log-RMSE from 2.71 to 1.02 (worst locus 6.98x off -> 1.74x)
+and improve the D6331 mock community (Spearman 0.904 -> 0.950, CCC 0.791 -> 0.803).
+
+`--solve-concentration` restores the old behaviour when a target on-target read fraction
+matters more than relative capture between loci.
+
+**`--capture-fraction` is capture *efficiency*, not output composition** — and it is
+only consulted under `--solve-concentration`. It sets the
 fraction of fragments carrying a probe's site that the probes pull down; BaitBench
 back-solves the probe concentration achieving it (bisection on `ln [probe]`). It is
 deliberately independent of library composition, so output composition emerges from

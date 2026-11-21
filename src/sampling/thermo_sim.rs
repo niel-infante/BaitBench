@@ -470,14 +470,41 @@ pub const DEFAULT_BACKGROUND_RETENTION: f64 = 1e-3;
 /// it. See `build_retention_profile` for why a threshold is used here.
 pub const DEFAULT_MIN_OVERLAP_FRAC: f64 = 0.5;
 
+/// Probe concentration used when it is not back-solved, in the arbitrary units K
+/// absorbs. `e^-2`, calibrated against the Borrelia LOD per-locus efficiencies with a
+/// 10 bp melting window and cross-checked on the D6331 mock community.
+///
+/// Fixed rather than solved per run **on purpose**. Solving it to hit a requested
+/// `--capture-fraction` makes the model a rank-threshold device: the scalar re-centres
+/// around any change to the affinity basis, so no refinement of ΔG can be observed.
+/// Measured — a 10 bp window changed nothing at all while the concentration was
+/// solved, and moved per-locus log-RMSE from 2.71 to 1.02 once it was fixed.
+///
+/// Provisional. It is one constant fitted to eight loci from one organism; it improved
+/// the D6331 mock community too (CCC 0.791 -> 0.803), but it has not been fitted
+/// jointly across datasets.
+pub const DEFAULT_PROBE_CONCENTRATION: f64 = 0.135_34;
+
+/// Pairs in the cooperative melting unit, used when `--melting-window` is not given.
+///
+/// 10 bp is the canonical DNA nucleation length, and is independently where the fit to
+/// measured per-locus capture is best. Using the whole duplex instead makes occupancy a
+/// step function in identity: at 58 °C a perfect 120-mer and a 9-mismatch one differ by
+/// 22.8 kcal/mol, 10^15 in K, so every probe either saturates or vanishes.
+pub const DEFAULT_MELTING_WINDOW: usize = 10;
+
 /// Physical parameters of the capture reaction.
 #[derive(Debug, Clone, Copy)]
 pub struct RetentionParams {
     /// Probe concentration, in the arbitrary units absorbed into K. Set directly, or
-    /// back-solved from a requested on-target fraction by `solve_probe_concentration`.
+    /// Fixed; see `DEFAULT_PROBE_CONCENTRATION` for why it is not back-solved.
     pub probe_concentration: f64,
     /// Non-specific carryover probability per fragment.
     pub background_retention: f64,
+    /// Fraction of probe-bound fragments that survive wash and elution into the
+    /// library — `--capture-fraction`. A uniform multiplier on specific capture, so it
+    /// sets how good the run is without touching relative capture between loci.
+    pub capture_efficiency: f64,
     /// Minimum fraction of a probe's site a fragment must carry.
     pub min_overlap_frac: f64,
     /// Fragment length the profile is built for.
@@ -568,6 +595,7 @@ fn sweep_retention<F>(
     frag_len: usize,
     p_ns: f64,
     min_overlap_frac: f64,
+    capture_efficiency: f64,
     mut emit: F,
 ) -> usize
 where
@@ -612,12 +640,14 @@ where
         if to <= from {
             return;
         }
-        let (p_retain, p_spec) = if n_sat > 0 {
-            (1.0, 1.0)
-        } else {
-            let prod = sum_log.exp();
-            (1.0 - (1.0 - p_ns) * prod, 1.0 - prod)
-        };
+        // `p_bound` is the chance at least one probe holds this fragment; multiplying
+        // by `capture_efficiency` gives the chance it also survives wash and elution.
+        // A uniform multiplier by construction, so it cannot reshape relative capture
+        // between loci — which is the whole reason it is applied here rather than by
+        // moving the probe concentration.
+        let p_bound = if n_sat > 0 { 1.0 } else { 1.0 - sum_log.exp() };
+        let p_spec = capture_efficiency * p_bound;
+        let p_retain = 1.0 - (1.0 - p_ns) * (1.0 - p_spec);
         if p_retain > 0.0 {
             emit(from, to, p_retain, p_spec);
         }
@@ -663,6 +693,7 @@ pub fn build_retention_profile(
     frag_len: usize,
     p_ns: f64,
     min_overlap_frac: f64,
+    capture_efficiency: f64,
 ) -> RetentionProfile {
     let mut segments: Vec<RetentionSegment> = Vec::new();
     let mut cum: Vec<f64> = Vec::new();
@@ -676,6 +707,7 @@ pub fn build_retention_profile(
         frag_len,
         p_ns,
         min_overlap_frac,
+        capture_efficiency,
         |from, to, p_retain, p_spec| {
             let len = (to - from) as f64;
             mass += len * p_retain;
@@ -863,110 +895,11 @@ pub fn build_profiles(
                 frag_len,
                 params.background_retention,
                 params.min_overlap_frac,
+                params.capture_efficiency,
             )
         })
         .filter(|p| p.mass > 0.0)
         .collect()
-}
-
-/// The panel's capture efficiency at a trial probe concentration: given that a
-/// fragment carries enough of a probe's site, how often is it pulled down?
-///
-/// Pooled over probe-covered positions only, and deliberately **independent of
-/// abundance, of library composition, and of `background_retention`**. That
-/// independence is the whole point.
-///
-/// An earlier version of this solver targeted the realized on-target fraction of the
-/// output instead. That silently re-imposed composition: adding distractor made the
-/// solver raise the probe concentration to hold on-target at the requested level, so
-/// the realized distractor fraction saturated at `1 - capture_fraction` — the same
-/// defect as the fixed quota it replaced (reviewer item 6), just arrived at by a
-/// different route. Capture efficiency is a property of the panel and the reference,
-/// so composition is left free to emerge from abundance x efficiency.
-///
-/// Monotone increasing in concentration, since every theta is, and it reaches 1 when
-/// every probe saturates — so any requested efficiency below 1 is achievable.
-fn capture_efficiency_at(
-    sequences: &HashMap<String, String>,
-    by_seq: &HitsBySequence,
-    params: &RetentionParams,
-    model: &ThermoModel,
-    probe_conc: f64,
-) -> f64 {
-    let mut covered_capture = 0.0f64;
-    let mut covered_len = 0.0f64;
-    for (id, hits) in by_seq {
-        let seq = match sequences.get(id) {
-            Some(s) => s,
-            None => continue,
-        };
-        let thetas = thetas_at(hits, probe_conc, model);
-        // p_ns = 0, so p_retain == p_specific and the sweep's own `p_retain > 0` guard
-        // drops every position no probe reaches.
-        sweep_retention(
-            seq.len(),
-            &thetas,
-            params.frag_len,
-            0.0,
-            params.min_overlap_frac,
-            |from, to, _p_retain, p_spec| {
-                let len = (to - from) as f64;
-                covered_capture += len * p_spec;
-                covered_len += len;
-            },
-        );
-    }
-    if covered_len > 0.0 {
-        covered_capture / covered_len
-    } else {
-        0.0
-    }
-}
-
-/// Back-solve the probe concentration that delivers a requested capture efficiency.
-///
-/// `--capture-fraction` is a preset over the physical parameter: users know roughly how
-/// efficiently their protocol pulls down material it has probes for, but not the probe
-/// concentration in the arbitrary units K absorbs. Efficiency is monotone increasing in
-/// concentration, so a 1-D bisection on `ln [probe]` inverts it in a fixed number of
-/// evaluations, with no iteration in the sampling loop.
-///
-/// What this does *not* do is target the output's composition. The realized on-target
-/// and distractor fractions follow from abundance x efficiency, which is what lets a
-/// dilution series titrate instead of sitting on a plateau.
-pub fn solve_probe_concentration(
-    sequences: &HashMap<String, String>,
-    by_seq: &HitsBySequence,
-    params: &RetentionParams,
-    model: &ThermoModel,
-    target_efficiency: f64,
-) -> f64 {
-    if target_efficiency <= 0.0 {
-        return 0.0;
-    }
-    // Bisect in log space, where occupancy is a logistic and so well conditioned. The
-    // bracket is wide enough for any realistic duplex — ln K for a perfect 120-mer at
-    // 65 °C is about +135, so ln [probe] = -300 drives every theta to zero and +300
-    // saturates every one — and stays inside f64's exponent range.
-    let (mut lo, mut hi) = (-300.0f64, 300.0f64);
-    let max_reachable = capture_efficiency_at(sequences, by_seq, params, model, hi.exp());
-    if max_reachable < target_efficiency {
-        log::warn!(
-            "--capture-fraction {:.4} is above the {:.4} this panel can reach on this              reference: even with every probe saturated, some probe-covered positions              are reachable only by a fragment that cannot carry enough of the site              (--min-overlap-frac). Using the maximum.",
-            target_efficiency,
-            max_reachable
-        );
-        return hi.exp();
-    }
-    for _ in 0..60 {
-        let mid = 0.5 * (lo + hi);
-        if capture_efficiency_at(sequences, by_seq, params, model, mid.exp()) < target_efficiency {
-            lo = mid;
-        } else {
-            hi = mid;
-        }
-    }
-    (0.5 * (lo + hi)).exp()
 }
 
 /// Write the per-reference retention report.
@@ -1152,73 +1085,53 @@ mod tests {
             probe_concentration: conc,
             background_retention: 1e-3,
             min_overlap_frac: 0.5,
+            capture_efficiency: 1.0,
             frag_len: 100,
         }
     }
 
-    /// Capture efficiency must rise with probe concentration and stay a probability.
-    /// The solver bisects on this, so monotonicity is what makes it correct.
+    /// The whole point of applying `--capture-fraction` as a multiplier: it changes
+    /// how much is captured without changing *what* is captured relative to what else.
+    /// Solving the probe concentration to hit a target could not promise this, because
+    /// occupancy saturates and moving the concentration reshapes the pattern.
     #[test]
-    fn capture_efficiency_is_monotone_in_concentration() {
-        let (sequences, _w, by_seq) = one_hit_fixture();
+    fn capture_efficiency_scales_without_reshaping() {
+        let (sequences, weights, by_seq) = one_hit_fixture();
         let m = model();
-        let mut prev = -1.0;
-        for exp in [-40.0, -30.0, -20.0, -10.0, 0.0, 10.0] {
-            let e = capture_efficiency_at(&sequences, &by_seq, &params(1.0), &m, f64::exp(exp));
-            assert!(
-                (0.0..=1.0).contains(&e),
-                "efficiency must be a probability, got {e} at ln[probe]={exp}"
-            );
-            assert!(
-                e >= prev,
-                "efficiency fell from {prev} to {e} as concentration rose"
-            );
-            prev = e;
-        }
+        let spec = |f: f64| {
+            let mut p = params(1.0);
+            p.capture_efficiency = f;
+            build_profiles(&sequences, &weights, &by_seq, &p, &m)
+                .iter()
+                .find(|q| q.seq_id == "t")
+                .map(|q| q.mass_specific)
+                .unwrap_or(0.0)
+        };
+        let (a, b) = (spec(1.0), spec(0.1));
+        assert!(a > 0.0 && b > 0.0);
         assert!(
-            prev > 0.99,
-            "efficiency should saturate at high concentration, got {prev}"
+            ((b / a) - 0.1).abs() < 1e-9,
+            "specific mass must scale exactly with capture efficiency: {b}/{a}"
         );
     }
 
-    /// Capture efficiency describes the panel, not the sample: adding distractor must
-    /// not change it. This is what stops the solver cancelling out composition, which
-    /// is how the quota model pinned the realized distractor fraction.
+    /// At zero efficiency only non-specific carryover remains, so the library is pure
+    /// background rather than empty — a bad run still sequences something.
     #[test]
-    fn capture_efficiency_ignores_library_composition() {
-        let (mut sequences, _w, by_seq) = one_hit_fixture();
-        let m = model();
-        let a = capture_efficiency_at(&sequences, &by_seq, &params(1e-6), &m, 1e-6);
-        for i in 0..50 {
-            sequences.insert(format!("extra_{i}"), "G".repeat(5000));
-        }
-        let b = capture_efficiency_at(&sequences, &by_seq, &params(1e-6), &m, 1e-6);
-        assert_eq!(a, b, "efficiency changed when unprobed sequence was added");
-    }
-
-    /// The solver must actually hit the efficiency it was asked for.
-    #[test]
-    fn solver_reaches_the_requested_efficiency() {
-        let (sequences, _w, by_seq) = one_hit_fixture();
-        let m = model();
-        for target in [0.05, 0.25, 0.5, 0.9] {
-            let p = params(1.0);
-            let conc = solve_probe_concentration(&sequences, &by_seq, &p, &m, target);
-            let got = capture_efficiency_at(&sequences, &by_seq, &p, &m, conc);
-            assert!(
-                (got - target).abs() < 1e-6,
-                "asked for efficiency {target}, solver gave {got} at [probe]={conc:.3e}"
-            );
-        }
-    }
-
-    /// Zero requested efficiency means no probes, not a degenerate concentration.
-    #[test]
-    fn solver_returns_zero_for_zero_efficiency() {
-        let (sequences, _w, by_seq) = one_hit_fixture();
-        assert_eq!(
-            solve_probe_concentration(&sequences, &by_seq, &params(1.0), &model(), 0.0),
-            0.0
+    fn zero_capture_efficiency_leaves_the_carryover_floor() {
+        let (sequences, weights, by_seq) = one_hit_fixture();
+        let mut p = params(1.0);
+        p.capture_efficiency = 0.0;
+        let profiles = build_profiles(&sequences, &weights, &by_seq, &p, &model());
+        let t = profiles
+            .iter()
+            .find(|q| q.seq_id == "t")
+            .expect("target profile");
+        assert_eq!(t.mass_specific, 0.0, "nothing is specifically captured");
+        assert!(
+            (t.mass - 901.0 * 1e-3).abs() < 1e-9,
+            "every position should retain at exactly p_ns, got {}",
+            t.mass
         );
     }
 
@@ -1255,7 +1168,7 @@ mod tests {
         // exactly `1 / yield` whatever the occupancy.
         let half = {
             let mut q = params(1.0);
-            q.probe_concentration = solve_probe_concentration(&sequences, &by_seq, &q, &m, 0.5);
+            q.capture_efficiency = 0.5;
             q
         };
         let profiles = build_profiles(&sequences, &weights, &by_seq, &half, &m);
@@ -1357,7 +1270,7 @@ mod tests {
     /// With no probe hits every start position is retained at the non-specific rate.
     #[test]
     fn profile_without_hits_is_pure_background() {
-        let p = build_retention_profile("s", 1000, &[], 100, 0.01, 0.5);
+        let p = build_retention_profile("s", 1000, &[], 100, 0.01, 0.5, 1.0);
         let n_starts = (1000 - 100 + 1) as f64;
         assert_eq!(p.segments.len(), 1);
         assert!((p.segments[0].p_retain - 0.01).abs() < 1e-12);
@@ -1374,13 +1287,20 @@ mod tests {
         let hit_len = h1 - h0;
 
         // m = 1: any overlap counts.
-        let any =
-            build_retention_profile("s", 2000, &[(h0, h1, 1.0)], frag, 0.0, 1.0 / hit_len as f64);
+        let any = build_retention_profile(
+            "s",
+            2000,
+            &[(h0, h1, 1.0)],
+            frag,
+            0.0,
+            1.0 / hit_len as f64,
+            1.0,
+        );
         let w_any: usize = any.segments.iter().map(|s| s.end - s.start).sum();
         assert_eq!(w_any, frag + hit_len - 1, "any-overlap window");
 
         // m = 60 (half the site): the window narrows by 2*(m-1).
-        let half = build_retention_profile("s", 2000, &[(h0, h1, 1.0)], frag, 0.0, 0.5);
+        let half = build_retention_profile("s", 2000, &[(h0, h1, 1.0)], frag, 0.0, 0.5, 1.0);
         let w_half: usize = half.segments.iter().map(|s| s.end - s.start).sum();
         assert_eq!(
             w_half,
@@ -1399,7 +1319,7 @@ mod tests {
     #[test]
     fn fragment_too_short_for_the_required_overlap_is_never_captured() {
         // 120 bp site, 50% threshold => needs 60 bp, but fragments are 40 bp.
-        let p = build_retention_profile("s", 5000, &[(1000, 1120, 1.0)], 40, 0.0, 0.5);
+        let p = build_retention_profile("s", 5000, &[(1000, 1120, 1.0)], 40, 0.0, 0.5, 1.0);
         assert_eq!(p.mass, 0.0, "no capture possible");
     }
 
@@ -1414,6 +1334,7 @@ mod tests {
             50,
             0.0,
             0.25,
+            1.0,
         );
         let peak = p.segments.iter().map(|s| s.p_retain).fold(0.0f64, f64::max);
         assert!((peak - 0.75).abs() < 1e-9, "expected 0.75, got {peak}");
@@ -1423,7 +1344,7 @@ mod tests {
     #[test]
     fn background_is_a_floor_under_the_profile() {
         let p_ns = 0.02;
-        let p = build_retention_profile("s", 3000, &[(1000, 1120, 0.6)], 50, p_ns, 0.25);
+        let p = build_retention_profile("s", 3000, &[(1000, 1120, 0.6)], 50, p_ns, 0.25, 1.0);
         let min = p
             .segments
             .iter()
@@ -1443,7 +1364,8 @@ mod tests {
     /// Probe density raises retention mass - the effect the real LOD data shows.
     #[test]
     fn more_probes_means_more_retention_mass() {
-        let sparse = build_retention_profile("s", 10_000, &[(5000, 5120, 0.9)], 200, 0.001, 0.5);
+        let sparse =
+            build_retention_profile("s", 10_000, &[(5000, 5120, 0.9)], 200, 0.001, 0.5, 1.0);
         let dense = build_retention_profile(
             "s",
             10_000,
@@ -1451,6 +1373,7 @@ mod tests {
             200,
             0.001,
             0.5,
+            1.0,
         );
         assert!(
             dense.mass > sparse.mass,
@@ -1463,8 +1386,8 @@ mod tests {
     /// Cross-probe affinity now matters, which the previous model could not express.
     #[test]
     fn weaker_probes_carry_less_mass() {
-        let strong = build_retention_profile("s", 10_000, &[(5000, 5120, 0.9)], 200, 0.0, 0.5);
-        let weak = build_retention_profile("s", 10_000, &[(5000, 5120, 0.1)], 200, 0.0, 0.5);
+        let strong = build_retention_profile("s", 10_000, &[(5000, 5120, 0.9)], 200, 0.0, 0.5, 1.0);
+        let weak = build_retention_profile("s", 10_000, &[(5000, 5120, 0.1)], 200, 0.0, 0.5, 1.0);
         assert!(strong.mass > weak.mass, "{} vs {}", strong.mass, weak.mass);
         assert!(
             (strong.mass / weak.mass - 9.0).abs() < 1e-6,
@@ -1475,7 +1398,7 @@ mod tests {
     /// A reference shorter than the fragment cannot contribute.
     #[test]
     fn reference_shorter_than_fragment_has_no_mass() {
-        let p = build_retention_profile("s", 50, &[(10, 40, 1.0)], 200, 0.5, 0.5);
+        let p = build_retention_profile("s", 50, &[(10, 40, 1.0)], 200, 0.5, 0.5, 1.0);
         assert_eq!(p.mass, 0.0);
         assert!(p.segments.is_empty());
     }

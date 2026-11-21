@@ -133,14 +133,18 @@ pub enum Commands {
         #[arg(long, default_value = "50.0", hide = true)]
         salt_concentration: f64,
 
-        /// Capture efficiency (0.0–1.0): of the fragments that carry enough of a
-        /// probe's target site, the fraction the probes pull down. A preset over the
-        /// physical parameter — BaitBench back-solves the probe concentration that
-        /// achieves it and logs the implied values.
+        /// Capture efficiency (0.0–1.0): the fraction of probe-bound fragments that
+        /// survive wash and elution into the library.
         ///
-        /// This describes the panel and the protocol, not the output. It deliberately
-        /// does *not* set the on-target fraction of the reads: that emerges from
-        /// abundance × efficiency, so a dilution series titrates and
+        /// This is the scenario knob — how good, or bad, you expect the run to be. It
+        /// stands in for everything unmeasured about the protocol: wash stringency,
+        /// hybridisation time, elution losses. Pair it with --num-sequences, which
+        /// sets how deeply you then look.
+        ///
+        /// It is a uniform multiplier on specific capture, so it changes how much is
+        /// captured without reshaping relative capture between loci — that comes from
+        /// probe density and ΔG. It is also not the on-target fraction of the reads:
+        /// that emerges from abundance × efficiency, so a dilution series titrates and
         /// --distractor-fraction stays meaningful across its whole range.
         #[arg(long, default_value = "0.5")]
         capture_fraction: f64,
@@ -152,10 +156,13 @@ pub enum Commands {
         #[arg(long, default_value = "0.001")]
         background_retention: f64,
 
-        // Hidden: the physical parameter --capture-fraction back-solves. Set it to
-        // bypass the solver and specify the capture reaction directly; units are the
-        // arbitrary ones absorbed into the binding constant K.
-        #[arg(long, hide = true)]
+        /// Probe concentration driving occupancy, in the arbitrary units absorbed into
+        /// the binding constant K. Defaults to a calibrated constant (e^-2).
+        ///
+        /// Deliberately fixed rather than back-solved from --capture-fraction: solving
+        /// it per run lets the scalar re-centre around any change to the affinity
+        /// basis, which makes per-locus capture insensitive to the thermodynamics.
+        #[arg(long)]
         probe_concentration: Option<f64>,
 
         // Hidden: fraction of a probe's target site a fragment must carry before that
@@ -164,12 +171,13 @@ pub enum Commands {
         #[arg(long, default_value = "0.5", hide = true)]
         min_overlap_frac: f64,
 
-        // Hidden, under calibration: pairs in the cooperative melting unit. 0 uses the
-        // whole duplex, which makes occupancy a near step function in identity. A
-        // value around 10 (the nucleation length) reproduced measured per-locus
-        // capture far better in tests/locus_calibration.rs; not yet the default
-        // because the end-to-end gates have not been re-run.
-        #[arg(long, default_value = "0", hide = true)]
+        /// Pairs in the cooperative melting unit. 0 uses the whole duplex.
+        ///
+        /// A long duplex frays rather than melting as a unit, so its off-rate is set by
+        /// the weakest local stretch. Using the whole duplex makes occupancy a step
+        /// function in identity. The default of 10 is the canonical nucleation length
+        /// and is where the fit to measured per-locus capture is best.
+        #[arg(long, default_value = "10")]
         melting_window: usize,
 
         /// Cache probe placements at this path and reuse them on later runs.
@@ -411,14 +419,18 @@ pub enum Commands {
         #[arg(short, long)]
         num_fragments: usize,
 
-        /// Capture efficiency (0.0–1.0): of the fragments that carry enough of a
-        /// probe's target site, the fraction the probes pull down. A preset over the
-        /// physical parameter — BaitBench back-solves the probe concentration that
-        /// achieves it and logs the implied values.
+        /// Capture efficiency (0.0–1.0): the fraction of probe-bound fragments that
+        /// survive wash and elution into the library.
         ///
-        /// This describes the panel and the protocol, not the output. It deliberately
-        /// does *not* set the on-target fraction of the reads: that emerges from
-        /// abundance × efficiency, so a dilution series titrates and
+        /// This is the scenario knob — how good, or bad, you expect the run to be. It
+        /// stands in for everything unmeasured about the protocol: wash stringency,
+        /// hybridisation time, elution losses. Pair it with --num-sequences, which
+        /// sets how deeply you then look.
+        ///
+        /// It is a uniform multiplier on specific capture, so it changes how much is
+        /// captured without reshaping relative capture between loci — that comes from
+        /// probe density and ΔG. It is also not the on-target fraction of the reads:
+        /// that emerges from abundance × efficiency, so a dilution series titrates and
         /// --distractor-fraction stays meaningful across its whole range.
         #[arg(long, default_value = "0.5")]
         capture_fraction: f64,
@@ -430,10 +442,13 @@ pub enum Commands {
         #[arg(long, default_value = "0.001")]
         background_retention: f64,
 
-        // Hidden: the physical parameter --capture-fraction back-solves. Set it to
-        // bypass the solver and specify the capture reaction directly; units are the
-        // arbitrary ones absorbed into the binding constant K.
-        #[arg(long, hide = true)]
+        /// Probe concentration driving occupancy, in the arbitrary units absorbed into
+        /// the binding constant K. Defaults to a calibrated constant (e^-2).
+        ///
+        /// Deliberately fixed rather than back-solved from --capture-fraction: solving
+        /// it per run lets the scalar re-centre around any change to the affinity
+        /// basis, which makes per-locus capture insensitive to the thermodynamics.
+        #[arg(long)]
         probe_concentration: Option<f64>,
 
         // Hidden: fraction of a probe's target site a fragment must carry before that
@@ -442,12 +457,13 @@ pub enum Commands {
         #[arg(long, default_value = "0.5", hide = true)]
         min_overlap_frac: f64,
 
-        // Hidden, under calibration: pairs in the cooperative melting unit. 0 uses the
-        // whole duplex, which makes occupancy a near step function in identity. A
-        // value around 10 (the nucleation length) reproduced measured per-locus
-        // capture far better in tests/locus_calibration.rs; not yet the default
-        // because the end-to-end gates have not been re-run.
-        #[arg(long, default_value = "0", hide = true)]
+        /// Pairs in the cooperative melting unit. 0 uses the whole duplex.
+        ///
+        /// A long duplex frays rather than melting as a unit, so its off-rate is set by
+        /// the weakest local stretch. Using the whole duplex makes occupancy a step
+        /// function in identity. The default of 10 is the canonical nucleation length
+        /// and is where the fit to measured per-locus capture is best.
+        #[arg(long, default_value = "10")]
         melting_window: usize,
 
         /// Cache probe placements at this path and reuse them on later runs.

@@ -64,6 +64,13 @@ export PROBE_CACHE_DIR
 : "${MELTING_WINDOW:=0}"
 export MELTING_WINDOW
 
+# Fixed probe concentration, bypassing the --capture-fraction solver. Empty = solve.
+# Solving per run makes the model a rank-threshold device: the scalar re-centres around
+# any change to the affinity basis, so the change cannot be observed. e^-2 = 0.13534 is
+# the optimum from tests/locus_calibration.rs with a 10 bp melting window.
+: "${PROBE_CONC:=}"
+export PROBE_CONC
+
 # Fast mode keeps the inner loop to minutes; full mode is the release gate.
 if [[ "${VALIDATION_MODE:-fast}" == "fast" ]]; then
     LOD_CONDITIONS="NTC s1E3 Pos1"

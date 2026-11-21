@@ -48,7 +48,7 @@ def load_sim(outdir):
     if not detail:
         return None
 
-    reads, length = {}, {}
+    reads, length, n_variants = {}, {}, {}
     with open(detail) as fh:
         for row in csv.DictReader(fh, delimiter="\t"):
             ref = row.get("reference_id") or row.get("group") or ""
@@ -62,7 +62,21 @@ def load_sim(outdir):
                 continue
             reads[gene] = reads.get(gene, 0.0) + n
             length[gene] = length.get(gene, 0.0) + L
-    return {g: reads[g] / length[g] for g in reads if length.get(g, 0) > 0}
+            n_variants[gene] = n_variants.get(gene, 0) + 1
+    # Divide by the MEAN variant length, not the summed length.
+    #
+    # A gene is represented in the panel by several near-identical species variants
+    # (rplB 13, clpX 3), and reads from one genomic locus scatter across whichever
+    # variant they match best. Dividing the pooled reads by the summed length of every
+    # variant therefore penalises a gene in proportion to how many variants the panel
+    # happens to carry: it made clpX look 4.2x deeper than rplB purely because
+    # 13/3 = 4.3. The locus exists once in the genome, so the denominator is the length
+    # of one copy.
+    return {
+        g: reads[g] / (length[g] / max(n_variants[g], 1))
+        for g in reads
+        if length.get(g, 0) > 0
+    }
 
 
 def main(dirs):
