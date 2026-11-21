@@ -28,6 +28,8 @@ pub struct SimulateArgs<'a> {
     /// Optional path to a probe-placement cache. Reused when it matches this probes
     /// file, reference and aligner; written after alignment when it does not exist.
     pub probe_hits: Option<&'a Path>,
+    /// Pairs in the cooperative melting unit; 0 uses the whole duplex.
+    pub melting_window: usize,
     pub simulate_mode: SimulateMode,
     /// Hybridization temperature in °C (thermodynamic mode only)
     pub hybridization_temperature: f64,
@@ -89,7 +91,7 @@ pub fn execute(args: &SimulateArgs) -> Result<()> {
     let probe_seqs = fasta::parse_fasta(args.probes)?;
     let cache_key = args
         .probe_hits
-        .map(|_| probe_cache::CacheKey::new(&probe_seqs, &sequences, aligner_name));
+        .map(|_| probe_cache::CacheKey::new(&probe_seqs, &sequences, &wts, aligner_name));
 
     let mut placements: Option<Vec<probe_cache::Placement>> = None;
     let mut replacing_stale = false;
@@ -191,7 +193,12 @@ pub fn execute(args: &SimulateArgs) -> Result<()> {
     // Cheap, and deliberately not cached: it is what makes one stored alignment valid
     // across a --hybridization-temperature or --simulate-mode sweep.
     let hits_by_probe =
-        thermo_sim::score_placements(&placements, args.simulate_mode, &thermo_model);
+        thermo_sim::score_placements(
+            &placements,
+            args.simulate_mode,
+            &thermo_model,
+            args.melting_window,
+        );
 
     let n_probes_with_hits = hits_by_probe.len();
     let n_total_hits: usize = hits_by_probe.values().map(|v| v.len()).sum();

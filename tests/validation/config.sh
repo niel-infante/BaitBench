@@ -59,6 +59,11 @@ export THREADS
 mkdir -p "$PROBE_CACHE_DIR" 2>/dev/null || true
 export PROBE_CACHE_DIR
 
+# Cooperative melting unit under calibration (0 = whole duplex, the shipped default).
+# Set MELTING_WINDOW=10 to gate the candidate capture law.
+: "${MELTING_WINDOW:=0}"
+export MELTING_WINDOW
+
 # Fast mode keeps the inner loop to minutes; full mode is the release gate.
 if [[ "${VALIDATION_MODE:-fast}" == "fast" ]]; then
     LOD_CONDITIONS="NTC s1E3 Pos1"

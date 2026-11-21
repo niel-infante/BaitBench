@@ -84,7 +84,7 @@ def main(dirs):
         return 1
 
     genes = [g for g in ("nifs", "clpa", "clpx", "uvra", "pyrg", "recg", "16s", "rplb")
-             if any(g in r[1] for _, r in [(None, r) for _, r in rows])]
+             if any(g in rel for _, rel in rows)]
 
     hdr = f"{'gene':8s} {'real':>7s}" + "".join(f"{c:>10s}" for c, _ in rows)
     print(hdr)

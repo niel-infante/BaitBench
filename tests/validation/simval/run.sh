@@ -43,6 +43,7 @@ for run in $SIMVAL_RUNS; do
             --hybridization-temperature 65 \
             --salt-concentration 50 \
             --threads "$THREADS" \
+            --melting-window "$MELTING_WINDOW" \
             --probe-hits "$PROBE_CACHE_DIR/simval_res_panel.tsv" \
             --seed 42 \
             --report none \

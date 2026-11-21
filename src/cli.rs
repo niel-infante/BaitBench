@@ -164,6 +164,14 @@ pub enum Commands {
         #[arg(long, default_value = "0.5", hide = true)]
         min_overlap_frac: f64,
 
+        // Hidden, under calibration: pairs in the cooperative melting unit. 0 uses the
+        // whole duplex, which makes occupancy a near step function in identity. A
+        // value around 10 (the nucleation length) reproduced measured per-locus
+        // capture far better in tests/locus_calibration.rs; not yet the default
+        // because the end-to-end gates have not been re-run.
+        #[arg(long, default_value = "0", hide = true)]
+        melting_window: usize,
+
         /// Cache probe placements at this path and reuse them on later runs.
         ///
         /// Placing a probe panel on a large reference is by far the slowest step of a
@@ -433,6 +441,14 @@ pub enum Commands {
         // thermodynamics; see improvements/partial-duplex-capture.md.
         #[arg(long, default_value = "0.5", hide = true)]
         min_overlap_frac: f64,
+
+        // Hidden, under calibration: pairs in the cooperative melting unit. 0 uses the
+        // whole duplex, which makes occupancy a near step function in identity. A
+        // value around 10 (the nucleation length) reproduced measured per-locus
+        // capture far better in tests/locus_calibration.rs; not yet the default
+        // because the end-to-end gates have not been re-run.
+        #[arg(long, default_value = "0", hide = true)]
+        melting_window: usize,
 
         /// Cache probe placements at this path and reuse them on later runs.
         ///

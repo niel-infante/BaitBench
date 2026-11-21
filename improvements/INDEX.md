@@ -15,3 +15,4 @@ phases of work. Supersedes several of the capture entries below; read it first.
 - [Validation: mutation distribution tolerance](mutation-distribution-validation.md) — test whether BaitBench shows TITAN-RNA's uniform-vs-natural mutation tolerance gap (10% vs 27%, PMID 40501929)
 - [Aligner: reuse seed-extend](seed-extend-wider-use.md) — the local seed-and-extend written for `simulate` probably fits xreact, assess-probes, panel-qc; also consolidates three duplicate k-mer index implementations
 - [Capture: partial-duplex occupancy](partial-duplex-capture.md) — scale θ by how much of a probe's site a fragment actually carries, replacing the min-overlap threshold shipped in Stage 3
+- [Cache: per-genome probe placements](per-genome-probe-cache.md) — **before next release**: index each genome once per panel and compose, instead of one cache per experimental mix; note the global `max_hits_per_probe` composition trap

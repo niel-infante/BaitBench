@@ -406,6 +406,34 @@ pub fn ln_k_unit_conc(dg: f64, model: &ThermoModel) -> f64 {
     -dg / (R_KCAL * t_k)
 }
 
+/// Free energy of the least stable window of `w` consecutive pairs.
+///
+/// A long duplex does not dissociate by paying its whole ΔG at once: it frays, and the
+/// off-rate is governed by the weakest local stretch rather than the global sum. Using
+/// the total is what makes equilibrium occupancy a step function in identity — at
+/// 58 °C a perfect 120-mer and a 9-mismatch one differ by 22.8 kcal/mol, or 10^15 in
+/// K, so every probe either saturates or vanishes and nothing in between is
+/// reachable by tuning concentration.
+///
+/// Taking the weakest window compresses that spread by roughly `w / probe_len`, which
+/// is the behaviour real capture shows. `w` is the cooperative melting unit, not a
+/// fitted constant, though its value is uncertain enough to be worth calibrating.
+///
+/// Returns the total ΔG when the alignment is shorter than one window.
+pub fn min_window_delta_g(pairs: &[(u8, u8)], w: usize, model: &ThermoModel) -> f64 {
+    if w == 0 || pairs.len() <= w {
+        return delta_g(pairs, model);
+    }
+    let mut worst = f64::NEG_INFINITY;
+    for start in 0..=(pairs.len() - w) {
+        let dg = delta_g(&pairs[start..start + w], model);
+        if dg > worst {
+            worst = dg; // least negative = least stable
+        }
+    }
+    worst
+}
+
 /// Langmuir occupancy from `ln K` directly: θ = 1 / (1 + exp(−ln K)).
 ///
 /// K itself overflows f64 for a well-matched probe (ΔG ≈ −92 kcal/mol gives K ≈ 1e59),
@@ -539,6 +567,34 @@ mod tests {
             theta < 0.5,
             "an unstable duplex must not read as a binder, got θ={theta}"
         );
+    }
+
+    /// The weakest window is never more stable than the whole duplex, and shrinking
+    /// the window compresses the penalty a mismatch carries — which is the whole point
+    /// of using it instead of the global free energy.
+    #[test]
+    fn weakest_window_compresses_the_mismatch_penalty() {
+        let m = model_50mm();
+        let bases = b"ACGTTGCAAGGCCTTAGCATCGATCGGATCCTAGCATGCAACGTTGCAAGG";
+        let comp = |b: u8| match b {
+            b'A' => b'T', b'T' => b'A', b'C' => b'G', b'G' => b'C', x => x,
+        };
+        let perfect: Vec<(u8, u8)> = bases.iter().map(|&b| (b, comp(b))).collect();
+        let mut mism = perfect.clone();
+        for i in [7usize, 19, 31, 43] {
+            mism[i].1 = mism[i].0; // not a Watson-Crick partner
+        }
+
+        let full_gap = delta_g(&mism, &m) - delta_g(&perfect, &m);
+        let win_gap = min_window_delta_g(&mism, 10, &m) - min_window_delta_g(&perfect, 10, &m);
+        assert!(full_gap > 0.0, "mismatches must destabilise, got {full_gap}");
+        assert!(
+            win_gap < full_gap,
+            "a 10 bp window must carry a smaller penalty than the whole 51 bp duplex: \
+             window {win_gap} vs full {full_gap}"
+        );
+        // A window at least as long as the alignment is just the global value.
+        assert_eq!(min_window_delta_g(&perfect, 999, &m), delta_g(&perfect, &m));
     }
 
     #[test]

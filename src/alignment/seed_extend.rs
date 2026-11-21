@@ -41,6 +41,15 @@ pub struct SeedExtendParams {
     pub mismatch_penalty: f64,
     /// Cap on reported hits per probe, best-scoring first.
     pub max_hits_per_probe: usize,
+    /// Bases of reference scanned per work unit.
+    ///
+    /// Candidate diagonals are accumulated per chunk before extension, so this bounds
+    /// peak memory: roughly `chunk x entries_per_seed x 32 B x threads`. It also sets
+    /// the unit of parallelism, which is what lets a single 250 Mbp scaffold use more
+    /// than one core. It cannot change the result — the scan is lossless whatever the
+    /// chunking — so it is a performance knob, not an experimental parameter, and is
+    /// deliberately not exposed on the CLI.
+    pub chunk_bases: usize,
     /// Ignore seeds occurring in more than this many probe positions.
     ///
     /// Low-complexity seeds dominate the cost of the reference scan while carrying
@@ -64,6 +73,10 @@ impl Default for SeedExtendParams {
             min_identity: 0.8,
             mismatch_penalty: 2.0,
             max_hits_per_probe: 1000,
+            // 4 Mbp: small enough that eight concurrent chunks stay well inside a
+            // laptop's memory on a repetitive genome, large enough that the
+            // seed_len-1 overlap between chunks is negligible duplicated work.
+            chunk_bases: 4 << 20,
             max_seed_occ: 200,
         }
     }
@@ -210,6 +223,33 @@ impl ProbeIndex {
 /// Kadane's algorithm over the match/mismatch profile: this is the ungapped local
 /// extension, and it is what lets a probe be placed on the strength of part of its
 /// length rather than all of it.
+/// Count positions where two slices hold the same byte, eight at a time.
+///
+/// Used as a cheap necessary condition before the full extension. It deliberately
+/// *over*-counts relative to the scoring rule — which requires the base to be one of
+/// ACGT, so `N` against `N` scores as a mismatch but is counted equal here. Over-counting
+/// only ever makes the filter more permissive, so it can admit a candidate the full
+/// extension then rejects, but never reject one the full extension would have accepted.
+fn count_equal_bytes(a: &[u8], b: &[u8]) -> usize {
+    let n = a.len().min(b.len());
+    let (mut i, mut eq) = (0usize, 0usize);
+    while i + 8 <= n {
+        let x = u64::from_ne_bytes(a[i..i + 8].try_into().unwrap())
+            ^ u64::from_ne_bytes(b[i..i + 8].try_into().unwrap());
+        // Classic has-zero-byte test: each equal byte leaves a set high bit.
+        let zeros = x.wrapping_sub(0x0101_0101_0101_0101) & !x & 0x8080_8080_8080_8080;
+        eq += zeros.count_ones() as usize;
+        i += 8;
+    }
+    while i < n {
+        if a[i] == b[i] {
+            eq += 1;
+        }
+        i += 1;
+    }
+    eq
+}
+
 fn best_segment(probe: &[u8], reference: &[u8], penalty: f64) -> Option<(usize, usize, f64)> {
     let n = probe.len().min(reference.len());
     if n == 0 {
@@ -251,6 +291,41 @@ fn best_segment(probe: &[u8], reference: &[u8], penalty: f64) -> Option<(usize, 
 /// global one: the global pool can only be configured once per process, and silently
 /// falling back to it would mean ignoring `--threads` and taking every core on the
 /// machine.
+/// Record progress through the reference and log at each 10% boundary.
+///
+/// Sequences finish out of order under `par_iter`, so progress is accumulated as bases
+/// consumed and the next threshold is claimed atomically — whichever thread crosses it
+/// logs, exactly once.
+fn report_progress(
+    done: &std::sync::atomic::AtomicU64,
+    next: &std::sync::atomic::AtomicU64,
+    total: u64,
+    just_done: u64,
+) {
+    use std::sync::atomic::Ordering;
+    if total == 0 {
+        return;
+    }
+    let now = done.fetch_add(just_done, Ordering::Relaxed) + just_done;
+    let threshold = next.load(Ordering::Relaxed);
+    if now >= threshold && threshold > 0 {
+        let step = total / 10;
+        let bumped = ((now / step.max(1)) + 1) * step.max(1);
+        // Only the thread that successfully advances the marker logs this milestone.
+        if next
+            .compare_exchange(threshold, bumped, Ordering::Relaxed, Ordering::Relaxed)
+            .is_ok()
+        {
+            log::info!(
+                "  probe placement: {:.0}% of reference scanned ({:.2} of {:.2} Gbp)",
+                100.0 * now as f64 / total as f64,
+                now as f64 / 1e9,
+                total as f64 / 1e9
+            );
+        }
+    }
+}
+
 pub fn find_local_hits(
     index: &ProbeIndex,
     references: &[&[u8]],
@@ -266,95 +341,192 @@ pub fn find_local_hits(
         .build()
         .unwrap_or_else(|_| rayon::ThreadPoolBuilder::new().build().unwrap());
 
-    // The scan is independent per reference sequence, so run them in parallel and
-    // merge afterwards. This is the dominant cost on large references: 93 Mb across
-    // 13,145 sequences is ~215 s on one core, ~40 s on ten.
-    let per_seq: Vec<Vec<(usize, LocalHit)>> = pool.install(|| {
-        references
-        .par_iter()
-        .enumerate()
-        .map(|(seq_idx, reference)| {
-            let mut out: Vec<(usize, LocalHit)> = Vec::new();
-            if reference.len() < index.seed_len {
-                return out;
-            }
-        // Candidate diagonals: (oriented probe, alignment start in the reference).
-        // Deduplicated, because a probe typically seeds many times on the same diagonal.
-        //
-        // The seed code is maintained as a rolling 2-bit value, so each reference base
-        // costs a shift and an array index rather than hashing a slice.
-        let mut candidates: HashSet<(u32, i64)> = HashSet::new();
-        let mask = (1u64 << (2 * index.seed_len)) - 1;
-        let mut code: u64 = 0;
-        let mut valid = 0usize;
-        for (i, &b) in reference.iter().enumerate() {
-            match base_code(b) {
-                Some(c) => {
-                    code = ((code << 2) | c) & mask;
-                    valid += 1;
-                }
-                None => {
-                    code = 0;
-                    valid = 0;
-                    continue;
-                }
-            }
-            if valid < index.seed_len {
-                continue;
-            }
-            let pos = i + 1 - index.seed_len;
-            let seed_hits = index.lookup(code as usize);
-            if seed_hits.len() > params.max_seed_occ {
-                continue; // uninformative seed; see SeedExtendParams::max_seed_occ
-            }
-            for &(oi, off) in seed_hits {
-                let start = pos as i64 - off as i64;
-                if start >= 0
-                    && (start as usize) + index.oriented[oi as usize].len() <= reference.len()
-                {
-                    candidates.insert((oi, start));
-                }
-            }
-        }
+    // Work is parallelised over **chunks of reference**, not over reference sequences.
+    //
+    // Per-sequence parallelism leaves a genome like Ixodes — whose largest scaffolds
+    // are 253, 218 and 199 Mbp — using a fraction of the machine, because one scaffold
+    // is one task: measured ~2.8 of 10 cores. Chunking the scan was already needed to
+    // bound memory, and chunks are independent, so they are also the right unit of
+    // parallelism. Placements that straddle a boundary are seeded from both sides and
+    // deduplicated after the merge.
+    //
+    // Progress is reported per chunk and counted in bases, since scaffold sizes vary
+    // by orders of magnitude; reporting per completed sequence meant a multi-hour scan
+    // of one giant contig emitted nothing at all.
+    // Funnel counters: how many diagonals the scan proposes versus how many survive
+    // extension. The ratio is the headroom for any candidate-reducing optimisation.
+    let n_candidates = std::sync::atomic::AtomicU64::new(0);
+    let n_extended = std::sync::atomic::AtomicU64::new(0);
+    // Lossless lower bound, per oriented probe, on the matches any acceptable window
+    // must contain. Computed per probe rather than once: panels are not required to be
+    // uniform length, and taking the first probe's length would set too high a bar for
+    // every shorter probe and silently drop valid placements.
+    let min_window_matches: Vec<usize> = index
+        .oriented
+        .iter()
+        .map(|p| (params.min_identity * params.min_coverage * p.len() as f64).floor() as usize)
+        .collect();
+    let total_bases: u64 = references.iter().map(|r| r.len() as u64).sum();
+    let done_bases = std::sync::atomic::AtomicU64::new(0);
+    let next_report = std::sync::atomic::AtomicU64::new(total_bases / 10);
 
-        for (oi, start) in candidates {
-            let probe = &index.oriented[oi as usize];
-            let start = start as usize;
-            let window = &reference[start..start + probe.len()];
-            let Some((s, e, _score)) = best_segment(probe, window, params.mismatch_penalty) else {
-                continue;
-            };
-            let seg_len = e - s;
-            if (seg_len as f64) < params.min_coverage * probe.len() as f64 {
-                continue;
-            }
-            let pairs: Vec<(u8, u8)> = probe[s..e]
-                .iter()
-                .zip(window[s..e].iter())
-                .map(|(&p, &r)| (p.to_ascii_uppercase(), r.to_ascii_uppercase()))
-                .collect();
-            let matches = pairs.iter().filter(|(p, r)| p == r).count();
-            let identity = matches as f64 / seg_len as f64;
-            if identity < params.min_identity {
-                continue;
-            }
-            let (probe_idx, reverse) = index.probe_of(oi as usize);
-            out.push((
-                probe_idx,
-                LocalHit {
-                    seq_idx,
-                    ref_start: start + s,
-                    ref_end: start + e,
-                    reverse,
-                    pairs,
-                    identity,
-                },
-            ));
-        }
-            out
+    // (sequence index, first base of the chunk)
+    let chunk_bases = params.chunk_bases.max(index.seed_len);
+    let work: Vec<(usize, usize)> = references
+        .iter()
+        .enumerate()
+        .flat_map(|(si, r)| {
+            let n = r.len();
+            (0..n)
+                .step_by(chunk_bases)
+                .map(move |c| (si, c))
+                .collect::<Vec<_>>()
         })
-        .collect()
+        .collect();
+
+    let per_chunk: Vec<Vec<(usize, LocalHit)>> = pool.install(|| {
+        work.par_iter()
+            .map(|&(seq_idx, chunk_start)| {
+                let reference = references[seq_idx];
+                let mut out: Vec<(usize, LocalHit)> = Vec::new();
+                if reference.len() < index.seed_len {
+                    report_progress(&done_bases, &next_report, total_bases, reference.len() as u64);
+                    return out;
+                }
+
+                let seed_hi = (chunk_start + chunk_bases).min(reference.len());
+                // Start early enough that a seed beginning just before the chunk
+                // boundary still has its full k-mer in view.
+                let scan_lo = chunk_start.saturating_sub(index.seed_len - 1);
+                let mask = (1u64 << (2 * index.seed_len)) - 1;
+
+                let mut candidates: HashSet<(u32, i64)> = HashSet::new();
+                let mut code: u64 = 0;
+                let mut valid = 0usize;
+                for (i, &b) in reference.iter().enumerate().skip(scan_lo) {
+                    match base_code(b) {
+                        Some(c) => {
+                            code = ((code << 2) | c) & mask;
+                            valid += 1;
+                        }
+                        None => {
+                            code = 0;
+                            valid = 0;
+                            continue;
+                        }
+                    }
+                    if valid < index.seed_len {
+                        continue;
+                    }
+                    let pos = i + 1 - index.seed_len;
+                    if pos < chunk_start {
+                        continue; // covered by the previous chunk
+                    }
+                    if pos >= seed_hi {
+                        break;
+                    }
+                    let seed_hits = index.lookup(code as usize);
+                    if seed_hits.len() > params.max_seed_occ {
+                        continue; // uninformative seed; see max_seed_occ
+                    }
+                    for &(oi, off) in seed_hits {
+                        let start = pos as i64 - off as i64;
+                        if start >= 0
+                            && (start as usize) + index.oriented[oi as usize].len()
+                                <= reference.len()
+                        {
+                            candidates.insert((oi, start));
+                        }
+                    }
+                }
+
+                n_candidates
+                    .fetch_add(candidates.len() as u64, std::sync::atomic::Ordering::Relaxed);
+                for (oi, start) in candidates {
+                    n_extended.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    let probe = &index.oriented[oi as usize];
+                    let start = start as usize;
+                    let window = &reference[start..start + probe.len()];
+
+                    // An accepted placement needs a segment of at least
+                    // `min_coverage * probe_len` bases at `min_identity`, so it carries
+                    // at least `min_identity * min_coverage * probe_len` matches, and
+                    // that segment lies inside this window. A window with fewer matches
+                    // cannot produce one, so it is rejected without paying for
+                    // extension — this is the whole runtime, since the scan proposes
+                    // ~12,000 candidates per surviving placement.
+                    if count_equal_bytes(probe, window) < min_window_matches[oi as usize] {
+                        continue;
+                    }
+
+                    let Some((s, e, _score)) =
+                        best_segment(probe, window, params.mismatch_penalty)
+                    else {
+                        continue;
+                    };
+                    let seg_len = e - s;
+                    if (seg_len as f64) < params.min_coverage * probe.len() as f64 {
+                        continue;
+                    }
+                    let pairs: Vec<(u8, u8)> = probe[s..e]
+                        .iter()
+                        .zip(window[s..e].iter())
+                        .map(|(&p, &r)| (p.to_ascii_uppercase(), r.to_ascii_uppercase()))
+                        .collect();
+                    let matches = pairs.iter().filter(|(p, r)| p == r).count();
+                    let identity = matches as f64 / seg_len as f64;
+                    if identity < params.min_identity {
+                        continue;
+                    }
+                    let (probe_idx, reverse) = index.probe_of(oi as usize);
+                    out.push((
+                        probe_idx,
+                        LocalHit {
+                            seq_idx,
+                            ref_start: start + s,
+                            ref_end: start + e,
+                            reverse,
+                            pairs,
+                            identity,
+                        },
+                    ));
+                }
+
+                report_progress(
+                    &done_bases,
+                    &next_report,
+                    total_bases,
+                    (seed_hi - chunk_start) as u64,
+                );
+                out
+            })
+            .collect()
     });
+
+    // A placement whose seeds straddle a chunk boundary is found by both chunks.
+    // Deduplicate once at the merge: the surviving set is small (hundreds to tens of
+    // thousands) next to the hundreds of millions of candidates behind it.
+    let mut seen: HashSet<(usize, bool, usize, usize, usize)> = HashSet::new();
+    let per_seq: Vec<Vec<(usize, LocalHit)>> = vec![per_chunk
+        .into_iter()
+        .flatten()
+        .filter(|(pi, h)| seen.insert((*pi, h.reverse, h.seq_idx, h.ref_start, h.ref_end)))
+        .collect()];
+
+    {
+        use std::sync::atomic::Ordering;
+        let cand = n_candidates.load(Ordering::Relaxed);
+        let ext = n_extended.load(Ordering::Relaxed);
+        let kept: u64 = per_seq.iter().map(|v| v.len() as u64).sum();
+        log::info!(
+            "  probe placement funnel: {} candidate diagonals -> {} extended -> {} passed \
+             ({:.1}% of extensions discarded)",
+            cand,
+            ext,
+            kept,
+            if ext > 0 { 100.0 * (ext - kept.min(ext)) as f64 / ext as f64 } else { 0.0 }
+        );
+    }
 
     let mut per_probe: Vec<Vec<LocalHit>> = vec![Vec::new(); n_probes];
     for chunk in per_seq {

@@ -68,6 +68,14 @@ pub struct CacheKey {
 /// guards. Ids and lengths are folded in as well as bases, so two panels that differ
 /// only in naming or in how sequences are split do not collide.
 fn content_hash(seqs: &std::collections::HashMap<String, String>) -> String {
+    content_hash_where(seqs, |_| true)
+}
+
+/// As `content_hash`, over only the sequences `keep` accepts.
+fn content_hash_where(
+    seqs: &std::collections::HashMap<String, String>,
+    keep: impl Fn(&str) -> bool,
+) -> String {
     const OFFSET: u64 = 0xcbf2_9ce4_8422_2325;
     const PRIME: u64 = 0x1000_0000_01b3;
     let mut h = OFFSET;
@@ -77,9 +85,10 @@ fn content_hash(seqs: &std::collections::HashMap<String, String>) -> String {
             *h = h.wrapping_mul(PRIME);
         }
     };
-    let mut ids: Vec<&String> = seqs.keys().collect();
+    let mut ids: Vec<&String> = seqs.keys().filter(|id| keep(id)).collect();
     ids.sort_unstable();
     feed(&(ids.len() as u64).to_le_bytes(), &mut h);
+    let n_ids = ids.len();
     for id in ids {
         let seq = &seqs[id];
         feed(id.as_bytes(), &mut h);
@@ -87,20 +96,29 @@ fn content_hash(seqs: &std::collections::HashMap<String, String>) -> String {
         feed(&(seq.len() as u64).to_le_bytes(), &mut h);
         feed(seq.as_bytes(), &mut h);
     }
-    format!("{:016x}:{}", h, seqs.len())
+    format!("{:016x}:{}", h, n_ids)
 }
 
 impl CacheKey {
     /// Build a key from the already-parsed probes and reference. Both are in memory by
     /// the time a caller needs this, so no file is re-read.
+    ///
+    /// Only sequences with positive weight enter the reference hash, because only those
+    /// are aligned against: the aligners skip zero-weight references entirely. Hashing
+    /// the whole file instead would give two runs that differ in `--sample` the same
+    /// key while legitimately having different placements, and the second would
+    /// silently reuse a set of hits missing every sequence the first had excluded.
     pub fn new(
         probes: &std::collections::HashMap<String, String>,
         reference: &std::collections::HashMap<String, String>,
+        weights: &std::collections::HashMap<String, f64>,
         aligner: &str,
     ) -> Self {
         CacheKey {
             probes: content_hash(probes),
-            reference: content_hash(reference),
+            reference: content_hash_where(reference, |id| {
+                weights.get(id).copied().unwrap_or(0.0) > 0.0
+            }),
             aligner: aligner.to_string(),
         }
     }
@@ -246,10 +264,15 @@ mod tests {
         p
     }
 
+    fn wts(ids: &[(&str, f64)]) -> HashMap<String, f64> {
+        ids.iter().map(|(k, v)| (k.to_string(), *v)).collect()
+    }
+
     fn key(aligner: &str) -> CacheKey {
         CacheKey::new(
             &seqs(&[("p1", "ACGT")]),
             &seqs(&[("ref1", "ACGTACGTACGT")]),
+            &wts(&[("ref1", 1.0)]),
             aligner,
         )
     }
@@ -301,11 +324,13 @@ mod tests {
         let a = CacheKey::new(
             &seqs(&[("p1", "ACGT")]),
             &seqs(&[("ref1", "ACGTACGTACGT")]),
+            &wts(&[("ref1", 1.0)]),
             "seed-extend",
         );
         let b = CacheKey::new(
             &seqs(&[("p1", "ACGT")]),
             &seqs(&[("ref1", "ACGTACGTACGT")]),
+            &wts(&[("ref1", 1.0)]),
             "seed-extend",
         );
         assert_eq!(a, b);
@@ -330,6 +355,7 @@ mod tests {
         let b = CacheKey::new(
             &seqs(&[("p1", "ACGTACGTACGT")]), // same name, different sequence
             &seqs(&[("ref1", "ACGTACGTACGT")]),
+            &wts(&[("ref1", 1.0)]),
             "seed-extend",
         );
         let path = tmp("stale_probes.tsv");
@@ -348,6 +374,7 @@ mod tests {
         let b = CacheKey::new(
             &seqs(&[("p1", "ACGT")]),
             &seqs(&[("ref1", "ACGTACGTACGA")]), // one base differs, same length
+            &wts(&[("ref1", 1.0)]),
             "seed-extend",
         );
         let path = tmp("stale_ref.tsv");
@@ -367,9 +394,27 @@ mod tests {
         let b = CacheKey::new(
             &seqs(&[("p1", "ACGT")]),
             &seqs(&[("renamed", "ACGTACGTACGT")]),
+            &wts(&[("renamed", 1.0)]),
             "seed-extend",
         );
         assert_ne!(a.reference, b.reference);
+    }
+
+    /// Only weighted sequences are aligned, so zeroing one changes the placements and
+    /// must change the key. Hashing the whole reference instead let two runs that
+    /// differ only in `--sample` share a cache and silently reuse the wrong hits.
+    #[test]
+    fn zero_weight_sequences_are_outside_the_key() {
+        let probes = seqs(&[("p1", "ACGT")]);
+        let reference = seqs(&[("a", "ACGTACGT"), ("b", "TTTTGGGG")]);
+        let both = CacheKey::new(&probes, &reference, &wts(&[("a", 1.0), ("b", 1.0)]), "seed-extend");
+        let only_a = CacheKey::new(&probes, &reference, &wts(&[("a", 1.0), ("b", 0.0)]), "seed-extend");
+        assert_ne!(both.reference, only_a.reference, "dropping b must change the key");
+
+        // And a key built over only the weighted subset matches one built from a
+        // reference that never contained the extra sequence at all.
+        let just_a = CacheKey::new(&probes, &seqs(&[("a", "ACGTACGT")]), &wts(&[("a", 1.0)]), "seed-extend");
+        assert_eq!(only_a.reference, just_a.reference);
     }
 
     /// Switching aligner changes which placements are found, so it must invalidate.

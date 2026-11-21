@@ -106,6 +106,7 @@ genomes.fa + targets.fa + distractors.fa [+ sample.tsv] [+ mapping.tsv]
 | `src/external/cdhit.rs` | cd-hit-est wrapper: check_available, cluster |
 | `src/fasta/` | FASTA parsing, writing, extract-by-ID (replaces seqtk) |
 | `src/alignment/paf.rs` | PAF format parser for minimap2 output |
+| `src/alignment/seed_extend.rs` | Ungapped local seed-and-extend, chunked and parallelised over chunks (`chunk_bases`, 4 Mbp) so one giant scaffold uses the whole machine and peak memory is bounded by chunk size rather than scaffold size. Extension dominates runtime (~12,000 candidate diagonals per surviving placement), so a lossless window prefilter (`count_equal_bytes`) rejects candidates that cannot meet `min_identity × min_coverage` before paying for Kadane — measured 2.4× with byte-identical output. Logs scan progress and a candidate funnel. |
 | `src/alignment/probe_cache.rs` | Persistent probe-placement cache: `Placement`, `CacheKey` (content-hashed), read/write, `Miss` reasons |
 | `src/alignment/sam.rs` | SAM format parser |
 | `src/sampling/` | Weights calculation and fragment sampling |

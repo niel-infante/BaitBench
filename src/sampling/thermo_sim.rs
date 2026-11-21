@@ -36,7 +36,7 @@ use std::path::Path;
 use crate::alignment::cigar::{cigar_ref_len, expand_cigar, CigarOp};
 use crate::sampling::FragmentLengthParams;
 use crate::alignment::probe_cache::Placement;
-use crate::thermodynamics::{delta_g, langmuir_occupancy, ThermoModel};
+use crate::thermodynamics::{delta_g, langmuir_occupancy, min_window_delta_g, ThermoModel};
 
 /// Simulate mode — controls how probe hit scores are computed.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -410,17 +410,29 @@ pub fn write_fragments(fragments: &[(String, String)], output: &Path) -> Result<
 ///
 /// Hit lists are sorted because the sampler indexes into them, and `HashMap` iteration
 /// order varies between processes, which would otherwise leak into a seeded run.
+/// `melting_window` selects the free energy that drives occupancy: 0 uses the whole
+/// duplex, and any smaller value uses the least stable window of that many pairs. A
+/// long duplex frays rather than melting as a unit, so the global sum makes occupancy a
+/// step function in identity — at 58 °C a perfect 120-mer and a 9-mismatch one differ
+/// by 22.8 kcal/mol, 10^15 in K. See `min_window_delta_g`.
 pub fn score_placements(
     placements: &[Placement],
     mode: SimulateMode,
     model: &ThermoModel,
+    melting_window: usize,
 ) -> HashMap<String, Vec<ProbeHit>> {
     let mut hits_by_probe: HashMap<String, Vec<ProbeHit>> = HashMap::new();
     for p in placements {
         let dg = match mode {
             // `pairs` already holds the base the probe binds, so this is the whole of
             // the per-run work.
-            SimulateMode::Thermodynamic => delta_g(&p.pairs, model),
+            SimulateMode::Thermodynamic => {
+                if melting_window == 0 {
+                    delta_g(&p.pairs, model)
+                } else {
+                    min_window_delta_g(&p.pairs, melting_window, model)
+                }
+            }
             SimulateMode::Simple => SIMPLE_DG,
         };
         hits_by_probe
