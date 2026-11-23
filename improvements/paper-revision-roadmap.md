@@ -47,7 +47,7 @@ magnitude of input abundance, exactly the regime the current model cannot repres
 | **D3** | Target venue: appeal to *Bioinformatics* vs fresh submission. Sets the AI-disclosure heading and wording | Phase 6 | **Open** |
 | **D4** | Whether to keep the in-house D6331 ONT run as a deposited secondary dataset (legitimate once circularity is removed; needs an SRA deposit) | Phase 5 | **Open** |
 | **D5** | Which run is canonical for any interim citation of the old result | — | **Open** (see Phase 5 note) |
-| ~~D6~~ | Independent input weights for the validation | Phase 5 | **Resolved**: TELSeq has no non-enriched arm for the mock community, so the manufacturer's theoretical D6310 composition is the only independent input available |
+| **D6** | Independent input weights for the validation | Phase 5 | **REOPENED 2026-11-23**: a non-enriched arm exists. SRA PRJNA1081843 lists 6 runs titled "Non-enrichment of synthetic mock community: Negative control" (SRR28150698/699/700/732/733/735), matching the local `*NEG*` count files. Composition tracks the manufacturer's theoretical table at r(log10) = +0.989 vs +0.931 for the enriched arm. Reviewer item 3 can therefore be answered by predicting measured-enriched from measured-unenriched, rather than from theory. See `parameterisation.md` A3. |
 | **D7** | Whether the Borrelia LOD titration becomes a second manuscript figure (see "Folding in" below). Needs an SRA deposit, like D4 | Phase 5 | **Open — recommend yes** |
 
 ---
@@ -346,7 +346,7 @@ across requested 0.1 … 0.9999, against the quota model's 0.043 / 0.242 / 0.450
 
 ---
 
-## Phase 2 — Capture-model rework — **code DONE, real-data gates OPEN**
+## Phase 2 — Capture-model rework — **DONE** (gates met 2026-11-21)
 
 Superseded in detail by the simulation-rework plan, which expanded this phase into
 Stages 0–3 (harness, ΔG correctness, divergent-probe alignment, internal-mismatch
@@ -393,9 +393,24 @@ two ways worth recording:
    distractors exactly at the carryover floor. `fragments.retention.tsv` exports this
    per reference, so the Borrelia per-locus ratios can be compared directly without
    running reads through.
-3. ⬜ **the Borrelia LOD titration resolves from a flat ~78.5% plateau into a real
-   titration curve** tracking the observed NTC = 37 → Pos1 = 748,104 progression.
-   Still the unambiguous pass/fail test for the whole phase, and still to be run.
+3. ✅ **the Borrelia LOD titration resolves from a flat ~78.5% plateau into a real
+   titration curve.** Measured 2026-11-21 (fast subset, 3 conditions):
+
+   | condition | real BB fraction | simulated |
+   |---|---|---|
+   | NTC | 0.0000416 | 0.00010 |
+   | s1E3 | 0.00109 | 0.00205 |
+   | Pos1 | 0.79565 | 0.83475 |
+
+   Monotone across three orders of magnitude where the old model gave 78.50% for every
+   condition. Pos1 within 1.05x.
+
+**Phase 2 gates are met.** Two things from the sketch above remain unticked and are
+tracked rather than blocking: manuscript Figure 1 has not been regenerated, and the
+per-locus fit — beyond the stated gate — reached log-RMSE 1.00 only after a capture-law
+change whose parameterisation is not yet interpretable across temperature and salt. See
+`parameterisation.md`; it is the next substantial piece of simulation work, and Phase 5
+should not be written up before it settles.
 
 ---
 

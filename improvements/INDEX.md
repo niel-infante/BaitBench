@@ -16,3 +16,4 @@ phases of work. Supersedes several of the capture entries below; read it first.
 - [Aligner: reuse seed-extend](seed-extend-wider-use.md) — the local seed-and-extend written for `simulate` probably fits xreact, assess-probes, panel-qc; also consolidates three duplicate k-mer index implementations
 - [Capture: partial-duplex occupancy](partial-duplex-capture.md) — scale θ by how much of a probe's site a fragment actually carries, replacing the min-overlap threshold shipped in Stage 3
 - [Cache: per-genome probe placements](per-genome-probe-cache.md) — **before next release**: index each genome once per panel and compose, instead of one cache per experimental mix; note the global `max_hits_per_probe` composition trap
+- [Capture: parameterisation](parameterisation.md) — **next major piece**: the occupancy scale is not interpretable across temperature/salt, equilibrium ΔG cannot discriminate loci, and the fitting objective needs held-out data

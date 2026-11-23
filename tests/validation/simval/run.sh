@@ -28,9 +28,11 @@ for run in $SIMVAL_RUNS; do
         echo "[$(date +%H:%M:%S)] $tag: reusing $outdir"
     else
         echo "[$(date +%H:%M:%S)] $tag: simulating $NUM_FRAGMENTS fragments"
+        # Expanded with the ${x+...} guard: macOS ships bash 3.2, where "${arr[@]}" on
+        # an empty array is an unbound-variable error under `set -u`.
         conc_args=()
         [[ -n "$PROBE_CONC" ]] && conc_args=(--probe-concentration "$PROBE_CONC")
-        "$BB" run "${conc_args[@]}" \
+        "$BB" run ${conc_args[@]+"${conc_args[@]}"} \
             --targets "$SIMVAL_GENOMES" \
             --probes  "$PANELS/res_probes.fasta" \
             --sample  "$SIMVAL_SAMPLE" \
