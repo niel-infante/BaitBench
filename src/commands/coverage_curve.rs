@@ -379,6 +379,7 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
                             output: &prefixed_join(&combo_dir, pfx, "filtered.fa"),
                             output_r2: None,
                             log_file: &prefixed_join(&combo_dir, pfx, "host_filter.log"),
+                            threads: args.threads,
                         })?;
                         prefixed_join(&combo_dir, pfx, "filtered.fa")
                     } else {
@@ -394,6 +395,7 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
                         minimap_preset: args.minimap_preset,
                         output: &prefixed_join(&combo_dir, pfx, "mapped.sam"),
                         log_file: &prefixed_join(&combo_dir, pfx, "mapping.log"),
+                        threads: args.threads,
                     })?;
 
                     let total_reads = fasta::count_reads(&reads_for_mapping).unwrap_or(0);

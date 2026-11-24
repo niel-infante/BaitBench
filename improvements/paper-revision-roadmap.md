@@ -47,7 +47,7 @@ magnitude of input abundance, exactly the regime the current model cannot repres
 | **D3** | Target venue: appeal to *Bioinformatics* vs fresh submission. Sets the AI-disclosure heading and wording | Phase 6 | **Open** |
 | **D4** | Whether to keep the in-house D6331 ONT run as a deposited secondary dataset (legitimate once circularity is removed; needs an SRA deposit) | Phase 5 | **Open** |
 | **D5** | Which run is canonical for any interim citation of the old result | — | **Open** (see Phase 5 note) |
-| **D6** | Independent input weights for the validation | Phase 5 | **REOPENED 2026-11-23**: a non-enriched arm exists. SRA PRJNA1081843 lists 6 runs titled "Non-enrichment of synthetic mock community: Negative control" (SRR28150698/699/700/732/733/735), matching the local `*NEG*` count files. Composition tracks the manufacturer's theoretical table at r(log10) = +0.989 vs +0.931 for the enriched arm. Reviewer item 3 can therefore be answered by predicting measured-enriched from measured-unenriched, rather than from theory. See `parameterisation.md` A3. |
+| **D6** | Independent input weights for the validation | Phase 5 | **REOPENED 2026-11-23**: a non-enriched arm exists. SRA PRJNA1081843 lists 6 runs titled "Non-enrichment of synthetic mock community: Negative control" (SRR28150698/699/700/732/733/735), matching the local `*NEG*` count files. Composition tracks the manufacturer's theoretical table at r(log10) = +0.989 vs +0.931 for the enriched arm. Reviewer item 3 can therefore be answered by predicting measured-enriched from measured-unenriched, rather than from theory. See `parameterisation.md` A3. **RESOLVED 2026-11-24**: the non-enriched arm is now the input, enrichment factor is the objective, and the first scored run gives Spearman rho +0.939 / r(log10) +0.918 / log10 RMSE 1.70x with nothing fitted to the dataset (B0b). Phase 5 rewritten around it. |
 | **D7** | Whether the Borrelia LOD titration becomes a second manuscript figure (see "Folding in" below). Needs an SRA deposit, like D4 | Phase 5 | **Open — recommend yes** |
 
 ---
@@ -510,6 +510,15 @@ values pass in CI.
 
 ## Phase 5 — Reviewer items 2–3: rebuild the validation (blocked by Phase 2 and **D2**, L)
 
+> **Rewritten 2026-11-24.** The primary dataset is now **PRJNA1081843** (the SimVal
+> D6331 mock community), not PRJNA751055. The reason is `improvements/parameterisation.md`
+> A3: that BioProject has a **non-enriched arm**, which turns input composition from an
+> assumption into a measurement and makes the prediction target a per-organism
+> **enrichment factor**. It is also already on disk and already wired into the
+> harness, where PRJNA751055 would need a download plus a probe panel that is not
+> public (**D2**). PRJNA751055 stays as a fallback and as a second, independent dataset
+> if one is wanted.
+
 ### What exists now — do not reuse as-is
 
 `~/Projects/CrossLab/RAmpSim/compare/`, **untracked**, with a hardcoded
@@ -520,36 +529,87 @@ correlate against the same counts. Targets are `TestRAmpSim/D6331.refseq/ssrRNAs
 (Gut standard); reads are `TestRAmpSim/NN07_2025-07-16_FBA62613/barcode07` (in-house
 ONT); probes are `Jared_MEGARESv3_Jan2024_1_Probes.txt`.
 
+### The design
+
+| | old (rejected paper) | new |
+|---|---|---|
+| input weights | the reads being predicted | pooled non-enriched arm, 6 runs, r(log10) >= 0.989 |
+| target | absolute composition | per-organism enrichment factor |
+| circular? | yes — reviewer item 3 | no — input and target are different libraries |
+| dynamic range | — | 63x measured, against an r >= 0.989 replicate noise floor |
+| held out | nothing | 18 enriched runs: 3 replicates x 3 panels x 2 chemistries |
+
+First result, ARGs panel vs MOXTAA, nothing fitted to this dataset
+(`parameterisation.md` B0b): **Spearman rho +0.939, Pearson r(log10) +0.918, log10 RMSE
+1.70x** on 15 organisms. Both fitted model constants (`[probe] = e^-2`,
+`--melting-window 10`, both fitted on Borrelia) came out independently optimal here
+(A1), which is the cross-dataset check the model previously lacked.
+
 ### Steps
 
-- [ ] **Reads:** SRA BioProject **PRJNA751055**. Mock community = ZymoBIOMICS CSII /
-      **D6310**, PacBio Sequel, **3 replicates** at 2 / 5 / 8 kb fragment lengths —
-      the replicate structure doubles as a test of `--fragment-length-*`.
-- [ ] **Input weights:** manufacturer's theoretical D6310 composition from the Zymo
-      product sheet (resolves ~~D6~~). Independent of the reads being predicted.
-- [ ] **Probe panel:** per **D2**. The TELSeq probes are not public (Agilent ELID
-      0792071, "previously described"). Either obtain them from the authors, or
-      reconstruct from MEGARes v1.0 + BacMet + VFDB with `baitbench build-probes` and
-      declare the reconstruction as a limitation.
-- [ ] **Capture parameters:** stop supplying the observed on-target fraction. Fit
-      `--capture-fraction` / `--background-retention` **once** on replicate 1, report
-      the fitted values, and apply them unchanged to replicates 2–3 as held-out
-      predictions. State this explicitly in the manuscript.
-- [ ] **Metrics:** Spearman ρ, Pearson on log₁₀, Lin's CCC, per-replicate and pooled,
-      with an explicit statement that the input is theoretical composition.
-- [ ] **Make the harness reproducible:** move it into the repo as `validation/telseq/`
-      — SRA download, MEGARes fetch + `build-probes`, theoretical-composition TSV,
-      the BaitBench invocation, a port of `real_data_comparison.py`, and a README.
-      Drop the hardcoded minimap2 path; use the embedded aligner. This is what
-      answers "insufficient to convince this reader."
-- [ ] Regenerate Figure 2 and rewrite `BB_Paper/paper.md:64-72`.
+- [x] **Reads:** PRJNA1081843, 24 synthetic mock-community runs in 8 groups of 3, the
+      naming resolved from SRA experiment titles (A3). Already on disk as
+      `$SIMVAL_REAL`.
+- [x] **Input weights:** pooled non-enriched arm (SRR28150698, 699, 700, 732, 733, 735).
+      Replicates agree at r(log10) >= 0.989 and agree *across* chemistry as closely as
+      within it, so all six pool into one estimate. Resolves **D6**, which was closed on
+      the wrong premise and is now reopened and answered.
+- [x] **Objective:** enrichment factor, scored on log10. Rationale and the measured
+      table in B0.
+- [ ] **Probe panels:** `$PANELS/{res,mob,combo}_probes.fasta` are on disk and are the
+      three panel types the BioProject describes (ARGs / MGEs / both). **Confirm their
+      provenance and licence before publication** — if they are not redistributable,
+      the same **D2** problem as TELSeq applies and they must be cited rather than
+      deposited.
+- [ ] **Capture parameters — do not fit them.** Measured, not assumed:
+      `--capture-fraction` is a uniform multiplier, so Spearman rho is identical to four
+      decimals across a 10x range and the enrichment objective cannot pin it (A2 on one
+      axis, D on the other). Pass the documented default and say so. Only the *shape*
+      parameters are constrained, and those are already set and now validated
+      out-of-sample.
+- [ ] **Held-out validation:** apply the fixed parameters unchanged to the other 17
+      enriched runs. The three panels differ in content, so generalising across them is
+      a real test rather than a replicate check. Report per-run and pooled.
+- [ ] **Exclude *Candida albicans*, with the reason stated.** Its reference is 13 062
+      contigs over 12.58 Mb against a 5.8 kb fragment length, so only 25.4% of its bases
+      can start a fragment and it lands at 0.244x its intended input share — an assembly
+      artifact, not a capture prediction (B0b). **This also explains the old paper's
+      loose end** (**D5**): `n = 20` was "21 species with *C. albicans* at 0/0 silently
+      dropped", and the mechanism was never identified. Either swap in a contiguous
+      assembly or exclude it explicitly; silently dropping it is what drew the criticism.
+- [ ] **Exclude *Enterococcus faecalis* at fast-harness depth**, or raise
+      `--num-fragments`: at an input share of 1.6e-5, 40 000 fragments give 0.65
+      expected fragments. State the depth, since this is a property of the run and not
+      of the model.
+- [ ] **Metrics:** Spearman rho, Pearson on log10, log10 RMSE, and **centred** log10
+      RMSE. The last one matters: enrichment factors are compositional
+      (`sum(input x enrichment) = 1`, measured 0.9996), so a single badly predicted
+      dominant organism shifts every other value. Centring separates shape error from
+      that closure effect, and on the first run it showed the closure explained the
+      centre of the residual but not its spread.
+- [ ] **Make the harness reproducible:** move it into the repo as
+      `tests/validation/simval/` (already partly there) — SRA accession list, the
+      non-enriched pooling step, the input-weights derivation, the BaitBench
+      invocation, `analytic_enrich.py`, and a README. Drop any hardcoded minimap2 path;
+      use the embedded aligner. This is what answers "insufficient to convince this
+      reader."
+- [ ] Regenerate Figure 2 as predicted-vs-measured **enrichment** and rewrite
+      `BB_Paper/paper.md:64-72`.
 - [ ] **D4:** decide whether the in-house D6331 ONT run becomes a deposited secondary
-      dataset.
-- [ ] **D7:** decide whether the Borrelia LOD titration becomes a second figure. It
-      is the stronger of the two candidates — non-circular by construction, four
-      orders of magnitude of dynamic range, and it demonstrates that the Phase 2 fix
-      works rather than merely asserting it. Needs the same SRA deposit as D4, plus
-      `validation/borrelia_lod/` from Phase 2.
+      dataset. Lower priority now that the primary dataset is public.
+- [ ] **D7:** decide whether the Borrelia LOD titration becomes a second figure. Still
+      the stronger single demonstration — non-circular by construction, four orders of
+      magnitude of dynamic range, and it shows the Phase 2 fix working rather than
+      asserting it. Needs `validation/borrelia_lod/` from Phase 2 plus an SRA deposit.
+- [ ] **Fallback / second dataset:** PRJNA751055 (ZymoBIOMICS CSII / D6310, PacBio
+      Sequel, 3 replicates at 2 / 5 / 8 kb) with the manufacturer's theoretical
+      composition as input. Keep this in reserve; its replicate structure also tests
+      `--fragment-length-*`, and **D2** (TELSeq probes are Agilent ELID 0792071, not
+      public) still gates it.
+- [ ] **Open from A3:** confirm whether a `NEG` run and an enriched run share the same
+      input library or are separate preps of the same standard — matched pairs would
+      sharpen the enrichment factor. Also check whether the Borrelia LOD series has a
+      non-enriched arm.
 
 ### The existing numbers are broken regardless (**D5**)
 

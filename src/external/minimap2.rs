@@ -179,6 +179,14 @@ pub fn check_available() -> Result<()> {
 /// Map reads to a reference (SAM output, primary alignments only).
 ///
 /// Replicates `minimap2 -ax <preset> --secondary=no <reference> <reads> [<reads_r2>]`
+/// Reads mapped per parallel batch.
+///
+/// Bounds the memory held for rendered SAM records: the whole read set is already
+/// resident (`parse_reads` returns a map), so collecting every rendered record as well
+/// would roughly double peak usage on a large library. At 8 kB of rendered record per
+/// read this holds ~80 MB regardless of library size.
+const MAP_READS_CHUNK: usize = 10_000;
+
 pub fn map_reads(
     preset: &str,
     reference: &Path,
@@ -186,6 +194,7 @@ pub fn map_reads(
     reads_r2: Option<&Path>,
     output_sam: &Path,
     log_file: &Path,
+    threads: usize,
 ) -> Result<()> {
     write_stub_log(log_file, "map_reads")?;
 
@@ -202,24 +211,84 @@ pub fn map_reads(
     let mut w = BufWriter::new(out);
     write_sam_header(&mut w, &aligner)?;
 
-    for (name, seq) in fasta::parse_reads(reads)? {
-        map_and_write_primary(&aligner, &mut w, &name, &seq)?;
-    }
+    // Aligner is Sync, so one index is shared across workers rather than rebuilt per
+    // thread — the same arrangement `probe_depth_in_memory` uses.
+    let shared = std::sync::Arc::new(aligner);
+    map_one_file(&shared, reads, &mut w, threads)?;
     if let Some(r2) = reads_r2 {
-        for (name, seq) in fasta::parse_reads(r2)? {
-            map_and_write_primary(&aligner, &mut w, &name, &seq)?;
-        }
+        map_one_file(&shared, r2, &mut w, threads)?;
     }
 
     Ok(())
 }
 
-fn map_and_write_primary<W: Write>(
-    aligner: &Aligner,
+/// Map every read in one file, in file order, writing primary records to `w`.
+///
+/// Mapping is the dominant cost of a pipeline run and is embarrassingly parallel, so it
+/// is spread over `threads` rayon workers. Records are rendered in parallel and written
+/// serially, which keeps the SAM in **input order**: `par_iter().map().collect()` is an
+/// indexed parallel iterator and preserves position, so output does not depend on
+/// thread scheduling.
+///
+/// Input order also makes the SAM reproducible, which it previously was not. The old
+/// loop iterated `parse_reads`'s `HashMap` directly, and `RandomState` reseeds per
+/// process, so record order varied between runs of the same seed. Nothing downstream
+/// depends on order — `generate_list` counts per reference — but an unreproducible
+/// intermediate undercuts `--seed`, and this is the same defect as D6.
+fn map_one_file<W: Write>(
+    aligner: &std::sync::Arc<Aligner>,
+    path: &Path,
     w: &mut W,
-    name: &str,
-    seq: &str,
+    threads: usize,
 ) -> Result<()> {
+    use rayon::prelude::*;
+
+    let seqs = fasta::parse_reads(path)?;
+    // Deduplicated, so a FASTA with a repeated read name emits one record per unique
+    // name — matching what iterating the map used to do.
+    let mut seen = std::collections::HashSet::with_capacity(seqs.len());
+    let order: Vec<&String> = fasta::parse_reads_ids(path)?
+        .iter()
+        .filter(|id| seqs.contains_key(*id))
+        .filter_map(|id| seqs.get_key_value(id).map(|(k, _)| k))
+        .filter(|k| seen.insert(k.as_str()))
+        .collect();
+
+    let pool = if threads > 1 {
+        Some(
+            rayon::ThreadPoolBuilder::new()
+                .num_threads(threads)
+                .build()
+                .unwrap_or_else(|_| rayon::ThreadPoolBuilder::new().build().unwrap()),
+        )
+    } else {
+        None
+    };
+
+    for chunk in order.chunks(MAP_READS_CHUNK) {
+        let render = || -> Result<Vec<Vec<u8>>> {
+            chunk
+                .par_iter()
+                .map(|name| render_primary(aligner, name, &seqs[*name]))
+                .collect()
+        };
+        let rendered = match &pool {
+            Some(p) => p.install(render),
+            None => chunk
+                .iter()
+                .map(|name| render_primary(aligner, name, &seqs[*name]))
+                .collect(),
+        }?;
+        for record in rendered {
+            w.write_all(&record)?;
+        }
+    }
+    Ok(())
+}
+
+/// Render one read's primary SAM record (or an unmapped record) into a buffer.
+fn render_primary(aligner: &Aligner, name: &str, seq: &str) -> Result<Vec<u8>> {
+    let mut buf = Vec::with_capacity(seq.len() * 2 + 128);
     let result = aligner.map_seq(name, seq.as_bytes());
     match result
         .mappings
@@ -232,10 +301,11 @@ fn map_and_write_primary<W: Write>(
             } else {
                 0
             };
-            write_sam_mapped(w, name, seq, flag, m)
+            write_sam_mapped(&mut buf, name, seq, flag, m)?;
         }
-        None => write_sam_unmapped(w, name, seq),
+        None => write_sam_unmapped(&mut buf, name, seq)?,
     }
+    Ok(buf)
 }
 
 /// Align probes to targets (SAM output with secondary alignments and MD tags).
@@ -549,6 +619,7 @@ pub fn host_align(
     reads_r2: Option<&Path>,
     output_sam: &Path,
     log_file: &Path,
+    threads: usize,
 ) -> Result<()> {
     write_stub_log(log_file, "host_align")?;
 
@@ -560,13 +631,12 @@ pub fn host_align(
     let mut w = BufWriter::new(out);
     write_sam_header(&mut w, &aligner)?;
 
-    for (name, seq) in fasta::parse_reads(reads)? {
-        map_and_write_primary(&aligner, &mut w, &name, &seq)?;
-    }
+    // Same shape as map_reads — against a host genome the read count is if anything
+    // larger, so it gets the same parallel, input-ordered treatment.
+    let shared = std::sync::Arc::new(aligner);
+    map_one_file(&shared, reads, &mut w, threads)?;
     if let Some(r2) = reads_r2 {
-        for (name, seq) in fasta::parse_reads(r2)? {
-            map_and_write_primary(&aligner, &mut w, &name, &seq)?;
-        }
+        map_one_file(&shared, r2, &mut w, threads)?;
     }
 
     Ok(())

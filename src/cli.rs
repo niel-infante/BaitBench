@@ -640,6 +640,13 @@ pub enum Commands {
         /// Log file
         #[arg(long, default_value = "host_filter.log")]
         log_file: PathBuf,
+
+        /// Number of threads for the host alignment.
+        ///
+        /// Aligning reads against a host genome is embarrassingly parallel, so raise
+        /// this to your core count for anything beyond a small example.
+        #[arg(long, default_value = "1")]
+        threads: usize,
     },
 
     /// Map reads back to reference
@@ -663,6 +670,14 @@ pub enum Commands {
         /// Log file
         #[arg(long, default_value = "mapping.log")]
         log_file: PathBuf,
+
+        /// Number of threads for read mapping.
+        ///
+        /// Mapping is embarrassingly parallel and is the dominant cost of a pipeline
+        /// run once probe placements are cached, so raise this to your core count for
+        /// anything beyond a small example.
+        #[arg(long, default_value = "1")]
+        threads: usize,
     },
 
     /// Generate detection list from SAM file

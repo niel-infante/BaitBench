@@ -562,6 +562,7 @@ fn main() -> Result<()> {
             minimap_preset,
             output,
             log_file,
+            threads,
         } => {
             filter::execute(&filter::FilterArgs {
                 host: &host,
@@ -571,6 +572,7 @@ fn main() -> Result<()> {
                 output: &output,
                 output_r2: None,
                 log_file: &log_file,
+                threads,
             })?;
         }
 
@@ -580,6 +582,7 @@ fn main() -> Result<()> {
             minimap_preset,
             output,
             log_file,
+            threads,
         } => {
             map_reads::execute(&map_reads::MapArgs {
                 reference: &reference,
@@ -588,6 +591,7 @@ fn main() -> Result<()> {
                 minimap_preset: &minimap_preset,
                 output: &output,
                 log_file: &log_file,
+                threads,
             })?;
         }
 

@@ -449,6 +449,7 @@ pub fn execute(args: &RunArgs) -> Result<()> {
                 output: &filtered_path,
                 output_r2: filtered_r2_path.as_deref(),
                 log_file: &prefixed_join(outdir, pfx, "host_filter.log"),
+                threads: args.threads,
             })?;
             let count = fasta::count_reads(&filtered_path)?;
             log::info!("  Reads after host filtering: {}", count);
@@ -475,6 +476,7 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         minimap_preset: &args.minimap_preset,
         output: &prefixed_join(outdir, pfx, "mapped.sam"),
         log_file: &prefixed_join(outdir, pfx, "mapping.log"),
+        threads: args.threads,
     })?;
 
     // Step 6: Generate detection list

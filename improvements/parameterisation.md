@@ -62,6 +62,63 @@ Options, roughly in order of how principled they are:
 **Acceptance test, all three required:** reproduce the LOD per-locus fit, do *not*
 saturate the minimal example, and hold SimVal.
 
+### A1. Partly answered: the scale is already behaving intrinsically (2026-11-24)
+
+The worry was that `e^-2` is conditions-specific — a per-dataset fudge absorbing
+temperature rather than a concentration. Swept it against the B0b enrichment objective,
+on a dataset it was never fitted to: different organisms, different panel (ARGs vs
+Borrelia MLST), 65 °C instead of 58 °C, 5.8 kb fragments instead of 225 bp, and a
+different objective function.
+
+| ln [probe] | Spearman rho | r(log10) | log10 RMSE | centred RMSE |
+|---|---|---|---|---|
+| -8 | +0.919 | 0.860 | 0.639 | 0.464 |
+| -6 | +0.943 | 0.869 | 0.588 | 0.413 |
+| -4 | +0.936 | 0.900 | 0.411 | 0.281 |
+| -3 | +0.936 | 0.914 | 0.297 | 0.217 |
+| -2.5 | +0.936 | 0.917 | 0.256 | 0.200 |
+| **-2 (shipped)** | **+0.936** | **0.914** | **0.233** | **0.195** |
+| -1.5 | +0.936 | 0.907 | 0.228 | 0.200 |
+| -1 | +0.936 | 0.895 | 0.235 | 0.213 |
+| 0 | +0.925 | 0.858 | 0.268 | 0.247 |
+| +2 | +0.890 | 0.791 | 0.332 | 0.300 |
+| +4 | +0.890 | 0.764 | 0.365 | 0.319 |
+
+**`e^-2` sits at the minimum of the shape error on a dataset that did not fit it.** The
+basin is shallow locally — anything from `e^-2.5` to `e^-1.5` is within 0.005 of the
+best — and rises clearly outside it, by 44% at `e^-4` and 27% at `e^0`. Spearman rho is
+*exactly* +0.936 across the whole `e^-3 … e^-1` band: within the basin the concentration
+moves the scale, not the ranking.
+
+The same sweep over `--melting-window`, again never fitted to this dataset:
+
+| window | Spearman rho | r(log10) | log10 RMSE | centred RMSE |
+|---|---|---|---|---|
+| 0 (whole duplex) | +0.886 | 0.748 | 0.389 | 0.326 |
+| **10 (shipped)** | **+0.936** | **0.914** | **0.233** | **0.195** |
+| 15 | +0.930 | 0.831 | 0.285 | 0.272 |
+| 20 | +0.886 | 0.787 | 0.328 | 0.305 |
+| 30 | +0.916 | 0.749 | 0.371 | 0.334 |
+| 60 | +0.881 | 0.749 | 0.383 | 0.325 |
+
+Both constants, fitted on eight Borrelia loci, come out independently optimal here. The
+window is a *sharp* optimum — 15 bp is already 40% worse on shape — and it lands on the
+canonical nucleation length.
+
+This also **reverses the earlier reading that the window hurt SimVal** (CCC 0.791 ->
+0.586). That was measured under the composition objective with `[probe]` solved per run,
+which section A2 shows is the circular configuration; on the non-circular enrichment
+objective with `[probe]` fixed, the window is clearly right.
+
+**What this does and does not settle.** It is real cross-dataset validation of both
+fitted constants, which is what "still provisional" was waiting on, and it is evidence
+the scale behaves like a concentration rather than a temperature fudge, since one value
+holds at 58 °C and at 65 °C. It does *not* make the parameterisation intrinsic in the
+sense option 3 means: the number is still in arbitrary units absorbed into `K`, and two
+datasets at two temperatures do not establish that it transfers to a third. Option 3
+(carry `ln K` relative to a fixed reference duplex) remains worth doing, but as
+tidying-up rather than as a fix for a measured failure.
+
 ## A2. `--capture-fraction` and `--background-retention` are not separately identifiable
 
 To first order `p_retain ~ p_ns + f * p_bound`, so output **composition depends only on
@@ -212,7 +269,7 @@ within it, so all six pool into one estimate. This also confirms the local
 | Akkermansia muciniphila | 0.01924 | 0.00242 | 0.13 |
 | Methanobrevibacter smithii | 0.00086 | 0.00006 | 0.08 |
 
-3 enriched, 13 depleted, **60x dynamic range**. Mechanistically sensible: an ARG panel
+3 enriched, 13 depleted, **60x dynamic range** (63x as the harness scripts compute it — see B0b). Mechanistically sensible: an ARG panel
 should enrich ARG-rich lab *E. coli* and little else. The depletion of everything else
 is compositional — if *E. coli* takes 74% of reads, the rest must shrink.
 
@@ -230,6 +287,327 @@ is compositional — if *E. coli* takes 74% of reads, the rest must shrink.
 **Held-out split available:** 3 replicates x 3 panels x 2 chemistries = 18 enriched
 runs. Fit on one panel/chemistry, validate on the rest. The panels differ (ARGs, MGEs,
 both), so generalising across them is a real test rather than a replicate check.
+
+## B0b. First predicted-vs-measured enrichment: rho = +0.94 (2026-11-24)
+
+Ran the model against the B0 target. Input weights from the pooled non-enriched arm
+(section A3), ARGs panel (`res_probes.fasta`), MOXTAA as the enriched comparison,
+40 000 fragments, `--capture-fraction 0.7`, 5 threads.
+
+Because the weights encode the non-enriched composition, the simulation's own input
+share reproduces B0's input column exactly (ratio 1.000 for all 17 organisms, verified
+from `weights.txt` x reference lengths). So any departure of the output from 1.0 is
+capture, and predicted enrichment is directly comparable to measured.
+
+| organism | input | predicted | measured | pred/meas |
+|---|---|---|---|---|
+| Escherichia coli | 0.16329 | 3.778 | 4.510 | 0.84 |
+| Salmonella enterica | 0.00016 | 1.745 | 1.520 | 1.15 |
+| Lactobacillus fermentum | 0.04576 | 0.800 | 1.299 | 0.62 |
+| Clostridioides difficile | 0.01152 | 0.820 | 0.930 | 0.88 |
+| Bifidobacterium adolescentis | 0.08054 | 1.063 | 0.343 | 3.10 |
+| Faecalibacterium prausnitzii | 0.12984 | 0.580 | 0.295 | 1.97 |
+| Veillonella rogosae | 0.13696 | 0.479 | 0.269 | 1.78 |
+| Roseburia hominis | 0.10362 | 0.404 | 0.254 | 1.59 |
+| Bacteroides fragilis | 0.17968 | 0.203 | 0.209 | 0.97 |
+| Prevotella corporis | 0.07741 | 0.218 | 0.202 | 1.08 |
+| Fusobacterium nucleatum | 0.02733 | 0.287 | 0.189 | 1.52 |
+| Akkermansia muciniphila | 0.01922 | 0.283 | 0.126 | 2.25 |
+| Saccharomyces cerevisiae | 0.01142 | 0.112 | 0.125 | 0.90 |
+| Methanobrevibacter smithii | 0.00089 | 0.175 | 0.072 | 2.42 |
+| Enterococcus faecalis | 0.00001 | 1.168 | 1.063 | 1.10 |
+| *Candida albicans* | 0.01235 | 0.029 | 0.130 | excluded |
+
+**On the 15 scorable organisms: Spearman rho = +0.939, Pearson r(log10) = +0.918,
+log10 RMSE = 0.230 (1.70x), centred 0.193, bias +0.126.** Against a 63x measured
+dynamic range and an r >= 0.989 replicate noise floor, that is the first time the model
+has been scored on a non-circular quantity and come out meaningfully better than chance.
+
+*E. faecalis* is worth singling out: at an input share of 1.1e-5 — four orders of
+magnitude below the dominant organism — it is predicted at 1.17 against a measured 1.06.
+Inflating rare organisms was one of the original failures (*E. faecalis* 1360x under the
+quota model), so this is the specific regression that is now gone.
+
+Scoring the **sampled reads** instead of the analytic prediction gives +0.917 / +0.900 /
+0.250 / 0.212 on 14 organisms, and there *E. faecalis* must be dropped: at this input
+share 40 000 fragments give 0.44 expected fragments, so the run cannot sample it. That
+is a depth limit of the fast harness, not of the model — raise `--num-fragments` and it
+comes back. The remaining analytic-vs-sampled gap is Poisson noise plus a flat 8%
+mapping loss.
+
+Reproduced by `tests/validation/simval/input_weights.py` (pools the non-enriched arm,
+derives weights and input shares) and `enrichment.py` (scores predicted against
+measured). The numbers above come from those scripts, so they differ in the last digit
+from the first hand-computed pass.
+
+For scale, the composition-based comparison this replaces gave Lin's CCC 0.80 while
+simultaneously under-predicting *E. coli* 3x and inflating *S. enterica* 135x — the two
+facts could coexist because composition is dominated by whether the input weights were
+guessed well.
+
+**One organism excluded, for a diagnosed reason, not for being inconvenient:**
+
+- *Candida albicans* — **the reference assembly is 13 062 contigs over 12.58 Mb**, mean
+  963 bp, against a 5.8 kb fragment length. Only **25.4%** of its bases sit on a contig
+  long enough to start a mean-length fragment, versus 99.7-99.8% for every other
+  organism in the panel. Predicted/floor = 0.028/0.115 = **0.244** against an available-
+  starts fraction of **0.254** — the shortfall is the assembly, to two significant
+  figures, with nothing left for the capture model to explain.
+
+The exclusion was checked rather than assumed. Per-organism mapping rate is flat at
+88-94% across all 15 detected organisms, so the loss is not a mapping artifact; and the
+realised input composition matches the intended one at ratio 1.000 for all 17 organisms
+(computed from `weights.txt` x reference lengths), so it is not the weights.
+
+### What the residual says
+
+The first guess was compositional closure: if *E. coli* is under-captured (3.78 vs 4.48)
+then, because enrichments must satisfy `sum(input x enrichment) = 1` (measured 0.9996,
+predicted 1.0000), every other organism has to be over-predicted — by
+`(1-0.620)/(1-0.736) = 1.44x`. **That explains the centre and not the spread.** The
+geometric mean of the 13 non-*E. coli* ratios is 1.21, close to the prediction, but they
+run from 0.62 to 3.10, and centring the log residuals (the CLR transform, which removes
+closure exactly) barely moves the error: 0.230 -> 0.193. So most of the error is real
+shape, not an artifact of the constraint.
+
+The shape error has a direction: **the model does not deplete the untargeted bacteria
+enough.** Bifidobacterium 3.10x, Methanobrevibacter 2.42x, Akkermansia 2.25x,
+Faecalibacterium 1.97x. In the real data these four sit at 0.08-0.34, which is close to
+where an organism with *no* probe binding at all should sit — the carryover floor is
+`p_ns / yield = 1e-3 / 8.699e-3 = 0.115`.
+
+### A fast way to test this, built first
+
+Predicted enrichment does not need the pipeline. The sampler draws a reference with
+probability proportional to `weight x retention_mass`, so an organism's expected output
+share is its pooled `w x mass`, and the whole table is computable from
+`fragments.retention.tsv`. `simulate` alone with a warm `--probe-hits` cache therefore
+replaces a ~25 minute run with ~90 seconds, and because it is analytic it carries no
+sampling noise, and reaches organisms the sampled run is too shallow to see. Verified
+against the sampled run on the same 14 organisms: rho +0.939 vs +0.917, log10 RMSE 0.238
+vs 0.250, per-organism ratios within ~5% (the gap is Poisson noise plus the flat 8%
+mapping loss). Script: `tests/validation/simval/enrichment.py`, with `--reads` to score
+the sampled side instead.
+
+One caveat it caught immediately: `simulate` run without
+`--fragment-length-mean/-min/-max` does not reproduce a `run` that set them, and the
+retention profile changes enough to invert conclusions (yield 0.13% vs 0.87%, log RMSE
+0.564 vs 0.233). Any sweep like this must carry an unfiltered baseline row and check it
+against the reference run before the other rows are read.
+
+### The predicted enrichment does not depend on the input composition
+
+Found while moving the input-weights derivation into the harness. Writing `w_o = s_o /
+L_o` (share over group length, which is what the weights must be — see
+`input_weights.py`) and substituting into the sampler's draw probability:
+
+```
+predicted_share_o  = w_o M_o / sum_j w_j M_j
+predicted_enrich_o = predicted_share_o / s_o = (M_o / L_o) / sum_j (s_j M_j / L_j)
+                   = efficiency_o / mean_efficiency
+```
+
+The share `s_o` cancels. **Predicted enrichment is retention mass per base, divided by
+one composition-weighted scalar common to every organism.** So all relative predicted
+enrichments — the ranking, and every ratio between organisms — are completely
+independent of the input composition, and only the common scale depends on it.
+
+Measured, as a check rather than a derivation: pooling the six non-enriched runs by
+count instead of averaging their shares moves individual input shares by up to 5% (and
+much more for the two organisms near one read), and the score does not move — rho
++0.9361 both ways, r(log10) +0.9143 both ways, centred RMSE 0.195 both ways, log10 RMSE
+0.233 vs 0.234. Only the bias shifts, by 0.002.
+
+Three consequences:
+
+1. **The objective is maximally non-circular.** The input composition enters only as the
+   denominator of the *measured* enrichment. It plays no part in the prediction, so
+   there is no route by which guessing the input well could flatter the model.
+2. **It is robust to how the non-enriched arm is pooled**, which was the one judgement
+   call in deriving the input. Pooling by count is still the better estimator — it is
+   the ML estimate under a shared multinomial — but nothing hinges on it.
+3. **Shape can be scored straight from `fragments.retention.tsv`**: the `efficiency`
+   column *is* the predicted enrichment up to that one scalar. Verified against the
+   table above — *E. coli* 0.03231/0.008699 = 3.71 vs 3.76 predicted, *Akkermansia*
+   0.00243/0.008699 = 0.279 vs 0.282, *M. smithii* 0.00157/0.008699 = 0.180 vs 0.183.
+
+### Two candidate causes, both rejected by measurement
+
+> The sweep tables below, and those in A1 and D, were scored before the input
+> derivation moved into `input_weights.py`, so their absolute values sit ~0.005 from
+> B0b's headline. Every one of them is a *relative* comparison, and the
+> composition-independence result above shows the ranking cannot depend on that
+> derivation — rho was bit-identical across both versions. The baseline row in each
+> table is the shipped configuration, so read the rows against it, not against B0b.
+
+**1. Spurious cross-reactive placements.** The residual does not track probe signal:
+`resid` vs per-organism specific fraction r = +0.026 (+0.277 in log), vs covered-start
+fraction r = +0.104. Direct inspection then made the placement story look compelling
+anyway — the three organisms the real data puts at or below the carryover floor
+(Saccharomyces 0.13, Akkermansia 0.13, Methanobrevibacter 0.08) are *exactly* the three
+with zero placements at >= 110 bp and >= 95% identity, while every enriched organism has
+them; and median aligned length is 78-96 bp on untargeted organisms against 118 bp on
+*E. coli*. A hand-built density statistic confirmed it: measured enrichment correlates
+with `hits/Mb` at r(log) = +0.595, rising monotonically to +0.784 when restricted to
+hits >= 110 bp at >= 95% identity. The perfect-identity hits on untargeted organisms are
+not low-complexity artifacts either — they are 16S rRNA, which a conserved region makes
+genuinely universal.
+
+So: filter the cache and re-simulate. **It does not work.**
+
+| min aligned frac | min identity | hits kept | Spearman rho | log10 RMSE | centred | bias |
+|---|---|---|---|---|---|---|
+| — | — | 100.0% | +0.936 | 0.233 | 0.195 | +0.128 |
+| 0.50 | 0.90 | 42.1% | +0.899 | 0.215 | 0.195 | +0.091 |
+| 0.75 | 0.90 | 37.6% | +0.870 | 0.208 | 0.203 | +0.046 |
+| 0.90 | 0.90 | 34.4% | +0.901 | 0.210 | 0.208 | +0.030 |
+| 0.90 | 0.95 | 27.6% | +0.901 | 0.215 | 0.215 | +0.015 |
+| 0.90 | 0.98 | 23.4% | +0.903 | 0.206 | 0.205 | +0.012 |
+| 0.95 | 0.95 | 27.2% | +0.822 | 0.219 | 0.219 | -0.001 |
+
+Raw RMSE improves ~10%, but **every bit of it is the bias going to zero** — centred
+RMSE is flat to worse (0.195 -> 0.219) and Spearman rho *degrades* (0.936 -> 0.822).
+Discarding three quarters of the placements barely moves composition, because with
+5.8 kb fragments and `--min-overlap-frac 0.5` a single hit covers ~2.9 kb of start
+positions: roughly one hit per 4 kb saturates coverage, so hit density is not the
+model's discriminating variable even though it is the hand-built statistic's. This is
+the lesson of correction #8 again — a statistic that correlates with the target is not
+evidence about the mechanism until the model is run with it changed.
+
+**2. The 10 bp melting window as a compressor.** A probe at 85% identity almost always
+contains some perfectly matched 10-mer, so a window criterion is length-blind by
+construction and should make marginal placements look capture-competent. Swept it
+(table in section A1): window 10 is not the compressor, it is the discriminator —
+**the best value on this dataset too**, by 40% in shape over 15 bp and 67% over the
+whole duplex.
+
+**The residual's cause is therefore still open**, and it is now known not to be
+placement stringency, not the melting window, not probe concentration (A1: identical
+ranks across the basin), not `--capture-fraction` (D: identical ranks across a 10x
+range), not compositional closure (centring barely moves it), not mapping, and not the
+input weights. What remains untested is the combination rule itself at fragment scale:
+the product over probes overlapping a 5.8 kb fragment saturates for any organism with a
+few hundred scattered hits, which would compress the top and lift the bottom — the
+observed pattern. That is the same "product form is inherently flattening" concern the
+plan recorded for Borrelia per-locus capture, reappearing at organism scale, and it is
+the one hypothesis the sweeps above cannot address because every one of them leaves the
+product rule intact.
+
+### A real defect found on the way: fragmented assemblies lose mass silently
+
+The Candida diagnosis is not only about this dataset. Retention mass counts fragment
+**start positions** (`n_starts = L - f + 1`, with `f` clamped to `L` for short contigs,
+giving exactly 1 start), while the input weights encode DNA **mass** (proportional to
+`L`). The two agree to 0.1% when `L >> f` and diverge badly when they are comparable:
+
+| | bases | starts@5.8kb | realised share |
+|---|---|---|---|
+| closed bacterial chromosome | 2-5 Mb | 99.7-99.9% | as intended |
+| Candida albicans draft | 12.58 Mb / 13 062 contigs | 25.4% | 0.25x intended |
+
+`sample_retention_fragments` bails only when *every* sequence is unsampleable; losing
+three quarters of one organism is silent. Draft assemblies are the norm in real
+reference panels, so this will hit users. Two things to do, recorded in the plan's
+Stage 5 (it is the same contig-end arithmetic as D10):
+
+1. **Warn.** Report the fraction of weighted input mass that cannot yield a
+   mean-length fragment, per reference and in aggregate, whenever it is non-trivial.
+2. **Fix the arithmetic.** Make mass proportional to `L` for every contig rather than to
+   `L - f + 1`, which also removes the inward bias at contig ends that D10 already
+   flags. The uniform factor `f` cancels in composition, so only the end effect matters.
+
+## B0c. Full gates, all 11 LOD conditions and 3 SimVal replicates (2026-11-24)
+
+First time the full gates have ever actually run: `run_full.sh` exported
+`VALIDATION_MODE=full` and then exec'd `run_fast.sh`, which began with an unconditional
+`export VALIDATION_MODE=fast`. Every previous "full" run was the fast subsets. Three
+harness defects fixed before these numbers mean anything (see the plan's harness list).
+
+### LOD titration — 11 conditions
+
+| | |
+|---|---|
+| real dynamic range | **27,035x** (4.16e-5 at NTC to 0.796 at Pos1) |
+| Pearson r (log10) | **+0.9993** |
+| log10 RMSE | 0.243 (1.75x) |
+| sim/real, 8 dilute conditions | **1.92x** (range 1.82–2.06) |
+| sim/real, 3 saturated conditions | 1.09x (range 1.05–1.12) |
+
+The shape is essentially exact over four and a half orders of magnitude. Nearly all the
+RMSE is a **constant multiplicative offset** in the dilute regime that compresses as
+capture saturates — a scale error, not a shape error.
+
+### Per-locus efficiency at Pos1, relative to rplB
+
+r(log10) = **+0.964**, Spearman rho = +0.786, log10 RMSE 0.139 (**1.38x**), worst locus
+clpX 1.70x. Per-locus efficiency is stable across the whole dilution series — spread
+(max/min over 11 conditions) is 1.0–2.1x for seven of eight loci — which is the
+separability of efficiency from abundance that the real data shows and the quota model
+could not produce.
+
+*Not comparable to the previously recorded "per-locus log-RMSE 1.00"*: that came from
+`locus_efficiency.py`'s own statistic, and these gates also ran with the shipped
+10 bp window, which the old `config.sh` was overriding. Re-derive that figure the same
+way before claiming an improvement.
+
+### SimVal, 3 replicates
+
+Composition (E. coli strains collapsed), and enrichment with `--min-real-reads 10`:
+
+| replicate | comp. rho | comp. r | comp. CCC | enrich rho | enrich r | enrich centred |
+|---|---|---|---|---|---|---|
+| MOXTAA | 0.929 | 0.974 | 0.961 | +0.939 | +0.917 | 0.204 |
+| MOXTAB | 0.929 | 0.965 | 0.958 | +0.917 | +0.916 | 0.186 |
+| MOXTAC | 0.949 | 0.753 | 0.751 | +0.780 | +0.863 | 0.203 |
+
+**MOXTAC is a genuinely weaker replicate, not an artifact.** The first suspicion was
+rare-organism noise, and that was *part* of it: *E. faecalis* has 4 / 1 / **0** reads
+across A / B / C and *C. perfringens* 0 / 0 / 1, so the scored set differed between
+replicates and single-read organisms carried ~100% measurement error. Hence the new
+`--min-real-reads` floor (default 10), which puts all three on the same 14 organisms.
+It improves MOXTAC (rho 0.768 -> 0.780, r 0.822 -> 0.863, centred 0.239 -> 0.203) but
+does not close the gap. MOXTAC's measured dynamic range is 34x against 63x and 43x, and
+*C. difficile* sits at 0.323 against 0.930 and 0.985 — the experiment itself enriched
+less that time.
+
+### The number that matters: model error against the replicate noise floor
+
+Three replicates make it possible to ask whether the residual is model error or
+experimental noise. Per organism, across replicates:
+
+| quantity | log10 | fold |
+|---|---|---|
+| replicate noise, pooled within-organism SD | 0.125 | 1.33x |
+| SD of the 3-replicate **mean** (what the prediction is scored against) | 0.072 | 1.18x |
+| prediction vs replicate mean, RMSE | 0.208 | 1.61x |
+| — of which bias | +0.113 | 1.30x |
+| — centred (shape) | 0.175 | 1.50x |
+| **excess model error after removing replicate noise** | **0.159** | **1.44x** |
+
+**The model is not yet at the noise floor**: its shape error is about twice the
+irreducible noise. An earlier, looser comparison — median replicate spread (max/min,
+1.59x) against median |prediction / replicate mean| (1.41x) — appeared to show the
+model matching replicate variability, but those are two different statistics and the
+comparison flattered the model. The variance decomposition above is the honest version.
+
+### Both datasets say the same thing
+
+| | shape | scale offset |
+|---|---|---|
+| LOD titration, 11 conditions | r(log10) = +0.9993 | 1.92x (dilute regime) |
+| SimVal enrichment, 3 replicates | rho = +0.78 to +0.94 | 1.30x (bias term) |
+
+Two independent datasets, different organisms, panels, chemistries, fragment lengths and
+temperatures, agree that **relative capture is predicted well and there is one global
+scale offset of roughly 1.3–2x.** That is a single scalar, and section A2 already
+identified which one: only `f / p_ns` is identifiable from composition, and section D
+showed `--capture-fraction` moves bias without touching shape (Spearman identical to
+four decimals across a 10x range). So the offset is correctable in principle and
+**cannot be fitted from this data** — it needs an absolute anchor: a spike-in, a
+measured library yield, or an on-target fraction against a distractor arm.
+
+That is now the single clearest open item for the model, and it is a parameterisation
+question rather than a physics one.
 
 ## B. Decide what we optimise against
 
@@ -272,17 +650,39 @@ of the simulation-rework plan.
 - [x] **Re-run the gates after the multiplier landed** (2026-11-21, fast subsets,
       5 threads). Titration 0.00010 / 0.00205 / 0.83475 against real 0.0000416 /
       0.00109 / 0.79565; per-locus log-RMSE 2.71 -> 1.00; SimVal 0.9098 / 0.7932.
-- [ ] **Re-derive the harness `--capture-fraction` values.** Added by the re-run above.
-      `simval/run.sh` still passes 0.207, calibrated under the old meaning (fraction of
-      fragments drawn from probe sites). Under the new meaning the same model scores
-      0.9500 / 0.8027 at `cf=1.0` versus 0.9098 / 0.7932 at 0.207, so the SimVal gate
-      is currently measuring the wrong scenario rather than the model. Note A2: only
-      `f / p_ns` is identifiable from composition, so this is a choice about the ratio.
+- [x] **Re-derive the harness `--capture-fraction` values** (2026-11-24) — and the
+      answer is that **the enrichment data cannot pin it, by construction.** Swept
+      against B0b with `[probe]` and the window fixed:
+
+      | `--capture-fraction` | Spearman rho | r(log10) | log10 RMSE | centred | bias |
+      |---|---|---|---|---|---|
+      | 0.1 | +0.9361 | 0.921 | 0.445 | 0.301 | +0.328 |
+      | 0.3 | +0.9361 | 0.925 | 0.308 | 0.219 | +0.217 |
+      | 0.5 | +0.9361 | 0.920 | 0.256 | 0.198 | +0.162 |
+      | 0.7 | +0.9361 | 0.914 | 0.233 | 0.195 | +0.128 |
+      | 0.9 | +0.9361 | 0.909 | 0.224 | 0.198 | +0.104 |
+      | 0.99 | +0.9361 | 0.907 | 0.222 | 0.201 | +0.095 |
+
+      Spearman rho is *identical to four decimals* at every value across a 10x range,
+      and centred RMSE varies by 0.006 over 0.5–0.99. All of the movement in raw RMSE
+      is the bias term. This is a direct measurement of what the flag's help text
+      asserts by design: it is a uniform multiplier on specific capture and does not
+      reshape relative capture. Enrichment is scale-free by compositional closure, so a
+      pure scale knob is invisible to it — exactly A2's identifiability problem,
+      now confirmed on the other axis.
+
+      **Consequence: stop trying to fit it.** Pinning `--capture-fraction` needs an
+      absolute quantity the compositional data does not contain — a spike-in, a measured
+      library yield, or an on-target fraction against a distractor arm. The harness
+      should therefore pass a *documented scenario value*, not a fitted one, which is
+      also what the flag is for. `simval/run.sh`'s 0.207 was calibrated under the old
+      meaning and is simply stale; replace it with the default rather than refit.
 - [ ] **Full 11-condition LOD and all three SimVal replicates**, not the fast subsets.
       Everything measured so far is 3 LOD conditions and 1 replicate.
-- [ ] **Decide whether `--capture-fraction 0.5` remains a sensible default** now that it
-      means protocol efficiency (wash stringency, hybridisation time, elution losses)
-      rather than a solved target.
+- [x] **Decide whether `--capture-fraction 0.5` remains a sensible default** — keep it.
+      It is mid-range for a knob that now means protocol efficiency, the sweep above
+      shows the choice does not affect any shape metric, and no available dataset
+      constrains it. Changing it would imply a precision the data does not support.
 
 ## Suggested order
 

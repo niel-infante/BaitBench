@@ -88,11 +88,16 @@ pub fn generate_weights(
 
     for id in target_ids {
         let w = sample_weights.get(id).copied().unwrap_or(0.0);
-        writeln!(writer, "{}\t{:.6}", id, w)?;
+        // `{:e}`, not `{:.6}`: a fixed six decimals silently rounds any weight below
+        // 5e-7 to zero. That is not a corner case — weighting a genome by
+        // `abundance / genome_length` puts weights around 1e-8, and the whole sample
+        // then lands at zero weight and the run dies with "no reference sequence can
+        // yield a fragment", pointing at fragment length rather than at the real cause.
+        writeln!(writer, "{}\t{:e}", id, w)?;
     }
 
     for id in distractor_ids {
-        writeln!(writer, "{}\t{:.6}", id, distractor_weight)?;
+        writeln!(writer, "{}\t{:e}", id, distractor_weight)?;
     }
 
     writer.flush()?;
@@ -211,6 +216,35 @@ mod tests {
             tmp.path()
         )
         .is_err());
+    }
+
+    /// Small weights must survive being written and read back.
+    ///
+    /// Weighting a genome by `abundance / genome_length` lands around 1e-8. Written
+    /// with a fixed six decimals those all became 0.000000, every sequence was dropped
+    /// as zero-weight, and the run failed with a message about fragment length.
+    #[test]
+    fn small_weights_survive_the_round_trip() {
+        use std::io::Write as _;
+        let dir = std::env::temp_dir();
+        let path = dir.join(format!("bb_small_weights_{}.txt", std::process::id()));
+        {
+            let mut f = std::fs::File::create(&path).unwrap();
+            writeln!(f, "# BaitBench weights file").unwrap();
+            for (id, w) in [("a", 3.44e-8_f64), ("b", 6.7e-9), ("c", 1.0)] {
+                writeln!(f, "{}\t{:e}", id, w).unwrap();
+            }
+        }
+        let got = parse_weights(&path).unwrap();
+        assert!((got["a"] - 3.44e-8).abs() < 1e-18, "got {}", got["a"]);
+        assert!((got["b"] - 6.7e-9).abs() < 1e-18, "got {}", got["b"]);
+        assert!(
+            got["a"] > 0.0 && got["b"] > 0.0,
+            "small weights must not become zero"
+        );
+        // And the ratio, which is what actually drives composition, is preserved.
+        assert!(((got["a"] / got["b"]) - (3.44e-8 / 6.7e-9)).abs() < 1e-6);
+        let _ = std::fs::remove_file(&path);
     }
 
     #[test]

@@ -59,17 +59,26 @@ export THREADS
 mkdir -p "$PROBE_CACHE_DIR" 2>/dev/null || true
 export PROBE_CACHE_DIR
 
-# Cooperative melting unit under calibration (0 = whole duplex, the shipped default).
-# Set MELTING_WINDOW=10 to gate the candidate capture law.
-: "${MELTING_WINDOW:=0}"
+# Model parameters. Both of these are EMPTY by default so the gates exercise the
+# binary's own defaults (melting window 10, [probe] = e^-2) rather than pinning a
+# configuration here that drifts out of step with what ships. Set either one to sweep
+# it; the gate scripts pass the flag only when the variable is non-empty.
+#
+# This was previously `MELTING_WINDOW:=0`, which silently forced the whole-duplex
+# occupancy on every gate run — not the shipped default, and the worst of the six
+# values measured against the enrichment target (parameterisation.md A1).
+: "${MELTING_WINDOW:=}"
 export MELTING_WINDOW
-
-# Fixed probe concentration, bypassing the --capture-fraction solver. Empty = solve.
-# Solving per run makes the model a rank-threshold device: the scalar re-centres around
-# any change to the affinity basis, so the change cannot be observed. e^-2 = 0.13534 is
-# the optimum from tests/locus_calibration.rs with a 10 bp melting window.
 : "${PROBE_CONC:=}"
 export PROBE_CONC
+
+# Capture efficiency for the mock-community gate. The flag is a scenario multiplier, and
+# the enrichment objective provably cannot pin it — Spearman rho is identical to four
+# decimals across a 10x range (parameterisation.md D) — so the gate passes the shipped
+# default rather than a fitted value. It was 0.207, calibrated under the pre-rework
+# meaning (fraction of fragments drawn from probe sites), which no longer exists.
+: "${SIMVAL_CAPTURE_FRACTION:=0.5}"
+export SIMVAL_CAPTURE_FRACTION
 
 # Fast mode keeps the inner loop to minutes; full mode is the release gate.
 if [[ "${VALIDATION_MODE:-fast}" == "fast" ]]; then

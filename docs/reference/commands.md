@@ -145,10 +145,13 @@ baitbench filter \
   --reads reads.fa \
   --output filtered.fa \
   [--minimap-preset sr] \
+  [--threads 1] \
   [--log-file host_filter.log]
 ```
 
 Uses the embedded aligner to map reads against the host genome. Reads that map are removed; unmapped reads are retained.
+
+Alignment is parallelised across `--threads`; the default of 1 leaves most machines idle on what is usually the largest alignment in a run.
 
 **Output:** `filtered.fa` — reads after host depletion.
 
@@ -164,12 +167,15 @@ baitbench map \
   --reads reads.fa \
   --output mapped.sam \
   [--minimap-preset sr] \
+  [--threads 1] \
   [--log-file mapping.log]
 ```
 
 In standard mode, reads are mapped to `combined_reference.fa`. In genome mode, reads are mapped to `mapping_reference.fa` (targets + distractors).
 
-**Output:** `mapped.sam` — SAM alignment file.
+Mapping is parallelised across `--threads` and is the dominant cost of a pipeline run once probe placements are cached, so raise it to your core count for anything beyond a small example. Records are written in input order, so the SAM is byte-identical whatever the thread count.
+
+**Output:** `mapped.sam` — SAM alignment file, in the same read order as the input FASTA.
 
 ---
 

@@ -82,7 +82,7 @@ src/
 ├── catch.rs             # Native CATCH probe design: design_probes() — tiling → MinHash dedup → greedy set cover (reimplementation of Metsky et al. 2019). Strand enum: Forward (CATCH-compatible, default) vs Both (also credits reverse-complement hits). Logs realized coverage and warns on shortfall.
 ├── probetools.rs        # ProbeTools-Lite probe design: design_probes() — iterative k-mer enumeration → cd-hit-est clustering → greedy batch selection → minimap2 coverage → low-cov extraction (reimplementation of Kuchinski et al. 2022)
 ├── external/
-│   ├── minimap2.rs      # minimap2 wrapper: map_reads (SAM, optional reads_r2 for PE), host_align (optional reads_r2), probe_align(max_secondary), xreact_align
+│   ├── minimap2.rs      # rammap wrapper: map_reads / host_align (SAM, optional reads_r2 for PE; both parallel over reads via the shared map_one_file helper, written in input order), probe_align(max_secondary), xreact_align
 │   ├── art_modern.rs    # ART-modern wrapper: check_available, run_simulation (Illumina SE/PE reads + SAM for renaming; takes threads, passed as `--parallel` — pinned rather than left at art_modern's own "all CPUs" default, which divides --coverage-depth across threads/strands and can silently zero out short-fragment output)
 │   ├── badread.rs       # badread wrapper: check_available, profile_params (ont/ont-2020/pacbio → error+qscore models), run_simulation (long reads; FASTQ to stdout)
 │   ├── blastn.rs        # BLAST+ wrapper: check_available, xreact_align (makeblastdb + blastn-short → tabular hits; empty query/reference short-circuits to an empty result instead of erroring; used by xreact --aligner blast, incl. when chained from assess-probes/build-probes)
@@ -136,7 +136,7 @@ Every command module exports an `Args` struct and an `execute(&Args) -> Result<(
 | `simulate` | `SimulateArgs` | reference, weights, probes, num_fragments, capture_fraction, background_retention, probe_concentration, min_overlap_frac, simulate_mode, aligner, hybridization_temperature, na_conc_m, seed, fragment_length_*, threads | fragments.fa, fragments.model_stats.tsv, fragments.retention.tsv |
 | `sequence` | `SequenceArgs` | input, output, output_r2, read_length, num_sequences, seed, simulator (perfect/art/badread), sequencer_profile, coverage_depth, threads (art only, → art_modern `--parallel`), paired_end, pe_frag_len_mean, pe_frag_len_sd, output_format | reads.fa/.fq (SE) or reads.fa/.fq + reads_R2.fa/.fq (PE); extension determined by output_format; errors injected by art_modern or badread when simulator ≠ perfect; `check_reads_generated()` bails if art_modern/badread produce 0 reads from non-empty input |
 | `filter` | `FilterArgs` | host, reads, reads_r2, minimap_preset | filtered.fa/.fq (+ filtered_R2.fa/.fq for PE); format detected automatically from input |
-| `map_reads` | `MapArgs` | reference, reads, reads_r2, minimap_preset | mapped.sam |
+| `map_reads` | `MapArgs` | reference, reads, reads_r2, minimap_preset, threads | mapped.sam (records in input-FASTA order, independent of thread count) |
 | `generate_list` | `ListArgs` | sam | detected.list |
 | `metrics` | `MetricsArgs` | targets, distractors, sample, detected, fragments, captured, sam, sample_target_map, target_groups, distractor_groups, reads_sequenced, reads_after_filter, output_group_detail | results.tsv, detected_detail.tsv (with group col), group_detail.tsv (when groups present), results.json, coverage.tsv |
 | `report` | `ReportArgs` | summary, detail, params, coverage, group_detail, run_name, report (ReportMode) | report.html or report.Rmd |
@@ -337,7 +337,7 @@ All wrappers follow the pattern: `check_available() → bool/Result`, then speci
 |------|--------|------------|---------|
 | `combined_reference.fa` | FASTA | prepare | simulate; map_reads (standard mode) |
 | `mapping_reference.fa` | FASTA | prepare (genome mode) | map_reads (genome mode) |
-| `weights.txt` | TSV (id weight) | prepare | simulate |
+| `weights.txt` | TSV (id weight); weight written as `{:e}` — a fixed six decimals silently zeroes the ~1e-8 weights that `abundance / genome_length` produces | prepare | simulate |
 | `targets.txt` | ID list | prepare | metrics |
 | `distractors.txt` | ID list | prepare | metrics |
 | `genomes.txt` | ID list | prepare (genome mode) | enrich (genome mode), metrics |

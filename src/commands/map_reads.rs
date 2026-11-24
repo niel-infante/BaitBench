@@ -11,6 +11,8 @@ pub struct MapArgs<'a> {
     pub minimap_preset: &'a str,
     pub output: &'a Path,
     pub log_file: &'a Path,
+    /// Rayon workers for the mapping step. Mapping is the dominant cost of a run.
+    pub threads: usize,
 }
 
 pub fn execute(args: &MapArgs) -> Result<()> {
@@ -24,6 +26,7 @@ pub fn execute(args: &MapArgs) -> Result<()> {
         args.reads_r2,
         args.output,
         args.log_file,
+        args.threads,
     )?;
 
     log::info!("Mapping complete: {}", args.output.display());

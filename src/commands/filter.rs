@@ -15,6 +15,8 @@ pub struct FilterArgs<'a> {
     /// R2 filtered output path — required when `reads_r2` is `Some`.
     pub output_r2: Option<&'a Path>,
     pub log_file: &'a Path,
+    /// Rayon workers for the host alignment.
+    pub threads: usize,
 }
 
 pub fn execute(args: &FilterArgs) -> Result<()> {
@@ -31,6 +33,7 @@ pub fn execute(args: &FilterArgs) -> Result<()> {
         args.reads_r2,
         &host_sam,
         args.log_file,
+        args.threads,
     )?;
 
     // Get IDs of reads that map to host

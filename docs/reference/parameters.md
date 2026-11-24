@@ -302,7 +302,7 @@ Additional flags for `badread` only:
 
 | Parameter | Flag | Default | Description |
 |-----------|------|---------|-------------|
-| Threads | `--threads` | 1 | Threads for external tools (BLAST, cd-hit-est) and for art_modern's `--parallel` (`--read-simulator art`) |
+| Threads | `--threads` | 1 | Threads for probe placement, read mapping and host filtering, for external tools (BLAST, cd-hit-est), and for art_modern's `--parallel` (`--read-simulator art`). Mapping and probe placement are the two dominant costs of a run and both scale close to linearly, so raise this to your core count. The standalone `filter` and `map` subcommands take their own `--threads`. |
 | Output dir | `--outdir`, `-o` | ./results | Output directory. A timestamped subdirectory is created for each run. |
 | Output prefix | `--output-prefix` | (empty) | String prepended to every auto-generated output filename |
 | Run name | `--run-name` | auto | Custom name for the run. Default: `run_YYYYMMDD_HHMMSS` |

@@ -259,7 +259,7 @@ These are written during a run and can be removed with `--cleanup`:
 |------|--------|-----------|
 | `combined_reference.fa` | FASTA | `prepare` |
 | `mapping_reference.fa` | FASTA | `prepare` (genome mode) |
-| `weights.txt` | TSV: `id<TAB>weight` | `prepare` |
+| `weights.txt` | TSV: `id<TAB>weight`, weight in exponential notation (e.g. `3.44e-8`) | `prepare` |
 | `fragments.fa` | FASTA, IDs: `{seq_id}_fragment_{n} start={pos} length={len}` | `simulate` |
 | `fragments.model_stats.tsv` | TSV: `parameter<TAB>value` | `simulate` |
 | `fragments.retention.tsv` | TSV, one row per reference (see below) | `simulate` |
