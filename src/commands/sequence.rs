@@ -71,6 +71,8 @@ pub struct SequenceArgs<'a> {
     pub long_read_length_mean: Option<usize>,
     /// Override profile default read length SD (badread only).
     pub long_read_length_sd: Option<usize>,
+    /// Override the sequencer profile's identity distribution (badread `--identity`).
+    pub read_identity: Option<String>,
     /// badread --glitches "rate,size,skips" (None = badread default).
     pub badread_glitches: Option<String>,
     /// badread --junk_reads percentage 0–100 (None = badread default).
@@ -337,6 +339,7 @@ fn execute_badread(args: &SequenceArgs) -> Result<()> {
         &log_path,
         args.long_read_length_mean,
         args.long_read_length_sd,
+        args.read_identity.as_deref(),
         args.badread_glitches.as_deref(),
         args.badread_junk_reads,
         args.badread_random_reads,

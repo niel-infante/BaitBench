@@ -1,0 +1,34 @@
+# D6331 synthetic mock community, BioProject PRJNA1081843.
+#
+# Sample names are the local *_counts.tsv prefixes; accessions were matched to them by
+# exact total read count, not by guessing from the accession order — the MOXTA
+# replicates A/B/C run in *reverse* accession order (696/695/694), so an ordinal guess
+# would have paired every one of them wrong.
+#
+# ENA names the files `<acc>_subreads.fastq.gz`, but the content is CCS/HiFi:
+# read headers end `.../ccs/N`. See fetch_reads.sh.
+sample	run_accession
+MOV2AA	SRR28150710
+MOV2AB	SRR28150709
+MOV2AC	SRR28150707
+MOV2AMA	SRR28150706
+MOV2AMB	SRR28150705
+MOV2AMC	SRR28150704
+MOV2MA	SRR28150703
+MOV2MB	SRR28150702
+MOV2MC	SRR28150701
+MOV2NEGA	SRR28150700
+MOV2NEGAM	SRR28150699
+MOV2NEGM	SRR28150698
+MOXTAA	SRR28150696
+MOXTAB	SRR28150695
+MOXTAC	SRR28150694
+MOXTAMA	SRR28150693
+MOXTAMB	SRR28150692
+MOXTAMC	SRR28150691
+MOXTMA	SRR28150690
+MOXTMB	SRR28150689
+MOXTMC	SRR28150688
+MOXTNEGA	SRR28150735
+MOXTNEGAM	SRR28150733
+MOXTNEGM	SRR28150732

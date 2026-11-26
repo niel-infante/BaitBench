@@ -14,6 +14,11 @@ pub struct Cli {
     pub command: Commands,
 }
 
+// `Run` carries every pipeline flag inline, so it is far larger than variants like
+// `List { sam, output }`. Boxing it to equalise the variants would mean indirection on a
+// value that is parsed exactly once at startup and then destructured — the lint is
+// aimed at enums passed around in hot paths, which this is not.
+#[allow(clippy::large_enum_variant)]
 #[derive(Subcommand)]
 pub enum Commands {
     /// Run the full pipeline
@@ -215,6 +220,23 @@ pub enum Commands {
         #[arg(long, default_value = "200")]
         fragment_length_max: usize,
 
+        /// Standard deviation of the fragment length distribution, in bases.
+        ///
+        /// Defaults to (max - min) / 6, which reads the min/max span as a +/-3 sigma
+        /// interval. That is a guess about intent rather than a measurement, so set it
+        /// explicitly when the library's real spread is known.
+        #[arg(long)]
+        fragment_length_sd: Option<f64>,
+
+        /// Shape of the fragment length distribution: `normal` or `lognormal`.
+        ///
+        /// Sonication and enzymatic fragmentation give right-skewed lengths, which a
+        /// Normal cannot represent — it is symmetric, so matching a long upper tail
+        /// forces an equally long lower one. Either shape is truncated to
+        /// [min, max] by redrawing, not by clamping to the bounds.
+        #[arg(long, default_value = "normal")]
+        fragment_length_distribution: String,
+
         /// Sequencing read length in bp. Used by `perfect` (trim) and `art` (--read_len).
         /// Not applicable for `badread` (read length is determined by the error model and fragment length).
         #[arg(long, default_value = "120")]
@@ -267,6 +289,17 @@ pub enum Commands {
         /// Override badread read length standard deviation (bp). Defaults to profile value: 7000 (ont/ont-2020), 13000 (pacbio).
         #[arg(long)]
         long_read_length_sd: Option<usize>,
+
+        /// Read identity distribution for `--read-simulator badread`, as badread's
+        /// `mean,max,stdev` (beta) or `mean,stdev` (normal qscore).
+        ///
+        /// Identity is a separate axis from the error model: the model shapes what kind
+        /// of errors appear, this sets how many. Badread's own default is `95,99,2.5`,
+        /// so without this a PacBio simulation runs at CLR-grade accuracy whatever
+        /// error model is selected. The `pacbio-hifi` profile defaults to
+        /// `99.5,100,1.5`; set this to match a specific run's measured distribution.
+        #[arg(long)]
+        read_identity: Option<String>,
 
         /// badread glitch simulation: "rate,size,skips" (e.g. "10000,100,25"). When absent, badread uses its default.
         #[arg(long)]
@@ -523,6 +556,23 @@ pub enum Commands {
         #[arg(long, default_value = "200")]
         fragment_length_max: usize,
 
+        /// Standard deviation of the fragment length distribution, in bases.
+        ///
+        /// Defaults to (max - min) / 6, which reads the min/max span as a +/-3 sigma
+        /// interval. That is a guess about intent rather than a measurement, so set it
+        /// explicitly when the library's real spread is known.
+        #[arg(long)]
+        fragment_length_sd: Option<f64>,
+
+        /// Shape of the fragment length distribution: `normal` or `lognormal`.
+        ///
+        /// Sonication and enzymatic fragmentation give right-skewed lengths, which a
+        /// Normal cannot represent — it is symmetric, so matching a long upper tail
+        /// forces an equally long lower one. Either shape is truncated to
+        /// [min, max] by redrawing, not by clamping to the bounds.
+        #[arg(long, default_value = "normal")]
+        fragment_length_distribution: String,
+
         /// Number of threads for probe alignment.
         ///
         /// The default of 1 leaves most machines idle. Probe placement is the dominant
@@ -601,6 +651,17 @@ pub enum Commands {
         /// Override badread read length standard deviation (bp). Defaults to profile value: 7000 (ont/ont-2020), 13000 (pacbio).
         #[arg(long)]
         long_read_length_sd: Option<usize>,
+
+        /// Read identity distribution for `--read-simulator badread`, as badread's
+        /// `mean,max,stdev` (beta) or `mean,stdev` (normal qscore).
+        ///
+        /// Identity is a separate axis from the error model: the model shapes what kind
+        /// of errors appear, this sets how many. Badread's own default is `95,99,2.5`,
+        /// so without this a PacBio simulation runs at CLR-grade accuracy whatever
+        /// error model is selected. The `pacbio-hifi` profile defaults to
+        /// `99.5,100,1.5`; set this to match a specific run's measured distribution.
+        #[arg(long)]
+        read_identity: Option<String>,
 
         /// badread glitch simulation: "rate,size,skips" (e.g. "10000,100,25"). When absent, badread uses its default.
         #[arg(long)]
@@ -1382,6 +1443,23 @@ pub enum Commands {
         /// Maximum fragment length
         #[arg(long, default_value = "200")]
         fragment_length_max: usize,
+
+        /// Standard deviation of the fragment length distribution, in bases.
+        ///
+        /// Defaults to (max - min) / 6, which reads the min/max span as a +/-3 sigma
+        /// interval. That is a guess about intent rather than a measurement, so set it
+        /// explicitly when the library's real spread is known.
+        #[arg(long)]
+        fragment_length_sd: Option<f64>,
+
+        /// Shape of the fragment length distribution: `normal` or `lognormal`.
+        ///
+        /// Sonication and enzymatic fragmentation give right-skewed lengths, which a
+        /// Normal cannot represent — it is symmetric, so matching a long upper tail
+        /// forces an equally long lower one. Either shape is truncated to
+        /// [min, max] by redrawing, not by clamping to the bounds.
+        #[arg(long, default_value = "normal")]
+        fragment_length_distribution: String,
 
         /// Host genome FASTA for filtering
         #[arg(long)]

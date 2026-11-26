@@ -100,6 +100,8 @@ baitbench simulate \
   [--fragment-length-mean 175] \
   [--fragment-length-min 150] \
   [--fragment-length-max 200] \
+  [--fragment-length-sd N] \
+  [--fragment-length-distribution normal|lognormal] \
   [--seed 42]
 ```
 

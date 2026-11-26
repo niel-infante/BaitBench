@@ -25,6 +25,16 @@ if (!nrow(d)) stop("no rows for the collapsed set in ", tsv)
 # A zero proportion has no place on a log axis. Pin it just below the smallest real
 # observation and mark it, rather than dropping the organism silently.
 floor_val <- min(d$real_prop[d$real_prop > 0], d$sim_prop[d$sim_prop > 0]) / 3
+# TODO (requested 2026-11-25, deferred — do this next time these figures are redrawn):
+# abbreviate the genus in point labels, so "Escherichia coli" reads "E. coli". Standard
+# binomial convention, and it buys a lot of horizontal room on a crowded log-log panel
+# where ggrepel is already fighting for space.
+#
+#   label = sub("^([A-Za-z])[a-z]+ ", "\\1. ", gsub("_", " ", organism))
+#
+# Mind the pooled E. coli group: it arrives as "Escherichia_coli" with no strain suffix,
+# so the same substitution handles it. Names with no space (a bare genus) are left alone
+# by the pattern, which is the behaviour we want.
 d <- d %>% mutate(
   censored  = real_prop <= 0 | sim_prop <= 0,
   real_plot = pmax(real_prop, floor_val),

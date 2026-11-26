@@ -117,9 +117,12 @@ def main():
 
     org = lambda s: pool(groups.get(s, s))
 
+    raw_share = json.load(open(args.share))
     share = defaultdict(float)
-    for k, v in json.load(open(args.share)).items():
+    pooled = defaultdict(list)
+    for k, v in raw_share.items():
         share[pool(k)] += v
+        pooled[pool(k)].append(k)
 
     enr = defaultdict(float)
     for seq, c in read_counts(args.enriched).items():
@@ -170,12 +173,22 @@ def main():
                            f"--min-real-reads {args.min_real_reads:.0f}, so the "
                            f"measured enrichment is counting noise")
 
+    # An organism absent from the enriched arm is *reported as undetected*, not skipped.
+    # Dropping it silently is what drew the original criticism of this validation: the
+    # published n = 20 was really 21 organisms with C. albicans at 0/0 quietly removed.
+    # Here it is C. perfringens, which the mock community contains at ~2e-6 and which
+    # the enriched arm never sees.
+    for o in share:
+        if share[o] > 0 and enr.get(o, 0) <= 0 and o not in excluded:
+            excluded[o] = "0 reads in the enriched arm — undetected, enrichment undefined"
+        elif share[o] <= 0 and o not in excluded:
+            excluded[o] = "absent from the non-enriched input — no denominator"
+
     scored, skipped = [], []
     for o in share:
-        if share[o] <= 0 or enr.get(o, 0) <= 0:
-            continue
-        m = enr[o] / enr_total / share[o]
-        p = pred_mass.get(o, 0.0) / pred_total / share[o]
+        denom = share[o] if share[o] > 0 else float("nan")
+        m = (enr.get(o, 0.0) / enr_total / denom) if share[o] > 0 else float("nan")
+        p = (pred_mass.get(o, 0.0) / pred_total / denom) if share[o] > 0 else float("nan")
         (skipped if o in excluded else scored).append((o, share[o], p, m))
     scored.sort(key=lambda r: -r[3])
 
@@ -183,8 +196,10 @@ def main():
     print(f"{'organism':<{w}}  {'input':>9}  {'pred':>8}  {'meas':>8}  {'ratio':>7}")
     for o, s, p, m in scored:
         print(f"{o:<{w}}  {s:9.5f}  {p:8.3f}  {m:8.3f}  {p / m:7.2f}")
-    for o, s, p, m in sorted(skipped, key=lambda r: -r[3]):
-        print(f"{o:<{w}}  {s:9.5f}  {p:8.3f}  {m:8.3f}  {'skip':>7}")
+    for o, s, p, m in sorted(skipped, key=lambda r: (0 if m != m else -m)):
+        ms = "  n/a" if m != m else f"{m:8.3f}"
+        ps = "  n/a" if p != p else f"{p:8.3f}"
+        print(f"{o:<{w}}  {s:9.5f}  {ps:>8}  {ms:>8}  {'not scored':>10}")
 
     if args.tsv:
         with open(args.tsv, 'w') as fh:
@@ -198,6 +213,18 @@ def main():
         print("\nexcluded:")
         for o, _, _, _ in skipped:
             print(f"  {o}: {excluded[o]}")
+
+    # Make the full accounting visible, so a reader can get from the mock community's
+    # strain count to the reported n without having to reconstruct it.
+    print()
+    print(f"accounting: {len(raw_share)} strains in the non-enriched input")
+    for o, members in sorted(pooled.items()):
+        if len(members) > 1:
+            print(f"            -{len(members) - 1} {o} strains pooled "
+                  f"({len(members)} -> 1): near-identical, so read assignment among "
+                  f"them is arbitrary for real and simulated data alike")
+    print(f"            -{len(skipped)} not scored (listed above, with reasons)")
+    print(f"            = {len(scored)} organisms scored")
 
     n = len(scored)
     if n < 3:

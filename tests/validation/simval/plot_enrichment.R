@@ -29,6 +29,16 @@ d$scored <- as.logical(d$scored)
 
 # Organisms excluded for cause are still drawn, hollow, so the reader can see what was
 # left out and why rather than having to take the n on trust.
+# TODO (requested 2026-11-25, deferred — do this next time these figures are redrawn):
+# abbreviate the genus in point labels, so "Escherichia coli" reads "E. coli". Standard
+# binomial convention, and it buys a lot of horizontal room on a crowded log-log panel
+# where ggrepel is already fighting for space.
+#
+#   label = sub("^([A-Za-z])[a-z]+ ", "\\1. ", gsub("_", " ", organism))
+#
+# Mind the pooled E. coli group: it arrives as "Escherichia_coli" with no strain suffix,
+# so the same substitution handles it. Names with no space (a bare genus) are left alone
+# by the pattern, which is the behaviour we want.
 d <- d %>% mutate(
   fold  = ifelse(predicted > 0 & measured > 0, predicted / measured, NA_real_),
   label = gsub("_", " ", organism)

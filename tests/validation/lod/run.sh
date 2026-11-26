@@ -60,7 +60,7 @@ for cond in $LOD_CONDITIONS; do
             # drop the distractor and so need their own. Keying the cache by that
             # distinction is what lets one ~100-minute alignment serve nine runs.
             --probe-hits "$PROBE_CACHE_DIR/lod_mtec_$([[ "$use_distractor" == yes ]] && echo with_iscap || echo no_distractor).tsv"
-            --seed 42 --report none --outdir "$outdir")
+            --seed 42 --report none --cleanup --outdir "$outdir")
         [[ -n "$PROBE_CONC" ]] && args+=(--probe-concentration "$PROBE_CONC")
         [[ -n "$MELTING_WINDOW" ]] && args+=(--melting-window "$MELTING_WINDOW")
         if [[ "$use_distractor" == "yes" ]]; then

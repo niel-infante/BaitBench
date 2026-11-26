@@ -40,6 +40,11 @@ pub struct SimulateArgs<'a> {
     pub fragment_length_mean: f64,
     pub fragment_length_min: usize,
     pub fragment_length_max: usize,
+    /// Standard deviation of the fragment length distribution. `None` uses
+    /// `(max - min) / 6`.
+    pub fragment_length_sd: Option<f64>,
+    /// Shape of the fragment length distribution.
+    pub fragment_length_shape: crate::sampling::FragmentLengthShape,
     pub threads: usize,
     /// Aligner used to place probes on the reference for scoring.
     pub aligner: crate::cli::ProbeAligner,
@@ -267,6 +272,31 @@ pub fn execute(args: &SimulateArgs) -> Result<()> {
         params.background_retention
     );
 
+    let (short_frac, n_short, n_refs) =
+        thermo_sim::short_contig_mass_fraction(&sequences, &wts, params.frag_len);
+    // Triggered on either the mass share or the reference count, because they catch
+    // different shapes of the same problem. The D6331 panel's Candida albicans
+    // reference is 13,062 of 13,145 references but only ~0.9% of weighted mass, so a
+    // mass-only threshold of 1% stayed silent on the assembly that motivated this.
+    let short_ref_frac = if n_refs > 0 {
+        n_short as f64 / n_refs as f64
+    } else {
+        0.0
+    };
+    if short_frac > 0.001 || short_ref_frac > 0.05 {
+        log::warn!(
+            "{} of {} weighted references ({:.1}%) are shorter than the fragment \
+             length ({} bp), carrying {:.2}% of weighted input mass. Those yield \
+             truncated fragments, which shifts the library's length distribution. \
+             Check --fragment-length-mean against the assembly's contig sizes.",
+            n_short,
+            n_refs,
+            100.0 * short_ref_frac,
+            params.frag_len,
+            100.0 * short_frac
+        );
+    }
+
     let profiles = thermo_sim::build_profiles(&sequences, &wts, &by_seq, &params, &thermo_model);
     let stats = thermo_sim::retention_stats(&profiles, &wts);
     log::info!(
@@ -284,6 +314,8 @@ pub fn execute(args: &SimulateArgs) -> Result<()> {
         mean: args.fragment_length_mean,
         min: args.fragment_length_min,
         max: args.fragment_length_max,
+        sd: args.fragment_length_sd,
+        shape: args.fragment_length_shape,
     };
 
     // The model's own account of the capture reaction, for metrics to report. These

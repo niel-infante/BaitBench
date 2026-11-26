@@ -87,7 +87,7 @@ genomes.fa + targets.fa + distractors.fa [+ sample.tsv] [+ mapping.tsv]
 | `src/thermodynamics.rs` | SantaLucia (1998) nearest-neighbor TNN model: `ThermoModel` struct (temp_c, na_conc_m), `delta_g()` (stacking + internal-mismatch params + initiation terms + Owczarzy salt correction), `langmuir_occupancy()` / `ln_k_unit_conc()` / `occupancy_from_ln_k()` |
 | `src/commands/simulate.rs` | Probe-biased fragment simulation by per-fragment retention; back-solves probe concentration from `--capture-fraction`, writes `fragments.model_stats.tsv` and `fragments.retention.tsv`. `--probe-aligner {seed-extend,minimap2,blast}` selects how probes are placed on the reference before scoring. Default `seed-extend` is a built-in ungapped **local** seed-and-extend (`src/alignment/seed_extend.rs`) that reports partial placements — probe binding is local, and read mappers discard partial matches. On a divergent panel it places 77/228 probes vs blast 74 and minimap2 21, while being ~85x faster than blast. Not a BLAST reimplementation (no gapped extension, E-values, scoring matrices or masking). Reports the fraction of probes placed. |
 | `src/sampling/thermo_sim.rs` | ProbeHit (carries ΔG), SimulateMode, load_probe_hits / _blast / probe_hits_seed_extend, the retention model (sweep_retention, build_retention_profile, build_profiles, capture_efficiency_at, solve_probe_concentration, retention_stats, sample_retention_fragments), write_retention_report, write_fragments |
-| `src/commands/sequence.rs` | Simulate sequencing: dispatches `ReadSimulator` enum (perfect/art/badread); `art_modern.rs` handles read renaming via SAM RNAME field; `badread.rs` via the `{ref_name},{start}-{end}` field in read descriptions; `check_reads_generated()` bails if a simulator produces 0 reads from non-empty input instead of silently passing an empty file downstream (art_modern's `--parallel` default of "all CPUs" divides `--coverage-depth` across threads/strands and can drop short-fragment output to 0 — BaitBench pins `--parallel` to `--threads` to avoid this by default) |
+| `src/commands/sequence.rs` | Simulate sequencing: dispatches `ReadSimulator` enum (perfect/art/badread; badread profiles ont/ont-2020/pacbio/**pacbio-hifi**, with `--read-identity` controlling how many errors rather than what kind — badread's default 95,99,2.5 is CLR-grade whatever the error model); `art_modern.rs` handles read renaming via SAM RNAME field; `badread.rs` via the `{ref_name},{start}-{end}` field in read descriptions; `check_reads_generated()` bails if a simulator produces 0 reads from non-empty input instead of silently passing an empty file downstream (art_modern's `--parallel` default of "all CPUs" divides `--coverage-depth` across threads/strands and can drop short-fragment output to 0 — BaitBench pins `--parallel` to `--threads` to avoid this by default) |
 | `src/commands/filter.rs` | Optional host read filtering |
 | `src/commands/map_reads.rs` | Map reads back to reference |
 | `src/commands/generate_list.rs` | SAM parsing → per-reference counts |
@@ -205,6 +205,15 @@ exactly into a **retention mass** `M = Σ p_retain`, and sampling is two-stage: 
 ∝ `weight × M`, then position ∝ `p_retain`. Every draw is a keeper — no rejection loop,
 which matters because a realistic library is >99.99% off-target. Capture and carryover
 fragments are interleaved by construction.
+
+**Mass is summed over every base, not over valid fragment starts.** A fragment may start
+anywhere in the contig and is truncated at the end. Using `L − f + 1` start positions
+instead made retention mass disagree with the DNA mass the input weights encode — the
+two agree to 0.1% when `L ≫ f` and collapse when they are comparable, so a draft
+assembly was silently down-weighted against a closed genome in the same run (D6331's
+*Candida albicans*: 13,062 contigs over 12.58 Mb against a 5.8 kb fragment, realised at
+0.244× its intended share). `simulate` warns when a non-trivial share of weighted input
+sits on contigs shorter than the fragment length.
 
 **Probe concentration is fixed, not back-solved (provisional, 2026-11-21).** `[probe]`
 defaults to a calibrated constant (`DEFAULT_PROBE_CONCENTRATION`, e^-2) and ΔG comes

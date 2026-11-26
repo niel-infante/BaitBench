@@ -35,7 +35,7 @@ use std::path::Path;
 
 use crate::alignment::cigar::{cigar_ref_len, expand_cigar, CigarOp};
 use crate::alignment::probe_cache::Placement;
-use crate::sampling::FragmentLengthParams;
+use crate::sampling::{FragmentLengthParams, FragmentLengthShape};
 use crate::thermodynamics::{delta_g, langmuir_occupancy, min_window_delta_g, ThermoModel};
 
 /// Simulate mode — controls how probe hit scores are computed.
@@ -601,10 +601,25 @@ fn sweep_retention<F>(
 where
     F: FnMut(usize, usize, f64, f64),
 {
-    if frag_len == 0 || seq_len < frag_len {
+    if frag_len == 0 || seq_len == 0 {
         return 0;
     }
-    let n_starts = seq_len - frag_len + 1;
+    // Every base is a potential fragment start, including the last `frag_len - 1`,
+    // whose fragments run off the end and are truncated when extracted.
+    //
+    // This was `seq_len - frag_len + 1`, which counts *start positions* while the input
+    // weights encode DNA *mass* (proportional to length). The two agree to 0.1% when
+    // `seq_len >> frag_len` and collapse when they are comparable, so a draft assembly
+    // was silently down-weighted against a closed genome in the same run. Measured on
+    // the D6331 panel: Candida albicans is 13,062 contigs over 12.58 Mb against a
+    // 5.8 kb fragment length, and came out at 0.244x its intended input share — the
+    // available-starts fraction, to two significant figures.
+    //
+    // Truncation costs nothing in correctness: a hit is credited to a start only when
+    // the start is at or left of `h_end - min_overlap`, and `h_end <= seq_len`, so the
+    // part of the fragment that is cut off never contained any of the hit. An end
+    // fragment shorter than `min_overlap` is credited nothing, which is right.
+    let n_starts = seq_len;
 
     // (position, delta_log, delta_saturated)
     let mut events: Vec<(usize, f64, i32)> = Vec::with_capacity(hits.len() * 2);
@@ -883,16 +898,16 @@ pub fn build_profiles(
             let seq_len = sequences[id].len();
             let hits = by_seq.get(id).unwrap_or(&no_hits);
             let thetas = thetas_at(hits, params.probe_concentration, model);
-            // A contig shorter than the nominal fragment length still yields a
-            // fragment — a short one. Without this it would get zero mass and drop out
-            // of the library entirely, which silently removes short distractor contigs
-            // from the background they are supposed to supply.
-            let frag_len = params.frag_len.min(seq_len).max(1);
+            // The nominal length is used as-is, even on a contig shorter than it:
+            // `sweep_retention` now sweeps every base and truncates at the end, so a
+            // short contig yields short fragments with mass proportional to its length.
+            // Clamping `frag_len` to `seq_len` here used to give such a contig exactly
+            // one start regardless of how long it was.
             build_retention_profile(
                 id,
                 seq_len,
                 &thetas,
-                frag_len,
+                params.frag_len.max(1),
                 params.background_retention,
                 params.min_overlap_frac,
                 params.capture_efficiency,
@@ -900,6 +915,40 @@ pub fn build_profiles(
         })
         .filter(|p| p.mass > 0.0)
         .collect()
+}
+
+/// Fraction of weighted input mass sitting on contigs shorter than `frag_len`.
+///
+/// Those contigs are sampled correctly — mass is proportional to length and the
+/// fragments are truncated at the contig end — but every fragment they yield is shorter
+/// than requested, which shifts the library's length distribution. A draft assembly can
+/// put most of an organism's sequence there without anything in the output saying so:
+/// the D6331 panel's *Candida albicans* reference is 13,062 contigs over 12.58 Mb
+/// against a 5.8 kb fragment length, which is 74.6% of its bases.
+pub fn short_contig_mass_fraction(
+    sequences: &HashMap<String, String>,
+    weights: &HashMap<String, f64>,
+    frag_len: usize,
+) -> (f64, usize, usize) {
+    let mut short = 0.0f64;
+    let mut total = 0.0f64;
+    let mut n_short = 0usize;
+    let mut n_total = 0usize;
+    for (id, seq) in sequences {
+        let w = weights.get(id).copied().unwrap_or(0.0);
+        if w <= 0.0 {
+            continue;
+        }
+        let m = w * seq.len() as f64;
+        total += m;
+        n_total += 1;
+        if seq.len() < frag_len {
+            short += m;
+            n_short += 1;
+        }
+    }
+    let frac = if total <= 0.0 { 0.0 } else { short / total };
+    (frac, n_short, n_total)
 }
 
 /// Write the per-reference retention report.
@@ -963,6 +1012,75 @@ pub fn write_retention_report(
     Ok(())
 }
 
+/// Draws fragment lengths from a truncated Normal or log-normal.
+///
+/// Truncation is by **rejection**, not clamping. Clamping to `[min, max]` puts a point
+/// mass on each bound — with the historical `sd = (max - min) / 6` roughly 0.3% of
+/// fragments landed exactly on a bound, and at a user-supplied larger `sd` it becomes
+/// a substantial spike at both ends of a distribution that should have none.
+///
+/// The retry budget keeps a bad parameter set from hanging: if `[min, max]` sits far
+/// out in the tail, the draw falls back to clamping rather than looping. That is the
+/// same wrong answer as before, but only for parameters that are already unusable.
+struct FragmentLengthSampler {
+    normal: Normal<f64>,
+    params: FragmentLengthParams,
+}
+
+/// Rejection attempts before falling back to a clamp.
+const LENGTH_DRAW_RETRIES: usize = 100;
+
+impl FragmentLengthSampler {
+    fn new(params: FragmentLengthParams) -> Result<Self> {
+        let sd = params.sd_or_default();
+        if sd <= 0.0 {
+            bail!(
+                "Fragment length standard deviation must be positive, got {}. \
+                 Set --fragment-length-sd, or widen --fragment-length-min/--max.",
+                sd
+            );
+        }
+        let normal = match params.shape {
+            FragmentLengthShape::Normal => Normal::new(params.mean, sd)?,
+            // Match the requested mean and sd on the natural scale, rather than
+            // treating them as the parameters of the underlying Normal — a user asking
+            // for a 5.8 kb mean means 5.8 kb, not exp(5.8 kb).
+            FragmentLengthShape::LogNormal => {
+                if params.mean <= 0.0 {
+                    bail!(
+                        "A log-normal fragment length needs a positive mean, got {}.",
+                        params.mean
+                    );
+                }
+                let var = sd * sd;
+                let mu =
+                    (params.mean * params.mean / (var + params.mean * params.mean).sqrt()).ln();
+                let sigma = (1.0 + var / (params.mean * params.mean)).ln().sqrt();
+                Normal::new(mu, sigma)?
+            }
+        };
+        Ok(Self { normal, params })
+    }
+
+    fn draw_raw<R: Rng>(&self, rng: &mut R) -> f64 {
+        let x = self.normal.sample(rng);
+        match self.params.shape {
+            FragmentLengthShape::Normal => x,
+            FragmentLengthShape::LogNormal => x.exp(),
+        }
+    }
+
+    fn sample<R: Rng>(&self, rng: &mut R) -> usize {
+        for _ in 0..LENGTH_DRAW_RETRIES {
+            let v = self.draw_raw(rng).round();
+            if v >= self.params.min as f64 && v <= self.params.max as f64 {
+                return v as usize;
+            }
+        }
+        (self.draw_raw(rng).round().max(0.0) as usize).clamp(self.params.min, self.params.max)
+    }
+}
+
 /// Draw `n_fragments` fragments from the retention profiles.
 ///
 /// Each reference is drawn with probability proportional to `abundance × retention
@@ -997,8 +1115,7 @@ pub fn sample_retention_fragments(
     }
     let dist = WeightedIndex::new(&seq_weights)?;
 
-    let sd = (len_params.max as f64 - len_params.min as f64) / 6.0;
-    let normal = Normal::new(len_params.mean, sd)?;
+    let sampler = FragmentLengthSampler::new(len_params)?;
 
     let mut rng: StdRng = match seed {
         Some(s) => StdRng::seed_from_u64(s.wrapping_add(1)),
@@ -1019,19 +1136,20 @@ pub fn sample_retention_fragments(
             None => continue,
         };
 
-        let frag_len_f: f64 = normal.sample(&mut rng);
-        let frag_len = (frag_len_f.round() as usize)
-            .clamp(len_params.min, len_params.max)
-            .min(seq.len());
+        let drawn = sampler.sample(&mut rng);
+
+        // Truncate at the contig end rather than shifting the start back. Shifting
+        // moved probability mass off the last `frag_len` bases and piled it onto the
+        // final valid start, distorting the positional distribution that the retention
+        // profile had just computed and biasing coverage inward at every contig end.
+        // Truncation is also what happens physically: the molecule at the end of a
+        // contig is simply shorter.
+        let end = (start + drawn).min(seq.len());
+        let frag_len = end - start;
         if frag_len == 0 {
             continue;
         }
-
-        // The profile was built for one nominal length, so a longer draw can run off
-        // the end. Shift it back rather than truncating, to keep the length
-        // distribution intact.
-        let start = start.min(seq.len() - frag_len);
-        let fragment = &seq[start..start + frag_len];
+        let fragment = &seq[start..end];
 
         counter += 1;
         results.push((
@@ -1044,6 +1162,169 @@ pub fn sample_retention_fragments(
     }
 
     Ok(results)
+}
+
+#[cfg(test)]
+mod stage5_tests {
+    use super::*;
+    use crate::sampling::{FragmentLengthParams, FragmentLengthShape};
+    use rand::SeedableRng;
+
+    fn params(
+        mean: f64,
+        min: usize,
+        max: usize,
+        sd: Option<f64>,
+        shape: FragmentLengthShape,
+    ) -> FragmentLengthParams {
+        FragmentLengthParams {
+            mean,
+            min,
+            max,
+            sd,
+            shape,
+        }
+    }
+
+    /// Retention mass must track DNA mass, not the number of valid start positions.
+    ///
+    /// One 12 kb contig against twelve 1 kb contigs of the same total length: with no
+    /// probes both are pure carryover, so a library drawn from them should split 50/50.
+    /// Counting starts (`L - f + 1`) gave the fragmented side 12 x (1000 - 5800 + 1)
+    /// -> clamped to 1 start each, and it all but vanished.
+    #[test]
+    fn mass_is_proportional_to_length_not_to_start_count() {
+        let frag_len = 5_800;
+        let one_big = build_retention_profile("big", 12_000, &[], frag_len, 1e-3, 0.5, 0.7);
+        let many_small: f64 = (0..12)
+            .map(|i| {
+                build_retention_profile(&format!("s{i}"), 1_000, &[], frag_len, 1e-3, 0.5, 0.7).mass
+            })
+            .sum();
+        let ratio = many_small / one_big.mass;
+        assert!(
+            (ratio - 1.0).abs() < 1e-9,
+            "12 x 1kb should carry the same mass as 1 x 12kb, got ratio {ratio}"
+        );
+    }
+
+    /// A contig shorter than the fragment length still contributes mass in proportion
+    /// to its length, rather than a single start.
+    #[test]
+    fn short_contig_mass_scales_with_its_length() {
+        let frag_len = 5_000;
+        let a = build_retention_profile("a", 500, &[], frag_len, 1e-3, 0.5, 0.7).mass;
+        let b = build_retention_profile("b", 1_000, &[], frag_len, 1e-3, 0.5, 0.7).mass;
+        assert!((b / a - 2.0).abs() < 1e-9, "expected 2x, got {}", b / a);
+    }
+
+    /// Lengths are truncated by redrawing, so no fragment lands exactly on a bound more
+    /// often than the density there warrants. Clamping produced a visible spike.
+    #[test]
+    fn lengths_are_rejected_not_clamped() {
+        let p = params(175.0, 150, 200, Some(40.0), FragmentLengthShape::Normal);
+        let sampler = FragmentLengthSampler::new(p).unwrap();
+        let mut rng = StdRng::seed_from_u64(7);
+        let draws: Vec<usize> = (0..20_000).map(|_| sampler.sample(&mut rng)).collect();
+        assert!(
+            draws.iter().all(|&d| (150..=200).contains(&d)),
+            "out of bounds draw"
+        );
+        let at_min = draws.iter().filter(|&&d| d == 150).count();
+        let at_max = draws.iter().filter(|&&d| d == 200).count();
+        // With sd=40 over a 50 bp window, clamping would pile >25% on each bound.
+        assert!(
+            at_min < draws.len() / 20,
+            "spike at min: {at_min}/{}",
+            draws.len()
+        );
+        assert!(
+            at_max < draws.len() / 20,
+            "spike at max: {at_max}/{}",
+            draws.len()
+        );
+    }
+
+    /// `--fragment-length-sd` actually changes the spread; the old hardwired
+    /// `(max - min) / 6` ignored any such request.
+    #[test]
+    fn sd_is_honoured() {
+        let mut rng = StdRng::seed_from_u64(11);
+        let mut spread = |sd: f64| {
+            let s = FragmentLengthSampler::new(params(
+                5_800.0,
+                1_000,
+                20_000,
+                Some(sd),
+                FragmentLengthShape::Normal,
+            ))
+            .unwrap();
+            let d: Vec<f64> = (0..5_000).map(|_| s.sample(&mut rng) as f64).collect();
+            let m = d.iter().sum::<f64>() / d.len() as f64;
+            (d.iter().map(|x| (x - m) * (x - m)).sum::<f64>() / d.len() as f64).sqrt()
+        };
+        let narrow = spread(200.0);
+        let wide = spread(2_000.0);
+        assert!(
+            wide > narrow * 4.0,
+            "sd ignored: narrow {narrow}, wide {wide}"
+        );
+    }
+
+    /// The log-normal is parameterised so the requested mean is the mean of the
+    /// *lengths*, not of their logarithms, and it is right-skewed.
+    #[test]
+    fn lognormal_matches_the_requested_mean_and_is_skewed() {
+        let s = FragmentLengthSampler::new(params(
+            5_800.0,
+            1,
+            1_000_000,
+            Some(2_000.0),
+            FragmentLengthShape::LogNormal,
+        ))
+        .unwrap();
+        let mut rng = StdRng::seed_from_u64(3);
+        let d: Vec<f64> = (0..50_000).map(|_| s.sample(&mut rng) as f64).collect();
+        let mean = d.iter().sum::<f64>() / d.len() as f64;
+        assert!(
+            (mean / 5_800.0 - 1.0).abs() < 0.05,
+            "mean {mean} off target"
+        );
+        let mut sorted = d.clone();
+        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        let median = sorted[sorted.len() / 2];
+        assert!(
+            median < mean,
+            "log-normal should be right-skewed: median {median} mean {mean}"
+        );
+    }
+
+    /// The short-contig warning fires on a fragmented assembly and stays quiet on a
+    /// contiguous one.
+    #[test]
+    fn short_contig_fraction_is_reported() {
+        let mut seqs = HashMap::new();
+        let mut w = HashMap::new();
+        seqs.insert("closed".to_string(), "A".repeat(10_000));
+        w.insert("closed".to_string(), 1.0);
+        let (f, n, total) = short_contig_mass_fraction(&seqs, &w, 5_800);
+        assert_eq!(n, 0);
+        assert_eq!(total, 1);
+        assert!(
+            f < 1e-12,
+            "contiguous assembly should report nothing, got {f}"
+        );
+
+        for i in 0..10 {
+            seqs.insert(format!("draft{i}"), "A".repeat(1_000));
+            w.insert(format!("draft{i}"), 1.0);
+        }
+        let (f, n, total) = short_contig_mass_fraction(&seqs, &w, 5_800);
+        assert_eq!(n, 10);
+        assert_eq!(total, 11);
+        // 10 x 1000 short against 10000 long = half the mass.
+        assert!((f - 0.5).abs() < 1e-9, "expected 0.5, got {f}");
+    }
 }
 
 #[cfg(test)]
@@ -1129,7 +1410,7 @@ mod tests {
             .expect("target profile");
         assert_eq!(t.mass_specific, 0.0, "nothing is specifically captured");
         assert!(
-            (t.mass - 901.0 * 1e-3).abs() < 1e-9,
+            (t.mass - 1000.0 * 1e-3).abs() < 1e-9,
             "every position should retain at exactly p_ns, got {}",
             t.mass
         );
@@ -1153,7 +1434,7 @@ mod tests {
             covered, 101,
             "expected 101 probe-reachable starts, got {covered}"
         );
-        let input_share = 101.0 / (2.0 * 901.0);
+        let input_share = 101.0 / (2.0 * 1000.0);
         let expected = stats.on_target_fraction / input_share;
         assert!(
             (stats.enrichment - expected).abs() < 1e-9,
@@ -1195,8 +1476,8 @@ mod tests {
             .expect("distractor profile");
         assert_eq!(d.covered_starts, 0);
         assert!(
-            (d.mass - 901.0 * 1e-3).abs() < 1e-9,
-            "mass {} != 901 * p_ns",
+            (d.mass - 1000.0 * 1e-3).abs() < 1e-9,
+            "mass {} != 1000 * p_ns",
             d.mass
         );
     }
@@ -1215,8 +1496,16 @@ mod tests {
             .iter()
             .find(|p| p.seq_id == "short")
             .expect("short contig dropped from the library");
-        assert_eq!(p.n_starts, 1, "a 40 bp contig offers exactly one fragment");
-        assert!((p.mass - 1e-3).abs() < 1e-12, "mass {} != p_ns", p.mass);
+        // Every base is a start, so a short contig carries mass in proportion to its
+        // length rather than contributing a single fragment. Counting starts gave it
+        // exactly 1, which is what made fragmented assemblies vanish against closed
+        // genomes in the same run.
+        assert_eq!(p.n_starts, 40, "every base of a 40 bp contig is a start");
+        assert!(
+            (p.mass - 40.0 * 1e-3).abs() < 1e-12,
+            "mass {} != 40 * p_ns",
+            p.mass
+        );
     }
 
     /// Zero-weight references are absent from the sample, so they must not appear.
@@ -1271,7 +1560,7 @@ mod tests {
     #[test]
     fn profile_without_hits_is_pure_background() {
         let p = build_retention_profile("s", 1000, &[], 100, 0.01, 0.5, 1.0);
-        let n_starts = (1000 - 100 + 1) as f64;
+        let n_starts = 1000.0;
         assert_eq!(p.segments.len(), 1);
         assert!((p.segments[0].p_retain - 0.01).abs() < 1e-12);
         assert!((p.mass - 0.01 * n_starts).abs() < 1e-9, "mass {}", p.mass);
@@ -1395,12 +1684,28 @@ mod tests {
         );
     }
 
-    /// A reference shorter than the fragment cannot contribute.
+    /// A reference shorter than the fragment still contributes, in proportion to its
+    /// length, and its probe window is still scored.
+    ///
+    /// This replaces `reference_shorter_than_fragment_has_no_mass`, which asserted that
+    /// such a reference contributes nothing. That was the behaviour, and it was wrong:
+    /// the input weights encode DNA mass, so a short contig dropping to zero mass
+    /// silently deleted it from the library. On the D6331 panel it put *Candida
+    /// albicans* — 13,062 contigs over 12.58 Mb against a 5.8 kb fragment — at 0.244x
+    /// its intended share.
     #[test]
-    fn reference_shorter_than_fragment_has_no_mass() {
+    fn reference_shorter_than_fragment_still_contributes() {
+        // 50 bp reference, 30 bp hit at [10, 40), min overlap 15, saturated theta.
+        // Starts [0, 26) carry enough of the site; [26, 50) are carryover only.
         let p = build_retention_profile("s", 50, &[(10, 40, 1.0)], 200, 0.5, 0.5, 1.0);
-        assert_eq!(p.mass, 0.0);
-        assert!(p.segments.is_empty());
+        assert_eq!(p.n_starts, 50, "every base of the contig is a start");
+        assert!(!p.segments.is_empty());
+        let expected = 26.0 * 1.0 + 24.0 * 0.5;
+        assert!(
+            (p.mass - expected).abs() < 1e-9,
+            "mass {} != {expected}",
+            p.mass
+        );
     }
 
     fn pairs_of(query: &str, reference: &str, start: usize, cigar: &str) -> Vec<(u8, u8)> {

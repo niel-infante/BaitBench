@@ -298,6 +298,8 @@ fn main() -> Result<()> {
             fragment_length_mean,
             fragment_length_min,
             fragment_length_max,
+            fragment_length_sd,
+            fragment_length_distribution,
             read_length,
             num_sequences,
             read_simulator,
@@ -309,6 +311,7 @@ fn main() -> Result<()> {
             output_format,
             long_read_length_mean,
             long_read_length_sd,
+            read_identity,
             badread_glitches,
             badread_junk_reads,
             badread_random_reads,
@@ -322,6 +325,8 @@ fn main() -> Result<()> {
             report,
             cleanup,
         } => {
+            let fragment_length_shape =
+                sampling::FragmentLengthShape::from_str(&fragment_length_distribution)?;
             let resolved = resolve_common_pipeline_args(
                 ct_baseline,
                 ct_baseline_fraction,
@@ -386,6 +391,8 @@ fn main() -> Result<()> {
                 fragment_length_mean,
                 fragment_length_min,
                 fragment_length_max,
+                fragment_length_sd,
+                fragment_length_shape,
                 read_length,
                 num_sequences,
                 simulator,
@@ -397,6 +404,7 @@ fn main() -> Result<()> {
                 output_format,
                 long_read_length_mean,
                 long_read_length_sd,
+                read_identity,
                 badread_glitches,
                 badread_junk_reads,
                 badread_random_reads,
@@ -474,8 +482,12 @@ fn main() -> Result<()> {
             fragment_length_mean,
             fragment_length_min,
             fragment_length_max,
+            fragment_length_sd,
+            fragment_length_distribution,
             threads,
         } => {
+            let fragment_length_shape =
+                sampling::FragmentLengthShape::from_str(&fragment_length_distribution)?;
             let sim_mode = match simulate_mode {
                 cli::SimulateMode::Thermodynamic => ThSimMode::Thermodynamic,
                 cli::SimulateMode::Simple => ThSimMode::Simple,
@@ -500,6 +512,8 @@ fn main() -> Result<()> {
                 fragment_length_mean,
                 fragment_length_min,
                 fragment_length_max,
+                fragment_length_sd,
+                fragment_length_shape,
                 threads,
             })?;
         }
@@ -521,6 +535,7 @@ fn main() -> Result<()> {
             output_format,
             long_read_length_mean,
             long_read_length_sd,
+            read_identity,
             badread_glitches,
             badread_junk_reads,
             badread_random_reads,
@@ -549,6 +564,7 @@ fn main() -> Result<()> {
                 output_format,
                 long_read_length_mean,
                 long_read_length_sd,
+                read_identity,
                 badread_glitches,
                 badread_junk_reads,
                 badread_random_reads,
@@ -934,6 +950,8 @@ fn main() -> Result<()> {
             fragment_length_mean,
             fragment_length_min,
             fragment_length_max,
+            fragment_length_sd,
+            fragment_length_distribution,
             host_fasta,
             minimap_preset,
             host_minimap_preset,
@@ -943,6 +961,8 @@ fn main() -> Result<()> {
             report,
             cleanup,
         } => {
+            let fragment_length_shape =
+                sampling::FragmentLengthShape::from_str(&fragment_length_distribution)?;
             let resolved_sample = resolve_sample_arg(&sample)?;
             let resolved_stm = sample_target_map
                 .as_ref()
@@ -1040,6 +1060,8 @@ fn main() -> Result<()> {
                 fragment_length_mean,
                 fragment_length_min,
                 fragment_length_max,
+                fragment_length_sd,
+                fragment_length_shape,
                 host_fasta: host_fasta.as_deref(),
                 minimap_preset: &minimap_preset,
                 host_minimap_preset: &host_minimap_preset,

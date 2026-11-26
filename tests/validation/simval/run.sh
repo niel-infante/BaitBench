@@ -12,6 +12,22 @@
 # Read model is `perfect`: the real data are CCS/HiFi at ~99% accuracy, and badread's
 # pacbio profile models CLR (~85-90%), which is further from the data than error-free
 # reads are.
+#
+# Fragment length sd is measured, not defaulted. The default (max - min) / 6 gives 3,167
+# and a realised sd of 2,793, against 2,608 measured on the non-enriched arm — too wide
+# in both tails. With the measured value the simulated distribution matches the real one
+# closely: median 5,933 vs 5,948, mean 6,001 vs 6,141.
+#
+# Normal, not lognormal, despite the plan calling for lognormal: the real distribution is
+# barely skewed (mean/median = 1.033), and a lognormal over-skews it — median 5,315
+# against a real 5,948.
+#
+# Mapping preset is `map-hifi`, matching what produced the real counts
+# (scripts/map_real_reads.sh). It was BaitBench's `sr` default — a *short-read* preset
+# applied to 5.8 kb reads. Measured effect on the gate: negligible (CCC 0.9691 vs
+# 0.9688), because composition is a ratio and the preset's losses are near-proportional.
+# Changed anyway: `sr` drops 8.7% of simulated reads that `map-hifi` maps, it is
+# indefensible to describe in a paper, and it is ~35% slower.
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../config.sh"
 
@@ -42,15 +58,18 @@ for run in $SIMVAL_RUNS; do
             --fragment-length-mean 5800 \
             --fragment-length-min 1000 \
             --fragment-length-max 20000 \
+            --fragment-length-sd 2608 \
             --capture-fraction "$SIMVAL_CAPTURE_FRACTION" \
             --read-simulator perfect \
             --read-length 20000 \
+            --minimap-preset map-hifi \
             --hybridization-temperature 65 \
             --salt-concentration 50 \
             --threads "$THREADS" \
             --probe-hits "$PROBE_CACHE_DIR/simval_res_panel.tsv" \
             --seed 42 \
             --report none \
+            --cleanup \
             --outdir "$outdir" \
             > "$VALIDATION_OUT/${tag}.log" 2>&1 \
             || { echo "  simulate FAILED, see $VALIDATION_OUT/${tag}.log" >&2; status=1; continue; }
@@ -113,6 +132,7 @@ for run in $SIMVAL_RUNS; do
             --probes "$PANELS/res_probes.fasta"
             --num-fragments "$NUM_FRAGMENTS"
             --fragment-length-mean 5800 --fragment-length-min 1000 --fragment-length-max 20000
+            --fragment-length-sd 2608
             --capture-fraction "$SIMVAL_CAPTURE_FRACTION"
             --hybridization-temperature 65 --salt-concentration 50
             --threads "$THREADS"
@@ -126,14 +146,15 @@ for run in $SIMVAL_RUNS; do
         echo "[$(date +%H:%M:%S)] $tag: reusing $outdir"
     fi
 
-    # Candida albicans is excluded for cause: its reference is 13062 contigs over
-    # 12.58 Mb against a 5.8 kb fragment length, so only 25.4% of its bases can start a
-    # fragment and it lands at 0.244x its intended input share. That is an assembly
-    # artifact, not a capture prediction. See parameterisation.md B0b.
+    # Candida albicans used to be excluded here: its reference is 13,062 contigs over
+    # 12.58 Mb against a 5.8 kb fragment length, and it came out at 0.244x its intended
+    # input share. That was the simulator's bug, not the assembly's fault — retention
+    # mass counted fragment starts rather than bases — and Stage 5 fixed it. Candida now
+    # lands at ratio 1.000 of its input share and is predicted at 0.156 against a
+    # measured 0.130, so it is scored like everything else.
     python3 "$VALIDATION_DIR/simval/enrichment.py" \
         --run "$outdir" --share "$inputs/input_share.json" \
         --enriched "$real" --groups "$SIMVAL_GROUPS" \
-        --exclude Candida_albicans \
         --tsv "$VALIDATION_OUT/${tag}.tsv" || status=1
 
     if command -v Rscript >/dev/null && [[ -s "$VALIDATION_OUT/${tag}.tsv" ]]; then

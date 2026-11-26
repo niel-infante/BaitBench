@@ -44,6 +44,8 @@ pub struct CoverageCurveArgs<'a> {
     pub fragment_length_mean: f64,
     pub fragment_length_min: usize,
     pub fragment_length_max: usize,
+    pub fragment_length_sd: Option<f64>,
+    pub fragment_length_shape: crate::sampling::FragmentLengthShape,
     pub host_fasta: Option<&'a Path>,
     pub minimap_preset: &'a str,
     pub host_minimap_preset: &'a str,
@@ -354,6 +356,8 @@ pub fn execute(args: &CoverageCurveArgs) -> Result<()> {
                         seed: args.seed,
                         simulator: sequence::ReadSimulator::Perfect,
                         sequencer_profile: String::new(),
+                        // coverage-curve is perfect/trim mode only, so no badread knobs.
+                        read_identity: None,
                         coverage_depth: 1.0,
                         threads: args.threads,
                         paired_end: false,
@@ -661,6 +665,8 @@ fn run_simulate(
         fragment_length_mean: args.fragment_length_mean,
         fragment_length_min: args.fragment_length_min,
         fragment_length_max: args.fragment_length_max,
+        fragment_length_sd: args.fragment_length_sd,
+        fragment_length_shape: args.fragment_length_shape,
         threads: args.threads,
     })?;
 

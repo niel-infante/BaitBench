@@ -516,6 +516,175 @@ Stage 5 (it is the same contig-end arithmetic as D10):
    `L - f + 1`, which also removes the inward bias at contig ends that D10 already
    flags. The uniform factor `f` cancels in composition, so only the end effect matters.
 
+## B0e. The mapper confound is real but negligible (2026-11-25)
+
+Every SimVal comparison scores BaitBench-mapped simulated reads against count tables
+produced by *external* minimap2 (`map-hifi`, `--secondary=no`, per
+`SimVal/scripts/map_real_reads.sh`), while BaitBench mapped with rammap's `sr` default —
+a **short-read preset applied to 5.8 kb reads**. Three differences stacked: aligner,
+preset, and read error model. All of it sat inside the residual, unattributed.
+
+With the raw reads in hand this is directly measurable. Mapping MOXTAA's **real** CCS
+reads against the same reference, varying only the mapper:
+
+| organism | external mm2 `map-hifi` | bb `sr` | bb `map-hifi` |
+|---|---|---|---|
+| E. coli | 0.73646 | 0.73404 | 0.73645 |
+| S. cerevisiae | 0.00143 | 0.00267 (**1.87x**) | 0.00143 |
+| E. faecalis | 0.00001 | 0.00002 (1.40x) | 0.00001 |
+| S. enterica | 0.00024 | 0.00028 (1.20x) | 0.00024 |
+| mapped reads | 342,020 | 365,407 | 341,960 |
+
+**rammap reproduces minimap2 exactly at the same preset** — every organism at ratio
+1.00, mapped-read counts within 0.02%. The embedded aligner is not a source of
+discrepancy, which is worth having measured given reviewer item 4 asks about it.
+
+**The preset does matter on real reads**: `sr` over-maps by 6.8% and inflates the rare
+organisms, up to 1.87x on *S. cerevisiae*. That looked like it might explain the model's
+over-prediction of low-abundance untargeted organisms.
+
+**It does not, because the simulated side is insensitive to it.** Re-running the gate's
+simulated arm under both presets:
+
+| | Spearman rho | r(log10) | Lin's CCC |
+|---|---|---|---|
+| `sr` | 0.9353 | 0.9821 | 0.9691 |
+| `map-hifi` | 0.9324 | 0.9811 | 0.9688 |
+
+The reason is the read model: simulated reads are **error-free**, so they map
+unambiguously under either preset, while `sr`'s inflation on real reads comes from its
+short-read scoring interacting with CCS's ~1% error rate. The asymmetry is visible in
+the totals — on real reads `sr` maps 6.8% *more* than `map-hifi`, on simulated reads it
+maps 8.7% *fewer* — but in both directions the losses are near-proportional across
+organisms, and composition is a ratio.
+
+**So: a real confound, correctly identified, that turns out not to explain the
+residual.** The scale offset stays where B0d left it.
+
+The gate now passes `--minimap-preset map-hifi` regardless — matching the real side is
+free, `sr` drops 8.7% of simulated reads, it is ~35% slower, and "we mapped 5.8 kb reads
+with a short-read preset" is not a sentence worth defending to a reviewer.
+
+## B0f. Capture shortens the real library 5x; simulating that is wrong (2026-11-25)
+
+Measured from the raw reads, for the first time. Read length is **completely
+systematic** across the BioProject:
+
+| arm | runs | mean | median |
+|---|---|---|---|
+| non-enriched | 6 | 5,508–6,109 | 5,312–5,911 |
+| enriched | 18 | 925–1,909 | 614–1,667 |
+
+Every enriched library is ~5x shorter than every non-enriched one, across both
+chemistries and all three panels. The gate simulates at 5,800 bp and compares against
+enriched data that is ~1,200 bp, so the simulated output is 5x too long — and the model
+has no mechanism that would shorten it, since retention does not depend on length.
+
+That looked like a strong candidate for the residual: fragment length sets how many
+probes overlap a fragment, and at 5.8 kb a single hit covers ~2.9 kb of start positions
+while at 1.2 kb it covers ~600 bp, so probe density would matter far more at the real
+length.
+
+**Tested, and it is wrong.** Same panel and seed, only the length changed:
+
+| `--fragment-length-mean` | comp rho | comp r | comp CCC | enrich rho | enrich centred |
+|---|---|---|---|---|---|
+| 5800 (current) | 0.9324 | 0.9811 | **0.9688** | +0.8179 | **0.227** |
+| 1200 (measured enriched) | 0.9265 | 0.9582 | 0.9221 | +0.7036 | 0.320 |
+
+Worse on every metric. (Absolute values here are below the gate's because this run used
+the theoretical `--sample` rather than the non-enriched weights; only the 5800-vs-1200
+contrast is meaningful.)
+
+**Why, in hindsight:** the input library *is* ~6 kb — that is exactly what the
+non-enriched arm measures, and it is what the probes see. The shortening happens during
+or after capture (post-capture PCR strongly favours short templates, and there may be a
+size-selection step). Feeding the *output* length back in as the *input* length
+misrepresents the physical library, and the data says so.
+
+**What this does leave:** a real, unmodelled, systematic effect — capture shortens the
+library 5x and BaitBench preserves input length exactly. It belongs with the Stage 6
+amplification work, as a length-dependent amplification bias, not as a fragment-length
+parameter. It is not the composition residual's cause.
+
+Fourth candidate eliminated by measurement, after placement stringency, the melting
+window, and the mapper.
+
+## B0g. Read realism does not move the metrics either (2026-11-26)
+
+The `pacbio-hifi` badread profile exists now (`pacbio2021` + `--read-identity`), so the
+question of whether error-free reads were costing us anything is directly testable
+rather than argued from first principles.
+
+**The profile works.** Identity measured from NM over aligned length, same method on
+both sides:
+
+| reads | mean | median | p5 |
+|---|---|---|---|
+| `perfect` | 100.00% | 100.00% | 100.00% |
+| `badread pacbio-hifi` | 99.24% | **99.88%** | 96.40% |
+| real CCS | 98.53% | **99.83%** | 91.53% |
+
+The median is near-exact. The simulated left tail is lighter than reality — the profile
+default is `99.5,100,1.5` against a measured sd of 2.82 — so `--read-identity
+98.5,100,2.8` would match more closely. Good enough to answer the question.
+
+**It changes nothing measurable:**
+
+| | Spearman rho | r(log10) | Lin's CCC |
+|---|---|---|---|
+| `perfect` | 0.9324 | 0.9811 | 0.9688 |
+| `badread pacbio-hifi` | 0.9324 | 0.9781 | 0.9675 |
+
+Spearman is identical to four decimals; CCC moves by 0.0013 — in the *worse* direction,
+within noise.
+
+**So `--read-simulator perfect` stays, but now for a defensible reason.** The old
+justification ("badread's pacbio profile models CLR, further from the data than
+error-free reads") was wrong about badread's capability — it was a limitation of this
+wrapper, which never passed `--identity` and so ran at 95% whatever the error model. The
+correct justification is that the composition metrics cannot tell the difference: real
+CCS is 99.83% median identity, and the ~0.2% of bases that differ do not change which
+reference a 5.8 kb read maps to.
+
+Fifth candidate eliminated by measurement, after placement stringency, the melting
+window, the mapper, and fragment length. The pattern is consistent and worth stating
+plainly: **everything BaitBench reports from reads is compositional, and compositional
+metrics are insensitive to read-level detail.** Near-proportional effects cancel in a
+ratio. Future hypotheses of this shape should be expected to fail, and the scale offset
+should be looked for somewhere other than the read pipeline.
+
+## B0d. Gates re-run after Stage 5 — all pass (2026-11-25)
+
+Stage 5 changed retention mass on every reference, so the gates were re-run. **All
+pass.** Composition improved on all three replicates; LOD and enrichment held.
+
+| | pre-Stage-5 | post-Stage-5 |
+|---|---|---|
+| MOXTAA composition r / CCC | 0.974 / 0.961 | **0.982 / 0.969** |
+| MOXTAB composition r / CCC | 0.965 / 0.958 | **0.988 / 0.982** |
+| MOXTAC composition r / CCC | 0.975 / 0.966 | **0.989 / 0.982** |
+| LOD Pearson r (log10) | +0.9993 | +0.9993 |
+| LOD sim/real, dilute | 1.92x | 2.02x |
+
+Enrichment now scores **15** organisms rather than 14: *Candida albicans* no longer
+needs excluding, because the mass fix put it at ratio 1.000 of its intended input share
+(from 0.244) and it predicts 0.156 against a measured 0.130. Per-replicate enrichment
+rho +0.929 / +0.889 / +0.771.
+
+Per-locus efficiency remains stable across the whole dilution series — spread
+(max/min over 11 conditions) 1.0–2.4x — which is the separability of efficiency from
+abundance that the quota model could not produce.
+
+**The global scale offset is unchanged and remains the one open item:** 2.02x in the
+LOD dilute regime, ~1.3x as the enrichment bias. Stage 5 did not touch it, which is
+expected — it is a property of `f / p_ns`, not of fragment geometry.
+
+**Harness footprint:** a full gate run now costs **3.5 GB**, down from ~50 GB, after
+`combined_reference.fa` and `mapping_reference.fa` were added to `--cleanup`. They are
+4.2 GB per LOD condition on this dataset and had been excluded from the cleanup list,
+which is what filled the disk mid-run on 2026-11-24.
+
 ## B0c. Full gates, all 11 LOD conditions and 3 SimVal replicates (2026-11-24)
 
 First time the full gates have ever actually run: `run_full.sh` exported
@@ -558,9 +727,21 @@ Composition (E. coli strains collapsed), and enrichment with `--min-real-reads 1
 |---|---|---|---|---|---|---|
 | MOXTAA | 0.929 | 0.974 | 0.961 | +0.939 | +0.917 | 0.204 |
 | MOXTAB | 0.929 | 0.965 | 0.958 | +0.917 | +0.916 | 0.186 |
-| MOXTAC | 0.949 | 0.753 | 0.751 | +0.780 | +0.863 | 0.203 |
+| MOXTAC | 0.949 | 0.975 | 0.966 | +0.780 | +0.863 | 0.203 |
 
-**MOXTAC is a genuinely weaker replicate, not an artifact.** The first suspicion was
+**MOXTAC's composition figures were an artifact, and are fixed.** They first read
+r = 0.753 / CCC = 0.751 against ~0.97 / ~0.96 for the other two. Cause: `compare.py`
+floored a zero proportion at `eps = 1e-9`. Real proportions here span ~1e-5 to 0.8, so a
+floored zero landed four orders of magnitude below the smallest real observation and
+acted as an enormous leverage point in both log-scale statistics. MOXTAC is the only
+replicate with zero-read organisms (*E. faecalis* and *C. perfringens*), so only it was
+affected. Zeros are now floored at that arm's **detection limit** — the proportion one
+read represents — which is what a zero is actually bounded by, and the censored count is
+reported. MOXTAC becomes r = 0.975 / CCC = 0.966, in line with the others; MOXTAA and
+MOXTAB are unchanged, having nothing censored. Spearman was never affected: it runs on
+raw proportions.
+
+**The enrichment gap is real, though.** The first suspicion there was
 rare-organism noise, and that was *part* of it: *E. faecalis* has 4 / 1 / **0** reads
 across A / B / C and *C. perfringens* 0 / 0 / 1, so the scored set differed between
 replicates and single-read organisms carried ~100% measurement error. Hence the new
@@ -568,7 +749,8 @@ replicates and single-read organisms carried ~100% measurement error. Hence the 
 It improves MOXTAC (rho 0.768 -> 0.780, r 0.822 -> 0.863, centred 0.239 -> 0.203) but
 does not close the gap. MOXTAC's measured dynamic range is 34x against 63x and 43x, and
 *C. difficile* sits at 0.323 against 0.930 and 0.985 — the experiment itself enriched
-less that time.
+less that time. So the two MOXTAC anomalies have different causes: the composition one
+was ours, the enrichment one is the data's.
 
 ### The number that matters: model error against the replicate noise floor
 
@@ -623,10 +805,17 @@ Needed:
   conditions are the natural split.
 - **A weighting decision.** Titration spans ~5 orders of magnitude, per-locus ~1,
   composition ~5. An unweighted log-RMSE silently optimises whichever has most spread.
-- Extend `tests/locus_calibration.rs`, which currently scores one dataset. Keep its
-  caveat in view: its first version averaged over all starts spanning a locus while
-  production averages over covered positions only, and that mismatch produced a
-  confident 29x improvement that the pipeline did not show.
+- **Build it on the gate's analytic scorers, not a separate harness.**
+  `tests/locus_calibration.rs` was deleted (2026-11-25). It existed because "running
+  the whole pipeline to test a change to the capture law takes hours" — no longer true:
+  the full gate, all 11 LOD conditions and 3 SimVal replicates, now runs in ~32 minutes
+  since read mapping was parallelised. Its header also still described the per-locus
+  defect as open, which it is not. And it had already diverged from production once:
+  its first version averaged over all starts spanning a locus while production averages
+  over covered positions only, producing a confident 29x improvement the pipeline did
+  not show. A second implementation of the sweep is a second thing to keep in step.
+  `simulate` with a warm `--probe-hits` cache plus `simval/enrichment.py` gives the same
+  seconds-per-evaluation loop while running the production code path.
 
 B is tempting to defer as bookkeeping. It is what makes A's answer believable.
 

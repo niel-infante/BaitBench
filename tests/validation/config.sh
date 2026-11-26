@@ -33,6 +33,10 @@
 : "${SIMVAL_GROUPS:=$SIMVAL_DIR/inputs/groups.tsv}"
 : "${SIMVAL_SAMPLE:=$SIMVAL_DIR/inputs/sample.tsv}"
 : "${SIMVAL_REAL:=$SIMVAL_DIR/real}"
+# Raw CCS reads for the 24 mock-community runs, named <sample>_<accession>.fastq.gz.
+# These already exist here; tests/validation/simval/fetch_reads.sh only re-fetches
+# what is missing.
+: "${SIMVAL_READS:=$SIMVAL_DIR/../Comp/sra/fastq}"
 : "${PANELS:=$CROSSLAB/BB_Paper/Comp/panels}"
 : "${D6331_COMPOSITION:=$CROSSLAB/BB_Paper/Comp/mock/d6331_theoretical_composition.tsv}"
 
@@ -96,6 +100,6 @@ export LOD_CONDITIONS SIMVAL_RUNS NUM_FRAGMENTS
 # exported, not just set: a child process does not inherit plain shell variables.
 export CROSSLAB LOD_DIR LOD_COUNTS LOD_COVERAGE LOD_TARGETS_BED LOD_PROBES_BLAST
 export MTEC_PROBES MTEC_TARGETS REF_4PATH REF_ISCAP LOD_SIM_INPUTS
-export SIMVAL_DIR SIMVAL_GENOMES SIMVAL_GROUPS SIMVAL_SAMPLE SIMVAL_REAL
+export SIMVAL_DIR SIMVAL_GENOMES SIMVAL_GROUPS SIMVAL_SAMPLE SIMVAL_REAL SIMVAL_READS
 export PANELS D6331_COMPOSITION
 export BB VALIDATION_DIR EXPECTED_DIR VALIDATION_OUT

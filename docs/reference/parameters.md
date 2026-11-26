@@ -28,6 +28,24 @@ Complete parameter reference for `baitbench run` and related subcommands.
 | Fragment length mean | `--fragment-length-mean` | 175 | Mean fragment length in bp |
 | Fragment length min | `--fragment-length-min` | 150 | Minimum fragment length in bp |
 | Fragment length max | `--fragment-length-max` | 200 | Maximum fragment length in bp |
+| Fragment length sd | `--fragment-length-sd` | `(max - min) / 6` | Standard deviation of the length distribution in bp. The default reads the min/max span as a ±3σ interval, which is a guess about intent rather than a measurement — set it explicitly when the library's real spread is known. |
+| Fragment length distribution | `--fragment-length-distribution` | `normal` | `normal` or `lognormal`. Sonication and enzymatic fragmentation give right-skewed lengths, which a Normal cannot represent: it is symmetric, so matching a long upper tail forces an equally long lower one. For `lognormal`, `--fragment-length-mean` and `--fragment-length-sd` are the mean and sd of the **lengths**, not of their logarithms. |
+
+Both shapes are truncated to `[min, max]` by **redrawing**, not by clamping to the
+bounds. Clamping puts a point mass on each bound, which at a wide `sd` becomes a large
+spike at both ends of a distribution that should have none.
+
+Note that truncation shifts the realised mean whenever `[min, max]` is asymmetric about
+`--fragment-length-mean`, because one tail is cut more than the other. With mean 5800,
+min 1000 and max 20000 the realised mean is about 6240: the lower bound sits 1.5σ below
+the mean while the upper sits 4.5σ above, so the lower tail loses more. Centre the
+window on the mean if you need the realised mean to match the requested one.
+
+A contig shorter than `--fragment-length-mean` still contributes to the library in
+proportion to its length, and yields fragments truncated at the contig end. `simulate`
+warns when a non-trivial share of the weighted input sits on such contigs, since that
+shifts the library's length distribution — draft assemblies with many short contigs are
+the usual cause.
 
 Fragment lengths follow a truncated normal distribution clamped to [min, max].
 
@@ -277,11 +295,24 @@ Uses [Badread](https://github.com/rrwick/Badread) to simulate long-read sequenci
 
 `--sequencer-profile` selects the chemistry:
 
-| Profile | Platform | Error model |
-|---------|----------|-------------|
-| `ont` (default) | ONT R10.4.1 / Kit14 | nanopore2023 |
-| `ont-2020` | ONT R9.4.1 | nanopore2020 |
-| `pacbio` | PacBio CLR | pacbio2016 |
+| Profile | Platform | Error model | Identity |
+|---------|----------|-------------|----------|
+| `ont` (default) | ONT R10.4.1 / Kit14 | nanopore2023 | badread default |
+| `ont-2020` | ONT R9.4.1 | nanopore2020 | badread default |
+| `pacbio` | PacBio CLR | pacbio2016 | badread default |
+| `pacbio-hifi` | PacBio HiFi / CCS | pacbio2021 | `99.5,100,1.5` |
+
+**Identity is a separate axis from the error model.** The error model shapes *what kind*
+of errors appear; `--read-identity` sets *how many*. Badread's own default is
+`95,99,2.5`, so a `pacbio` simulation runs at CLR-grade accuracy (~95% mean identity)
+whichever error model is selected — which is why `--read-simulator perfect` was
+previously the closer match to HiFi data. `pacbio-hifi` sets both a HiFi error model and
+a HiFi identity.
+
+To match a specific run rather than the generic default, measure it and pass
+`--read-identity mean,max,stdev`. For reference, the D6331 mock community's real CCS
+reads measure median 99.83%, mean 98.53%, sd 2.82, p5 91.53% — strongly left-skewed,
+which badread's beta form reproduces.
 
 `--read-length` is not used for badread — read length is bounded by fragment length and a per-profile lognormal distribution. Paired-end is not supported for long reads.
 
@@ -290,6 +321,7 @@ Additional flags for `badread` only:
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--long-read-length-mean` | profile default: 9000 (`ont`/`ont-2020`), 15000 (`pacbio`) | Mean read length for badread (bp) |
+| `--read-identity` | profile default (see above) | Identity distribution: `mean,max,stdev` (beta) or `mean,stdev` (normal qscore) |
 | `--long-read-length-sd` | profile default: 7000 (`ont`/`ont-2020`), 13000 (`pacbio`) | Standard deviation of read length for badread (bp) |
 | `--badread-glitches` | badread's own default | Badread glitch parameters (`rate,size,skip`). |
 | `--badread-junk-reads` | badread's own default (~1%) | Percentage of junk reads in badread output |

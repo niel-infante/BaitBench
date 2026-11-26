@@ -103,16 +103,36 @@ def report(real, sim, label, rows=None):
     rp, sp = props(real, keys), props(sim, keys)
     both = [(k, r, s) for k, r, s in zip(keys, rp, sp) if r > 0 or s > 0]
     keys2 = [k for k, _, _ in both]; rp2 = [r for _, r, _ in both]; sp2 = [s for _, _, s in both]
-    eps = 1e-9
-    lr = [math.log10(max(x, eps)) for x in rp2]; ls = [math.log10(max(x, eps)) for x in sp2]
+
+    # Floor a zero proportion at that arm's DETECTION LIMIT — the proportion one read
+    # would represent — not at an arbitrary epsilon.
+    #
+    # This was `eps = 1e-9`. Real proportions here span ~1e-5 to 0.8, so a floored zero
+    # landed at log10 = -9, four orders of magnitude below the smallest real
+    # observation, and behaved as an enormous leverage point in Pearson r and Lin's CCC.
+    # Measured on MOXTAC, which has two organisms with zero real reads: r and CCC read
+    # 0.75 against 0.96-0.97 for the replicates that happen to have none, making a
+    # counting accident look like a worse prediction. A zero means "fewer than one
+    # read", so the detection limit is what it is actually bounded by.
+    #
+    # Spearman is computed on the raw proportions and is unaffected either way; it is
+    # the log-scale statistics that the floor distorts.
+    real_lim = 1.0 / max(sum(real.values()), 1)
+    sim_lim = 1.0 / max(sum(sim.values()), 1)
+    lr = [math.log10(max(x, real_lim)) for x in rp2]
+    ls = [math.log10(max(x, sim_lim)) for x in sp2]
+    censored = sum(1 for r, s in zip(rp2, sp2) if r <= 0 or s <= 0)
     stats = (spearman(rp2, sp2), pearson(lr, ls), ccc(lr, ls))
     print(f"\n=== {label}  (n={len(keys2)}) ===")
     print(f"  Spearman rho          : {stats[0]:.4f}")
     print(f"  Pearson r (log10)     : {stats[1]:.4f}")
     print(f"  Lin's CCC (log10)     : {stats[2]:.4f}")
+    if censored:
+        print(f"  censored at detection limit: {censored} "
+              f"(real {real_lim:.2e}, sim {sim_lim:.2e})")
     print(f"\n  {'organism':<34}{'real':>10}{'sim':>10}{'log2 s/r':>10}")
     for k, r, s in sorted(both, key=lambda t: -t[1]):
-        lf = math.log2(max(s, eps)/max(r, eps)) if r > 0 and s > 0 else float('nan')
+        lf = math.log2(max(s, sim_lim)/max(r, real_lim)) if r > 0 and s > 0 else float('nan')
         print(f"  {k:<34}{r:>10.5f}{s:>10.5f}{lf:>10.2f}")
         if rows is not None:
             rows.append({

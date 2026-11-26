@@ -92,7 +92,7 @@ src/
 │   ├── reader.rs        # parse_fasta (id→seq), parse_fasta_ids, count_sequences
 │   └── writer.rs        # extract_by_ids (streaming), concatenate_fastas
 └── sampling/
-    ├── thermo_sim.rs    # Capture simulation: load_probe_hits (SAM→ProbeHit), load_probe_hits_blast, probe_hits_seed_extend, aligned_pairs (reads real reference bases, not MD), the per-fragment retention model (sweep_retention, build_retention_profile, build_profiles, capture_efficiency_at, solve_probe_concentration, retention_stats, sample_retention_fragments), write_retention_report, write_fragments. Sampler key vectors and hit lists are sorted so --seed is reproducible across processes.
+    ├── thermo_sim.rs    # Capture simulation: load_probe_hits (SAM→ProbeHit), load_probe_hits_blast, probe_hits_seed_extend, aligned_pairs (reads real reference bases, not MD), the per-fragment retention model (sweep_retention, build_retention_profile, build_profiles, capture_efficiency_at, solve_probe_concentration, retention_stats, sample_retention_fragments), short_contig_mass_fraction, FragmentLengthSampler), write_retention_report, write_fragments. Retention mass is summed over every base, not over `L - f + 1` start positions, so it matches the DNA mass the weights encode; fragment lengths are truncated to [min,max] by rejection and truncated at contig ends rather than shifted inward. Sampler key vectors and hit lists are sorted so --seed is reproducible across processes.
     └── weights.rs       # parse_weights, generate_weights (sample/distractor fraction)
 
 R/

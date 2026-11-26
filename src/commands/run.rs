@@ -52,6 +52,8 @@ pub struct RunArgs<'a> {
     pub fragment_length_mean: f64,
     pub fragment_length_min: usize,
     pub fragment_length_max: usize,
+    pub fragment_length_sd: Option<f64>,
+    pub fragment_length_shape: crate::sampling::FragmentLengthShape,
     pub read_length: usize,
     pub num_sequences: Option<usize>,
     pub simulator: ReadSimulator,
@@ -63,6 +65,7 @@ pub struct RunArgs<'a> {
     pub output_format: OutputFormat,
     pub long_read_length_mean: Option<usize>,
     pub long_read_length_sd: Option<usize>,
+    pub read_identity: Option<String>,
     pub badread_glitches: Option<String>,
     pub badread_junk_reads: Option<f64>,
     pub badread_random_reads: Option<f64>,
@@ -393,6 +396,8 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         fragment_length_mean: args.fragment_length_mean,
         fragment_length_min: args.fragment_length_min,
         fragment_length_max: args.fragment_length_max,
+        fragment_length_sd: args.fragment_length_sd,
+        fragment_length_shape: args.fragment_length_shape,
         threads: args.threads,
     })?;
 
@@ -416,6 +421,7 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         num_sequences: args.num_sequences,
         seed: args.seed,
         simulator: args.simulator,
+        read_identity: args.read_identity.clone(),
         sequencer_profile: args.sequencer_profile.clone(),
         coverage_depth: args.coverage_depth,
         threads: args.threads,
@@ -658,6 +664,15 @@ pub fn execute(args: &RunArgs) -> Result<()> {
             "sample.txt",
             "genomes.txt",
             "sample_target_map.txt",
+            // The prepared references dominate a run's disk footprint and are pure
+            // intermediates: `prepare` regenerates them from the inputs, and nothing
+            // downstream of `metrics` reads them. On the Borrelia LOD gate, where the
+            // Ixodes distractor makes each one 2.1 GB, they were 4.2 GB of every
+            // condition directory — 46 GB across the 11 conditions, against ~1.2 GB
+            // for everything else the list already removed. Leaving them out meant
+            // --cleanup freed a fifth of what it should have.
+            "combined_reference.fa",
+            "mapping_reference.fa",
             "fragments.fa",
             "reads.fa",
             "reads.fq",
