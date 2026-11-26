@@ -53,6 +53,8 @@ pub struct RunArgs<'a> {
     pub fragment_length_min: usize,
     pub fragment_length_max: usize,
     pub fragment_length_sd: Option<f64>,
+    pub library_molecules: Option<usize>,
+    pub amplification_length_scale: Option<f64>,
     pub fragment_length_shape: crate::sampling::FragmentLengthShape,
     pub read_length: usize,
     pub num_sequences: Option<usize>,
@@ -397,6 +399,8 @@ pub fn execute(args: &RunArgs) -> Result<()> {
         fragment_length_min: args.fragment_length_min,
         fragment_length_max: args.fragment_length_max,
         fragment_length_sd: args.fragment_length_sd,
+        library_molecules: args.library_molecules,
+        amplification_length_scale: args.amplification_length_scale,
         fragment_length_shape: args.fragment_length_shape,
         threads: args.threads,
     })?;

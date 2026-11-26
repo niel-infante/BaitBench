@@ -1081,6 +1081,57 @@ impl FragmentLengthSampler {
     }
 }
 
+/// Library amplification: distinct molecules, then reads drawn from them.
+///
+/// **Duplicate rate is not a parameter — it is an outcome of depth over complexity.**
+/// Measured on the Borrelia LOD dilution series (reads mapped to the B. burgdorferi
+/// chromosome, duplicates by identical start position and strand):
+///
+/// | condition | reads | distinct | duplicate | complexity M | N/M |
+/// |---|---|---|---|---|---|
+/// | s1E2 | 234 | 199 | 15.0% | 702 | 0.33 |
+/// | s1E3 | 1,527 | 1,202 | 21.3% | 3,058 | 0.50 |
+/// | s1E4 | 26,467 | 9,854 | 62.8% | 10,779 | 2.46 |
+/// | s1E5 | 113,239 | 25,304 | 77.7% | 25,612 | 4.42 |
+/// | s1E6 | 870,233 | 73,381 | 91.6% | 73,382 | 11.86 |
+/// | Pos1 | 739,921 | 79,881 | 89.2% | 79,889 | 9.26 |
+///
+/// Complexity rises with template input, and the duplicate rate follows `N/M` along the
+/// Lander–Waterman curve `1 - (1 - e^(-N/M)) / (N/M)`. So the knob is **how many
+/// molecules survive capture**, and duplication falls out. Exposing a duplicate rate
+/// directly would invert cause and effect and could not produce jackpotting.
+///
+/// Note this also corrects the plan's Stage 6 gate, which expected 0.9–7% duplication
+/// rising at *low* input. Both halves are wrong for these data: the real rates are
+/// 15–92%, and they rise with *high* input, because depth climbs faster than
+/// complexity. The 0.9–7% figures came from FastQC on a different experiment entirely.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct AmplificationParams {
+    /// Distinct molecules surviving capture. `None` means unlimited — every read is its
+    /// own molecule and there is no duplication, which is the behaviour before Stage 6.
+    pub library_molecules: Option<usize>,
+    /// Length scale (bp) of an exponential amplification bias toward short molecules:
+    /// relative efficiency `exp(-length / scale)`. `None` amplifies every molecule
+    /// equally.
+    ///
+    /// Motivated by a measured effect whose mechanism is **not** established: across all
+    /// 18 enriched D6331 runs the library is ~5x shorter than the non-enriched arm
+    /// (0.9–1.9 kb against 5.5–6.1 kb). Post-capture PCR favouring short templates is
+    /// the usual explanation, but a size-selection step would look identical in this
+    /// data. Off by default for that reason.
+    pub length_scale: Option<f64>,
+}
+
+/// What amplification did, for reporting.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct AmplificationStats {
+    pub reads: usize,
+    pub distinct_molecules: usize,
+    pub duplicate_fraction: f64,
+    /// Reads drawn from the single most-amplified molecule — the jackpotting signal.
+    pub max_molecule_reads: usize,
+}
+
 /// Draw `n_fragments` fragments from the retention profiles.
 ///
 /// Each reference is drawn with probability proportional to `abundance × retention
@@ -1097,7 +1148,8 @@ pub fn sample_retention_fragments(
     len_params: FragmentLengthParams,
     seed: Option<u64>,
     counter_start: usize,
-) -> Result<Vec<(String, String)>> {
+    amp: AmplificationParams,
+) -> Result<(Vec<(String, String)>, AmplificationStats)> {
     if profiles.is_empty() {
         bail!(
             "No reference sequence can yield a fragment: every weighted sequence is \
@@ -1122,11 +1174,52 @@ pub fn sample_retention_fragments(
         None => StdRng::from_entropy(),
     };
 
-    let mut results = Vec::with_capacity(n_fragments);
-    let mut counter = counter_start;
+    // How many distinct molecules the library holds. Without a complexity limit this is
+    // `n_fragments`, so every read is its own molecule and nothing duplicates.
+    //
+    // `M > N` is not clamped away: a library can easily hold more molecules than you
+    // sequence reads from, and that is the shallow-sequencing regime where duplication
+    // is *low*. Clamping to `n_fragments` forced N/M = 1 and a 36.8% floor, against a
+    // measured 15.0% at s1E2 (N/M = 0.33) and 21.3% at s1E3 (N/M = 0.50).
+    let library_size = amp.library_molecules.map(|m| m.max(1));
+    let n_molecules = library_size.unwrap_or(n_fragments);
 
-    for _ in 0..n_fragments {
-        let profile = &profiles[dist.sample(&mut rng)];
+    // When the library is larger than the read count, materialising every molecule is
+    // wasted work — most are never sequenced. Under uniform amplification the reads'
+    // molecule choices can be drawn first, and only the distinct ones built. That is
+    // O(n_fragments) regardless of how large the library is.
+    let uniform_amp = amp.length_scale.is_none_or(|s| s <= 0.0);
+    let sparse = library_size.is_some_and(|m| m > n_fragments) && uniform_amp;
+
+    // Phase 1: draw the distinct molecules that survived capture.
+    struct Molecule {
+        seq_id_idx: usize,
+        start: usize,
+        len: usize,
+    }
+    // Under the sparse path, pick which library slots the reads come from first; the
+    // number of distinct slots is what has to be built.
+    let sparse_counts: Option<Vec<usize>> = if sparse {
+        let m = n_molecules;
+        let mut hits: HashMap<usize, usize> = HashMap::new();
+        for _ in 0..n_fragments {
+            *hits.entry(rng.gen_range(0..m)).or_insert(0) += 1;
+        }
+        let mut counts: Vec<usize> = hits.into_values().collect();
+        counts.sort_unstable();
+        Some(counts)
+    } else {
+        None
+    };
+    let to_build = sparse_counts
+        .as_ref()
+        .map(|c| c.len())
+        .unwrap_or(n_molecules);
+
+    let mut molecules: Vec<Molecule> = Vec::with_capacity(to_build);
+    for _ in 0..to_build {
+        let idx = dist.sample(&mut rng);
+        let profile = &profiles[idx];
         let seq = match sequences.get(&profile.seq_id) {
             Some(s) => s,
             None => continue,
@@ -1135,9 +1228,7 @@ pub fn sample_retention_fragments(
             Some(s) => s,
             None => continue,
         };
-
         let drawn = sampler.sample(&mut rng);
-
         // Truncate at the contig end rather than shifting the start back. Shifting
         // moved probability mass off the last `frag_len` bases and piled it onto the
         // final valid start, distorting the positional distribution that the retention
@@ -1145,23 +1236,271 @@ pub fn sample_retention_fragments(
         // Truncation is also what happens physically: the molecule at the end of a
         // contig is simply shorter.
         let end = (start + drawn).min(seq.len());
-        let frag_len = end - start;
-        if frag_len == 0 {
+        let len = end - start;
+        if len == 0 {
             continue;
         }
-        let fragment = &seq[start..end];
-
-        counter += 1;
-        results.push((
-            format!(
-                ">{}_fragment_{} start={} length={}",
-                profile.seq_id, counter, start, frag_len
-            ),
-            fragment.to_string(),
-        ));
+        molecules.push(Molecule {
+            seq_id_idx: idx,
+            start,
+            len,
+        });
+    }
+    if molecules.is_empty() {
+        bail!(
+            "No molecules could be drawn — every sampled reference yielded a zero-length fragment."
+        );
     }
 
-    Ok(results)
+    // Phase 2: sequence the library. With no complexity limit each molecule is read
+    // once, which reproduces the pre-Stage-6 output exactly. Otherwise reads are drawn
+    // with replacement, so duplicates and jackpotting emerge rather than being imposed.
+    let reads_per_molecule: Vec<usize> = if amp.library_molecules.is_none() {
+        vec![1; molecules.len()]
+    } else if let Some(mut counts) = sparse_counts {
+        // One count per built molecule. A molecule that failed to materialise drops its
+        // reads, same as the dense path.
+        counts.truncate(molecules.len());
+        counts.resize(molecules.len(), 0);
+        counts
+    } else {
+        let amp_weights: Vec<f64> = match amp.length_scale {
+            Some(scale) if scale > 0.0 => molecules
+                .iter()
+                .map(|m| (-(m.len as f64) / scale).exp())
+                .collect(),
+            _ => vec![1.0; molecules.len()],
+        };
+        let picker = WeightedIndex::new(&amp_weights)?;
+        let mut counts = vec![0usize; molecules.len()];
+        for _ in 0..n_fragments {
+            counts[picker.sample(&mut rng)] += 1;
+        }
+        counts
+    };
+
+    let tag_molecules = amp.library_molecules.is_some();
+    let mut results = Vec::with_capacity(n_fragments);
+    let mut counter = counter_start;
+    let mut distinct = 0usize;
+    let mut max_molecule_reads = 0usize;
+
+    for (mol_idx, (m, &n_reads)) in molecules.iter().zip(reads_per_molecule.iter()).enumerate() {
+        if n_reads == 0 {
+            continue;
+        }
+        distinct += 1;
+        max_molecule_reads = max_molecule_reads.max(n_reads);
+        let profile = &profiles[m.seq_id_idx];
+        let seq = match sequences.get(&profile.seq_id) {
+            Some(s) => s,
+            None => continue,
+        };
+        let fragment = &seq[m.start..m.start + m.len];
+        for _ in 0..n_reads {
+            counter += 1;
+            // `molecule=` identifies PCR duplicates: reads sharing it are copies of one
+            // captured molecule. The `{seq_id}_fragment_{n}` id stays unique and keeps
+            // its contract, so source extraction downstream is unaffected.
+            //
+            // Emitted only when amplification is on, so that without
+            // `--library-molecules` the header is byte-identical to what every previous
+            // version wrote. `fragments.fa` is an output users and gates compare.
+            let header = if tag_molecules {
+                format!(
+                    ">{}_fragment_{} start={} length={} molecule={}",
+                    profile.seq_id, counter, m.start, m.len, mol_idx
+                )
+            } else {
+                format!(
+                    ">{}_fragment_{} start={} length={}",
+                    profile.seq_id, counter, m.start, m.len
+                )
+            };
+            results.push((header, fragment.to_string()));
+        }
+    }
+
+    let reads = results.len();
+    let stats = AmplificationStats {
+        reads,
+        distinct_molecules: distinct,
+        duplicate_fraction: if reads > 0 {
+            1.0 - distinct as f64 / reads as f64
+        } else {
+            0.0
+        },
+        max_molecule_reads,
+    };
+
+    Ok((results, stats))
+}
+
+#[cfg(test)]
+mod stage6_tests {
+    use super::*;
+    use crate::sampling::{FragmentLengthParams, FragmentLengthShape};
+
+    fn fixture() -> (
+        Vec<RetentionProfile>,
+        HashMap<String, String>,
+        HashMap<String, f64>,
+    ) {
+        let mut seqs = HashMap::new();
+        let mut w = HashMap::new();
+        seqs.insert("a".to_string(), "ACGT".repeat(50_000)); // 200 kb
+        w.insert("a".to_string(), 1.0);
+        let profiles = vec![build_retention_profile(
+            "a",
+            200_000,
+            &[],
+            500,
+            1e-3,
+            0.5,
+            0.7,
+        )];
+        (profiles, seqs, w)
+    }
+
+    fn lp() -> FragmentLengthParams {
+        FragmentLengthParams {
+            mean: 500.0,
+            min: 100,
+            max: 1_000,
+            sd: Some(150.0),
+            shape: FragmentLengthShape::Normal,
+        }
+    }
+
+    fn draw(n: usize, amp: AmplificationParams) -> (Vec<(String, String)>, AmplificationStats) {
+        let (p, s, w) = fixture();
+        sample_retention_fragments(&p, &s, &w, n, lp(), Some(42), 0, amp).unwrap()
+    }
+
+    /// Without a complexity limit nothing duplicates — this is the pre-Stage-6 path and
+    /// it must be untouched.
+    #[test]
+    fn unlimited_complexity_produces_no_duplicates() {
+        let (frags, stats) = draw(2_000, AmplificationParams::default());
+        assert_eq!(frags.len(), 2_000);
+        assert_eq!(stats.distinct_molecules, 2_000);
+        assert!(stats.duplicate_fraction.abs() < 1e-12);
+        assert!(
+            !frags[0].0.contains("molecule="),
+            "no complexity limit should not tag molecules: {}",
+            frags[0].0
+        );
+    }
+
+    /// Duplicate rate must follow Lander-Waterman, `1 - (1 - e^-x) / x` for x = N/M,
+    /// rather than being whatever the code happens to produce.
+    #[test]
+    fn duplicate_rate_follows_lander_waterman() {
+        for (n, m) in [(2_000usize, 4_000usize), (2_000, 1_000), (4_000, 500)] {
+            let (_, stats) = draw(
+                n,
+                AmplificationParams {
+                    library_molecules: Some(m),
+                    length_scale: None,
+                },
+            );
+            // No clamping of M to N: a library larger than the read count is the
+            // shallow-sequencing regime, and it is where duplication is lowest.
+            let x = n as f64 / m as f64;
+            let expected = 1.0 - (1.0 - (-x).exp()) / x;
+            assert!(
+                (stats.duplicate_fraction - expected).abs() < 0.03,
+                "N={n} M={m}: duplicate {:.4} vs Lander-Waterman {:.4}",
+                stats.duplicate_fraction,
+                expected
+            );
+        }
+    }
+
+    /// Deeper sequencing of the same library duplicates more. This is the direction the
+    /// real LOD series shows, and the opposite of the plan's stated expectation.
+    #[test]
+    fn duplication_rises_with_depth_at_fixed_complexity() {
+        let rate = |n: usize| {
+            draw(
+                n,
+                AmplificationParams {
+                    library_molecules: Some(500),
+                    length_scale: None,
+                },
+            )
+            .1
+            .duplicate_fraction
+        };
+        let (shallow, deep) = (rate(600), rate(5_000));
+        assert!(
+            deep > shallow + 0.3,
+            "duplication should climb with depth: {shallow:.3} -> {deep:.3}"
+        );
+    }
+
+    /// Reads carry a molecule tag, and the number of distinct tags equals the number of
+    /// molecules actually sequenced.
+    #[test]
+    fn molecule_tags_identify_duplicates() {
+        let (frags, stats) = draw(
+            1_000,
+            AmplificationParams {
+                library_molecules: Some(200),
+                length_scale: None,
+            },
+        );
+        let tags: std::collections::HashSet<&str> = frags
+            .iter()
+            .filter_map(|(h, _)| h.split("molecule=").nth(1))
+            .collect();
+        assert_eq!(tags.len(), stats.distinct_molecules);
+        assert!(stats.max_molecule_reads > 1, "expected some jackpotting");
+    }
+
+    /// Reads sharing a molecule tag must be byte-identical — they are copies of one
+    /// captured molecule, not independent draws from the same region.
+    #[test]
+    fn duplicate_reads_are_identical_sequence() {
+        let (frags, _) = draw(
+            800,
+            AmplificationParams {
+                library_molecules: Some(50),
+                length_scale: None,
+            },
+        );
+        let mut by_tag: HashMap<&str, &str> = HashMap::new();
+        for (h, seq) in &frags {
+            let tag = h.split("molecule=").nth(1).unwrap();
+            if let Some(prev) = by_tag.get(tag) {
+                assert_eq!(*prev, seq.as_str(), "duplicates of molecule {tag} differ");
+            } else {
+                by_tag.insert(tag, seq);
+            }
+        }
+        assert!(by_tag.len() > 1);
+    }
+
+    /// The length bias shortens the sequenced library, which is what it exists to model.
+    #[test]
+    fn amplification_length_bias_shortens_the_library() {
+        let mean_len = |scale: Option<f64>| {
+            let (frags, _) = draw(
+                4_000,
+                AmplificationParams {
+                    library_molecules: Some(2_000),
+                    length_scale: scale,
+                },
+            );
+            frags.iter().map(|(_, s)| s.len() as f64).sum::<f64>() / frags.len() as f64
+        };
+        let unbiased = mean_len(None);
+        let biased = mean_len(Some(300.0));
+        assert!(
+            biased < unbiased * 0.95,
+            "length bias should shorten the library: {unbiased:.0} -> {biased:.0}"
+        );
+    }
 }
 
 #[cfg(test)]

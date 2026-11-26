@@ -228,6 +228,31 @@ pub enum Commands {
         #[arg(long)]
         fragment_length_sd: Option<f64>,
 
+        /// Distinct molecules surviving capture — the library's complexity.
+        ///
+        /// Reads are then drawn from those molecules with replacement, so **PCR
+        /// duplicates and jackpotting emerge** rather than being imposed. Omit for
+        /// unlimited complexity, where every read is its own molecule and nothing
+        /// duplicates.
+        ///
+        /// Duplicate rate is an outcome of depth over complexity, not an input: it
+        /// follows `1 - (1 - e^(-N/M)) / (N/M)`. Measured on the Borrelia LOD series,
+        /// complexity ran 702 molecules at s1E2 up to ~80,000 at Pos1, with duplicate
+        /// rates of 15% to 92% as depth outran it.
+        #[arg(long)]
+        library_molecules: Option<usize>,
+
+        /// Length scale (bp) for amplification bias toward short molecules: relative
+        /// efficiency `exp(-length / scale)`. Omit to amplify every molecule equally.
+        ///
+        /// Only meaningful with `--library-molecules`. Motivated by a measured but
+        /// mechanistically unexplained effect: across all 18 enriched D6331 runs the
+        /// library is ~5x shorter than the non-enriched arm (0.9-1.9 kb against
+        /// 5.5-6.1 kb). Post-capture PCR favouring short templates is the usual
+        /// explanation, but a size-selection step is indistinguishable in that data.
+        #[arg(long)]
+        amplification_length_scale: Option<f64>,
+
         /// Shape of the fragment length distribution: `normal` or `lognormal`.
         ///
         /// Sonication and enzymatic fragmentation give right-skewed lengths, which a
@@ -563,6 +588,31 @@ pub enum Commands {
         /// explicitly when the library's real spread is known.
         #[arg(long)]
         fragment_length_sd: Option<f64>,
+
+        /// Distinct molecules surviving capture — the library's complexity.
+        ///
+        /// Reads are then drawn from those molecules with replacement, so **PCR
+        /// duplicates and jackpotting emerge** rather than being imposed. Omit for
+        /// unlimited complexity, where every read is its own molecule and nothing
+        /// duplicates.
+        ///
+        /// Duplicate rate is an outcome of depth over complexity, not an input: it
+        /// follows `1 - (1 - e^(-N/M)) / (N/M)`. Measured on the Borrelia LOD series,
+        /// complexity ran 702 molecules at s1E2 up to ~80,000 at Pos1, with duplicate
+        /// rates of 15% to 92% as depth outran it.
+        #[arg(long)]
+        library_molecules: Option<usize>,
+
+        /// Length scale (bp) for amplification bias toward short molecules: relative
+        /// efficiency `exp(-length / scale)`. Omit to amplify every molecule equally.
+        ///
+        /// Only meaningful with `--library-molecules`. Motivated by a measured but
+        /// mechanistically unexplained effect: across all 18 enriched D6331 runs the
+        /// library is ~5x shorter than the non-enriched arm (0.9-1.9 kb against
+        /// 5.5-6.1 kb). Post-capture PCR favouring short templates is the usual
+        /// explanation, but a size-selection step is indistinguishable in that data.
+        #[arg(long)]
+        amplification_length_scale: Option<f64>,
 
         /// Shape of the fragment length distribution: `normal` or `lognormal`.
         ///
@@ -1451,6 +1501,31 @@ pub enum Commands {
         /// explicitly when the library's real spread is known.
         #[arg(long)]
         fragment_length_sd: Option<f64>,
+
+        /// Distinct molecules surviving capture — the library's complexity.
+        ///
+        /// Reads are then drawn from those molecules with replacement, so **PCR
+        /// duplicates and jackpotting emerge** rather than being imposed. Omit for
+        /// unlimited complexity, where every read is its own molecule and nothing
+        /// duplicates.
+        ///
+        /// Duplicate rate is an outcome of depth over complexity, not an input: it
+        /// follows `1 - (1 - e^(-N/M)) / (N/M)`. Measured on the Borrelia LOD series,
+        /// complexity ran 702 molecules at s1E2 up to ~80,000 at Pos1, with duplicate
+        /// rates of 15% to 92% as depth outran it.
+        #[arg(long)]
+        library_molecules: Option<usize>,
+
+        /// Length scale (bp) for amplification bias toward short molecules: relative
+        /// efficiency `exp(-length / scale)`. Omit to amplify every molecule equally.
+        ///
+        /// Only meaningful with `--library-molecules`. Motivated by a measured but
+        /// mechanistically unexplained effect: across all 18 enriched D6331 runs the
+        /// library is ~5x shorter than the non-enriched arm (0.9-1.9 kb against
+        /// 5.5-6.1 kb). Post-capture PCR favouring short templates is the usual
+        /// explanation, but a size-selection step is indistinguishable in that data.
+        #[arg(long)]
+        amplification_length_scale: Option<f64>,
 
         /// Shape of the fragment length distribution: `normal` or `lognormal`.
         ///

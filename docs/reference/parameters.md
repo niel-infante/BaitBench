@@ -41,6 +41,38 @@ min 1000 and max 20000 the realised mean is about 6240: the lower bound sits 1.5
 the mean while the upper sits 4.5σ above, so the lower tail loses more. Centre the
 window on the mean if you need the realised mean to match the requested one.
 
+### Library complexity and PCR duplicates
+
+| Parameter | Flag | Default | Description |
+|-----------|------|---------|-------------|
+| Library molecules | `--library-molecules` | unlimited | Distinct molecules surviving capture. Reads are drawn from them with replacement, so duplicates and jackpotting emerge. |
+| Amplification length scale | `--amplification-length-scale` | none | Bias toward short molecules: relative efficiency `exp(-length / scale)` in bp. |
+
+**The duplicate rate is an outcome, not an input.** It follows depth over complexity
+along `1 - (1 - e^(-N/M)) / (N/M)`, so the knob is how many molecules survive capture.
+Omitting `--library-molecules` gives unlimited complexity — every read is its own
+molecule, nothing duplicates, and `fragments.fa` is byte-identical to a run without the
+flag.
+
+Validated against the Borrelia LOD dilution series (duplicates by identical start
+position and strand, reads mapped to the B. burgdorferi chromosome):
+
+| condition | reads | complexity M | N/M | real duplicate | simulated |
+|---|---|---|---|---|---|
+| s1E2 | 234 | 702 | 0.33 | 15.0% | 15.4% |
+| s1E3 | 1,527 | 3,058 | 0.50 | 21.3% | 21.2% |
+| s1E4 | 26,467 | 10,779 | 2.46 | 62.8% | 63.0% |
+| s1E5 | 113,239 | 25,612 | 4.42 | 77.7% | 77.7% |
+| s1E6 | 870,233 | 73,382 | 11.86 | 91.6% | 91.6% |
+
+Note that duplication *rises* with template input here: complexity grows with input, but
+sequencing depth grows faster. Low input gives low duplication because there are few
+reads, not because the library is complex.
+
+When amplification is active, fragment headers carry `molecule=N`; reads sharing that
+tag are copies of one captured molecule. The `{seq_id}_fragment_{n}` identifier is
+unchanged.
+
 A contig shorter than `--fragment-length-mean` still contributes to the library in
 proportion to its length, and yields fragments truncated at the contig end. `simulate`
 warns when a non-trivial share of the weighted input sits on such contigs, since that

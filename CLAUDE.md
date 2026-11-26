@@ -236,6 +236,19 @@ and improve the D6331 mock community (Spearman 0.904 -> 0.950, CCC 0.791 -> 0.80
 `--solve-concentration` restores the old behaviour when a target on-target read fraction
 matters more than relative capture between loci.
 
+### Library Complexity and PCR Duplicates
+
+`--library-molecules M` sets how many distinct molecules survive capture; the requested
+reads are then drawn from them with replacement, so **duplicates and jackpotting emerge
+rather than being imposed**. Duplicate rate is an outcome of `N/M` along the
+Lander–Waterman curve, which is why there is no `--duplicate-rate` flag — that would
+invert cause and effect. `--amplification-length-scale` adds an optional bias toward
+short molecules (`exp(-length/scale)`).
+
+Validated against the Borrelia LOD series across a 36x range of N/M: real 15.0 / 21.3 /
+62.8 / 77.7 / 91.6% against simulated 15.4 / 21.2 / 63.0 / 77.7 / 91.6%. Omitting the
+flag leaves `fragments.fa` byte-identical to before the feature existed.
+
 **`--capture-fraction` is capture *efficiency*, not output composition** — and it is
 only consulted under `--solve-concentration`. It sets the
 fraction of fragments carrying a probe's site that the probes pull down; BaitBench

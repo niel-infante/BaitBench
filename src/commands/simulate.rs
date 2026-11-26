@@ -43,6 +43,10 @@ pub struct SimulateArgs<'a> {
     /// Standard deviation of the fragment length distribution. `None` uses
     /// `(max - min) / 6`.
     pub fragment_length_sd: Option<f64>,
+    /// Distinct molecules surviving capture. `None` = unlimited, no duplication.
+    pub library_molecules: Option<usize>,
+    /// Length scale (bp) of exponential amplification bias toward short molecules.
+    pub amplification_length_scale: Option<f64>,
     /// Shape of the fragment length distribution.
     pub fragment_length_shape: crate::sampling::FragmentLengthShape,
     pub threads: usize,
@@ -349,7 +353,11 @@ pub fn execute(args: &SimulateArgs) -> Result<()> {
     );
 
     log::info!("Sampling {} fragments by retention...", args.num_fragments);
-    let all_fragments = thermo_sim::sample_retention_fragments(
+    let amp = thermo_sim::AmplificationParams {
+        library_molecules: args.library_molecules,
+        length_scale: args.amplification_length_scale,
+    };
+    let (all_fragments, amp_stats) = thermo_sim::sample_retention_fragments(
         &profiles,
         &sequences,
         &wts,
@@ -357,7 +365,18 @@ pub fn execute(args: &SimulateArgs) -> Result<()> {
         len_params,
         args.seed,
         0,
+        amp,
     )?;
+
+    if args.library_molecules.is_some() {
+        log::info!(
+            "Amplification: {} reads from {} distinct molecules \u{2192} {:.1}% duplicates,              most-amplified molecule read {}x",
+            amp_stats.reads,
+            amp_stats.distinct_molecules,
+            100.0 * amp_stats.duplicate_fraction,
+            amp_stats.max_molecule_reads
+        );
+    }
 
     // --- Step 4: Write output ---
     log::info!(
